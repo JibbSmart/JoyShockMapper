@@ -1,4 +1,4 @@
-MIT License
+## MIT License
 
 Copyright 2018-2019 Julian Smart
 
@@ -8,7 +8,7 @@ The above copyright notice and this permission notice shall be included in all c
 
 THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-================
+---
 
 This software links to (and includes compiled binaries of) my JoyShockLibrary (Copyright 2018-2019, Julian Smart), which is also covered by the same MIT license, with the same permissions and disclaimers. JoyShockLibrary incorporates some work from the following projects and their copyright holders, all also covered by the same MIT license, with the same permissions and disclaimers:
 * mfosse's JoyCon-Driver (JoyCon driver), Copyright 2018 Matthew Fosse: https://github.com/mfosse/JoyCon-Driver
