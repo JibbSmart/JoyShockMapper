@@ -399,4 +399,4 @@ JoyShockMapper relies a lot on [JoyShockLibrary](https://github.com/jibbsmart/Jo
 <a name="license">
 
 ## License
-JoyShockMapper is licensed under the MIT License - see [LICENSE.txt](LICENSE.txt).
+JoyShockMapper is licensed under the MIT License - see [LICENSE.md](LICENSE.md).
