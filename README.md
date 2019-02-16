@@ -24,6 +24,7 @@ JoyShockMapper works on Windows and uses JoyShockLibrary to read inputs from con
 * **[License](README.md#license)**
 
 <a name="installDevs">
+
 ## Installation for Devs
 JoyShockMapper was written in C++ in Visual Studio 2017 and includes a Visual Studio 2017 solution.
 
@@ -33,12 +34,14 @@ Since it's not a big project, in order to keep things simple to adapt to other b
 3. ```JoyShockLibrary.dll``` - [JoyShockLibrary](https://github.com/jibbsmart/JoyShockLibrary) is how JoyShockMapper reads from controllers. The included DLL is compiled for x86, and so JoyShockMapper needs to be built for x86. JoyShockLibrary can be compiled for x64, but it hasn't been included in this project. I'm not aware of any reasons JoyShockLibrary can't be compiled for other platforms, but I haven't done it myself.
 
 <a name="installPlayers">
+
 ## Installation for Players
 All that is required to run JoyShockMapper is JoyShockMapper.exe and JoyShockLibrary.dll to be in the same folder.
 
 Included is a folder called GyroConfigs. This includes templates for creating new configurations for 2D and 3D games, and configuration files that include the settings used for simple [Real World Calibration](README.md#realWorldCalibration).
 
 <a name="quickStart">
+
 ## Quick Start
 1. Connect your DualShock 4 by USB, or your JoyCons or Pro Controller by Bluetooth.
 
@@ -57,6 +60,7 @@ Included is a folder called GyroConfigs. This includes templates for creating ne
 5. A good configuration file has also been calibrated to map sensitivity settings to useful real world values. This makes it easy to have consistent settings between different games that have different scales for their own sensitivity settings. See [Real World Calibration](README.md#realWorldCalibration) below for more info on that.
 
 <a name="commands">
+
 ## Commands
 Commands can be executed by simply typing them into the JoyShockMapper console windows and hitting 'enter'. You can also put a bunch of commands into a text file and, by typing in the path to the file in JoyShockMapper (either the full path or the path relative to the JoyShockMapper executable) and hitting 'enter', execute all those commands. I refer to such a file as a "configuration file". In Windows, you can also drag and drop a file from Explorer into the JoyShockMapper console window to enter the full path of that file.
 
@@ -75,6 +79,7 @@ Commands can *mostly* be split into 4 categories:
 So let's dig into the available commands.
 
 <a name="digitalInputs">
+
 ### 1. Digital Inputs
 Digital inputs are really simple. They are structured mostly like the following:
 
@@ -191,6 +196,7 @@ GYRO_OFF = E
 The command ```NO_GYRO_BUTTON``` can be used to remove the gyro-on or gyro-off button mapping.
 
 <a name="stickInputs">
+
 ### 2. Stick Mouse Inputs
 Each stick has 3 different modes to determine how it affects the mouse:
 
@@ -228,6 +234,7 @@ Keep in mind that, once tilted, rotating the stick will rotate the camera instan
 **\*Developer note:** The DualShock 4's stick input resolution is low enough that small *flick stick* rotations can be jittery. JoyShockMapper applies some smoothing just to very small changes in the *flick stick* angle, which is very effective at covering this up. Larger movements are not smoothed at all. This is more thoroughly explained for developers to implement in their own games on [GyroWiki](gyrowiki.jibbsmart.com).
 
 <a name="gyroInputs">
+
 ### 3. Gyro Mouse Inputs
 **The first thing you need to know about gyro mouse inputs** is that a controller's gyro will often need calibrating. This just means telling the application where "zero" is. Just like a scale, the gyro needs a point of reference to compare against in order to accurately give a result. This is done by leaving the controller still, or holding it very still in your hands, and finding the average velocity over a short time of staying still. It needs to be averaged over some time because the gyro will pick up a little bit of "noise" -- tiny variations that aren't caused by any real movement -- but this noise is negligible compared to the shakiness of human hands trying to hold a controller still.
 
@@ -274,6 +281,7 @@ One might argue that such a cutoff is too high, and it just needs to be set lowe
 * **GYRO\_SMOOTH\_TIME** (default 0.125s) - If any smoothing is applied to gyro input (as determined by GYRO\_SMOOTH\_THRESHOLD), GYRO\_SMOOTH\_TIME is the length of time over which it is smoothed. Larger values mean smoother movement, but also make it feel sluggish and unresponsive. Set the smooth time too small, and it won't actually cover up unintentional movements.
 
 <a name="realWorldCalibration">
+
 ### 4. Real World Calibration
 *Flick stick*, aim stick, and gyro mouse inputs all rely on REAL\_WORLD\_CALIBRATION to provide useful values that can be shared between games and with other players. Furthermore, if REAL\_WORLD\_CALIBRATION is set incorrectly, *flick stick* flicks will not correspond to the direction you press the stick at all.
 
@@ -351,6 +359,7 @@ You don't have to tell JoyShockMapper whether you're calibrating for a 2D game o
 With such a calibrated 2D game, you can choose your GYRO\_SENS or other settings by thinking about how much you want to turn your controller to move across the whole screen. A GYRO\_SENS of *1* would require a complete rotation of the controller to move from one side of the screen to the other, which is quite unreasonable! But a GYRO\_SENS of *8* means you only have to turn the controller one eighth of a complete rotation (45 degrees) to move from one side of the other, which is probably quite reasonable.
 
 <a name="misc">
+
 ### 5. Miscellaneous Commands
 There are a few other useful commands that don't fall under the above categories:
 
@@ -361,6 +370,7 @@ There are a few other useful commands that don't fall under the above categories
 * **\# comments** - Any line that begins with '\#' will be ignored. Use this to organise/annotate your configuration files, or to temporarily remove commands that you may want to add later.
 
 <a name="issues">
+
 ## Known and Perceived Issues
 ### Polling rate
 New mouse and keyboard events are only sent when JoyShockMapper gets a new message from the controller. This means if your game's and display's refresh rates are higher than the controller's poll rate, sometimes the game and display will update without moving the mouse, even if you'd normally expect the mouse to move. The DualShock 4 sends 250 messages a second, which is plenty for even extremely high refresh rate displays. But JoyCons and Pro Controllers send 66.67 messages a second, which means you might encounter stuttering movements when playing (and displaying) above 66.67 frames per second. A future version of JoyShockMapper may work around this problem by repeating messages up to a desired refresh rate.
@@ -371,12 +381,14 @@ JoyShockLibrary doesn't yet support connecting the DualShock 4 by Bluetooth. Whe
 JoyCons and Pro Controllers can only be connected by Bluetooth. Even when connected by USB, they (by Nintendo's design) still only communicate by Bluetooth. Some Bluetooth adapters can't keep up with these devices, resulting in **laggy input**. This is especially common when more than one device is connected (such as when using a pair of JoyCons). There is nothing JoyShockMapper or JoyShockLibrary can do about this.
 
 <a name="credits">
+
 ## Credits
 I'm Jibb Smart, and I made JoyShockMapper.
 
 JoyShockMapper relies a lot on [JoyShockLibrary](https://github.com/jibbsmart/JoyShockLibrary), which JoyShockMapper relies on for getting controller inputs. Check out that project to see who else made JoyShockLibrary possible.
 
 <a name="helpfulResources">
+
 ## Helpful Resources
 * [GyroWiki](gyrowiki.jibbsmart.com) - All about good gyro controls for games:
   * Why gyro controls make gaming better;
@@ -385,5 +397,6 @@ JoyShockMapper relies a lot on [JoyShockLibrary](https://github.com/jibbsmart/Jo
   * User editable collection of user configurations and tips for using JoyShockMapper with a bunch of games.
 
 <a name="license">
+
 ## License
 JoyShockMapper is licensed under the MIT License - see [LICENSE.txt](LICENSE.txt).
