@@ -231,7 +231,7 @@ Since *flick stick* only turns the camera horizontally, it's generally only prac
 * **FLICK\_TIME** (default 0.1 seconds) - When you tilt the stick a direction, how long does it take the camera to complete its turn to face that direction? I find that 0.1 seconds provides a nice, snappy response, while still looking good. Set the value too low and it may look like you're cheating, instantly going from one direction to facing another.  
 Keep in mind that, once tilted, rotating the stick will rotate the camera instantly. There’s no need to smooth it out\*; the camera just needs to make the same movement the stick is. FLICK\_TIME only affects behaviour when you first tilt the stick.
 
-**\*Developer note:** The DualShock 4's stick input resolution is low enough that small *flick stick* rotations can be jittery. JoyShockMapper applies some smoothing just to very small changes in the *flick stick* angle, which is very effective at covering this up. Larger movements are not smoothed at all. This is more thoroughly explained for developers to implement in their own games on [GyroWiki](gyrowiki.jibbsmart.com).
+**\*Developer note:** The DualShock 4's stick input resolution is low enough that small *flick stick* rotations can be jittery. JoyShockMapper applies some smoothing just to very small changes in the *flick stick* angle, which is very effective at covering this up. Larger movements are not smoothed at all. This is more thoroughly explained for developers to implement in their own games on [GyroWiki](http://gyrowiki.jibbsmart.com).
 
 <a name="gyroInputs">
 
@@ -285,7 +285,7 @@ One might argue that such a cutoff is too high, and it just needs to be set lowe
 ### 4. Real World Calibration
 *Flick stick*, aim stick, and gyro mouse inputs all rely on REAL\_WORLD\_CALIBRATION to provide useful values that can be shared between games and with other players. Furthermore, if REAL\_WORLD\_CALIBRATION is set incorrectly, *flick stick* flicks will not correspond to the direction you press the stick at all.
 
-Every game requires a unique REAL\_WORLD\_CALIBRATION value in order for these other settings to work correctly. This actually really simplifies sharing configuration files, because once one person has calculated an accurate REAL\_WORLD\_CALIBRATION value for a given game, they can share it with anyone else for the same game. [GyroWiki](gyrowiki.jibbsmart.com) has a database of games and their corresponding REAL\_WORLD\_CALIBRATION (as well as other settings unique to that game). You can use this to avoid having to calculate this value in games you want to play with JoyShockMapper, or if a game isn't in that database, you can help other players by calculating its REAL\_WORLD\_CALIBRATION yourself and contributing it to [GyroWiki](gyrowiki.jibbsmart.com)!
+Every game requires a unique REAL\_WORLD\_CALIBRATION value in order for these other settings to work correctly. This actually really simplifies sharing configuration files, because once one person has calculated an accurate REAL\_WORLD\_CALIBRATION value for a given game, they can share it with anyone else for the same game. [GyroWiki](http://gyrowiki.jibbsmart.com) has a database of games and their corresponding REAL\_WORLD\_CALIBRATION (as well as other settings unique to that game). You can use this to avoid having to calculate this value in games you want to play with JoyShockMapper, or if a game isn't in that database, you can help other players by calculating its REAL\_WORLD\_CALIBRATION yourself and contributing it to [GyroWiki](http://gyrowiki.jibbsmart.com)!
 
 For 3D games where the mouse directly controls the camera, REAL\_WORLD\_CALIBRATION is a multiplier to turn a given angle in degrees into a mouse input that turns the camera the same angle in-game.
 
@@ -390,7 +390,7 @@ JoyShockMapper relies a lot on [JoyShockLibrary](https://github.com/jibbsmart/Jo
 <a name="helpfulResources">
 
 ## Helpful Resources
-* [GyroWiki](gyrowiki.jibbsmart.com) - All about good gyro controls for games:
+* [GyroWiki](http://gyrowiki.jibbsmart.com) - All about good gyro controls for games:
   * Why gyro controls make gaming better;
   * How developers can do a better job implementing gyro controls;
   * How to use JoyShockMapper;
