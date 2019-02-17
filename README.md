@@ -4,7 +4,7 @@ The Sony PlayStation DualShock 4, Nintendo Switch JoyCons (used in pairs), and N
 
 My goal with JoyShockMapper is to enable you to play PC games with DS4, JoyCons, and Pro Controllers even better than you can on their respective consoles -- and demonstrate that more games should use these features in these ways.
 
-**Download JoyShockMapper to use right away [here](/releases)**!
+**Download JoyShockMapper to use right away [here](https://github.com/JibbSmart/JoyShockMapper/releases)**!
 
 For developers, this is also a reference implementation for using [JoyShockLibrary](https://github.com/jibbsmart/JoyShockLibrary) to read inputs from DualShock 4, JoyCons, and Pro Controller in your games. It's also a reference implementation for many of the best practices described on [GyroWiki](http://gyrowiki.jibbsmart.com).
 
@@ -34,7 +34,7 @@ Since it's not a big project, in order to keep things simple to adapt to other b
 3. ```JoyShockLibrary.dll``` - [JoyShockLibrary](https://github.com/jibbsmart/JoyShockLibrary) is how JoyShockMapper reads from controllers. The included DLL is compiled for x86, and so JoyShockMapper needs to be built for x86. JoyShockLibrary can be compiled for x64, but it hasn't been included in this project. I'm not aware of any reasons JoyShockLibrary can't be compiled for other platforms, but I haven't done it myself.
 
 ## Installation for Players
-The latest version of JoyShockMapper can always be found [here](/releases). All you have to do is run JoyShockMapper.exe.
+The latest version of JoyShockMapper can always be found [here](https://github.com/JibbSmart/JoyShockMapper/releases). All you have to do is run JoyShockMapper.exe.
 
 Included is a folder called GyroConfigs. This includes templates for creating new configurations for 2D and 3D games, and configuration files that include the settings used for simple [Real World Calibration](#4-real-world-calibration).
 
