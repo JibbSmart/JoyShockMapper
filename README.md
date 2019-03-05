@@ -357,14 +357,10 @@ JoyShockLibrary doesn't yet support connecting the DualShock 4 by Bluetooth. Whe
 
 JoyCons and Pro Controllers can only be connected by Bluetooth. Even when connected by USB, they (by Nintendo's design) still only communicate by Bluetooth. Some Bluetooth adapters can't keep up with these devices, resulting in **laggy input**. This is especially common when more than one device is connected (such as when using a pair of JoyCons). There is nothing JoyShockMapper or JoyShockLibrary can do about this.
 
-<a name="credits">
-
 ## Credits
 I'm Jibb Smart, and I made JoyShockMapper.
 
-JoyShockMapper relies a lot on [JoyShockLibrary](https://github.com/jibbsmart/JoyShockLibrary), which JoyShockMapper relies on for getting controller inputs. Check out that project to see who else made JoyShockLibrary possible.
-
-<a name="helpfulResources">
+JoyShockMapper relies a lot on [JoyShockLibrary](https://github.com/jibbsmart/JoyShockLibrary), which it uses to read controller inputs. Check out that project to see who else made JoyShockLibrary possible.
 
 ## Helpful Resources
 * [GyroWiki](http://gyrowiki.jibbsmart.com) - All about good gyro controls for games:
@@ -372,8 +368,6 @@ JoyShockMapper relies a lot on [JoyShockLibrary](https://github.com/jibbsmart/Jo
   * How developers can do a better job implementing gyro controls;
   * How to use JoyShockMapper;
   * User editable collection of user configurations and tips for using JoyShockMapper with a bunch of games.
-
-<a name="license">
 
 ## License
 JoyShockMapper is licensed under the MIT License - see [LICENSE.md](LICENSE.md).
