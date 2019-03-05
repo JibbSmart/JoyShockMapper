@@ -85,13 +85,7 @@ One important feature of JoyShockMapper is that a configuration that works for t
 
 The face buttons are a more complicated matter.
 
-The Xbox layout has become the defacto layout for PC controllers. Most PC gamers who use some sort of controller will be familiar with the Xbox layout, whether from Xbox controllers, Steam controller, or other 3rd party controllers that can be interpreted by a game as an Xbox controller. Even DualShock 4 users will be somewhat used to interpreting Xbox face button names.
-
-JoyShockMapper doesn't use the Xbox layout, though, because JoyShockMapper supports Nintendo devices (JoyCons and Pro Controllers), and Nintendo devices have the *same* face buttons in a *different* layout. X and Y are swapped, and so are A and B.
-
-Why?
-
-Well, Nintendo was using theirs first. Look up the SNES, from 1990. It has the same face button layout as the JoyCons and Pro Controller.
+The Xbox layout has become the defacto layout for PC controllers. Most PC gamers who use some sort of controller will be familiar with the Xbox layout, whether from Xbox controllers, Steam controller, or other 3rd party controllers that can be interpreted by a game as an Xbox controller. Even DualShock 4 users will be somewhat used to interpreting Xbox face button names. Nintendo devices have the *same* face buttons in a *different* layout. X and Y are swapped, and so are A and B. Nintendo's layout has also been around for longer, but is less familiar to PC players.
 
 So the best solution, in my opinion, is to use *neither* layout, and use an unambiguous layout with button names that aren't used by *any* controller, but still have obvious positions: the *cardinal layout*. North, East, South, West, denoted by ```N```, ```E```, ```S```, ```W```, respectively.
 
@@ -135,6 +129,7 @@ These can all be mapped to the following keyboard and mouse inputs:
 N0-N9: numpad number keys
 F1-F29: F1, F2, F3... etc
 A-Z: letter keys
+UP, DOWN, LEFT, RIGHT: the arrow keys
 LCONTROL, RCONTROL, CONTROL: left Ctrl, right Ctrl, generic Ctrl, respectively
 LALT, RALT, ALT: left Alt, right Alt, generic Alt, respectively
 LSHIFT, RSHIFT, SHIFT, left Shift, right Shift, generic Shift, respectively
