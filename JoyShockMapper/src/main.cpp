@@ -18,7 +18,7 @@
 // A increases and B and C reset to 0 when major new features have been added that warrant a new major version, or replacing older features with better ones that require the user to interact with them differently
 const char* version = "1.0.1";
 
-#define PI 3.14159265359
+#define PI 3.14159265359f
 
 #define MAPPING_UP 0
 #define MAPPING_DOWN 1
@@ -190,19 +190,19 @@ public:
 		float length = abs(value);
 		float immediateFactor;
 		if (topThreshold <= bottomThreshold) {
-			immediateFactor = 0.0;
+			immediateFactor = 0.0f;
 		}
 		else {
 			immediateFactor = (length - bottomThreshold) / (topThreshold - bottomThreshold);
 		}
 		// clamp to [0, 1] range
-		if (immediateFactor < 0.0) {
-			immediateFactor = 0.0;
+		if (immediateFactor < 0.0f) {
+			immediateFactor = 0.0f;
 		}
-		else if (immediateFactor > 1.0) {
-			immediateFactor = 1.0;
+		else if (immediateFactor > 1.0f) {
+			immediateFactor = 1.0f;
 		}
-		float smoothFactor = 1.0 - immediateFactor;
+		float smoothFactor = 1.0f - immediateFactor;
 		// now we can push the smooth sample (or as much of it as we want smoothed)
 		float frontSample = _flickSamples[_frontSample] = value * smoothFactor;
 		// and now calculate smoothed result
@@ -223,19 +223,19 @@ public:
 		if (_frontGyroSample < 0) _frontGyroSample = MaxGyroSamples - 1;
 		float immediateFactor;
 		if (topThreshold <= bottomThreshold) {
-			immediateFactor = length < bottomThreshold ? 0.0 : 1.0;
+			immediateFactor = length < bottomThreshold ? 0.0f : 1.0f;
 		}
 		else {
 			immediateFactor = (length - bottomThreshold) / (topThreshold - bottomThreshold);
 		}
 		// clamp to [0, 1] range
-		if (immediateFactor < 0.0) {
-			immediateFactor = 0.0;
+		if (immediateFactor < 0.0f) {
+			immediateFactor = 0.0f;
 		}
-		else if (immediateFactor > 1.0) {
-			immediateFactor = 1.0;
+		else if (immediateFactor > 1.0f) {
+			immediateFactor = 1.0f;
 		}
-		float smoothFactor = 1.0 - immediateFactor;
+		float smoothFactor = 1.0f - immediateFactor;
 		// now we can push the smooth sample (or as much of it as we want smoothed)
 		GyroSample frontSample = _gyroSamples[_frontGyroSample] = { x * smoothFactor, y * smoothFactor };
 		// and now calculate smoothed result
@@ -578,35 +578,35 @@ static void strtrim(char* str) {
 static void resetAllMappings() {
 	memset(mappings, 0, sizeof(mappings));
 	memset(hold_mappings, 0, sizeof(hold_mappings));
-	min_gyro_sens = 0.0;
-	max_gyro_sens = 0.0;
-	min_gyro_threshold = 0.0;
-	max_gyro_threshold = 0.0;
-	stick_power = 1.0;
-	stick_sens = 360.0;
-	real_world_calibration = 40.0;
-	in_game_sens = 1.0;
+	min_gyro_sens = 0.0f;
+	max_gyro_sens = 0.0f;
+	min_gyro_threshold = 0.0f;
+	max_gyro_threshold = 0.0f;
+	stick_power = 1.0f;
+	stick_sens = 360.0f;
+	real_world_calibration = 40.0f;
+	in_game_sens = 1.0f;
 	left_stick_mode = StickMode::none;
 	right_stick_mode = StickMode::none;
 	joycon_gyro_mask = JoyconMask::ignoreLeft;
-	trigger_threshold = 0.0;
-	os_mouse_speed = 1.0;
+	trigger_threshold = 0.0f;
+	os_mouse_speed = 1.0f;
 	gyro_button = 0;
 	gyro_button_enables = false;
-	aim_y_sign = 1.0;
-	aim_x_sign = 1.0;
-	gyro_y_sign = 1.0;
-	gyro_x_sign = 1.0;
-	flick_time = 0.1;
-	gyro_smooth_time = 0.125;
-	gyro_smooth_threshold = 0.0;
-	gyro_cutoff_speed = 0.0;
-	gyro_cutoff_recovery = 0.0;
-	stick_acceleration_rate = 0.0;
-	stick_acceleration_cap = 1000000.0;
-	stick_deadzone_inner = 0.15;
-	stick_deadzone_outer = 0.1;
-	last_flick_and_rotation = 0.0;
+	aim_y_sign = 1.0f;
+	aim_x_sign = 1.0f;
+	gyro_y_sign = 1.0f;
+	gyro_x_sign = 1.0f;
+	flick_time = 0.1f;
+	gyro_smooth_time = 0.125f;
+	gyro_smooth_threshold = 0.0f;
+	gyro_cutoff_speed = 0.0f;
+	gyro_cutoff_recovery = 0.0f;
+	stick_acceleration_rate = 0.0f;
+	stick_acceleration_cap = 1000000.0f;
+	stick_deadzone_inner = 0.15f;
+	stick_deadzone_outer = 0.1f;
+	last_flick_and_rotation = 0.0f;
 }
 
 void joyShockPollCallback(int jcHandle, JOY_SHOCK_STATE state, JOY_SHOCK_STATE lastState, IMU_STATE imuState, IMU_STATE lastImuState, float deltaTime);
@@ -774,7 +774,7 @@ static void parseCommand(std::string line) {
 					return;
 				case STICK_POWER:
 					try {
-						stick_power = max(0.0, std::stof(value));
+						stick_power = max(0.0f, std::stof(value));
 						printf("Stick power set to %s\n", value);
 					}
 					catch (std::invalid_argument ia) {
@@ -858,7 +858,7 @@ static void parseCommand(std::string line) {
 					AxisMode temp = nameToAxisMode(std::string(value), true);
 					printf("\n");
 					if (temp != AxisMode::invalid) {
-						aim_x_sign = temp == AxisMode::standard ? 1.0 : -1.0;
+						aim_x_sign = temp == AxisMode::standard ? 1.0f : -1.0f;
 					}
 					else {
 						printf("Valid settings for STICK_AXIS_X are STANDARD or INVERTED\n");
@@ -871,7 +871,7 @@ static void parseCommand(std::string line) {
 					AxisMode temp = nameToAxisMode(std::string(value), true);
 					printf("\n");
 					if (temp != AxisMode::invalid) {
-						aim_y_sign = temp == AxisMode::standard ? 1.0 : -1.0;
+						aim_y_sign = temp == AxisMode::standard ? 1.0f : -1.0f;
 					}
 					else {
 						printf("Valid settings for STICK_AXIS_Y are STANDARD or INVERTED\n");
@@ -884,7 +884,7 @@ static void parseCommand(std::string line) {
 					AxisMode temp = nameToAxisMode(std::string(value), true);
 					printf("\n");
 					if (temp != AxisMode::invalid) {
-						gyro_x_sign = temp == AxisMode::standard ? 1.0 : -1.0;
+						gyro_x_sign = temp == AxisMode::standard ? 1.0f : -1.0f;
 					}
 					else {
 						printf("Valid settings for GYRO_AXIS_X are STANDARD or INVERTED\n");
@@ -897,7 +897,7 @@ static void parseCommand(std::string line) {
 					AxisMode temp = nameToAxisMode(std::string(value), true);
 					printf("\n");
 					if (temp != AxisMode::invalid) {
-						gyro_y_sign = temp == AxisMode::standard ? 1.0 : -1.0;
+						gyro_y_sign = temp == AxisMode::standard ? 1.0f : -1.0f;
 					}
 					else {
 						printf("Valid settings for GYRO_AXIS_Y are STANDARD or INVERTED\n");
@@ -960,8 +960,8 @@ static void parseCommand(std::string line) {
 				{
 					try {
 						float val = std::stof(value);
-						if (val < 0.0001) {
-							val = 0.0001; // prevent it being actually zero
+						if (val < 0.0001f) {
+							val = 0.0001f; // prevent it being actually zero
 						}
 						flick_time = val;
 						printf("Flick time set to %ss\n", value);
@@ -1018,7 +1018,7 @@ static void parseCommand(std::string line) {
 				case STICK_ACCELERATION_RATE:
 				{
 					try {
-						stick_acceleration_rate = max(0.0, std::stof(value));
+						stick_acceleration_rate = max(0.0f, std::stof(value));
 						printf("Stick speed when fully pressed increases by a factor of %s per second\n", value);
 					}
 					catch (std::invalid_argument ia) {
@@ -1029,7 +1029,7 @@ static void parseCommand(std::string line) {
 				case STICK_ACCELERATION_CAP:
 				{
 					try {
-						stick_acceleration_cap = max(1.0, std::stof(value));
+						stick_acceleration_cap = max(1.0f, std::stof(value));
 						printf("Stick acceleration factor capped at %s\n", value);
 					}
 					catch (std::invalid_argument ia) {
@@ -1040,7 +1040,7 @@ static void parseCommand(std::string line) {
 				case STICK_DEADZONE_INNER:
 				{
 					try {
-						stick_deadzone_inner = max(0.0, min(1.0, std::stof(value)));
+						stick_deadzone_inner = max(0.0f, min(1.0f, std::stof(value)));
 						printf("Stick treats any value within %s of the centre as the centre\n", value);
 					}
 					catch (std::invalid_argument ia) {
@@ -1051,7 +1051,7 @@ static void parseCommand(std::string line) {
 				case STICK_DEADZONE_OUTER:
 				{
 					try {
-						stick_deadzone_outer = max(0.0, min(1.0, std::stof(value)));
+						stick_deadzone_outer = max(0.0f, min(1.0f, std::stof(value)));
 						printf("Stick treats any value within %s of the edge as the edge\n", value);
 					}
 					catch (std::invalid_argument ia) {
@@ -1126,7 +1126,7 @@ JoyShock* getJoyShockFromHandle(int handle) {
 // return true if it hits the outer deadzone
 bool processDeadZones(float& x, float& y) {
 	float innerDeadzone = stick_deadzone_inner;
-	float outerDeadzone = 1.0 - stick_deadzone_outer;
+	float outerDeadzone = 1.0f - stick_deadzone_outer;
 	float length = sqrtf(x*x + y*y);
 	if (length <= innerDeadzone) {
 		x = 0.0f;
@@ -1154,8 +1154,8 @@ void handleButtonChange(int index, bool lastPressed, bool pressed, char* name, J
 		// does it need hold-checking?
 		if ((hold_mappings[index] != 0 || calibrationMapping) && hold_mappings[index] != NO_HOLD_MAPPED) {
 			// it does!
-			float pressTimeMS = ((float)std::chrono::duration_cast<std::chrono::microseconds>(jc->time_now - jc->press_times[index]).count()) / 1000.0;
-			if (pressTimeMS >= 150.0) { // todo: get rid of magic number -- make this a user setting
+			float pressTimeMS = ((float)std::chrono::duration_cast<std::chrono::microseconds>(jc->time_now - jc->press_times[index]).count()) / 1000.0f;
+			if (pressTimeMS >= 150.0f) { // todo: get rid of magic number -- make this a user setting
 				pressKey(hold_mappings[index], true); // start pressing the hold key!
 				jc->hold_triggered[index] = true;
 				printf("%s: held\n", name);
@@ -1177,8 +1177,8 @@ void handleButtonChange(int index, bool lastPressed, bool pressed, char* name, J
 			}
 			else {
 				// released, so we have to either queue up a tap action or just do a simple release of the mapped hold key
-				float pressTimeMS = ((float)std::chrono::duration_cast<std::chrono::microseconds>(jc->time_now - jc->press_times[index]).count()) / 1000.0;
-				if (pressTimeMS >= 150.0) { // todo: get rid of magic number -- make this a user setting
+				float pressTimeMS = ((float)std::chrono::duration_cast<std::chrono::microseconds>(jc->time_now - jc->press_times[index]).count()) / 1000.0f;
+				if (pressTimeMS >= 150.0f) { // todo: get rid of magic number -- make this a user setting
 					// it was a hold!
 					if (hold_mappings[index] != NO_HOLD_MAPPED) {
 						pressKey(hold_mappings[index], false);
@@ -1190,7 +1190,7 @@ void handleButtonChange(int index, bool lastPressed, bool pressed, char* name, J
 						// todo: let the user configure this like the other mappings
 						JslPauseContinuousCalibration(jc->intHandle);
 						jc->toggleContinuous = false; // if we've held the calibration button, we're disabling continuous calibration
-						printf("Gyro calibration set\n", name);
+						printf("Gyro calibration set\n");
 					}
 				}
 				else {
@@ -1205,11 +1205,11 @@ void handleButtonChange(int index, bool lastPressed, bool pressed, char* name, J
 						if (jc->toggleContinuous) {
 							JslResetContinuousCalibration(jc->intHandle);
 							JslStartContinuousCalibration(jc->intHandle);
-							printf("Enabled continuous calibration\n", name);
+							printf("Enabled continuous calibration\n");
 						}
 						else {
 							JslPauseContinuousCalibration(jc->intHandle);
-							printf("Disabled continuous calibration\n", name);
+							printf("Disabled continuous calibration\n");
 						}
 					}
 				}
@@ -1224,7 +1224,7 @@ void handleButtonChange(int index, bool lastPressed, bool pressed, char* name, J
 }
 
 static float handleFlickStick(float calX, float calY, float lastCalX, float lastCalY, JoyShock * jc, float mouseCalibrationFactor) {
-	float camSpeedX = 0.0;
+	float camSpeedX = 0.0f;
 	// let's centre this
 	float offsetX = calX;
 	float offsetY = calY;
@@ -1233,7 +1233,7 @@ static float handleFlickStick(float calX, float calY, float lastCalX, float last
 	float stickLength = sqrt(offsetX * offsetX + offsetY * offsetY);
 	//printf("Flick! %.4f ", stickLength);
 	float lastOffsetLength = sqrt(lastOffsetX * lastOffsetX + lastOffsetY * lastOffsetY);
-	float flickStickThreshold = 1.0 - stick_deadzone_outer;
+	float flickStickThreshold = 1.0f - stick_deadzone_outer;
 	if (stickLength >= flickStickThreshold) {
 		float stickAngle = atan2(-offsetX, offsetY);
 		//printf(", %.4f\n", lastOffsetLength);
@@ -1241,28 +1241,28 @@ static float handleFlickStick(float calX, float calY, float lastCalX, float last
 			// bam! new flick!
 			jc->started_flick = std::chrono::steady_clock::now();
 			jc->delta_flick = stickAngle;
-			jc->flick_percent_done = 0.0;
+			jc->flick_percent_done = 0.0f;
 			jc->ResetSmoothSample();
 			jc->flick_rotation_counter = stickAngle; // track all rotation for this flick
 			// TODO: All these printfs should be hidden behind a setting. User might not want them.
-			printf("Flick: %.3f degrees\n", stickAngle * (180.0 / PI));
+			printf("Flick: %.3f degrees\n", stickAngle * (180.0f / PI));
 		}
 		else {
 			// not new? turn camera?
 			float lastStickAngle = atan2(-lastOffsetX, lastOffsetY);
 			float angleChange = stickAngle - lastStickAngle;
 			// https://stackoverflow.com/a/11498248/1130520
-			angleChange = fmod(angleChange + PI, 2.0 * PI);
+			angleChange = fmod(angleChange + PI, 2.0f * PI);
 			if (angleChange < 0)
-				angleChange += 2.0 * PI;
+				angleChange += 2.0f * PI;
 			angleChange -= PI;
 			jc->flick_rotation_counter += angleChange; // track all rotation for this flick
 			float flickSpeedConstant = real_world_calibration * mouseCalibrationFactor / in_game_sens;
 			float flickSpeed = -(angleChange * flickSpeedConstant);
-			int maxSmoothingSamples = min(jc->NumSamples, (int)(64.0 * (jc->poll_rate / 1000.0))); // target a max smoothing window size of 64ms
+			int maxSmoothingSamples = min(jc->NumSamples, (int)(64.0f * (jc->poll_rate / 1000.0f))); // target a max smoothing window size of 64ms
 			float stepSize = jc->stick_step_size; // and we only want full on smoothing when the stick change each time we poll it is approximately the minimum stick resolution
 												  // the fact that we're using radians makes this really easy
-			camSpeedX = jc->GetSmoothedStickRotation(flickSpeed, flickSpeedConstant * stepSize * 8.0, flickSpeedConstant * stepSize * 16.0, maxSmoothingSamples);
+			camSpeedX = jc->GetSmoothedStickRotation(flickSpeed, flickSpeedConstant * stepSize * 8.0f, flickSpeedConstant * stepSize * 16.0f, maxSmoothingSamples);
 		}
 	}
 	else if (lastOffsetLength >= flickStickThreshold) {
@@ -1270,18 +1270,18 @@ static float handleFlickStick(float calX, float calY, float lastCalX, float last
 		last_flick_and_rotation = abs(jc->flick_rotation_counter) / (2.0 * PI);
 	}
 	// do the flicking
-	float secondsSinceFlick = ((float)std::chrono::duration_cast<std::chrono::microseconds>(jc->time_now - jc->started_flick).count()) / 1000000.0;
+	float secondsSinceFlick = ((float)std::chrono::duration_cast<std::chrono::microseconds>(jc->time_now - jc->started_flick).count()) / 1000000.0f;
 	float newPercent = secondsSinceFlick / flick_time;
-	if (newPercent > 1.0) newPercent = 1.0;
+	if (newPercent > 1.0f) newPercent = 1.0f;
 	// warping towards 1.0
-	float oldShapedPercent = 1.0 - jc->flick_percent_done;
+	float oldShapedPercent = 1.0f - jc->flick_percent_done;
 	oldShapedPercent *= oldShapedPercent;
-	oldShapedPercent = 1.0 - oldShapedPercent;
+	oldShapedPercent = 1.0f - oldShapedPercent;
 	//float oldShapedPercent = jc->flick_percent_done;
 	jc->flick_percent_done = newPercent;
-	newPercent = 1.0 - newPercent;
+	newPercent = 1.0f - newPercent;
 	newPercent *= newPercent;
-	newPercent = 1.0 - newPercent;
+	newPercent = 1.0f - newPercent;
 	float camSpeedChange = (newPercent - oldShapedPercent) * jc->delta_flick * real_world_calibration * -mouseCalibrationFactor / in_game_sens;
 	camSpeedX += camSpeedChange;
 
@@ -1302,7 +1302,7 @@ void joyShockPollCallback(int jcHandle, JOY_SHOCK_STATE state, JOY_SHOCK_STATE l
 	// convert gyro smooth time to number of samples
 	int numGyroSamples = jc->poll_rate * gyro_smooth_time; // samples per second * seconds = samples
 	if (numGyroSamples < 1) numGyroSamples = 1; // need at least 1 sample
-	jc->GetSmoothedGyro(gyroX, gyroY, gyroLength, gyro_smooth_threshold / 2.0, gyro_smooth_threshold, numGyroSamples, gyroX, gyroY);
+	jc->GetSmoothedGyro(gyroX, gyroY, gyroLength, gyro_smooth_threshold / 2.0f, gyro_smooth_threshold, numGyroSamples, gyroX, gyroY);
 	//printf("%d Samples for threshold: %0.4f\n", numGyroSamples, gyro_smooth_threshold * maxSmoothingSamples);
 
 	// now, honour gyro_cutoff_speed
@@ -1310,9 +1310,9 @@ void joyShockPollCallback(int jcHandle, JOY_SHOCK_STATE state, JOY_SHOCK_STATE l
 	if (gyro_cutoff_recovery > gyro_cutoff_speed) {
 		// we can use gyro_cutoff_speed
 		float gyroIgnoreFactor = (gyroLength - gyro_cutoff_speed) / (gyro_cutoff_recovery - gyro_cutoff_speed);
-		if (gyroIgnoreFactor < 1.0) {
-			if (gyroIgnoreFactor <= 0.0) {
-				gyroX = gyroY = gyroLength = 0.0;
+		if (gyroIgnoreFactor < 1.0f) {
+			if (gyroIgnoreFactor <= 0.0f) {
+				gyroX = gyroY = gyroLength = 0.0f;
 			}
 			else {
 				gyroX *= gyroIgnoreFactor;
@@ -1321,9 +1321,9 @@ void joyShockPollCallback(int jcHandle, JOY_SHOCK_STATE state, JOY_SHOCK_STATE l
 			}
 		}
 	}
-	else if (gyro_cutoff_speed > 0.0 && gyroLength < gyro_cutoff_speed) {
+	else if (gyro_cutoff_speed > 0.0f && gyroLength < gyro_cutoff_speed) {
 		// gyro_cutoff_recovery is something weird, so we just do a hard threshold
-		gyroX = gyroY = gyroLength = 0.0;
+		gyroX = gyroY = gyroLength = 0.0f;
 	}
 
 	jc->time_now = std::chrono::steady_clock::now();
@@ -1353,10 +1353,10 @@ void joyShockPollCallback(int jcHandle, JOY_SHOCK_STATE state, JOY_SHOCK_STATE l
 	//}
 
 	// sticks!
-	float camSpeedX = 0.0;
-	float camSpeedY = 0.0;
+	float camSpeedX = 0.0f;
+	float camSpeedY = 0.0f;
 	// account for os mouse speed and convert from radians to degrees because gyro reports in degrees per second
-	float mouseCalibrationFactor = 180.0 / PI / os_mouse_speed;
+	float mouseCalibrationFactor = 180.0f / PI / os_mouse_speed;
 	// let's do these sticks... don't want to constantly send input, so we need to compare them to last time
 	float lastCalX = lastState.stickLX;
 	float lastCalY = lastState.stickLY;
@@ -1368,24 +1368,24 @@ void joyShockPollCallback(int jcHandle, JOY_SHOCK_STATE state, JOY_SHOCK_STATE l
 	float lastAbsY = abs(lastCalY);
 	float absX = abs(calX);
 	float absY = abs(calY);
-	bool lastLeft = lastCalX < -0.5 * lastAbsY;
-	bool lastRight = lastCalX > 0.5 * lastAbsY;
-	bool lastDown = lastCalY < -0.5 * lastAbsX;
-	bool lastUp = lastCalY > 0.5 * lastAbsX;
-	bool left = calX < -0.5 * absY;
-	bool right = calX > 0.5 * absY;
-	bool down = calY < -0.5 * absX;
-	bool up = calY > 0.5 * absX;
+	bool lastLeft = lastCalX < -0.5f * lastAbsY;
+	bool lastRight = lastCalX > 0.5f * lastAbsY;
+	bool lastDown = lastCalY < -0.5f * lastAbsX;
+	bool lastUp = lastCalY > 0.5f * lastAbsX;
+	bool left = calX < -0.5f * absY;
+	bool right = calX > 0.5f * absY;
+	bool down = calY < -0.5f * absX;
+	bool up = calY > 0.5f * absX;
 	if (left_stick_mode == StickMode::flick) {
 		camSpeedX += handleFlickStick(calX, calY, lastCalX, lastCalY, jc, mouseCalibrationFactor);
 	}
 	else if (left_stick_mode == StickMode::aim) {
 		// camera movement
 		if (!leftPegged) {
-			jc->left_acceleration = 1.0; // reset
+			jc->left_acceleration = 1.0f; // reset
 		}
 		float stickLength = sqrt(calX * calX + calY * calY);
-		if (stickLength != 0.0) {
+		if (stickLength != 0.0f) {
 			float warpedStickLength = pow(stickLength, stick_power);
 			warpedStickLength *= stick_sens * real_world_calibration / os_mouse_speed / in_game_sens;
 			camSpeedX += calX / stickLength * warpedStickLength * jc->left_acceleration * deltaTime;
@@ -1418,24 +1418,24 @@ void joyShockPollCallback(int jcHandle, JOY_SHOCK_STATE state, JOY_SHOCK_STATE l
 	lastAbsY = abs(lastCalY);
 	absX = abs(calX);
 	absY = abs(calY);
-	lastLeft = lastCalX < -0.5 * lastAbsY;
-	lastRight = lastCalX > 0.5 * lastAbsY;
-	lastDown = lastCalY < -0.5 * lastAbsX;
-	lastUp = lastCalY > 0.5 * lastAbsX;
-	left = calX < -0.5 * absY;
-	right = calX > 0.5 * absY;
-	down = calY < -0.5 * absX;
-	up = calY > 0.5 * absX;
+	lastLeft = lastCalX < -0.5f * lastAbsY;
+	lastRight = lastCalX > 0.5f * lastAbsY;
+	lastDown = lastCalY < -0.5f * lastAbsX;
+	lastUp = lastCalY > 0.5f * lastAbsX;
+	left = calX < -0.5f * absY;
+	right = calX > 0.5f * absY;
+	down = calY < -0.5f * absX;
+	up = calY > 0.5f * absX;
 	if (right_stick_mode == StickMode::flick) {
 		camSpeedX += handleFlickStick(calX, calY, lastCalX, lastCalY, jc, mouseCalibrationFactor);
 	}
 	else if (right_stick_mode == StickMode::aim) {
 		// camera movement
 		if (!rightPegged) {
-			jc->right_acceleration = 1.0; // reset
+			jc->right_acceleration = 1.0f; // reset
 		}
 		float stickLength = sqrt(calX * calX + calY * calY);
-		if (stickLength > 0.0) {
+		if (stickLength > 0.0f) {
 			float warpedStickLength = pow(stickLength, stick_power);
 			warpedStickLength *= stick_sens * real_world_calibration / os_mouse_speed / in_game_sens;
 			camSpeedX += calX / stickLength * warpedStickLength * jc->right_acceleration * deltaTime;

@@ -290,18 +290,18 @@ void shapedSensitivityMoveMouse(float x, float y, float lowSens, float hiSens, f
 	//printf("Gyro mag: %.4f\n", magnitude);
 	// calculate position on minThreshold to maxThreshold scale
 	magnitude -= minThreshold;
-	if (magnitude < 0.0) magnitude = 0.0;
+	if (magnitude < 0.0f) magnitude = 0.0f;
 	float denom = maxThreshold - minThreshold;
 	float newSensitivity;
-	if (denom <= 0.0) {
-		newSensitivity = magnitude > 0.0 ? 1.0 : 0.0; // if min threshold overlaps max threshold, pop up to max lowSens as soon as we're above min threshold
+	if (denom <= 0.0f) {
+		newSensitivity = magnitude > 0.0f ? 1.0f : 0.0f; // if min threshold overlaps max threshold, pop up to max lowSens as soon as we're above min threshold
 	}
 	else {
 		newSensitivity = magnitude / denom;
 	}
-	if (newSensitivity > 1.0) newSensitivity = 1.0;
+	if (newSensitivity > 1.0f) newSensitivity = 1.0f;
 	// interpolate between low sensitivity and high sensitivity
-	newSensitivity = lowSens * (1.0 - newSensitivity) + (hiSens)* newSensitivity;
+	newSensitivity = lowSens * (1.0f - newSensitivity) + (hiSens)* newSensitivity;
 
 	// apply all values
 	moveMouse((x * newSensitivity) * deltaTime + extraVelocityX, (y * newSensitivity) * deltaTime + extraVelocityY);
