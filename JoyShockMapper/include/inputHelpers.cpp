@@ -231,6 +231,9 @@ int pressKey(WORD vkKey, bool pressed) {
 	input.ki.time = 0;
 	input.ki.dwFlags = KEYEVENTF_SCANCODE;
 	input.ki.dwFlags |= pressed ? 0 : KEYEVENTF_KEYUP;
+	if (vkKey >= VK_LEFT && vkKey <= VK_DOWN) {
+		input.ki.dwFlags |= KEYEVENTF_EXTENDEDKEY;
+	}
 	//input.ki.wVk = vkKey;
 	input.ki.wVk = 0;
 	input.ki.wScan = MapVirtualKey(vkKey, MAPVK_VK_TO_VSC);
