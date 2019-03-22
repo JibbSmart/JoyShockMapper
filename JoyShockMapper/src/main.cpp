@@ -92,10 +92,12 @@ const char* version = "1.1.0";
 enum class StickMode { none, aim, flick, invalid };
 enum class AxisMode { standard, inverted, invalid };
 enum class JoyconMask { useBoth = 0, ignoreLeft = 1, ignoreRight = 2, ignoreBoth = 3, invalid = 4 };
+enum class GyroIgnoreMode { none, button, left, right };
 
 StickMode left_stick_mode = StickMode::none;
 StickMode right_stick_mode = StickMode::none;
 JoyconMask joycon_gyro_mask = JoyconMask::ignoreLeft;
+GyroIgnoreMode gyro_ignore_mode = GyroIgnoreMode::none;
 WORD mappings[MAPPING_SIZE];
 WORD hold_mappings[MAPPING_SIZE];
 float min_gyro_sens = 0.0;
@@ -656,6 +658,7 @@ static void parseCommand(std::string line) {
 			printf("No button disables or enables gyro\n");
 			gyro_button = 0;
 			gyro_button_enables = false;
+			gyro_ignore_mode = GyroIgnoreMode::none;
 			return;
 		case RESET_MAPPINGS:
 			printf("Resetting all mappings to defaults\n");
@@ -828,16 +831,16 @@ static void parseCommand(std::string line) {
 					return;
 				case LEFT_STICK_MODE:
 				{
-					printf("Left stick: ");
-					StickMode temp = nameToStickMode(std::string(value), true);
-					printf("\n");
-					if (temp != StickMode::invalid) {
-						left_stick_mode = temp;
-					}
-					else {
-						printf("Valid settings for LEFT_STICK_MODE are NO_MOUSE, AIM, or FLICK\n");
-					}
-					return;
+printf("Left stick: ");
+StickMode temp = nameToStickMode(std::string(value), true);
+printf("\n");
+if (temp != StickMode::invalid) {
+	left_stick_mode = temp;
+}
+else {
+	printf("Valid settings for LEFT_STICK_MODE are NO_MOUSE, AIM, or FLICK\n");
+}
+return;
 				}
 				case RIGHT_STICK_MODE:
 				{
@@ -920,11 +923,25 @@ static void parseCommand(std::string line) {
 				}
 				case GYRO_OFF:
 				{
-					int rhsMappingIndex = keyToMappingIndex(std::string(value));
+					std::string valueName = std::string(value);
+					int rhsMappingIndex = keyToMappingIndex(valueName);
 					if (rhsMappingIndex >= 0 && rhsMappingIndex < MAPPING_SIZE) {
 						gyro_button_enables = false;
+						gyro_ignore_mode = GyroIgnoreMode::button;
 						gyro_button = 1 << keyToBitOffset(rhsMappingIndex);
 						printf("Disable gyro with %s\n", value);
+					}
+					else if (valueName.compare("LEFT_STICK") == 0)
+					{
+						gyro_button_enables = false;
+						gyro_ignore_mode = GyroIgnoreMode::left;
+						printf("Disable gyro when left stick is used\n");
+					}
+					else if (valueName.compare("RIGHT_STICK") == 0)
+					{
+						gyro_button_enables = false;
+						gyro_ignore_mode = GyroIgnoreMode::right;
+						printf("Disable gyro when right stick is used\n");
 					}
 					else {
 						printf("Can't map GYRO_OFF to \"%s\". Gyro button can be unmapped with \"NO_GYRO_BUTTON\"\n", value);
@@ -933,11 +950,25 @@ static void parseCommand(std::string line) {
 				}
 				case GYRO_ON:
 				{
-					int rhsMappingIndex = keyToMappingIndex(std::string(value));
+					std::string valueName = std::string(value);
+					int rhsMappingIndex = keyToMappingIndex(valueName);
 					if (rhsMappingIndex >= 0 && rhsMappingIndex < MAPPING_SIZE) {
 						gyro_button_enables = true;
+						gyro_ignore_mode = GyroIgnoreMode::button;
 						gyro_button = 1 << keyToBitOffset(rhsMappingIndex);
 						printf("Enable gyro with %s\n", value);
+					}
+					else if (valueName.compare("LEFT_STICK") == 0)
+					{
+						gyro_button_enables = true;
+						gyro_ignore_mode = GyroIgnoreMode::left;
+						printf("Enable gyro when left stick is used\n");
+					}
+					else if (valueName.compare("RIGHT_STICK") == 0)
+					{
+						gyro_button_enables = true;
+						gyro_ignore_mode = GyroIgnoreMode::right;
+						printf("Enable gyro when right stick is used\n");
 					}
 					else {
 						printf("Can't map GYRO_ON to \"%s\". Gyro button can be unmapped with \"NO_GYRO_BUTTON\"\n", value);
@@ -1107,7 +1138,7 @@ static void parseCommand(std::string line) {
 			mappings[index] = output;
 		}
 		else {
-			printf("Command \"%s\" not recognised\n", line);
+			printf("Command \"%s\" not recognised\n", line.c_str());
 		}
 	}
 }
@@ -1290,6 +1321,8 @@ static float handleFlickStick(float calX, float calY, float lastCalX, float last
 
 void joyShockPollCallback(int jcHandle, JOY_SHOCK_STATE state, JOY_SHOCK_STATE lastState, IMU_STATE imuState, IMU_STATE lastImuState, float deltaTime) {
 	bool blockGyro = false;
+	bool leftAny = false;
+	bool rightAny = false;
 	// get jc from handle
 	JoyShock* jc = getJoyShockFromHandle(jcHandle);
 	//printf("Controller %d\n", jcHandle);
@@ -1334,24 +1367,6 @@ void joyShockPollCallback(int jcHandle, JOY_SHOCK_STATE state, JOY_SHOCK_STATE l
 		jc->tap_release_queue.pop();
 	}
 
-	// check if combo keys are pressed:
-	//printf("%d, %d\n", jc.buttons_pressed, Joycon::gyro_button);
-	if (gyro_button_enables ^ ((state.buttons & gyro_button) != 0)) {
-	//if (jc.buttons == Joycon::gyro_disable_combo) {
-		blockGyro = true;
-	} else {
-		blockGyro = false;
-	}
-
-	// send key presses
-	// calibration button:
-	//if (((state.buttons & JSMASK_HOME) != (lastState.buttons & JSMASK_HOME) && (state.buttons & JSMASK_HOME) > 0) ||
-	//	((state.buttons & JSMASK_CAPTURE) != (lastState.buttons & JSMASK_CAPTURE) && (state.buttons & JSMASK_CAPTURE) > 0)) {
-	//	printf("Resetting continuous calibration\n");
-	//	JslStartContinuousCalibration(jcHandle);
-	//	JslResetContinuousCalibration(jcHandle);
-	//}
-
 	// sticks!
 	float camSpeedX = 0.0f;
 	float camSpeedY = 0.0f;
@@ -1378,6 +1393,7 @@ void joyShockPollCallback(int jcHandle, JOY_SHOCK_STATE state, JOY_SHOCK_STATE l
 	bool up = calY > 0.5f * absX;
 	if (left_stick_mode == StickMode::flick) {
 		camSpeedX += handleFlickStick(calX, calY, lastCalX, lastCalY, jc, mouseCalibrationFactor);
+		leftAny = leftPegged;
 	}
 	else if (left_stick_mode == StickMode::aim) {
 		// camera movement
@@ -1386,6 +1402,7 @@ void joyShockPollCallback(int jcHandle, JOY_SHOCK_STATE state, JOY_SHOCK_STATE l
 		}
 		float stickLength = sqrt(calX * calX + calY * calY);
 		if (stickLength != 0.0f) {
+			leftAny = true;
 			float warpedStickLength = pow(stickLength, stick_power);
 			warpedStickLength *= stick_sens * real_world_calibration / os_mouse_speed / in_game_sens;
 			camSpeedX += calX / stickLength * warpedStickLength * jc->left_acceleration * deltaTime;
@@ -1407,6 +1424,8 @@ void joyShockPollCallback(int jcHandle, JOY_SHOCK_STATE state, JOY_SHOCK_STATE l
 		handleButtonChange(MAPPING_LUP, lastUp, up, "LUP", jc);
 		// down!
 		handleButtonChange(MAPPING_LDOWN, lastDown, down, "LDOWN", jc);
+
+		leftAny = left | right | up | down;
 	}
 	lastCalX = lastState.stickRX;
 	lastCalY = lastState.stickRY;
@@ -1428,6 +1447,7 @@ void joyShockPollCallback(int jcHandle, JOY_SHOCK_STATE state, JOY_SHOCK_STATE l
 	up = calY > 0.5f * absX;
 	if (right_stick_mode == StickMode::flick) {
 		camSpeedX += handleFlickStick(calX, calY, lastCalX, lastCalY, jc, mouseCalibrationFactor);
+		rightAny = rightPegged;
 	}
 	else if (right_stick_mode == StickMode::aim) {
 		// camera movement
@@ -1436,6 +1456,7 @@ void joyShockPollCallback(int jcHandle, JOY_SHOCK_STATE state, JOY_SHOCK_STATE l
 		}
 		float stickLength = sqrt(calX * calX + calY * calY);
 		if (stickLength > 0.0f) {
+			rightAny = true;
 			float warpedStickLength = pow(stickLength, stick_power);
 			warpedStickLength *= stick_sens * real_world_calibration / os_mouse_speed / in_game_sens;
 			camSpeedX += calX / stickLength * warpedStickLength * jc->right_acceleration * deltaTime;
@@ -1457,6 +1478,23 @@ void joyShockPollCallback(int jcHandle, JOY_SHOCK_STATE state, JOY_SHOCK_STATE l
 		handleButtonChange(MAPPING_RUP, lastUp, up, "RUP", jc);
 		// down!
 		handleButtonChange(MAPPING_RDOWN, lastDown, down, "RDOWN", jc);
+
+		rightAny = left | right | up | down;
+	}
+
+	switch (gyro_ignore_mode) {
+	case GyroIgnoreMode::none:
+		blockGyro = false;
+		break;
+	case GyroIgnoreMode::button:
+		blockGyro = (gyro_button_enables ^ ((state.buttons & gyro_button) != 0));
+		break;
+	case GyroIgnoreMode::left:
+		blockGyro = (gyro_button_enables ^ leftAny);
+		break;
+	case GyroIgnoreMode::right:
+		blockGyro = (gyro_button_enables ^ rightAny);
+		break;
 	}
 
 	if (blockGyro) {

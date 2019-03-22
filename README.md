@@ -180,7 +180,13 @@ E = LCONTROL NONE
 GYRO_OFF = E
 ```
 
-The command ```NO_GYRO_BUTTON``` can be used to remove the gyro-on or gyro-off button mapping.
+Or if you really can't spare a button for disabling the gyro, you can use LEFT\_STICK or RIGHT\_STICK to disable the gyro while that input is being used:
+
+```GYRO_OFF = RIGHT_STICK```
+
+I prefer to be able to use stick aiming (or flick stick) at the same time as aiming with the gyro, but this can still be better than having no way to disable the gyro at all if your game doesn't have an obvious function to tie to enabling gyro aiming (like a dedicated "aim weapon" button as is common in third-person action games).
+
+The command ```NO_GYRO_BUTTON``` can be used to remove the gyro-on or gyro-off mapping, making gyro always enabled. To have it always disabled, just set GYRO\_SENS to 0 (explained later). 
 
 ### 2. Stick Mouse Inputs
 Each stick has 3 different modes to determine how it affects the mouse:
@@ -223,19 +229,13 @@ Keep in mind that, once tilted, rotating the stick will rotate the camera instan
 
 When you first connect controllers to JoyShockMapper, they'll all begin "continuous calibration" -- this just means they're collecting the average velocity over a long period of time. This accumulated average is constantly applied to gyro inputs, so if the controller is left still for long enough, you should be able to play without obvious problems.
 
-But I strongly recommend that all players always calibrate their device when they start for best results.
+If you have gyro mouse enabled and the gyro moves across the screen (even slowly) when the controller is lying still on a solid surface, your device needs calibrating. That's okay -- I do it at the beginning of most play sessions, especially with Nintendo devices, which seem to need it more often.
 
-If the controller has been unmoving since the application started, then it's usually enough to finish calibration after a couple of seconds by entering:
-
+To calibrate your gyro, place your controller on solid surface so that it's not moving at all, and then use the following commands:
+* **RESTART\_GYRO\_CALIBRATION** - All connected gyro devices will begin collecting gyro data, remembering the average collected so far and treating it as "zero".
 * **FINISH\_GYRO\_CALIBRATION** - Stop collecting gyro data for calibration. JoyShockMapper will use whatever it has already collected from that controller as the "zero" reference point for input from that controller.
 
-If, after setting up your other gyro settings (you'll read those soon below), you find that the mouse moves steadily in one direction when the controller isn't moving, the controller probably hasn't been calibrated properly. To do that, put all connected controllers down on a still surface, then enter:
-
-* **RESTART\_GYRO\_CALIBRATION** - All collected gyro data for each controller will be thrown out, and JoyShockMapper will begin calibrating them again.
-
-Once you're satisfied that the controllers are calibrated correctly (the mouse is no longer sliding across the screen), enter FINISH\_GYRO\_CALIBRATION to lock in that calibration for all controllers. If the controllers haven't been moved since RESTART\_GYRO\_CALIBRATION, then just a couple of seconds' calibration will usually do. 
-
-You can calibrate each controller separately with some built-in shortcuts:
+It should only take a second or so to get a good calibration for your devices. You can also calibrate each controller separately with some built-in shortcuts:
 
 * Tap the PS, Touchpad-click, Home, or Capture button on your controller to restart calibration, or to finish calibration if that controller is already calibrating.
 * Hold the PS, Touchpad-click, Home, or Capture button to restart calibration, and it'll finish calibration once you release the controller. **Warning**: I've found that touching the Home button interferes with the gyro input on one of my JoyCons, so if I hold the button to calibrate it, it'll be incorrectly calibrated when I release the button. If you encounter this, it's better to rely on the tapping toggle shortcuts above for each controller, or calibrate all controllers at the same time using the commands above.
