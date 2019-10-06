@@ -16,7 +16,7 @@
 // C increases when all that's happened is some bugs have been fixed.
 // B increases and C resets to 0 when new features have been added.
 // A increases and B and C reset to 0 when major new features have been added that warrant a new major version, or replacing older features with better ones that require the user to interact with them differently
-const char* version = "1.1.0";
+const char* version = "1.2.0";
 
 #define PI 3.14159265359f
 
@@ -86,17 +86,22 @@ const char* version = "1.1.0";
 #define CALCULATE_REAL_WORLD_CALIBRATION 63
 #define FINISH_GYRO_CALIBRATION 64
 #define RESTART_GYRO_CALIBRATION 65
+#define MOUSE_X_FROM_GYRO_AXIS 66
+#define MOUSE_Y_FROM_GYRO_AXIS 67
 
 #define NO_HOLD_MAPPED 0x07
 #define CALIBRATE 0x0A
 
 enum class StickMode { none, aim, flick, invalid };
 enum class AxisMode { standard, inverted, invalid };
+enum class GyroAxisMask { none = 0, x = 1, y = 2, z = 4, invalid = 8 };
 enum class JoyconMask { useBoth = 0, ignoreLeft = 1, ignoreRight = 2, ignoreBoth = 3, invalid = 4 };
 enum class GyroIgnoreMode { none, button, left, right };
 
 StickMode left_stick_mode = StickMode::none;
 StickMode right_stick_mode = StickMode::none;
+GyroAxisMask mouse_x_from_gyro = GyroAxisMask::y;
+GyroAxisMask mouse_y_from_gyro = GyroAxisMask::x;
 JoyconMask joycon_gyro_mask = JoyconMask::ignoreLeft;
 GyroIgnoreMode gyro_ignore_mode = GyroIgnoreMode::none;
 WORD mappings[MAPPING_SIZE];
@@ -510,6 +515,12 @@ static int keyToMappingIndex(std::string& s) {
 	if (s.rfind("RESTART_GYRO_CALIBRATION", 0) == 0) {
 		return RESTART_GYRO_CALIBRATION;
 	}
+	if (s.rfind("MOUSE_X_FROM_GYRO_AXIS", 0) == 0) {
+		return MOUSE_X_FROM_GYRO_AXIS;
+	}
+	if (s.rfind("MOUSE_Y_FROM_GYRO_AXIS", 0) == 0) {
+		return MOUSE_Y_FROM_GYRO_AXIS;
+	}
 	return -1;
 }
 
@@ -541,6 +552,27 @@ static AxisMode nameToAxisMode(std::string& name, bool print = false) {
 	}
 	if (print) printf("\"%s\" invalid", name.c_str());
 	return AxisMode::invalid;
+}
+
+static GyroAxisMask nameToGyroAxisMask(std::string& name, bool print = false) {
+	if (name.compare("X") == 0) {
+		if (print) printf("X");
+		return GyroAxisMask::x;
+	}
+	if (name.compare("Y") == 0) {
+		if (print) printf("Y");
+		return GyroAxisMask::y;
+	}
+	if (name.compare("Z") == 0) {
+		if (print) printf("Z");
+		return GyroAxisMask::z;
+	}
+	if (name.compare("NONE") == 0) {
+		if (print) printf("NONE");
+		return GyroAxisMask::none;
+	}
+	if (print) printf("\"%s\" invalid", name.c_str());
+	return GyroAxisMask::invalid;
 }
 
 static JoyconMask nameToJoyconMask(std::string& name, bool print = false) {
@@ -592,6 +624,8 @@ static void resetAllMappings() {
 	in_game_sens = 1.0f;
 	left_stick_mode = StickMode::none;
 	right_stick_mode = StickMode::none;
+	mouse_x_from_gyro = GyroAxisMask::y;
+	mouse_y_from_gyro = GyroAxisMask::x;
 	joycon_gyro_mask = JoyconMask::ignoreLeft;
 	trigger_threshold = 0.0f;
 	os_mouse_speed = 1.0f;
@@ -833,16 +867,16 @@ static void parseCommand(std::string line) {
 					return;
 				case LEFT_STICK_MODE:
 				{
-printf("Left stick: ");
-StickMode temp = nameToStickMode(std::string(value), true);
-printf("\n");
-if (temp != StickMode::invalid) {
-	left_stick_mode = temp;
-}
-else {
-	printf("Valid settings for LEFT_STICK_MODE are NO_MOUSE, AIM, or FLICK\n");
-}
-return;
+					printf("Left stick: ");
+					StickMode temp = nameToStickMode(std::string(value), true);
+					printf("\n");
+					if (temp != StickMode::invalid) {
+						left_stick_mode = temp;
+					}
+					else {
+						printf("Valid settings for LEFT_STICK_MODE are NO_MOUSE, AIM, or FLICK\n");
+					}
+					return;
 				}
 				case RIGHT_STICK_MODE:
 				{
@@ -916,10 +950,48 @@ return;
 					printf("\n");
 					if (temp != JoyconMask::invalid) {
 						joycon_gyro_mask = temp;
-						printf("Joycon gyro mask set to %s", value);
+						printf("Joycon gyro mask set to %s\n", value);
 					}
 					else {
 						printf("Valid settings for JOYCON_GYRO_MASK are IGNORE_LEFT, IGNORE_RIGHT, IGNORE_BOTH, or USE_BOTH\n");
+					}
+					return;
+				}
+				case MOUSE_X_FROM_GYRO_AXIS:
+				{
+					printf("Mouse x reads gyro axis: ");
+					GyroAxisMask temp = nameToGyroAxisMask(std::string(value), true);
+					printf("\n");
+					if (temp != GyroAxisMask::invalid) {
+						mouse_x_from_gyro = temp;
+						if (temp == GyroAxisMask::none) {
+							printf("Gyro not used for mouse x axis\no");
+						}
+						else {
+							printf("Mouse x axis set to gyro %s axis\n", value);
+						}
+					}
+					else {
+						printf("Valid settings for MOUSE_X_FROM_GYRO_AXIS are X, Y, Z, or NONE\n");
+					}
+					return;
+				}
+				case MOUSE_Y_FROM_GYRO_AXIS:
+				{
+					printf("Mouse y reads gyro axis: ");
+					GyroAxisMask temp = nameToGyroAxisMask(std::string(value), true);
+					printf("\n");
+					if (temp != GyroAxisMask::invalid) {
+						mouse_y_from_gyro = temp;
+						if (temp == GyroAxisMask::none) {
+							printf("Gyro not used for mouse y axis\n");
+						}
+						else {
+							printf("Mouse y axis set to gyro %s axis\n", value);
+						}
+					}
+					else {
+						printf("Valid settings for MOUSE_Y_FROM_GYRO_AXIS are X, Y, Z, or NONE\n");
 					}
 					return;
 				}
@@ -1338,8 +1410,28 @@ void joyShockPollCallback(int jcHandle, JOY_SHOCK_STATE state, JOY_SHOCK_STATE l
 	//printf("Controller %d\n", jcHandle);
 	if (jc == nullptr) return;
 	//printf("Found a match for %d\n", jcHandle);
-	float gyroX = -imuState.gyroY;
-	float gyroY = imuState.gyroX;
+	float gyroX = 0.0;
+	float gyroY = 0.0;
+	int mouse_x_flag = (int)mouse_x_from_gyro;
+	if ((mouse_x_flag & (int)GyroAxisMask::x) > 0) {
+		gyroX -= imuState.gyroX; // x axis is negative because that's what worked before, don't want to mess with definitions of "inverted"
+	}
+	if ((mouse_x_flag & (int)GyroAxisMask::y) > 0) {
+		gyroX -= imuState.gyroY; // x axis is negative because that's what worked before, don't want to mess with definitions of "inverted"
+	}
+	if ((mouse_x_flag & (int)GyroAxisMask::z) > 0) {
+		gyroX -= imuState.gyroZ; // x axis is negative because that's what worked before, don't want to mess with definitions of "inverted"
+	}
+	int mouse_y_flag = (int)mouse_y_from_gyro;
+	if ((mouse_y_flag & (int)GyroAxisMask::x) > 0) {
+		gyroY += imuState.gyroX;
+	}
+	if ((mouse_y_flag & (int)GyroAxisMask::y) > 0) {
+		gyroY += imuState.gyroY;
+	}
+	if ((mouse_y_flag & (int)GyroAxisMask::z) > 0) {
+		gyroY += imuState.gyroZ;
+	}
 	float gyroLength = sqrt(gyroX * gyroX + gyroY * gyroY);
 	// do gyro smoothing
 	// convert gyro smooth time to number of samples
