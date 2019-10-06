@@ -1,6 +1,7 @@
 
 #include <chrono>
 #include <sstream>
+#include <algorithm>
 #include <string.h>
 #include <iostream>
 #include <fstream>
@@ -678,6 +679,8 @@ static void parseCommand(std::string line) {
 	if (line[0] == '#') {
 		return;
 	}
+	// replace further comment markers with null so that input ends there
+	std::replace(line.begin(), line.end(), '#', (char)0);
 	if (loadMappings(line)) {
 		return;
 	}
