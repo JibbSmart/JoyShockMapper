@@ -183,6 +183,24 @@ WORD nameToKey(std::string& name) {
 	if (name.compare("ESC") == 0) {
 		return VK_ESCAPE;
 	}
+	if (name.compare("PAGEUP") == 0) {
+		return VK_PRIOR;
+	}
+	if (name.compare("PAGEDOWN") == 0) {
+		return VK_NEXT;
+	}
+	if (name.compare("HOME") == 0) {
+		return VK_HOME;
+	}
+	if (name.compare("END") == 0) {
+		return VK_END;
+	}
+	if (name.compare("INSERT") == 0) {
+		return VK_INSERT;
+	}
+	if (name.compare("DELETE") == 0) {
+		return VK_DELETE;
+	}
 	if (name.compare("LMOUSE") == 0) {
 		return VK_LBUTTON;
 	}
