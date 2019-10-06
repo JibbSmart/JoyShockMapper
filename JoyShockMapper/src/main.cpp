@@ -88,6 +88,7 @@ const char* version = "1.1.0";
 #define RESTART_GYRO_CALIBRATION 65
 
 #define NO_HOLD_MAPPED 0x07
+#define CALIBRATE 0x0A
 
 enum class StickMode { none, aim, flick, invalid };
 enum class AxisMode { standard, inverted, invalid };
@@ -580,6 +581,7 @@ static void strtrim(char* str) {
 static void resetAllMappings() {
 	memset(mappings, 0, sizeof(mappings));
 	memset(hold_mappings, 0, sizeof(hold_mappings));
+	mappings[MAPPING_HOME] = mappings[MAPPING_CAPTURE] = hold_mappings[MAPPING_HOME] = hold_mappings[MAPPING_CAPTURE] = CALIBRATE;
 	min_gyro_sens = 0.0f;
 	max_gyro_sens = 0.0f;
 	min_gyro_threshold = 0.0f;
@@ -1180,10 +1182,9 @@ bool processDeadZones(float& x, float& y) {
 }
 
 void handleButtonChange(int index, bool lastPressed, bool pressed, char* name, JoyShock* jc) {
-	bool calibrationMapping = index == MAPPING_HOME || index == MAPPING_CAPTURE;
 	if (pressed && lastPressed && !jc->hold_triggered[index]) {
 		// does it need hold-checking?
-		if ((hold_mappings[index] != 0 || calibrationMapping) && hold_mappings[index] != NO_HOLD_MAPPED) {
+		if (hold_mappings[index] != 0 && hold_mappings[index] != NO_HOLD_MAPPED) {
 			// it does!
 			float pressTimeMS = ((float)std::chrono::duration_cast<std::chrono::microseconds>(jc->time_now - jc->press_times[index]).count()) / 1000.0f;
 			if (pressTimeMS >= 150.0f) { // todo: get rid of magic number -- make this a user setting
@@ -1191,7 +1192,7 @@ void handleButtonChange(int index, bool lastPressed, bool pressed, char* name, J
 				jc->hold_triggered[index] = true;
 				printf("%s: held\n", name);
 				// reset calibration
-				if (calibrationMapping) {
+				if (hold_mappings[index] == CALIBRATE) {
 					printf("Resetting continuous calibration\n");
 					JslResetContinuousCalibration(jc->intHandle);
 					JslStartContinuousCalibration(jc->intHandle);
@@ -1200,7 +1201,7 @@ void handleButtonChange(int index, bool lastPressed, bool pressed, char* name, J
 		}
 	}
 	if (lastPressed != pressed) {
-		if (hold_mappings[index] != 0 || calibrationMapping) {
+		if (hold_mappings[index] != 0 && hold_mappings[index] != NO_HOLD_MAPPED) {
 			// we have to handle tapping or holding for this button!
 			if (pressed) {
 				// started being pressed, so start tracking time for this input
@@ -1211,14 +1212,11 @@ void handleButtonChange(int index, bool lastPressed, bool pressed, char* name, J
 				float pressTimeMS = ((float)std::chrono::duration_cast<std::chrono::microseconds>(jc->time_now - jc->press_times[index]).count()) / 1000.0f;
 				if (pressTimeMS >= 150.0f) { // todo: get rid of magic number -- make this a user setting
 					// it was a hold!
-					if (hold_mappings[index] != NO_HOLD_MAPPED) {
-						pressKey(hold_mappings[index], false);
-						jc->hold_triggered[index] = false;
-						printf("%s: hold released\n", name);
-					}
+					pressKey(hold_mappings[index], false);
+					jc->hold_triggered[index] = false;
+					printf("%s: hold released\n", name);
 					// handle calibration offset
-					if (calibrationMapping) {
-						// todo: let the user configure this like the other mappings
+					if (hold_mappings[index] == CALIBRATE) {
 						JslPauseContinuousCalibration(jc->intHandle);
 						jc->toggleContinuous = false; // if we've held the calibration button, we're disabling continuous calibration
 						printf("Gyro calibration set\n");
@@ -1231,7 +1229,7 @@ void handleButtonChange(int index, bool lastPressed, bool pressed, char* name, J
 					jc->hold_triggered[index] = false;
 					printf("%s: tapped\n", name);
 					// handle continous calibration toggle
-					if (calibrationMapping) {
+					if (mappings[index] == CALIBRATE) {
 						jc->toggleContinuous = !jc->toggleContinuous;
 						if (jc->toggleContinuous) {
 							JslResetContinuousCalibration(jc->intHandle);
@@ -1250,6 +1248,18 @@ void handleButtonChange(int index, bool lastPressed, bool pressed, char* name, J
 			pressKey(mappings[index], pressed);
 			jc->hold_triggered[index] = false;
 			printf("%s: %s\n", name, pressed ? "true" : "false");
+			if (mappings[index] == CALIBRATE) {
+				if (pressed) {
+					printf("Resetting continuous calibration\n");
+					JslResetContinuousCalibration(jc->intHandle);
+					JslStartContinuousCalibration(jc->intHandle);
+				}
+				else {
+					JslPauseContinuousCalibration(jc->intHandle);
+					jc->toggleContinuous = false; // if we've held the calibration button, we're disabling continuous calibration
+					printf("Gyro calibration set\n");
+				}
+			}
 		}
 	}
 }

@@ -4,6 +4,7 @@
 #include <math.h>
 
 #define NO_HOLD_MAPPED 0x07
+#define CALIBRATE 0x0A
 
 static WORD mouseMaps[] = { 0x0002, 0x0008, 0x0000, 0x0020 };
 // Windows' mouse speed settings translate non-linearly to speed.
@@ -218,6 +219,9 @@ WORD nameToKey(std::string& name) {
 	}
 	if (name.compare("NONE") == 0) {
 		return NO_HOLD_MAPPED;
+	}
+	if (name.compare("CALIBRATE") == 0) {
+		return CALIBRATE;
 	}
 	return 0x00;
 }
