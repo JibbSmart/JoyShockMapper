@@ -137,6 +137,7 @@ TAB: Tab
 ENTER: Enter
 LMOUSE, MMOUSE, RMOUSE: mouse left click, middle click, right click, respectively
 SCROLLUP, SCROLLDOWN: scroll the mouse wheel up, down, respectively
+PAGEUP, PAGEDOWN, HOME, END, INSERT, DELETE
 NONE: No input
 ; ' , . / \ [ ] + -
 ```
@@ -256,6 +257,7 @@ JoyShockMapper allows you to say, "When turning slowly, I want this sensitivity.
 **Finally**, there are a bunch more settings you can tweak if you so desire:
 
 * **GYRO\_AXIS\_X** and **GYRO\_AXIS\_Y** (default STANDARD) - This allows you to invert the gyro directions if you wish. Want a left- gyro turn to translate to a right- in-game turn? Set GYRO\_AXIS\_X to INVERTED. For normal behaviour, set it to STANDARD.
+* **MOUSE\_X\_FROM\_GYRO\_AXIS** and **MOUSE\_Y\_FROM\_GYRO\_AXIS** (default Y and X, respectively) - Maybe you want to turn the camera left and right by rolling your controller about its local Z axis instead of turning it about its local Y axis. Or maybe you want to play with a single JoyCon sideways. This is how you do that. Your options are X, Y, Z, and NONE, if you want an axis of mouse movement unaffected by the gyro.
 * **GYRO\_CUTOFF\_SPEED** (default 0.0 degrees per second) - Some games attempt to cover up small unintentional movements by setting a minimum speed below which gyro input will be ignored. This is that setting. It's never good. Don't use it. Some games won't even let you change or disable this "feature". I implemented it to see if it could be made good. I left it in there only so you can see for yourself that it's not good, or for you to perhaps show me how it can be.  
 It might be mostly harmless for interacting with a simple UI with big-ish buttons, but it's useless if the player will *ever* intentionally turn the controller slowly (such as to track a slow-moving target), because they may unintentionally fall below the cutoff speed. Even a very small cutoff speed might be so high that it's impossible to move the aimer at the same speed as a very slow-moving target.  
 One might argue that such a cutoff is too high, and it just needs to be set lower. But if the cutoff speed is small enough that it doesn't make the player's experience worse, it's probably also small enough that it's actually not doing anything.
@@ -346,7 +348,7 @@ There are a few other useful commands that don't fall under the above categories
 * **RECONNECT\_CONTROLLERS** - Controllers connected after JoyShockMapper starts will be ignored until you tell it to RECONNECT\_CONTROLLERS. When this happens, all gyro calibration will reset on all controllers.
 * **JOYCON\_GYRO\_MASK** (default IGNORE\_LEFT) - Most games that use gyro controls on Switch ignore the left JoyCon's gyro to avoid confusing behaviour when the JoyCons are held separately while playing. This is the default behaviour in JoyShockMapper. But you can also choose to IGNORE\_RIGHT, IGNORE\_BOTH, or USE\_BOTH.
 * **TRIGGER\_THRESHOLD** (default 0.0) - You can choose a threshold for how far the DualShock 4's triggers need to be pressed before they're registered as button presses. Because the DualShock 4's triggers already need to be pressed pretty far before they register any input at all, I recommend leaving this value at 0.
-* **\# comments** - Any line that begins with '\#' will be ignored. Use this to organise/annotate your configuration files, or to temporarily remove commands that you may want to add later.
+* **\# comments** - Any line or part of a line that begins with '\#' will be ignored. Use this to organise/annotate your configuration files, or to temporarily remove commands that you may want to add later.
 
 ## Known and Perceived Issues
 ### Polling rate
