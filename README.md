@@ -139,6 +139,7 @@ LMOUSE, MMOUSE, RMOUSE: mouse left click, middle click, right click, respectivel
 SCROLLUP, SCROLLDOWN: scroll the mouse wheel up, down, respectively
 PAGEUP, PAGEDOWN, HOME, END, INSERT, DELETE
 NONE: No input
+CALIBRATE: recalibrate gyro when pressing this input
 ; ' , . / \ [ ] + -
 ```
 
@@ -236,7 +237,7 @@ To calibrate your gyro, place your controller on solid surface so that it's not 
 * **RESTART\_GYRO\_CALIBRATION** - All connected gyro devices will begin collecting gyro data, remembering the average collected so far and treating it as "zero".
 * **FINISH\_GYRO\_CALIBRATION** - Stop collecting gyro data for calibration. JoyShockMapper will use whatever it has already collected from that controller as the "zero" reference point for input from that controller.
 
-It should only take a second or so to get a good calibration for your devices. You can also calibrate each controller separately with some built-in shortcuts:
+It should only take a second or so to get a good calibration for your devices. You can also calibrate each controller separately with buttons mapped to **CALIBRATE**. This is how you using them assuming you use the built-in mappings:
 
 * Tap the PS, Touchpad-click, Home, or Capture button on your controller to restart calibration, or to finish calibration if that controller is already calibrating.
 * Hold the PS, Touchpad-click, Home, or Capture button to restart calibration, and it'll finish calibration once you release the controller. **Warning**: I've found that touching the Home button interferes with the gyro input on one of my JoyCons, so if I hold the button to calibrate it, it'll be incorrectly calibrated when I release the button. If you encounter this, it's better to rely on the tapping toggle shortcuts above for each controller, or calibrate all controllers at the same time using the commands above.
