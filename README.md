@@ -132,7 +132,7 @@ A-Z: letter keys
 UP, DOWN, LEFT, RIGHT: the arrow keys
 LCONTROL, RCONTROL, CONTROL: left Ctrl, right Ctrl, generic Ctrl, respectively
 LALT, RALT, ALT: left Alt, right Alt, generic Alt, respectively
-LSHIFT, RSHIFT, SHIFT, left Shift, right Shift, generic Shift, respectively
+LSHIFT, RSHIFT, SHIFT: left Shift, right Shift, generic Shift, respectively
 TAB: Tab
 ENTER: Enter
 LMOUSE, MMOUSE, RMOUSE: mouse left click, middle click, right click, respectively
