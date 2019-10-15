@@ -16,10 +16,11 @@ JoyShockMapper works on Windows and uses JoyShockLibrary to read inputs from con
 * **[Quick Start](#quick-start)**
 * **[Commands](#commands)**
   * **[Digital Inputs](#1-digital-inputs)**
-  * **[Stick Mouse Inputs](#2-stick-mouse-inputs)**
-  * **[Gyro Mouse Inputs](#3-gyro-mouse-inputs)**
-  * **[Real World Calibration](#4-real-world-calibration)**
-  * **[Miscellaneous Commands](#5-miscellaneous-commands)**
+  * **[Analog Triggers](#2-analog-triggers)**
+  * **[Stick Mouse Inputs](#3-stick-mouse-inputs)**
+  * **[Gyro Mouse Inputs](#4-gyro-mouse-inputs)**
+  * **[Real World Calibration](#5-real-world-calibration)**
+  * **[Miscellaneous Commands](#6-miscellaneous-commands)**
 * **[Known and Perceived Issues](#known-and-perceived-issues)**
 * **[Credits](#credits)**
 * **[Helpful Resources](#helpful-resources)**
@@ -55,6 +56,8 @@ Included is a folder called GyroConfigs. This includes templates for creating ne
 
 5. A good configuration file has also been calibrated to map sensitivity settings to useful real world values. This makes it easy to have consistent settings between different games that have different scales for their own sensitivity settings. See [Real World Calibration](#4-real-world-calibration) below for more info on that.
 
+6. JoyShockMapper can automatically load a configuration file for your games each time the game window enters focus. Drop the file in the **AutoLoad** folder, next to the executable: however, the name of the file matters. When you go to your game, the software will determine how you should name your file and display it in the terminal. Remember to turn it off when calculating the ```REAL_WORLD_CALIBRATION``` by entering the command ```AUTOLOAD=OFF```. Once done, enable it again with ```AUTOLOAD=ON```.
+
 ## Commands
 Commands can be executed by simply typing them into the JoyShockMapper console windows and hitting 'enter'. You can also put a bunch of commands into a text file and, by typing in the path to the file in JoyShockMapper (either the full path or the path relative to the JoyShockMapper executable) and hitting 'enter', execute all those commands. I refer to such a file as a "configuration file". In Windows, you can also drag and drop a file from Explorer into the JoyShockMapper console window to enter the full path of that file.
 
@@ -63,12 +66,13 @@ A configuration file can also contain references to other configuration files. T
 Commands can *mostly* be split into 4 categories:
 
 1. **[Digital Inputs](#1-digital-inputs)**. These are the simplest. Map a button press or stick movement to a key or mouse button. You can even map tapping a button and holding a button to two different digital inputs.
-2. **[Stick Mouse Inputs](#2-stick-mouse-inputs)**. You can move the mouse with stick inputs and/or gyro inputs. Stick mouse has two different modes:
+2. **[Analog Triggers](#2-analog-triggers)**. The Dualshock 4 controller has 2 analog triggers: L2 and R2. JoyShockMapper can set different bindings on both "soft pull" and "full pull" of the trigger, maximizing use of those triggers. This feature is unavailable to controllers that have digital triggers, like the Nintendo Pro and Joycons.
+3. **[Stick Mouse Inputs](#3-stick-mouse-inputs)**. You can move the mouse with stick inputs and/or gyro inputs. Stick mouse has two different modes:
 	* **Aim stick**. This is your traditional/legacy stick aiming.
 	* **Flick stick**. Map the flick or rotation of a stick to the same rotation in game. More on that later.
-3. **[Gyro Mouse Inputs](#3-gyro-mouse-inputs)**. Controlling the mouse with gyro generally provides far more precision than controlling it with a stick. Think of a gyro as a mouse on an invisible, frictionless mousepad. The mousepad extends however far you're comfortable rotating the controller. For games where you control the camera directly, stick mouse inputs provide convenient ways to complete big turns with little precision, while gyro mouse inputs allow you to make more precise, quick movements within a relatively limited range.
-4. **[Real World Calibration](#4-real-world-calibration)**. Calibrating correctly makes it possible for *flick stick* to work correctly, for the gyro and aim stick settings to have meaningful real-life values, and for players to share the same settings between different games.
-5. **[Miscellaneous Commands](#5-miscellaneous-commands)**. These don't fit in the above categories, but are nevertheless useful.
+4. **[Gyro Mouse Inputs](#4-gyro-mouse-inputs)**. Controlling the mouse with gyro generally provides far more precision than controlling it with a stick. Think of a gyro as a mouse on an invisible, frictionless mousepad. The mousepad extends however far you're comfortable rotating the controller. For games where you control the camera directly, stick mouse inputs provide convenient ways to complete big turns with little precision, while gyro mouse inputs allow you to make more precise, quick movements within a relatively limited range.
+5. **[Real World Calibration](#5-real-world-calibration)**. Calibrating correctly makes it possible for *flick stick* to work correctly, for the gyro and aim stick settings to have meaningful real-life values, and for players to share the same settings between different games.
+6. **[Miscellaneous Commands](#6-miscellaneous-commands)**. These don't fit in the above categories, but are nevertheless useful.
 
 So let's dig into the available commands.
 
@@ -100,6 +104,8 @@ L: L1 or L, the top left shoulder button
 ZL: L2 or ZL, the bottom left shoulder button (or trigger)
 R: R1 or R, the top right shoulder button
 ZR: R2 or ZR, the bottom right shoulder button
+ZRF: Full pull binding of right trigger, only on DS4
+ZLF: Full pull binding of left trigger, only on DS4
 -: Share or -
 +: Options or +
 HOME: PS or Home
@@ -190,7 +196,47 @@ I prefer to be able to use stick aiming (or flick stick) at the same time as aim
 
 The command ```NO_GYRO_BUTTON``` can be used to remove the gyro-on or gyro-off mapping, making gyro always enabled. To have it always disabled, just set GYRO\_SENS to 0 (explained later). 
 
-### 2. Stick Mouse Inputs
+### 2. Analog Triggers
+
+The following section only applies to the DS4 controller because it is the only supported controller that has analog triggers.
+
+Analog triggers report a value between 0% and 100% representing how far you are pulling the trigger. Binding a digital button to an analog trigger is done using a threashold value. The button press is sent when the trigger value crosses the threashold value, sitting between 0% and 100%. The default threashold value is 0, meaning the slightest press of the trigger sends the button press. This is great for responsiveness, but could result in accidental presses. The threashold can be customized by running the following command:
+
+```
+TRIGGER_THRESHOLD = 0.5   #Send Trigger values at half press
+```
+
+The same threashold value is used for both triggers. A value of 1.0 or higher makes the binding impossible to reach, and a value below 0 makes it always pressed. 
+
+JoyShockMapper can assign different bindings to the full pull of the trigger, allowing you to have up to 4 bindings on each trigger when considering the hold bindings. The way the trigger handles these bindings is set with the variables ```ZR_MODE``` and ```ZL_MODE```, for R2 and L2 triggers. Once set, you can assign keys to ```ZRF``` and ```ZLF``` to make use of the R2 and L2 full pull bindings respectively. In this context, ```ZL``` and ```ZR``` are called the soft pull binding because they activate before the full pull binding at 100%. Here is the list of all possible trigger modes.
+
+```
+NO_FULL (default): Ignore full pull binding. This mode is enforced on controllers who have digital triggers like the Pro Controller.
+NO_SKIP: Never skip the soft pull binding. Full pull binding activates anytime the trigger is fully pressed.
+MUST_SKIP: Only send full pull binding on a quick full press of the trigger, ignoring soft pull binding.
+MAY_SKIP: Combines NO_SKIP and MUST_SKIP: Soft binding may be skipped on a quick full press, and full pull can be activated on top of soft pull binding.
+```
+For example, in Call of Duty you have a binding to hold your breath when aiming with a sniper. You can bind ADS on a soft trigger press and hold breath on the full press like this:
+
+```
+ZL_MODE = NO_SKIP   # Enable full pull binding, never skip ADS
+ZL = RMOUSE         # Aim Down Sights
+ZLF = LSHIFT        # Hold breath
+
+```
+
+Using NO_SKIP mode makes it so that LSHIFT is only active if RMOUSE is active as well. Then on the right trigger, you can bind your different attack bindings: use the skipping functionality to avoid having them conflict with eachother like this:
+
+```
+ZR_MODE = MUST_SKIP # Enable full pull binding, soft and full bindings are mutually exclusive
+ZR = LMOUSE         # Primary Fire
+ZRF = V G           # Quick full tap to melee; Quick hold full press to unpin grenade and throw on release
+
+```
+
+Using MUST_SKIP mode makes sure that once you start firing, reaching the full pull will **not** make you stop firing to melee. 
+
+### 3. Stick Mouse Inputs
 Each stick has 3 different modes to determine how it affects the mouse:
 
 ```
@@ -226,7 +272,7 @@ Keep in mind that, once tilted, rotating the stick will rotate the camera instan
 
 **\*Developer note:** The DualShock 4's stick input resolution is low enough that small *flick stick* rotations can be jittery. JoyShockMapper applies some smoothing just to very small changes in the *flick stick* angle, which is very effective at covering this up. Larger movements are not smoothed at all. This is more thoroughly explained for developers to implement in their own games on [GyroWiki](http://gyrowiki.jibbsmart.com).
 
-### 3. Gyro Mouse Inputs
+### 4. Gyro Mouse Inputs
 **The first thing you need to know about gyro mouse inputs** is that a controller's gyro will often need calibrating. This just means telling the application where "zero" is. Just like a scale, the gyro needs a point of reference to compare against in order to accurately give a result. This is done by leaving the controller still, or holding it very still in your hands, and finding the average velocity over a short time of staying still. It needs to be averaged over some time because the gyro will pick up a little bit of "noise" -- tiny variations that aren't caused by any real movement -- but this noise is negligible compared to the shakiness of human hands trying to hold a controller still.
 
 When you first connect controllers to JoyShockMapper, they'll all begin "continuous calibration" -- this just means they're collecting the average velocity over a long period of time. This accumulated average is constantly applied to gyro inputs, so if the controller is left still for long enough, you should be able to play without obvious problems.
@@ -266,7 +312,7 @@ One might argue that such a cutoff is too high, and it just needs to be set lowe
 * **GYRO\_SMOOTH\_THRESHOLD** (default 0.0 degrees per second) - Optionally, JoyShockMapper will apply smoothing to the gyro input to cover up shaky hands at high sensitivities. The problem with smoothing is that it unavoidably introduces latency, so a game should *never* have *any* smoothing apply to *any input faster than a very small threshold*. Any gyro movement at or above this threshold will not be smoothed. Anything below this threshold will be smoothed according to the GYRO\_SMOOTH\_TIME setting, with a gradual transition from full smoothing at half GYRO\_SMOOTH\_THRESHOLD to no smoothing at GYRO\_SMOOTH\_THRESHOLD.
 * **GYRO\_SMOOTH\_TIME** (default 0.125s) - If any smoothing is applied to gyro input (as determined by GYRO\_SMOOTH\_THRESHOLD), GYRO\_SMOOTH\_TIME is the length of time over which it is smoothed. Larger values mean smoother movement, but also make it feel sluggish and unresponsive. Set the smooth time too small, and it won't actually cover up unintentional movements.
 
-### 4. Real World Calibration
+### 5. Real World Calibration
 *Flick stick*, aim stick, and gyro mouse inputs all rely on REAL\_WORLD\_CALIBRATION to provide useful values that can be shared between games and with other players. Furthermore, if REAL\_WORLD\_CALIBRATION is set incorrectly, *flick stick* flicks will not correspond to the direction you press the stick at all.
 
 Every game requires a unique REAL\_WORLD\_CALIBRATION value in order for these other settings to work correctly. This actually really simplifies sharing configuration files, because once one person has calculated an accurate REAL\_WORLD\_CALIBRATION value for a given game, they can share it with anyone else for the same game. [GyroWiki](http://gyrowiki.jibbsmart.com) has a database of games and their corresponding REAL\_WORLD\_CALIBRATION (as well as other settings unique to that game). You can use this to avoid having to calculate this value in games you want to play with JoyShockMapper, or if a game isn't in that database, you can help other players by calculating its REAL\_WORLD\_CALIBRATION yourself and contributing it to [GyroWiki](http://gyrowiki.jibbsmart.com)!
@@ -342,13 +388,12 @@ You don't have to tell JoyShockMapper whether you're calibrating for a 2D game o
 
 With such a calibrated 2D game, you can choose your GYRO\_SENS or other settings by thinking about how much you want to turn your controller to move across the whole screen. A GYRO\_SENS of *1* would require a complete rotation of the controller to move from one side of the screen to the other, which is quite unreasonable! But a GYRO\_SENS of *8* means you only have to turn the controller one eighth of a complete rotation (45 degrees) to move from one side of the other, which is probably quite reasonable.
 
-### 5. Miscellaneous Commands
+### 6. Miscellaneous Commands
 There are a few other useful commands that don't fall under the above categories:
 
 * **RESET\_MAPPINGS** - This will reset all JoyShockMapper's settings to their default values. This way you don't have to manually unset button mappings or other settings when making a big change. It can be useful to always start your configuration files with the RESET\_MAPPINGS command.
 * **RECONNECT\_CONTROLLERS** - Controllers connected after JoyShockMapper starts will be ignored until you tell it to RECONNECT\_CONTROLLERS. When this happens, all gyro calibration will reset on all controllers.
 * **JOYCON\_GYRO\_MASK** (default IGNORE\_LEFT) - Most games that use gyro controls on Switch ignore the left JoyCon's gyro to avoid confusing behaviour when the JoyCons are held separately while playing. This is the default behaviour in JoyShockMapper. But you can also choose to IGNORE\_RIGHT, IGNORE\_BOTH, or USE\_BOTH.
-* **TRIGGER\_THRESHOLD** (default 0.0) - You can choose a threshold for how far the DualShock 4's triggers need to be pressed before they're registered as button presses. Because the DualShock 4's triggers already need to be pressed pretty far before they register any input at all, I recommend leaving this value at 0.
 * **\# comments** - Any line or part of a line that begins with '\#' will be ignored. Use this to organise/annotate your configuration files, or to temporarily remove commands that you may want to add later.
 
 ## Known and Perceived Issues

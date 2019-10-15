@@ -2,6 +2,9 @@
 
 #include <Windows.h>
 #include <math.h>
+#include <Winuser.h>
+#include <functional>
+#include <atomic>
 
 #define NO_HOLD_MAPPED 0x07
 #define CALIBRATE 0x0A
@@ -12,15 +15,15 @@ static WORD mouseMaps[] = { 0x0002, 0x0008, 0x0000, 0x0020 };
 static float windowsSensitivityMappings[] =
 {
 	0.0, // mouse sensitivity range is 1-20, so just put nothing in the 0th element
-	1.0/32.0,
-	1.0/16.0,
-	1.0/8.0,
-	2.0/8.0,
-	3.0/8.0,
-	4.0/8.0,
-	5.0/8.0,
-	6.0/8.0,
-	7.0/8.0,
+	1.0 / 32.0,
+	1.0 / 16.0,
+	1.0 / 8.0,
+	2.0 / 8.0,
+	3.0 / 8.0,
+	4.0 / 8.0,
+	5.0 / 8.0,
+	6.0 / 8.0,
+	7.0 / 8.0,
 	1.0,
 	1.25,
 	1.5,
@@ -268,7 +271,8 @@ int pressMouse(bool isLeft, bool isPressed) {
 	input.type = INPUT_MOUSE;
 	if (isLeft) {
 		input.mi.dwFlags = isPressed ? MOUSEEVENTF_LEFTDOWN : MOUSEEVENTF_LEFTUP;
-	} else {
+	}
+	else {
 		input.mi.dwFlags = isPressed ? MOUSEEVENTF_RIGHTDOWN : MOUSEEVENTF_RIGHTUP;
 	}
 	input.mi.mouseData = 0;
@@ -328,3 +332,157 @@ void shapedSensitivityMoveMouse(float x, float y, float lowSens, float hiSens, f
 	// apply all values
 	moveMouse((x * newSensitivity) * deltaTime + extraVelocityX, (y * newSensitivity) * deltaTime + extraVelocityY);
 }
+
+std::tuple<std::string, std::string> GetActiveWindowName() {
+	HWND activeWindow = GetForegroundWindow();
+	if (activeWindow) {
+		std::string module(256, '\0');
+		std::string title(256, '\0');
+		GetWindowTextA(activeWindow, &title[0], title.size()); //note: C++11 only
+		title.resize(strlen(title.c_str()));
+		DWORD pid;
+		// https://stackoverflow.com/questions/14745320/get-active-processname-in-vc
+		if (GetWindowThreadProcessId(activeWindow, &pid))
+		{
+			HANDLE hProcess = OpenProcess(PROCESS_QUERY_INFORMATION, FALSE, pid);
+			if (hProcess)
+			{
+				DWORD len = module.size();
+				if (QueryFullProcessImageNameA(hProcess, 0, &module[0], &len)) {
+					auto pos = module.find_last_of("\\");
+					module = module.substr(pos + 1, module.size() - pos);
+					module.resize(strlen(module.c_str()));
+					if (title.empty())
+					{
+						title = module;
+					}
+				}
+				CloseHandle(hProcess);
+				return { module, title };
+			}
+		}
+	}
+	return { "", "" };
+}
+
+std::vector<std::string> ListDirectory(std::string directory)
+{
+	std::vector<std::string> fileListing;
+
+	// Prepare string for use with FindFile functions.  First, copy the
+	// string to a buffer, then append '\*' to the directory name.
+
+	if (directory[directory.size() - 1] != '\\')
+		directory.append("\\");
+	directory.append("*");
+
+	// Find the first file in the directory.
+
+	WIN32_FIND_DATAA ffd;
+	auto hFind = FindFirstFileA(directory.c_str(), &ffd);
+
+	if (hFind == INVALID_HANDLE_VALUE)
+	{
+		return {};
+	}
+
+	// List all the files in the directory with some info about them.
+
+	do
+	{
+		// Ignore directories
+		if ((ffd.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) == 0)
+
+		{
+			fileListing.push_back(ffd.cFileName);
+			//printf("File: %s\n", ffd.cFileName);
+		}
+	} while (FindNextFileA(hFind, &ffd) != 0);
+
+	auto dwError = GetLastError();
+	if (dwError != ERROR_NO_MORE_FILES)
+	{
+		printf("Error code %d raised with FindNextFile()\n", dwError);
+	}
+
+	FindClose(hFind);
+	return fileListing;
+}
+
+std::string GetCWD()
+{
+	std::string cwd(MAX_PATH, '\0');
+	GetCurrentDirectoryA(cwd.size(), &cwd[0]);
+	cwd.resize(strlen(cwd.c_str()));
+	return cwd;
+}
+
+class PollingThread {
+private:
+	HANDLE _thread;
+	std::function<bool(void*)> _loopContent;
+	DWORD _sleepTimeMs;
+	DWORD _tid;
+	void * _funcParam;
+	std::atomic_bool _continue;
+
+public:
+	PollingThread(std::function<bool(void*)> loopContent, void* funcParam, DWORD pollPeriodMs, bool startNow)
+		: _thread(nullptr)
+		, _loopContent(loopContent)
+		, _sleepTimeMs(pollPeriodMs)
+		, _tid(0)
+		, _funcParam()
+		, _continue(false)
+	{
+		if (startNow) Start();
+	}
+
+	~PollingThread()
+	{
+		Stop();
+		CloseHandle(_thread);
+		_thread = nullptr;
+	}
+
+	inline operator bool()
+	{
+		return _thread != 0;
+	}
+
+	bool Start() {
+		if (!_thread)
+		{
+			_continue = true;
+			_thread = CreateThread(
+				NULL,                   // default security attributes
+				0,                      // use default stack size  
+				&pollFunction,       // thread function name
+				this,          // argument to thread function 
+				0,                      // use default creation flags 
+				&_tid);   // returns the thread identifier 
+			return true;
+		}
+		return false;
+	}
+
+	void Stop() {
+		_continue = false;
+	}
+
+private:
+	static DWORD WINAPI pollFunction(LPVOID param)
+	{
+		auto workerThread = reinterpret_cast<PollingThread*>(param);
+		if (workerThread)
+		{
+			while (workerThread->_loopContent(workerThread->_funcParam) && workerThread->_continue) {
+				Sleep(workerThread->_sleepTimeMs);
+			}
+			CloseHandle(workerThread->_thread);
+			workerThread->_thread = nullptr;
+			return 0;
+		}
+		return 1;
+	}
+};
