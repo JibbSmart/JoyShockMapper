@@ -1487,9 +1487,9 @@ void handleTriggerChange(int softIndex, int fullIndex, TriggerMode mode, float l
 	}
 
 	auto idxState = fullIndex - FIRST_ANALOG_TRIGGER; // Get analog trigger index
-	if (idxState >= 0 && idxState < jc->triggerState.size())
+	if (idxState < 0 || idxState >= jc->triggerState.size())
 	{
-		printf("Error: Trigger %s does not exist in state map. Dual Stage Trigger not possible.\n", softName);
+		printf("Error: Trigger %s does not exist in state map. Dual Stage Trigger not possible.\n", fullName);
 		return;
 	}
 	switch (jc->triggerState[idxState])
