@@ -8,7 +8,7 @@
 #include <unordered_map>
 #include <queue>
 #include <memory>
-#include <locale>         // std::locale, std::tolower
+#include <mutex>
 
 #include "JoyShockLibrary.h"
 #include "inputHelpers.cpp"
@@ -115,6 +115,8 @@ enum class GyroAxisMask { none = 0, x = 1, y = 2, z = 4, invalid = 8 };
 enum class JoyconMask { useBoth = 0, ignoreLeft = 1, ignoreRight = 2, ignoreBoth = 3, invalid = 4 };
 enum class GyroIgnoreMode { none, button, left, right };
 enum class DstState { NoPress = 0, PressStart, QuickSoftTap, QuickFullPress, QuickFullRelease, SoftPress, DelayFullPress, invalid };
+
+std::mutex loading_lock;
 
 StickMode left_stick_mode = StickMode::none;
 StickMode right_stick_mode = StickMode::none;
@@ -296,16 +298,15 @@ public:
 	}
 };
 
-static std::string toLower(std::string s)
+// https://stackoverflow.com/a/4119881/1130520 gives us case insensitive equality
+static bool iequals(const std::string& a, const std::string& b)
 {
-	static std::locale loc;
-	for_each(s.begin(), s.end(), [](auto c)
-	{
-		c = std::tolower(c, loc);
+	return std::equal(a.begin(), a.end(),
+		b.begin(), b.end(),
+		[](char a, char b) {
+		return tolower(a) == tolower(b);
 	});
-	return s;
 }
-
 
 std::unordered_map<int, JoyShock*> handle_to_joyshock;
 
@@ -1413,7 +1414,7 @@ void handleButtonChange(int index, bool lastPressed, bool pressed, const char* n
 		}
 	}
 	if (lastPressed != pressed) {
-		if (hold_mappings[index] != 0 && hold_mappings[index] != NO_HOLD_MAPPED) {
+		if (hold_mappings[index] != 0) {
 			// we have to handle tapping or holding for this button!
 			if (pressed) {
 				// started being pressed, so start tracking time for this input
@@ -1423,15 +1424,17 @@ void handleButtonChange(int index, bool lastPressed, bool pressed, const char* n
 				// released, so we have to either queue up a tap action or just do a simple release of the mapped hold key
 				float pressTimeMS = ((float)std::chrono::duration_cast<std::chrono::microseconds>(jc->time_now - jc->press_times[index]).count()) / 1000.0f;
 				if (pressTimeMS >= MAGIC_HOLD_TIME) { // todo: get rid of magic number -- make this a user setting
-					// it was a hold!
-					pressKey(hold_mappings[index], false);
 					jc->hold_triggered[index] = false;
-					printf("%s: hold released\n", name);
-					// handle calibration offset
-					if (hold_mappings[index] == CALIBRATE) {
-						JslPauseContinuousCalibration(jc->intHandle);
-						jc->toggleContinuous = false; // if we've held the calibration button, we're disabling continuous calibration
-						printf("Gyro calibration set\n");
+					if (hold_mappings[index] != NO_HOLD_MAPPED) {
+						// it was a hold!
+						pressKey(hold_mappings[index], false);
+						printf("%s: hold released\n", name);
+						// handle calibration offset
+						if (hold_mappings[index] == CALIBRATE) {
+							JslPauseContinuousCalibration(jc->intHandle);
+							jc->toggleContinuous = false; // if we've held the calibration button, we're disabling continuous calibration
+							printf("Gyro calibration set\n");
+						}
 					}
 				}
 				else {
@@ -1962,17 +1965,16 @@ bool AutoLoadPoll(void *param)
 			auto files = ListDirectory(cwd);
 			auto noextmodule = windowModule.substr(0, windowModule.find_first_of('.'));
 			printf("[AUTOLOAD] \"%s\" in focus: ", windowTitle.c_str()); // looking for config : " , );
-			noextmodule = toLower(noextmodule);
 			bool success = false;
 			for (auto file : files)
 			{
 				auto noextconfig = file.substr(0, file.find_first_of('.'));
-				noextconfig = toLower(noextconfig);
-				if (noextconfig == noextmodule)
+				if (iequals(noextconfig, noextmodule))
 				{
-					// TODO: add mutex to avoid threading issues
-					printf("autoload configuration exists.\n");
+					printf("loading \"AutoLoad\\%s.txt\".\n", noextconfig.c_str());
+					loading_lock.lock();
 					parseCommand(cwd + file);
+					loading_lock.unlock();
 					success = true;
 					break;
 				}
@@ -2013,7 +2015,9 @@ int wWinMain(HINSTANCE hInstance, HINSTANCE prevInstance, LPWSTR cmdLine, int cm
 			break;
 		}
 		else {
+			loading_lock.lock();
 			parseCommand(tempConfigName);
+			loading_lock.unlock();
 		}
 		//pollLoop();
 	}
