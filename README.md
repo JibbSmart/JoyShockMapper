@@ -16,6 +16,10 @@ JoyShockMapper works on Windows and uses JoyShockLibrary to read inputs from con
 * **[Quick Start](#quick-start)**
 * **[Commands](#commands)**
   * **[Digital Inputs](#1-digital-inputs)**
+    * **[Tap & Hold](#11-tap--hold)**
+	* **[Simultaneous Press](#12-simultaneous-press)**
+	* **[Chorded Press](#13-chorded-press)**
+	* **[Gyro Button](#14-gyro-button)**
   * **[Analog Triggers](#2-analog-triggers)**
   * **[Stick Mouse Inputs](#3-stick-mouse-inputs)**
   * **[Gyro Mouse Inputs](#4-gyro-mouse-inputs)**
@@ -65,7 +69,7 @@ A configuration file can also contain references to other configuration files. T
 
 Commands can *mostly* be split into 4 categories:
 
-1. **[Digital Inputs](#1-digital-inputs)**. These are the simplest. Map a button press or stick movement to a key or mouse button. You can even map tapping a button and holding a button to two different digital inputs.
+1. **[Digital Inputs](#1-digital-inputs)**. These are the simplest. Map a button press or stick movement to a key or mouse button. There are many binding options available, such as tap & hold, simultaneous press and chorded press.
 2. **[Analog Triggers](#2-analog-triggers)**. The Dualshock 4 controller has 2 analog triggers: L2 and R2. JoyShockMapper can set different bindings on both "soft pull" and "full pull" of the trigger, maximizing use of those triggers. This feature is unavailable to controllers that have digital triggers, like the Nintendo Pro and Joycons.
 3. **[Stick Mouse Inputs](#3-stick-mouse-inputs)**. You can move the mouse with stick inputs and/or gyro inputs. Stick mouse has two different modes:
 	* **Aim stick**. This is your traditional/legacy stick aiming.
@@ -156,6 +160,8 @@ W = R
 N = E
 ```
 
+#### 1.1 Tap & Hold
+
 Since a keyboard has many more inputs available than most controllers, console games will often map multiple actions to the same button while the PC version has those actions mapped to different keys. In order to fit keyboard mappings onto a controller, JoyShockMapper allows you to map taps and holds of a button to different keyboard/mouse inputs. So let's take that same game and make it so we can tap □ to 'reload' or hold □ to 'use':
 
 ```
@@ -168,6 +174,37 @@ If you want □ to 'reload' when tapped, but do nothing at all when held, you ca
 W = R NONE
 ```
 
+
+#### 1.2 Simultaneous Press
+JoyShockMapper additionally allows you to map simultaneous button presses to different mappings. For example you can bind character abilities on your bumpers and an ultimate ability on both like this:
+
+```
+L = LSHIFT # Ability 1
+R = E      # Ability 2
+L+R = Q    # Ultimate Ability
+```
+
+To enable a simultaneous binding, both buttons need to be pressed within a very short time from eachother. Doing so will ignore the individual button bindings and apply the specified binding until either of the button is released. Simultaneous bindings also support tap & hold bindings just like other mappings. This feature is great to make use of the dpad diagonals, or to add JSM specific features like gyro calibration and gyro control without taking away accessible buttons.
+
+#### 1.3 Chorded Press
+Chorded press work very differently from Simultaneous Press, in spite of being similar in functionality. A chorded press mapping allows you to override a button mapping when the chord button is active. This enables a world of different practical combinations, allowing you to have contextual bindings, or even unmap a button. Here's an example for Left 4 Dead 2, that would enable you to equip items without lifting the thumb from the left stick.
+
+```
+W = R E # Reload / Use
+S = SPACE # Jump
+E = CONTROL # Crouch 
+N = T # Voice Chat
+
+L = Q NONE # Other weapon, hold to select with face button.
+L,W = 3 # Explosives
+L,S = 4 # Pills
+L,E = 5 # Medpack
+L,N = F # Flashlight
+```
+
+A button can be chorded with multiple other buttons. In this case, the latest chord takes precedence over previous chords. This can be understood as a stack of layers being put on top of the binding each time a chord is pressed, where only the top one is active. Notice that you don't need to have NONE as a binding. The chord binding could very well bring up a weapon wheel.
+
+#### 1.4 Gyro Button
 Lastly, there is one digital input that works differently, because it can overlap with any other input. Well, two inputs, but you'll use at most one of them in a given configuration:
 
 ```
@@ -215,7 +252,10 @@ NO_FULL (default): Ignore full pull binding. This mode is enforced on controller
 NO_SKIP: Never skip the soft pull binding. Full pull binding activates anytime the trigger is fully pressed.
 MUST_SKIP: Only send full pull binding on a quick full press of the trigger, ignoring soft pull binding.
 MAY_SKIP: Combines NO_SKIP and MUST_SKIP: Soft binding may be skipped on a quick full press, and full pull can be activated on top of soft pull binding.
+MUST_SKIP_R: Responsive version of MUST_SKIP. See below.
+MAY_SKIP_R: Responsive version of MAY_SKIP. See below.
 ```
+
 For example, in Call of Duty you have a binding to hold your breath when aiming with a sniper. You can bind ADS on a soft trigger press and hold breath on the full press like this:
 
 ```
@@ -234,7 +274,9 @@ ZRF = V G           # Quick full tap to melee; Quick hold full press to unpin gr
 
 ```
 
-Using MUST_SKIP mode makes sure that once you start firing, reaching the full pull will **not** make you stop firing to melee. 
+Using MUST_SKIP mode makes sure that once you start firing, reaching the full pull will **not** make you stop firing to melee.
+
+The "Responsive" variants of the skip modes enable a different behaviour that can give you a better experience than the original versions in specific circumstances. These circumstances typically is when the soft binding is a mode-like binding like ADS or crouch, and there is no hold or simultaneous press binding as well on that soft press. The difference is that the soft binding is actived as soon as the trigger crosses the threshold, giving the desired responsive feeling, but gets removed if the full press is reached quickly, thus still allowing you to hip fire for example. This will result in a hopefully negligeable scope glitch but grants a snappier ADS activation.
 
 ### 3. Stick Mouse Inputs
 Each stick has 3 different modes to determine how it affects the mouse:
