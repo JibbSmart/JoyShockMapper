@@ -23,6 +23,8 @@ const char* version = "1.4.0";
 
 #define PI 3.14159265359f
 
+#define MAPPING_ERROR -2 // Represents an error in user input
+#define MAPPING_NONE -1 // Represents no button when explicitely stated by the user. Not to be confused with NO_HOLD_MAPPED which is no action bound.
 #define MAPPING_UP 0
 #define MAPPING_DOWN 1
 #define MAPPING_LEFT 2
@@ -102,20 +104,17 @@ const char* version = "1.4.0";
 #define AUTOLOAD 71
 #define HELP 72
 
-#define NO_HOLD_MAPPED 0x07
-#define CALIBRATE 0x0A
-
 #define MAGIC_DST_DELAY 150.0f // in milliseconds
 #define MAGIC_HOLD_TIME 150.0f // in milliseconds
 #define MAGIC_SIM_DELAY 50.0f // in milliseconds
 static_assert(MAGIC_SIM_DELAY < MAGIC_HOLD_TIME, "Simultaneous press delay has to be smaller than hold delay!");
 
 enum class StickMode { none, aim, flick, invalid };
-enum class AxisMode { standard, inverted, invalid };
+enum       AxisMode { standard=1, inverted=-1, invalid=0 }; // valid values are true!
 enum class TriggerMode { noFull, noSkip, maySkip, mustSkip, maySkipResp, mustSkipResp, invalid };
 enum class GyroAxisMask { none = 0, x = 1, y = 2, z = 4, invalid = 8 };
 enum class JoyconMask { useBoth = 0, ignoreLeft = 1, ignoreRight = 2, ignoreBoth = 3, invalid = 4 };
-enum class GyroIgnoreMode { none, button, left, right };
+enum class GyroIgnoreMode { button, left, right };
 enum class DstState { NoPress = 0, PressStart, QuickSoftTap, QuickFullPress, QuickFullRelease, SoftPress, DelayFullPress, PressStartResp, invalid };
 enum class BtnState { NoPress = 0, BtnPress, WaitSim, WaitHold, SimPress, HoldPress, WaitSimHold, SimHold, SimRelease, SimTapRelease, TapRelease, invalid};
 
@@ -135,7 +134,7 @@ StickMode right_stick_mode = StickMode::none;
 GyroAxisMask mouse_x_from_gyro = GyroAxisMask::y;
 GyroAxisMask mouse_y_from_gyro = GyroAxisMask::x;
 JoyconMask joycon_gyro_mask = JoyconMask::ignoreLeft;
-GyroIgnoreMode gyro_ignore_mode = GyroIgnoreMode::none;
+GyroIgnoreMode gyro_ignore_mode = GyroIgnoreMode::button; // Ignore mode none means no GYRO_OFF button
 TriggerMode zlMode = TriggerMode::noFull;
 TriggerMode zrMode = TriggerMode::noFull;
 WORD mappings[MAPPING_SIZE];
@@ -148,8 +147,8 @@ float min_gyro_threshold = 0.0;
 float max_gyro_threshold = 0.0;
 float stick_power = 0.0;
 float stick_sens = 0.0;
-int gyro_button = 0;
-bool gyro_button_enables = false;
+int gyro_button = MAPPING_NONE; // No gyro button. The value is the btn index rather than the mask
+bool gyro_always_off = false; // gyro_button disables when gyro is always on and vice versa
 float real_world_calibration = 0.0;
 float in_game_sens = 1.0;
 float trigger_threshold = 0.0;
@@ -205,6 +204,7 @@ public:
 	BtnState btnState[MAPPING_SIZE];
 	WORD keyToRelease[MAPPING_SIZE]; // At key press, remember what to release
 	std::deque<int> chordStack; // Represents the remapping layers active. Each item needs to have an entry in chord_mappings.
+	std::deque<std::pair<int, WORD>> gyroActionQueue; // Queue of gyro control actions currently in effect
 	std::chrono::steady_clock::time_point started_flick;
 	std::chrono::steady_clock::time_point time_now;
 	// tap_release_queue has been replaced with button states *TapRelease. The hold time of the tap is the polling period of the device.
@@ -261,10 +261,73 @@ public:
 				JslStartContinuousCalibration(intHandle);
 			}
 		}
+		else if (key == GYRO_INV_X || key == GYRO_ON_BIND || key == GYRO_OFF_BIND)
+		{
+			gyroActionQueue.push_back({ index, key });
+		}
+		else
+		{
+			pressKey(key, true);
+		}
 		keyToRelease[index] = key;
 		if (chord_mappings.find(index) != chord_mappings.cend())
 		{
 			chordStack.push_front(index); // Always push at the fromt to make it a stack
+		}
+	}
+
+	void ApplyBtnHold(int index)
+	{
+		auto key = GetHoldMapping(index);
+		if (key == CALIBRATE)
+		{
+			printf("Starting continuous calibration\n");
+			JslResetContinuousCalibration(intHandle);
+			JslStartContinuousCalibration(intHandle);
+		}
+		else if (key == GYRO_INV_X || key == GYRO_ON_BIND || key == GYRO_OFF_BIND)
+		{
+			gyroActionQueue.push_back({ index, key });
+		}
+		else if (key != NO_HOLD_MAPPED)
+		{
+			pressKey(key, true);
+		}
+		keyToRelease[index] = key;
+		if (chord_mappings.find(index) != chord_mappings.cend())
+		{
+			chordStack.push_front(index); // Always push at the front
+		}
+	}
+
+	void ApplyBtnRelease(int index, bool tap = false)
+	{
+		if (keyToRelease[index] == CALIBRATE)
+		{
+			if (!tap || !toggleContinuous) 
+			{
+				JslPauseContinuousCalibration(intHandle);
+				toggleContinuous = false; // if we've held the calibration button, we're disabling continuous calibration
+				printf("Gyro calibration set\n");
+			}
+		}
+		else if (keyToRelease[index] == GYRO_INV_X || keyToRelease[index] == GYRO_ON_BIND || keyToRelease[index] == GYRO_OFF_BIND)
+		{
+			gyroActionQueue.erase(std::find_if(gyroActionQueue.begin(), gyroActionQueue.end(), 
+				[index](auto pair)
+				{
+					return pair.first == index;
+				}));
+		}
+		else if (keyToRelease[index] != NO_HOLD_MAPPED)
+		{
+			pressKey(keyToRelease[index], false);
+		}
+		auto foundChord = std::find(chordStack.begin(), chordStack.end(), index);
+		if (foundChord != chordStack.end())
+		{
+			// The chord is released
+			chordStack.erase(foundChord);
 		}
 	}
 
@@ -279,32 +342,42 @@ public:
 				JslStartContinuousCalibration(intHandle);
 			}
 		}
+		else if (simPress.pressBind == GYRO_INV_X || simPress.pressBind == GYRO_ON_BIND || simPress.pressBind == GYRO_OFF_BIND)
+		{
+			// I know I don't handle multiple inversion. Otherwise GYRO_INV_X on sim press would do nothing
+			gyroActionQueue.push_back({ index, simPress.pressBind });
+			gyroActionQueue.push_back({ simPress.btn, simPress.pressBind });
+		}
+		else
+		{
+			pressKey(simPress.pressBind, true);
+		}
 		keyToRelease[simPress.btn] = simPress.pressBind;
 		keyToRelease[index] = simPress.pressBind;
 		// Combo presses don't enable chords
 	}
 
-	void ApplyBtnRelease(int index, bool tap = false)
+	void ApplyBtnHold(const ComboMap &simPress, int index)
 	{
-		if (keyToRelease[index] == CALIBRATE)
+		if (simPress.holdBind == CALIBRATE)
 		{
-			if (!tap || !toggleContinuous) 
-			{
-				JslPauseContinuousCalibration(intHandle);
-				toggleContinuous = false; // if we've held the calibration button, we're disabling continuous calibration
-				printf("Gyro calibration set\n");
-			}
+			printf("Starting continuous calibration\n");
+			JslResetContinuousCalibration(intHandle);
+			JslStartContinuousCalibration(intHandle);
 		}
-		else if (keyToRelease[index] != NO_HOLD_MAPPED)
+		else if (simPress.holdBind == GYRO_INV_X || simPress.holdBind == GYRO_ON_BIND || simPress.holdBind == GYRO_OFF_BIND)
 		{
-			pressKey(keyToRelease[index], false);
+			// I know I don't handle multiple inversion. Otherwise GYRO_INV_X on sim press would do nothing
+			gyroActionQueue.push_back({ index, simPress.holdBind });
+			gyroActionQueue.push_back({ simPress.btn, simPress.holdBind });
 		}
-		auto foundChord = std::find(chordStack.begin(), chordStack.end(), index);
-		if (foundChord != chordStack.end())
+		else if (simPress.holdBind != NO_HOLD_MAPPED)
 		{
-			// The chord is released
-			chordStack.erase(foundChord);
+			pressKey(simPress.holdBind, true);
 		}
+		keyToRelease[simPress.btn] = simPress.holdBind;
+		keyToRelease[index] = simPress.holdBind;
+		// Combo presses don't enable chords
 	}
 
 	void ApplyBtnRelease(const ComboMap &simPress, int index, bool tap = false)
@@ -318,6 +391,19 @@ public:
 				printf("Gyro calibration set\n");
 			}
 		}
+		else if (keyToRelease[index] == GYRO_INV_X || keyToRelease[index] == GYRO_ON_BIND || keyToRelease[index] == GYRO_OFF_BIND)
+		{
+			gyroActionQueue.erase(std::find_if(gyroActionQueue.begin(), gyroActionQueue.end(),
+				[index](auto pair)
+				{
+					return pair.first == index;
+				}));
+			gyroActionQueue.erase(std::find_if(gyroActionQueue.begin(), gyroActionQueue.end(),
+				[simPress](auto pair)
+				{
+					return pair.first == simPress.btn;
+				}));
+		}
 		else if (keyToRelease[index] != NO_HOLD_MAPPED)
 		{
 			pressKey(keyToRelease[index], false);
@@ -328,43 +414,6 @@ public:
 			// The chord is released
 			chordStack.erase(foundChord);
 		}
-	}
-
-	void ApplyBtnHold(int index)
-	{
-		auto key = GetHoldMapping(index);
-		if (key == CALIBRATE)
-		{
-			printf("Starting continuous calibration\n");
-			JslResetContinuousCalibration(intHandle);
-			JslStartContinuousCalibration(intHandle);
-		}
-		else if (key != NO_HOLD_MAPPED)
-		{
-			pressKey(key, true);
-		}
-		keyToRelease[index] = key;
-		if (chord_mappings.find(index) != chord_mappings.cend())
-		{
-			chordStack.push_front(index); // Always push at the front
-		}
-	}
-
-	void ApplyBtnHold(const ComboMap &simPress, int index)
-	{
-		if (simPress.holdBind == CALIBRATE)
-		{
-			printf("Starting continuous calibration\n");
-			JslResetContinuousCalibration(intHandle);
-			JslStartContinuousCalibration(intHandle);
-		}
-		else if (simPress.holdBind != NO_HOLD_MAPPED)
-		{
-			pressKey(simPress.holdBind, true);
-		}
-		keyToRelease[simPress.btn] = simPress.holdBind;
-		keyToRelease[index] = simPress.holdBind;
-		// Combo presses don't enable chords
 	}
 
 	// Pretty wrapper
@@ -542,12 +591,16 @@ static int keyToBitOffset(WORD index) {
 
 bool IsPressed(const JOY_SHOCK_STATE& state, int mappingIndex)
 {
-	if (mappingIndex == MAPPING_ZLF) return state.lTrigger == 1.0;
-	else if (mappingIndex == MAPPING_ZRF) return state.rTrigger == 1.0;
-	// Is it better to consider trigger_threshold for GYRO_ON/OFF on ZL/ZR?
-	else if (mappingIndex == MAPPING_ZL) return state.lTrigger > trigger_threshold;
-	else if (mappingIndex == MAPPING_ZR) return state.rTrigger > trigger_threshold;
-	else return state.buttons & (1 << keyToBitOffset(mappingIndex));
+	if (mappingIndex >= 0 && mappingIndex < MAPPING_SIZE)
+	{
+		if (mappingIndex == MAPPING_ZLF) return state.lTrigger == 1.0;
+		else if (mappingIndex == MAPPING_ZRF) return state.rTrigger == 1.0;
+		// Is it better to consider trigger_threshold for GYRO_ON/OFF on ZL/ZR?
+		else if (mappingIndex == MAPPING_ZL) return state.lTrigger > trigger_threshold;
+		else if (mappingIndex == MAPPING_ZR) return state.rTrigger > trigger_threshold;
+		else return state.buttons & (1 << keyToBitOffset(mappingIndex));
+	}
+	return false;
 }
 
 /// Yes, this looks slow. But it's only there to help set up mappings more easily
@@ -768,7 +821,7 @@ static int keyToMappingIndex(std::string& s) {
 	if (s.rfind("HELP", 0) == 0) {
 		return HELP;
 	}
-	return -1;
+	return MAPPING_ERROR;
 }
 
 static StickMode nameToStickMode(std::string& name, bool print = false) {
@@ -908,7 +961,7 @@ static void resetAllMappings() {
 	trigger_threshold = 0.0f;
 	os_mouse_speed = 1.0f;
 	gyro_button = 0;
-	gyro_button_enables = false;
+	gyro_always_off = false;
 	aim_y_sign = 1.0f;
 	aim_x_sign = 1.0f;
 	gyro_y_sign = 1.0f;
@@ -974,9 +1027,9 @@ static void parseCommand(std::string line) {
 		switch (index) {
 		case NO_GYRO_BUTTON:
 			printf("No button disables or enables gyro\n");
-			gyro_button = 0;
-			gyro_button_enables = false;
-			gyro_ignore_mode = GyroIgnoreMode::none;
+			gyro_button = MAPPING_NONE;
+			gyro_always_off = false;
+			gyro_ignore_mode = GyroIgnoreMode::button;
 			return;
 		case RESET_MAPPINGS:
 			printf("Resetting all mappings to defaults\n");
@@ -1179,10 +1232,10 @@ static void parseCommand(std::string line) {
 				case STICK_AXIS_X:
 				{
 					printf("Stick aim X axis: ");
-					AxisMode temp = nameToAxisMode(std::string(value), true);
+					AxisMode sign = nameToAxisMode(std::string(value), true);
 					printf("\n");
-					if (temp != AxisMode::invalid) {
-						aim_x_sign = temp == AxisMode::standard ? 1.0f : -1.0f;
+					if (sign) {
+						aim_x_sign = static_cast<float>(sign);
 					}
 					else {
 						printf("Valid settings for STICK_AXIS_X are STANDARD or INVERTED\n");
@@ -1192,10 +1245,10 @@ static void parseCommand(std::string line) {
 				case STICK_AXIS_Y:
 				{
 					printf("Stick aim Y axis: ");
-					AxisMode temp = nameToAxisMode(std::string(value), true);
+					AxisMode sign = nameToAxisMode(std::string(value), true);
 					printf("\n");
-					if (temp != AxisMode::invalid) {
-						aim_y_sign = temp == AxisMode::standard ? 1.0f : -1.0f;
+					if (sign) {
+						aim_y_sign = static_cast<float>(sign);
 					}
 					else {
 						printf("Valid settings for STICK_AXIS_Y are STANDARD or INVERTED\n");
@@ -1205,10 +1258,10 @@ static void parseCommand(std::string line) {
 				case GYRO_AXIS_X:
 				{
 					printf("Gyro aim X axis: ");
-					AxisMode temp = nameToAxisMode(std::string(value), true);
+					AxisMode sign = nameToAxisMode(std::string(value), true);
 					printf("\n");
-					if (temp != AxisMode::invalid) {
-						gyro_x_sign = temp == AxisMode::standard ? 1.0f : -1.0f;
+					if (sign) {
+						gyro_x_sign = static_cast<float>(sign);
 					}
 					else {
 						printf("Valid settings for GYRO_AXIS_X are STANDARD or INVERTED\n");
@@ -1218,10 +1271,10 @@ static void parseCommand(std::string line) {
 				case GYRO_AXIS_Y:
 				{
 					printf("Gyro aim Y axis: ");
-					AxisMode temp = nameToAxisMode(std::string(value), true);
+					AxisMode sign = nameToAxisMode(std::string(value), true);
 					printf("\n");
-					if (temp != AxisMode::invalid) {
-						gyro_y_sign = temp == AxisMode::standard ? 1.0f : -1.0f;
+					if (sign) {
+						gyro_y_sign = static_cast<float>(sign);
 					}
 					else {
 						printf("Valid settings for GYRO_AXIS_Y are STANDARD or INVERTED\n");
@@ -1286,20 +1339,27 @@ static void parseCommand(std::string line) {
 					int rhsMappingIndex = keyToMappingIndex(valueName);
 					if (rhsMappingIndex >= 0 && rhsMappingIndex < MAPPING_SIZE)
 					{
-						gyro_button_enables = false;
+						gyro_always_off = false;
 						gyro_ignore_mode = GyroIgnoreMode::button;
 						gyro_button = rhsMappingIndex;
 						printf("Disable gyro with %s\n", value);
 					}
+					else if (rhsMappingIndex == MAPPING_NONE)
+					{
+						gyro_always_off = false;
+						gyro_ignore_mode = GyroIgnoreMode::button;
+						gyro_button = MAPPING_NONE;
+						printf("No button disables gyro\n");
+					}
 					else if (valueName.compare("LEFT_STICK") == 0)
 					{
-						gyro_button_enables = false;
+						gyro_always_off = false;
 						gyro_ignore_mode = GyroIgnoreMode::left;
 						printf("Disable gyro when left stick is used\n");
 					}
 					else if (valueName.compare("RIGHT_STICK") == 0)
 					{
-						gyro_button_enables = false;
+						gyro_always_off = false;
 						gyro_ignore_mode = GyroIgnoreMode::right;
 						printf("Disable gyro when right stick is used\n");
 					}
@@ -1314,20 +1374,27 @@ static void parseCommand(std::string line) {
 					int rhsMappingIndex = keyToMappingIndex(valueName);
 					if (rhsMappingIndex >= 0 && rhsMappingIndex < MAPPING_SIZE)
 					{
-						gyro_button_enables = true;
+						gyro_always_off = true;
 						gyro_ignore_mode = GyroIgnoreMode::button;
 						gyro_button = rhsMappingIndex;
 						printf("Enable gyro with %s\n", value);
 					}
+					else if (rhsMappingIndex == MAPPING_NONE)
+					{
+						gyro_always_off = true;
+						gyro_ignore_mode = GyroIgnoreMode::button;
+						gyro_button = MAPPING_NONE;
+						printf("No button enables gyro\n");
+					}
 					else if (valueName.compare("LEFT_STICK") == 0)
 					{
-						gyro_button_enables = true;
+						gyro_always_off = true;
 						gyro_ignore_mode = GyroIgnoreMode::left;
 						printf("Enable gyro when left stick is used\n");
 					}
 					else if (valueName.compare("RIGHT_STICK") == 0)
 					{
-						gyro_button_enables = true;
+						gyro_always_off = true;
 						gyro_ignore_mode = GyroIgnoreMode::right;
 						printf("Enable gyro when right stick is used\n");
 					}
@@ -2278,34 +2345,6 @@ void joyShockPollCallback(int jcHandle, JOY_SHOCK_STATE state, JOY_SHOCK_STATE l
 		rightAny = left | right | up | down;
 	}
 
-	switch (gyro_ignore_mode) {
-	case GyroIgnoreMode::none:
-		blockGyro = false;
-		break;
-	case GyroIgnoreMode::button:
-		blockGyro = gyro_button_enables ^ IsPressed(state, gyro_button); // Use jc->IsActive(gyro_button) to consider button state
-		break;
-	case GyroIgnoreMode::left:
-		blockGyro = (gyro_button_enables ^ leftAny);
-		break;
-	case GyroIgnoreMode::right:
-		blockGyro = (gyro_button_enables ^ rightAny);
-		break;
-	}
-
-	if (blockGyro) {
-		gyroX = 0;
-		gyroY = 0;
-	}
-	// optionally ignore the gyro of one of the joycons
-	if (jc->controller_type == JS_SPLIT_TYPE_FULL ||
-		(jc->controller_type & (int)joycon_gyro_mask) == 0)
-	{
-		//printf("GX: %0.4f GY: %0.4f GZ: %0.4f\n", imuState.gyroX, imuState.gyroY, imuState.gyroZ);
-		float mouseCalibration = real_world_calibration / os_mouse_speed / in_game_sens;
-		shapedSensitivityMoveMouse(gyroX * gyro_x_sign, gyroY * gyro_y_sign, min_gyro_sens, max_gyro_sens, min_gyro_threshold, max_gyro_threshold, deltaTime, camSpeedX * aim_x_sign, -camSpeedY * aim_y_sign, mouseCalibration);
-	}
-
 	// button mappings
 	handleButtonChange(MAPPING_UP, (state.buttons & JSMASK_UP) > 0, "UP", jc);
 	handleButtonChange(MAPPING_DOWN, (state.buttons & JSMASK_DOWN) > 0, "DOWN", jc);
@@ -2327,6 +2366,42 @@ void joyShockPollCallback(int jcHandle, JOY_SHOCK_STATE state, JOY_SHOCK_STATE l
 	handleButtonChange(MAPPING_SR, (state.buttons & JSMASK_SR) > 0, "SR", jc);
 	handleButtonChange(MAPPING_L3, (state.buttons & JSMASK_LCLICK) > 0, "L3", jc);
 	handleButtonChange(MAPPING_R3, (state.buttons & JSMASK_RCLICK) > 0, "R3", jc);
+
+	// Handle buttons before GYRO because some of them may affect the value of blockGyro
+	switch (gyro_ignore_mode) {
+	case GyroIgnoreMode::button:
+		blockGyro = gyro_always_off ^ IsPressed(state, gyro_button); // Use jc->IsActive(gyro_button) to consider button state
+		break;
+	case GyroIgnoreMode::left:
+		blockGyro = (gyro_always_off ^ leftAny);
+		break;
+	case GyroIgnoreMode::right:
+		blockGyro = (gyro_always_off ^ rightAny);
+		break;
+	}
+	float gyro_x_sign_to_use = gyro_x_sign;
+
+	// Apply gyro modifiers in the queue from oldest to newest (thus giving priority to most recent)
+	for (auto pair : jc->gyroActionQueue)
+	{
+		// TODO: logic optimization
+		if (pair.second == GYRO_ON_BIND) blockGyro = false;
+		else if (pair.second == GYRO_OFF_BIND) blockGyro = true;
+		else if (pair.second == GYRO_INV_X) gyro_x_sign_to_use = -1 * gyro_x_sign; // Intentionally don't support multiple inversions
+	}
+
+	if (blockGyro) {
+		gyroX = 0;
+		gyroY = 0;
+	}
+	// optionally ignore the gyro of one of the joycons
+	if (jc->controller_type == JS_SPLIT_TYPE_FULL ||
+		(jc->controller_type & (int)joycon_gyro_mask) == 0)
+	{
+		//printf("GX: %0.4f GY: %0.4f GZ: %0.4f\n", imuState.gyroX, imuState.gyroY, imuState.gyroZ);
+		float mouseCalibration = real_world_calibration / os_mouse_speed / in_game_sens;
+		shapedSensitivityMoveMouse(gyroX * gyro_x_sign_to_use, gyroY * gyro_y_sign, min_gyro_sens, max_gyro_sens, min_gyro_threshold, max_gyro_threshold, deltaTime, camSpeedX * aim_x_sign, -camSpeedY * aim_y_sign, mouseCalibration);
+	}
 }
 
 void connectDevices() {
