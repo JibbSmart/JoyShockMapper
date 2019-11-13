@@ -11,6 +11,7 @@
 #include <mutex>
 
 #include "JoyShockLibrary.h"
+#include "Whitelister.h"
 #include "inputHelpers.cpp"
 
 #pragma warning(disable:4996)
@@ -103,8 +104,10 @@ const char* version = "1.4.0";
 #define ZL_DUAL_STAGE_MODE 70
 #define AUTOLOAD 71
 #define HELP 72
+#define WHITELISTER 73
 
 #define MAGIC_DST_DELAY 150.0f // in milliseconds
+#define MAGIC_TAP_DURATION 500.0f // in milliseconds
 #define MAGIC_HOLD_TIME 150.0f // in milliseconds
 #define MAGIC_SIM_DELAY 50.0f // in milliseconds
 static_assert(MAGIC_SIM_DELAY < MAGIC_HOLD_TIME, "Simultaneous press delay has to be smaller than hold delay!");
@@ -605,6 +608,9 @@ bool IsPressed(const JOY_SHOCK_STATE& state, int mappingIndex)
 
 /// Yes, this looks slow. But it's only there to help set up mappings more easily
 static int keyToMappingIndex(std::string& s) {
+	if (s.rfind("NONE", 0) == 0) {
+		return MAPPING_NONE;
+	}
 	if (s.compare("UP") == 0) {
 		return MAPPING_UP;
 	}
@@ -820,6 +826,9 @@ static int keyToMappingIndex(std::string& s) {
 	}
 	if (s.rfind("HELP", 0) == 0) {
 		return HELP;
+	}
+	if (s.rfind("WHITELISTER", 0) == 0) {
+		return WHITELISTER;
 	}
 	return MAPPING_ERROR;
 }
@@ -1096,6 +1105,10 @@ static void parseCommand(std::string line) {
 			{
 				printf("Could not open online help. Error #%d\n", err);
 			}
+			return;
+		case WHITELISTER:
+			printf("Launching HIDCerberus in your browser. Your PID is %lu\n", GetCurrentProcessId()); // WinAPI call!
+			Whitelister::ShowHIDCerberus();
 			return;
 		}
 		char value[128];
@@ -1530,6 +1543,7 @@ static void parseCommand(std::string line) {
 							if (JslGetControllerType(js.first) != JS_TYPE_DS4)
 							{
 								printf("WARNING: Dual Stage Triggers are only valid on analog triggers. Full pull bindings will be ignored on non DS4 controllers.\n");
+								break;
 							}
 						}
 					}
@@ -1550,6 +1564,7 @@ static void parseCommand(std::string line) {
 							if (JslGetControllerType(js.first) != JS_TYPE_DS4)
 							{
 								printf("WARNING: Dual Stage Triggers are only valid on analog triggers. Full pull bindings will be ignored on non DS4 controllers.\n");
+								break;
 							}
 						}
 					}
@@ -1784,6 +1799,7 @@ void handleButtonChange(int index, bool pressed, const char* name, JoyShock* jc)
 		if (!pressed)
 		{
 			jc->btnState[index] = BtnState::TapRelease;
+			jc->press_times[index] = jc->time_now;
 			jc->ApplyBtnPress(index, true);
 			printf("%s: tapped\n", name);
 		}
@@ -1830,6 +1846,7 @@ void handleButtonChange(int index, bool pressed, const char* name, JoyShock* jc)
 		if (!pressed)
 		{
 			jc->btnState[index] = BtnState::TapRelease;
+			jc->press_times[index] = jc->time_now;
 			jc->ApplyBtnPress(index, true);
 			printf("%s: tapped\n", name);
 		}
@@ -1883,6 +1900,8 @@ void handleButtonChange(int index, bool pressed, const char* name, JoyShock* jc)
 		{
 			jc->btnState[index] = BtnState::SimTapRelease;
 			jc->btnState[simMap->btn] = BtnState::SimTapRelease;
+			jc->press_times[index] = jc->time_now;
+			jc->press_times[simMap->btn] = jc->time_now;
 			jc->ApplyBtnPress(*simMap, index, true);
 			printf("%s: tapped\n", simMap->name.c_str());
 		}
@@ -1931,7 +1950,13 @@ void handleButtonChange(int index, bool pressed, const char* name, JoyShock* jc)
 			printf("Error: lost track of matching sim press for %s! Resetting to NoPress.\n", name);
 			jc->btnState[index] = BtnState::NoPress;
 		}
-		else if (!pressed)
+		else if (pressed)
+		{
+			jc->ApplyBtnRelease(*simMap, index, true);
+			jc->btnState[index] = BtnState::NoPress;
+			jc->btnState[simMap->btn] = BtnState::SimRelease;
+		}
+		else if (jc->GetPressDurationMS(index) > MAGIC_TAP_DURATION)
 		{
 			jc->ApplyBtnRelease(*simMap, index, true);
 			jc->btnState[index] = BtnState::SimRelease;
@@ -1940,8 +1965,11 @@ void handleButtonChange(int index, bool pressed, const char* name, JoyShock* jc)
 		break;
 	}
 	case BtnState::TapRelease:
-		jc->ApplyBtnRelease(index, true);
-		jc->btnState[index] = BtnState::NoPress;
+		if (pressed || jc->GetPressDurationMS(index) > MAGIC_TAP_DURATION)
+		{
+			jc->ApplyBtnRelease(index, true);
+			jc->btnState[index] = BtnState::NoPress;
+		}
 		break;
 	default:
 		printf("Invalid button state %d: Resetting to NoPress\n", jc->btnState[index]);
@@ -2495,6 +2523,8 @@ int wWinMain(HINSTANCE hInstance, HINSTANCE prevInstance, LPWSTR cmdLine, int cm
 	// console
 	initConsole();
 	printf("Welcome to JoyShockMapper version %s!\n", version);
+	Whitelister whitelister(true); //Add on creation, Remove on destruction
+	if (whitelister) printf("JoyShockMapper was successfully whitelisted!\n");
 	// prepare for input
 	resetAllMappings();
 	connectDevices();

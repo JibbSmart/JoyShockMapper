@@ -231,7 +231,7 @@ WORD nameToKey(std::string& name) {
 	if (name.compare("CALIBRATE") == 0) {
 		return CALIBRATE;
 	}
-	if (name.compare("GYRO_INV") == 0) {
+	if (name.compare("GYRO_INV_X") == 0) {
 		return GYRO_INV_X;
 	}
 	if (name.compare("GYRO_ON") == 0) {
@@ -454,7 +454,11 @@ public:
 
 	~PollingThread()
 	{
-		Stop();
+		if (_continue)
+		{
+			Stop();
+			Sleep(_sleepTimeMs);
+		}
 		CloseHandle(_thread);
 		_thread = nullptr;
 	}

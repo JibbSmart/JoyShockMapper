@@ -62,6 +62,8 @@ Included is a folder called GyroConfigs. This includes templates for creating ne
 
 6. JoyShockMapper can automatically load a configuration file for your games each time the game window enters focus. Drop the file in the **AutoLoad** folder, next to the executable. JoyShockMapper will look for a name based on the executable name of the program that's in focus. When it goes into focus and AUTOLOAD is enabled (which it is by default), JoyShockMapper will tell you the name of the file it's looking for - case insensitive. You can turn it off by entering the command ```AUTOLOAD = OFF```. You can enable it again with ```AUTOLOAD = ON```.
 
+7. Games that have native support of the controller, such as *Apex: Legends*, can rarely be prevented to read the controller data. Projects like HIDGuardian / HIDCerberus allows you to mask devices from all application except those that you *whitelist*. If you do have HIDCerberus installed and running, JoyShockMapper will automatically add itself to the whitelist. Should you want to handle things yourself, enter ```WHITELISTER``` to display JSM's PID and open HIDCerberus configuration page in your browser.
+
 ## Commands
 Commands can be executed by simply typing them into the JoyShockMapper console windows and hitting 'enter'. You can also put a bunch of commands into a text file and, by typing in the path to the file in JoyShockMapper (either the full path or the path relative to the JoyShockMapper executable) and hitting 'enter', execute all those commands. I refer to such a file as a "configuration file". In Windows, you can also drag and drop a file from Explorer into the JoyShockMapper console window to enter the full path of that file.
 
@@ -150,6 +152,8 @@ SCROLLUP, SCROLLDOWN: scroll the mouse wheel up, down, respectively
 PAGEUP, PAGEDOWN, HOME, END, INSERT, DELETE
 NONE: No input
 CALIBRATE: recalibrate gyro when pressing this input
+GYRO_ON, GYRO_OFF: Enable or disable gyroscope. See more below.
+GYRO_INV_X: Inverse the horizontal axis of the gyroscope
 ; ' , . / \ [ ] + -
 ```
 
@@ -173,6 +177,8 @@ If you want □ to 'reload' when tapped, but do nothing at all when held, you ca
 ```
 W = R NONE
 ```
+
+Tap bindings will apply the button press for up to half a second.
 
 
 #### 1.2 Simultaneous Press
@@ -212,26 +218,36 @@ GYRO_OFF
 GYRO_ON
 ```
 
-```GYRO_ON``` makes gyro mouse only work while a given button is pressed. ```GYRO_OFF``` disables the gyro while a given button is pressed. This is a really important feature absent from most games that have gyro aiming -- just as a PC gamer can temporarily "disable" the mouse by lifting it off the mousepad in order to reposition it, a gyro gamer should be able to temporarily disable the gyro in order to reposition it.
+When you assign a button to ```GYRO_ON```, gyro mouse only work while that button is pressed whereas ```GYRO_OFF``` disables the gyro while the button is pressed. This is a really important feature absent from most games that have gyro aiming -- just as a PC gamer can temporarily "disable" the mouse by lifting it off the mousepad in order to reposition it, a gyro gamer should be able to temporarily disable the gyro in order to reposition it. This binding ignores whether the button sends input to the game, or what kind of press is done with it. ```NONE``` is an acceptable binding, in which case the commands only sets whether the gyro is enabled or not at rest.
 
-```GYRO_ON``` is really useful for games where you only sometimes need to aim precisely. If ZL causes your character to aim their bow (like in *Zelda: Breath of the Wild*), maybe that's the only time you want to have gyro aiming enabled:
-
-```GYRO_ON = ZL```
-
-For games that really need to use all the buttons available on the controller, but one of those inputs is rarely used and can be toggled easily (like crouching, for example), it might make sense to make that input tap-only, and make it double as the gyro-off button when held:
+```GYRO_ON``` is really useful for games where you only sometimes need to aim precisely. If ZL causes your character to aim their bow (like in *Zelda: Breath of the Wild* or *Shadow of Mordor*), maybe that's the only time you want to have gyro aiming enabled.
 
 ```
-E = LCONTROL NONE
-GYRO_OFF = E
+ZL = RMOUSE   # Aim with Bow
+GYRO_ON = ZL  # Turn on gyro when ZL is pressed
 ```
 
 Or if you really can't spare a button for disabling the gyro, you can use LEFT\_STICK or RIGHT\_STICK to disable the gyro while that input is being used:
 
-```GYRO_OFF = RIGHT_STICK```
+```GYRO_OFF = RIGHT_STICK # Disable gyro while aiming with stick```
 
 I prefer to be able to use stick aiming (or flick stick) at the same time as aiming with the gyro, but this can still be better than having no way to disable the gyro at all if your game doesn't have an obvious function to tie to enabling gyro aiming (like a dedicated "aim weapon" button as is common in third-person action games).
 
-The command ```NO_GYRO_BUTTON``` can be used to remove the gyro-on or gyro-off mapping, making gyro always enabled. To have it always disabled, just set GYRO\_SENS to 0 (explained later). 
+```GYRO_ON``` and ```GYRO_OFF``` can also be bound as an action to particular buttons. Contrary to the command above, this takes the spot of the action binding. But you can still find creative ways with taps & holds or chorded press to bind the right gyro control where you need it. For example, if a button is bound to toggling crouch, it might make sense to make that input tap-only, and make it double as the gyro-off button when held:
+
+```
+E = LCONTROL GYRO_OFF # Toggle crouch on tap / Turn gyro off on hold
+```
+
+Since taps apply the binding for half a second, these gyro actions can be useful as tap bindings as well. Another binding is the possibility to invert the horizontal axis of the gyro with ```GYRO_INV_X```. Such a binding can be handy if you play with a single joycon because you don't have a second stick. When that action is enabled, the inversion makes it so that you can recenter the hands by continuing to turn in the opposite direction!
+
+```
+SL + SR = GYRO_OFF GYRO_INV_X  # Disable for .5s / Invert axis on simultaneous bumper hold
+```
+
+Bound gyro actions like those have priority over the assigned gyro button should they conflict. 
+
+The command ```NO_GYRO_BUTTON``` can be used to remove the gyro-on or gyro-off mapping, making gyro always enabled. To have it always disabled, just set ```GYRO_ON = NONE```. 
 
 ### 2. Analog Triggers
 
