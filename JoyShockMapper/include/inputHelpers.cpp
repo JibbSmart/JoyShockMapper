@@ -11,6 +11,8 @@
 #define NO_HOLD_MAPPED 0x07
 #define CALIBRATE 0x0A
 #define GYRO_INV_X 0x0B
+#define GYRO_INV_Y 0x0C
+#define GYRO_INVERT 0x0D
 #define GYRO_OFF_BIND 0x0E // Not to be confused with settings GYRO_ON and GYRO_OFF
 #define GYRO_ON_BIND 0x0F  // Those here are bindings
 
@@ -233,6 +235,12 @@ WORD nameToKey(std::string& name) {
 	}
 	if (name.compare("GYRO_INV_X") == 0) {
 		return GYRO_INV_X;
+	}
+	if (name.compare("GYRO_INV_Y") == 0) {
+		return GYRO_INV_Y;
+	}
+	if (name.compare("GYRO_INVERT") == 0) {
+		return GYRO_INVERT;
 	}
 	if (name.compare("GYRO_ON") == 0) {
 		return GYRO_ON_BIND;

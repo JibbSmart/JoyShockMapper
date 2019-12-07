@@ -264,7 +264,7 @@ public:
 				JslStartContinuousCalibration(intHandle);
 			}
 		}
-		else if (key == GYRO_INV_X || key == GYRO_ON_BIND || key == GYRO_OFF_BIND)
+		else if (key == GYRO_INV_X || key == GYRO_INV_Y || key == GYRO_INVERT || key == GYRO_ON_BIND || key == GYRO_OFF_BIND)
 		{
 			gyroActionQueue.push_back({ index, key });
 		}
@@ -288,7 +288,7 @@ public:
 			JslResetContinuousCalibration(intHandle);
 			JslStartContinuousCalibration(intHandle);
 		}
-		else if (key == GYRO_INV_X || key == GYRO_ON_BIND || key == GYRO_OFF_BIND)
+		else if (key == GYRO_INV_X || key == GYRO_INV_Y || key == GYRO_INVERT || key == GYRO_ON_BIND || key == GYRO_OFF_BIND)
 		{
 			gyroActionQueue.push_back({ index, key });
 		}
@@ -314,7 +314,7 @@ public:
 				printf("Gyro calibration set\n");
 			}
 		}
-		else if (keyToRelease[index] == GYRO_INV_X || keyToRelease[index] == GYRO_ON_BIND || keyToRelease[index] == GYRO_OFF_BIND)
+		else if (keyToRelease[index] == GYRO_INV_X || keyToRelease[index] == GYRO_INV_Y || keyToRelease[index] == GYRO_INVERT || keyToRelease[index] == GYRO_ON_BIND || keyToRelease[index] == GYRO_OFF_BIND)
 		{
 			gyroActionQueue.erase(std::find_if(gyroActionQueue.begin(), gyroActionQueue.end(), 
 				[index](auto pair)
@@ -345,7 +345,7 @@ public:
 				JslStartContinuousCalibration(intHandle);
 			}
 		}
-		else if (simPress.pressBind == GYRO_INV_X || simPress.pressBind == GYRO_ON_BIND || simPress.pressBind == GYRO_OFF_BIND)
+		else if (simPress.pressBind == GYRO_INV_X || simPress.pressBind == GYRO_INV_Y || simPress.pressBind == GYRO_INVERT || simPress.pressBind == GYRO_ON_BIND || simPress.pressBind == GYRO_OFF_BIND)
 		{
 			// I know I don't handle multiple inversion. Otherwise GYRO_INV_X on sim press would do nothing
 			gyroActionQueue.push_back({ index, simPress.pressBind });
@@ -2408,6 +2408,7 @@ void joyShockPollCallback(int jcHandle, JOY_SHOCK_STATE state, JOY_SHOCK_STATE l
 		break;
 	}
 	float gyro_x_sign_to_use = gyro_x_sign;
+	float gyro_y_sign_to_use = gyro_y_sign;
 
 	// Apply gyro modifiers in the queue from oldest to newest (thus giving priority to most recent)
 	for (auto pair : jc->gyroActionQueue)
@@ -2415,7 +2416,13 @@ void joyShockPollCallback(int jcHandle, JOY_SHOCK_STATE state, JOY_SHOCK_STATE l
 		// TODO: logic optimization
 		if (pair.second == GYRO_ON_BIND) blockGyro = false;
 		else if (pair.second == GYRO_OFF_BIND) blockGyro = true;
-		else if (pair.second == GYRO_INV_X) gyro_x_sign_to_use = -1 * gyro_x_sign; // Intentionally don't support multiple inversions
+		else if (pair.second == GYRO_INV_X) gyro_x_sign_to_use *= -1; // Intentionally don't support multiple inversions
+		else if (pair.second == GYRO_INV_Y) gyro_y_sign_to_use *= -1;
+		else if (pair.second == GYRO_INVERT)
+		{
+			gyro_x_sign_to_use *= -1;
+			gyro_y_sign_to_use *= -1;
+		}
 	}
 
 	if (blockGyro) {
@@ -2428,7 +2435,7 @@ void joyShockPollCallback(int jcHandle, JOY_SHOCK_STATE state, JOY_SHOCK_STATE l
 	{
 		//printf("GX: %0.4f GY: %0.4f GZ: %0.4f\n", imuState.gyroX, imuState.gyroY, imuState.gyroZ);
 		float mouseCalibration = real_world_calibration / os_mouse_speed / in_game_sens;
-		shapedSensitivityMoveMouse(gyroX * gyro_x_sign_to_use, gyroY * gyro_y_sign, min_gyro_sens, max_gyro_sens, min_gyro_threshold, max_gyro_threshold, deltaTime, camSpeedX * aim_x_sign, -camSpeedY * aim_y_sign, mouseCalibration);
+		shapedSensitivityMoveMouse(gyroX * gyro_x_sign_to_use, gyroY * gyro_y_sign_to_use, min_gyro_sens, max_gyro_sens, min_gyro_threshold, max_gyro_threshold, deltaTime, camSpeedX * aim_x_sign, -camSpeedY * aim_y_sign, mouseCalibration);
 	}
 }
 
