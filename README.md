@@ -16,6 +16,10 @@ JoyShockMapper works on Windows and uses JoyShockLibrary to read inputs from con
 * **[Quick Start](#quick-start)**
 * **[Commands](#commands)**
   * **[Digital Inputs](#1-digital-inputs)**
+    * **[Tap & Hold](#11-tap--hold)**
+	* **[Simultaneous Press](#12-simultaneous-press)**
+	* **[Chorded Press](#13-chorded-press)**
+	* **[Gyro Button](#14-gyro-button)**
   * **[Analog Triggers](#2-analog-triggers)**
   * **[Stick Mouse Inputs](#3-stick-mouse-inputs)**
   * **[Gyro Mouse Inputs](#4-gyro-mouse-inputs)**
@@ -58,6 +62,8 @@ Included is a folder called GyroConfigs. This includes templates for creating ne
 
 6. JoyShockMapper can automatically load a configuration file for your games each time the game window enters focus. Drop the file in the **AutoLoad** folder, next to the executable. JoyShockMapper will look for a name based on the executable name of the program that's in focus. When it goes into focus and AUTOLOAD is enabled (which it is by default), JoyShockMapper will tell you the name of the file it's looking for - case insensitive. You can turn it off by entering the command ```AUTOLOAD = OFF```. You can enable it again with ```AUTOLOAD = ON```.
 
+7. Games that have native support of the controller, such as *Apex: Legends*, can rarely be prevented to read the controller data. Projects like HIDGuardian / HIDCerberus allows you to mask devices from all application except those that you *whitelist*. If you do have HIDCerberus installed and running, JoyShockMapper will automatically add itself to the whitelist. Should you want to handle things yourself, enter ```WHITELISTER``` to display JSM's PID and open HIDCerberus configuration page in your browser.
+
 ## Commands
 Commands can be executed by simply typing them into the JoyShockMapper console windows and hitting 'enter'. You can also put a bunch of commands into a text file and, by typing in the path to the file in JoyShockMapper (either the full path or the path relative to the JoyShockMapper executable) and hitting 'enter', execute all those commands. I refer to such a file as a "configuration file". In Windows, you can also drag and drop a file from Explorer into the JoyShockMapper console window to enter the full path of that file.
 
@@ -65,7 +71,7 @@ A configuration file can also contain references to other configuration files. T
 
 Commands can *mostly* be split into 4 categories:
 
-1. **[Digital Inputs](#1-digital-inputs)**. These are the simplest. Map a button press or stick movement to a key or mouse button. You can even map tapping a button and holding a button to two different digital inputs.
+1. **[Digital Inputs](#1-digital-inputs)**. These are the simplest. Map a button press or stick movement to a key or mouse button. There are many binding options available, such as tap & hold, simultaneous press and chorded press.
 2. **[Analog Triggers](#2-analog-triggers)**. The Dualshock 4 controller has 2 analog triggers: L2 and R2. JoyShockMapper can set different bindings on both "soft pull" and "full pull" of the trigger, maximizing use of those triggers. This feature is unavailable to controllers that have digital triggers, like the Nintendo Pro and Joycons.
 3. **[Stick Mouse Inputs](#3-stick-mouse-inputs)**. You can move the mouse with stick inputs and/or gyro inputs. Stick mouse has two different modes:
 	* **Aim stick**. This is your traditional/legacy stick aiming.
@@ -146,6 +152,8 @@ SCROLLUP, SCROLLDOWN: scroll the mouse wheel up, down, respectively
 PAGEUP, PAGEDOWN, HOME, END, INSERT, DELETE
 NONE: No input
 CALIBRATE: recalibrate gyro when pressing this input
+GYRO_ON, GYRO_OFF: Enable or disable gyroscope. See more below.
+GYRO_INV_X: Inverse the horizontal axis of the gyroscope
 ; ' , . / \ [ ] + -
 ```
 
@@ -155,6 +163,8 @@ For example, in a game where R is 'reload' and E is 'use’, you can do the foll
 W = R
 N = E
 ```
+
+#### 1.1 Tap & Hold
 
 Since a keyboard has many more inputs available than most controllers, console games will often map multiple actions to the same button while the PC version has those actions mapped to different keys. In order to fit keyboard mappings onto a controller, JoyShockMapper allows you to map taps and holds of a button to different keyboard/mouse inputs. So let's take that same game and make it so we can tap □ to 'reload' or hold □ to 'use':
 
@@ -168,6 +178,39 @@ If you want □ to 'reload' when tapped, but do nothing at all when held, you ca
 W = R NONE
 ```
 
+Tap bindings will apply the button press for up to half a second.
+
+
+#### 1.2 Simultaneous Press
+JoyShockMapper additionally allows you to map simultaneous button presses to different mappings. For example you can bind character abilities on your bumpers and an ultimate ability on both like this:
+
+```
+L = LSHIFT # Ability 1
+R = E      # Ability 2
+L+R = Q    # Ultimate Ability
+```
+
+To enable a simultaneous binding, both buttons need to be pressed within a very short time from eachother. Doing so will ignore the individual button bindings and apply the specified binding until either of the button is released. Simultaneous bindings also support tap & hold bindings just like other mappings. This feature is great to make use of the dpad diagonals, or to add JSM specific features like gyro calibration and gyro control without taking away accessible buttons.
+
+#### 1.3 Chorded Press
+Chorded press work very differently from Simultaneous Press, in spite of being similar in functionality. A chorded press mapping allows you to override a button mapping when the chord button is active. This enables a world of different practical combinations, allowing you to have contextual bindings, or even unmap a button. Here's an example for Left 4 Dead 2, that would enable you to equip items without lifting the thumb from the left stick.
+
+```
+W = R E # Reload / Use
+S = SPACE # Jump
+E = CONTROL # Crouch 
+N = T # Voice Chat
+
+L = Q NONE # Other weapon, hold to select with face button.
+L,W = 3 # Explosives
+L,S = 4 # Pills
+L,E = 5 # Medpack
+L,N = F # Flashlight
+```
+
+A button can be chorded with multiple other buttons. In this case, the latest chord takes precedence over previous chords. This can be understood as a stack of layers being put on top of the binding each time a chord is pressed, where only the top one is active. Notice that you don't need to have NONE as a binding. The chord binding could very well bring up a weapon wheel.
+
+#### 1.4 Gyro Button
 Lastly, there is one digital input that works differently, because it can overlap with any other input. Well, two inputs, but you'll use at most one of them in a given configuration:
 
 ```
@@ -175,26 +218,36 @@ GYRO_OFF
 GYRO_ON
 ```
 
-```GYRO_ON``` makes gyro mouse only work while a given button is pressed. ```GYRO_OFF``` disables the gyro while a given button is pressed. This is a really important feature absent from most games that have gyro aiming -- just as a PC gamer can temporarily "disable" the mouse by lifting it off the mousepad in order to reposition it, a gyro gamer should be able to temporarily disable the gyro in order to reposition it.
+When you assign a button to ```GYRO_ON```, gyro mouse only work while that button is pressed whereas ```GYRO_OFF``` disables the gyro while the button is pressed. This is a really important feature absent from most games that have gyro aiming -- just as a PC gamer can temporarily "disable" the mouse by lifting it off the mousepad in order to reposition it, a gyro gamer should be able to temporarily disable the gyro in order to reposition it. This binding ignores whether the button sends input to the game, or what kind of press is done with it. ```NONE``` is an acceptable binding, in which case the commands only sets whether the gyro is enabled or not at rest.
 
-```GYRO_ON``` is really useful for games where you only sometimes need to aim precisely. If ZL causes your character to aim their bow (like in *Zelda: Breath of the Wild*), maybe that's the only time you want to have gyro aiming enabled:
-
-```GYRO_ON = ZL```
-
-For games that really need to use all the buttons available on the controller, but one of those inputs is rarely used and can be toggled easily (like crouching, for example), it might make sense to make that input tap-only, and make it double as the gyro-off button when held:
+```GYRO_ON``` is really useful for games where you only sometimes need to aim precisely. If ZL causes your character to aim their bow (like in *Zelda: Breath of the Wild* or *Shadow of Mordor*), maybe that's the only time you want to have gyro aiming enabled.
 
 ```
-E = LCONTROL NONE
-GYRO_OFF = E
+ZL = RMOUSE   # Aim with Bow
+GYRO_ON = ZL  # Turn on gyro when ZL is pressed
 ```
 
 Or if you really can't spare a button for disabling the gyro, you can use LEFT\_STICK or RIGHT\_STICK to disable the gyro while that input is being used:
 
-```GYRO_OFF = RIGHT_STICK```
+```GYRO_OFF = RIGHT_STICK # Disable gyro while aiming with stick```
 
 I prefer to be able to use stick aiming (or flick stick) at the same time as aiming with the gyro, but this can still be better than having no way to disable the gyro at all if your game doesn't have an obvious function to tie to enabling gyro aiming (like a dedicated "aim weapon" button as is common in third-person action games).
 
-The command ```NO_GYRO_BUTTON``` can be used to remove the gyro-on or gyro-off mapping, making gyro always enabled. To have it always disabled, just set GYRO\_SENS to 0 (explained later). 
+```GYRO_ON``` and ```GYRO_OFF``` can also be bound as an action to particular buttons. Contrary to the command above, this takes the spot of the action binding. But you can still find creative ways with taps & holds or chorded press to bind the right gyro control where you need it. For example, if a button is bound to toggling crouch, it might make sense to make that input tap-only, and make it double as the gyro-off button when held:
+
+```
+E = LCONTROL GYRO_OFF # Toggle crouch on tap / Turn gyro off on hold
+```
+
+Since taps apply the binding for half a second, these gyro actions can be useful as tap bindings as well. Another binding is the possibility to invert the horizontal axis of the gyro with ```GYRO_INV_X```. Such a binding can be handy if you play with a single joycon because you don't have a second stick. When that action is enabled, the inversion makes it so that you can recenter the hands by continuing to turn in the opposite direction!
+
+```
+SL + SR = GYRO_OFF GYRO_INV_X  # Disable for .5s / Invert axis on simultaneous bumper hold
+```
+
+Bound gyro actions like those have priority over the assigned gyro button should they conflict. 
+
+The command ```NO_GYRO_BUTTON``` can be used to remove the gyro-on or gyro-off mapping, making gyro always enabled. To have it always disabled, just set ```GYRO_ON = NONE```. 
 
 ### 2. Analog Triggers
 
@@ -215,7 +268,10 @@ NO_FULL (default): Ignore full pull binding. This mode is enforced on controller
 NO_SKIP: Never skip the soft pull binding. Full pull binding activates anytime the trigger is fully pressed.
 MUST_SKIP: Only send full pull binding on a quick full press of the trigger, ignoring soft pull binding.
 MAY_SKIP: Combines NO_SKIP and MUST_SKIP: Soft binding may be skipped on a quick full press, and full pull can be activated on top of soft pull binding.
+MUST_SKIP_R: Responsive version of MUST_SKIP. See below.
+MAY_SKIP_R: Responsive version of MAY_SKIP. See below.
 ```
+
 For example, in Call of Duty you have a binding to hold your breath when aiming with a sniper. You can bind ADS on a soft trigger press and hold breath on the full press like this:
 
 ```
@@ -234,7 +290,9 @@ ZRF = V G           # Quick full tap to melee; Quick hold full press to unpin gr
 
 ```
 
-Using MUST_SKIP mode makes sure that once you start firing, reaching the full pull will **not** make you stop firing to melee. 
+Using MUST_SKIP mode makes sure that once you start firing, reaching the full pull will **not** make you stop firing to melee.
+
+The "Responsive" variants of the skip modes enable a different behaviour that can give you a better experience than the original versions in specific circumstances. These circumstances typically is when the soft binding is a mode-like binding like ADS or crouch, and there is no hold or simultaneous press binding as well on that soft press. The difference is that the soft binding is actived as soon as the trigger crosses the threshold, giving the desired responsive feeling, but gets removed if the full press is reached quickly, thus still allowing you to hip fire for example. This will result in a hopefully negligeable scope glitch but grants a snappier ADS activation.
 
 ### 3. Stick Mouse Inputs
 Each stick has 3 different modes to determine how it affects the mouse:

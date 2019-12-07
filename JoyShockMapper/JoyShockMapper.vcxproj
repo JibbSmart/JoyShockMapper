@@ -19,6 +19,7 @@
     </ProjectConfiguration>
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="include\Whitelister.h" />
     <ClInclude Include="include\JoyShockLibrary.h" />
     <ClInclude Include="include\inputHelpers.cpp" />
     <ClInclude Include="three\common.hpp" />
@@ -33,6 +34,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="src\main.cpp" />
+    <ClCompile Include="src\Whitelister.cpp" />
   </ItemGroup>
   <ItemGroup>
     <None Include="libs\JoyShockLibrary.dll" />

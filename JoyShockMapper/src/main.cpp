@@ -6,11 +6,12 @@
 #include <iostream>
 #include <fstream>
 #include <unordered_map>
-#include <queue>
+#include <deque>
 #include <memory>
 #include <mutex>
 
 #include "JoyShockLibrary.h"
+#include "Whitelister.h"
 #include "inputHelpers.cpp"
 
 #pragma warning(disable:4996)
@@ -19,10 +20,12 @@
 // C increases when all that's happened is some bugs have been fixed.
 // B increases and C resets to 0 when new features have been added.
 // A increases and B and C reset to 0 when major new features have been added that warrant a new major version, or replacing older features with better ones that require the user to interact with them differently
-const char* version = "1.3.0";
+const char* version = "1.4.0";
 
 #define PI 3.14159265359f
 
+#define MAPPING_ERROR -2 // Represents an error in user input
+#define MAPPING_NONE -1 // Represents no button when explicitely stated by the user. Not to be confused with NO_HOLD_MAPPED which is no action bound.
 #define MAPPING_UP 0
 #define MAPPING_DOWN 1
 #define MAPPING_LEFT 2
@@ -100,21 +103,32 @@ const char* version = "1.3.0";
 #define ZR_DUAL_STAGE_MODE 69
 #define ZL_DUAL_STAGE_MODE 70
 #define AUTOLOAD 71
-
-#define NO_HOLD_MAPPED 0x07
-#define CALIBRATE 0x0A
+#define HELP 72
+#define WHITELISTER 73
 
 #define MAGIC_DST_DELAY 150.0f // in milliseconds
+#define MAGIC_TAP_DURATION 500.0f // in milliseconds
 #define MAGIC_HOLD_TIME 150.0f // in milliseconds
-// A hold press on soft binding of a DST will add both these magic numbers
+#define MAGIC_SIM_DELAY 50.0f // in milliseconds
+static_assert(MAGIC_SIM_DELAY < MAGIC_HOLD_TIME, "Simultaneous press delay has to be smaller than hold delay!");
 
 enum class StickMode { none, aim, flick, invalid };
-enum class AxisMode { standard, inverted, invalid };
-enum class TriggerMode { noFull, noSkip, maySkip, mustSkip, invalid };
+enum       AxisMode { standard=1, inverted=-1, invalid=0 }; // valid values are true!
+enum class TriggerMode { noFull, noSkip, maySkip, mustSkip, maySkipResp, mustSkipResp, invalid };
 enum class GyroAxisMask { none = 0, x = 1, y = 2, z = 4, invalid = 8 };
 enum class JoyconMask { useBoth = 0, ignoreLeft = 1, ignoreRight = 2, ignoreBoth = 3, invalid = 4 };
-enum class GyroIgnoreMode { none, button, left, right };
-enum class DstState { NoPress = 0, PressStart, QuickSoftTap, QuickFullPress, QuickFullRelease, SoftPress, DelayFullPress, invalid };
+enum class GyroIgnoreMode { button, left, right };
+enum class DstState { NoPress = 0, PressStart, QuickSoftTap, QuickFullPress, QuickFullRelease, SoftPress, DelayFullPress, PressStartResp, invalid };
+enum class BtnState { NoPress = 0, BtnPress, WaitSim, WaitHold, SimPress, HoldPress, WaitSimHold, SimHold, SimRelease, SimTapRelease, TapRelease, invalid};
+
+// Mapping for a press combination, whether chorded or simultaneous
+struct ComboMap
+{
+	std::string name;
+	int btn;
+	WORD pressBind = 0;
+	WORD holdBind = 0;
+};
 
 std::mutex loading_lock;
 
@@ -123,19 +137,21 @@ StickMode right_stick_mode = StickMode::none;
 GyroAxisMask mouse_x_from_gyro = GyroAxisMask::y;
 GyroAxisMask mouse_y_from_gyro = GyroAxisMask::x;
 JoyconMask joycon_gyro_mask = JoyconMask::ignoreLeft;
-GyroIgnoreMode gyro_ignore_mode = GyroIgnoreMode::none;
+GyroIgnoreMode gyro_ignore_mode = GyroIgnoreMode::button; // Ignore mode none means no GYRO_OFF button
 TriggerMode zlMode = TriggerMode::noFull;
 TriggerMode zrMode = TriggerMode::noFull;
 WORD mappings[MAPPING_SIZE];
 WORD hold_mappings[MAPPING_SIZE];
+std::unordered_map<int, std::vector<ComboMap>> sim_mappings;
+std::unordered_map<int, std::vector<ComboMap>> chord_mappings; // Binds a chord button to one or many remappings
 float min_gyro_sens = 0.0;
 float max_gyro_sens = 0.0;
 float min_gyro_threshold = 0.0;
 float max_gyro_threshold = 0.0;
 float stick_power = 0.0;
 float stick_sens = 0.0;
-int gyro_button = 0;
-bool gyro_button_enables = false;
+int gyro_button = MAPPING_NONE; // No gyro button. The value is the btn index rather than the mask
+bool gyro_always_off = false; // gyro_button disables when gyro is always on and vice versa
 float real_world_calibration = 0.0;
 float in_game_sens = 1.0;
 float trigger_threshold = 0.0;
@@ -157,11 +173,6 @@ float last_flick_and_rotation = 0.0;
 std::unique_ptr<PollingThread> autoLoadThread;
 
 char tempConfigName[128];
-
-typedef struct ReleaseQueueItem {
-	std::chrono::steady_clock::time_point time_queued;
-	int index;
-} ReleaseQueueItem;
 
 typedef struct GyroSample {
 	float x;
@@ -193,10 +204,13 @@ public:
 	int intHandle;
 
 	std::chrono::steady_clock::time_point press_times[MAPPING_SIZE];
-	bool hold_triggered[MAPPING_SIZE];
+	BtnState btnState[MAPPING_SIZE];
+	WORD keyToRelease[MAPPING_SIZE]; // At key press, remember what to release
+	std::deque<int> chordStack; // Represents the remapping layers active. Each item needs to have an entry in chord_mappings.
+	std::deque<std::pair<int, WORD>> gyroActionQueue; // Queue of gyro control actions currently in effect
 	std::chrono::steady_clock::time_point started_flick;
 	std::chrono::steady_clock::time_point time_now;
-	std::queue<ReleaseQueueItem> tap_release_queue;
+	// tap_release_queue has been replaced with button states *TapRelease. The hold time of the tap is the polling period of the device.
 	float delta_flick = 0.0;
 	float flick_percent_done = 0.0;
 	float flick_rotation_counter = 0.0;
@@ -209,6 +223,236 @@ public:
 	float left_acceleration = 1.0;
 	float right_acceleration = 1.0;
 	std::vector<DstState> triggerState; // State of analog triggers when skip mode is active
+
+	WORD GetPressMapping(int index)
+	{
+		// Look at active chord mappings starting with the latest activates chord
+		for (auto activeChord = chordStack.begin(); activeChord != chordStack.end(); activeChord++)
+		{
+			for (auto chordPress : chord_mappings[*activeChord])
+			{
+				if (chordPress.btn == index)
+					return chordPress.pressBind;
+			}
+		}
+		return mappings[index];
+	}
+
+	WORD GetHoldMapping(int index)
+	{
+		// Look at active chord mappings starting with the latest activates chord
+		for (auto activeChord = chordStack.begin(); activeChord != chordStack.end(); activeChord++)
+		{
+			for (auto chordPress : chord_mappings[*activeChord])
+			{
+				if (chordPress.btn == index)
+					return chordPress.holdBind;
+			}
+		}
+		return hold_mappings[index];
+	}
+
+	void ApplyBtnPress(int index, bool tap = false)
+	{
+		auto key = GetPressMapping(index);
+		if (key == CALIBRATE)
+		{
+			toggleContinuous ^= tap; //Toggle on tap
+			if (!tap || toggleContinuous) {
+				printf("Starting continuous calibration\n");
+				JslResetContinuousCalibration(intHandle);
+				JslStartContinuousCalibration(intHandle);
+			}
+		}
+		else if (key == GYRO_INV_X || key == GYRO_ON_BIND || key == GYRO_OFF_BIND)
+		{
+			gyroActionQueue.push_back({ index, key });
+		}
+		else
+		{
+			pressKey(key, true);
+		}
+		keyToRelease[index] = key;
+		if (chord_mappings.find(index) != chord_mappings.cend())
+		{
+			chordStack.push_front(index); // Always push at the fromt to make it a stack
+		}
+	}
+
+	void ApplyBtnHold(int index)
+	{
+		auto key = GetHoldMapping(index);
+		if (key == CALIBRATE)
+		{
+			printf("Starting continuous calibration\n");
+			JslResetContinuousCalibration(intHandle);
+			JslStartContinuousCalibration(intHandle);
+		}
+		else if (key == GYRO_INV_X || key == GYRO_ON_BIND || key == GYRO_OFF_BIND)
+		{
+			gyroActionQueue.push_back({ index, key });
+		}
+		else if (key != NO_HOLD_MAPPED)
+		{
+			pressKey(key, true);
+		}
+		keyToRelease[index] = key;
+		if (chord_mappings.find(index) != chord_mappings.cend())
+		{
+			chordStack.push_front(index); // Always push at the front
+		}
+	}
+
+	void ApplyBtnRelease(int index, bool tap = false)
+	{
+		if (keyToRelease[index] == CALIBRATE)
+		{
+			if (!tap || !toggleContinuous) 
+			{
+				JslPauseContinuousCalibration(intHandle);
+				toggleContinuous = false; // if we've held the calibration button, we're disabling continuous calibration
+				printf("Gyro calibration set\n");
+			}
+		}
+		else if (keyToRelease[index] == GYRO_INV_X || keyToRelease[index] == GYRO_ON_BIND || keyToRelease[index] == GYRO_OFF_BIND)
+		{
+			gyroActionQueue.erase(std::find_if(gyroActionQueue.begin(), gyroActionQueue.end(), 
+				[index](auto pair)
+				{
+					return pair.first == index;
+				}));
+		}
+		else if (keyToRelease[index] != NO_HOLD_MAPPED)
+		{
+			pressKey(keyToRelease[index], false);
+		}
+		auto foundChord = std::find(chordStack.begin(), chordStack.end(), index);
+		if (foundChord != chordStack.end())
+		{
+			// The chord is released
+			chordStack.erase(foundChord);
+		}
+	}
+
+	void ApplyBtnPress(const ComboMap &simPress, int index, bool tap = false)
+	{
+		if (simPress.pressBind == CALIBRATE)
+		{
+			toggleContinuous ^= tap; //Toggle on tap
+			if (!tap || toggleContinuous) {
+				printf("Starting continuous calibration\n");
+				JslResetContinuousCalibration(intHandle);
+				JslStartContinuousCalibration(intHandle);
+			}
+		}
+		else if (simPress.pressBind == GYRO_INV_X || simPress.pressBind == GYRO_ON_BIND || simPress.pressBind == GYRO_OFF_BIND)
+		{
+			// I know I don't handle multiple inversion. Otherwise GYRO_INV_X on sim press would do nothing
+			gyroActionQueue.push_back({ index, simPress.pressBind });
+			gyroActionQueue.push_back({ simPress.btn, simPress.pressBind });
+		}
+		else
+		{
+			pressKey(simPress.pressBind, true);
+		}
+		keyToRelease[simPress.btn] = simPress.pressBind;
+		keyToRelease[index] = simPress.pressBind;
+		// Combo presses don't enable chords
+	}
+
+	void ApplyBtnHold(const ComboMap &simPress, int index)
+	{
+		if (simPress.holdBind == CALIBRATE)
+		{
+			printf("Starting continuous calibration\n");
+			JslResetContinuousCalibration(intHandle);
+			JslStartContinuousCalibration(intHandle);
+		}
+		else if (simPress.holdBind == GYRO_INV_X || simPress.holdBind == GYRO_ON_BIND || simPress.holdBind == GYRO_OFF_BIND)
+		{
+			// I know I don't handle multiple inversion. Otherwise GYRO_INV_X on sim press would do nothing
+			gyroActionQueue.push_back({ index, simPress.holdBind });
+			gyroActionQueue.push_back({ simPress.btn, simPress.holdBind });
+		}
+		else if (simPress.holdBind != NO_HOLD_MAPPED)
+		{
+			pressKey(simPress.holdBind, true);
+		}
+		keyToRelease[simPress.btn] = simPress.holdBind;
+		keyToRelease[index] = simPress.holdBind;
+		// Combo presses don't enable chords
+	}
+
+	void ApplyBtnRelease(const ComboMap &simPress, int index, bool tap = false)
+	{
+		if (keyToRelease[index] == CALIBRATE)
+		{
+			if (!tap || !toggleContinuous)
+			{
+				JslPauseContinuousCalibration(intHandle);
+				toggleContinuous = false; // if we've held the calibration button, we're disabling continuous calibration
+				printf("Gyro calibration set\n");
+			}
+		}
+		else if (keyToRelease[index] == GYRO_INV_X || keyToRelease[index] == GYRO_ON_BIND || keyToRelease[index] == GYRO_OFF_BIND)
+		{
+			gyroActionQueue.erase(std::find_if(gyroActionQueue.begin(), gyroActionQueue.end(),
+				[index](auto pair)
+				{
+					return pair.first == index;
+				}));
+			gyroActionQueue.erase(std::find_if(gyroActionQueue.begin(), gyroActionQueue.end(),
+				[simPress](auto pair)
+				{
+					return pair.first == simPress.btn;
+				}));
+		}
+		else if (keyToRelease[index] != NO_HOLD_MAPPED)
+		{
+			pressKey(keyToRelease[index], false);
+		}
+		auto foundChord = std::find(chordStack.begin(), chordStack.end(), index);
+		if (foundChord != chordStack.end())
+		{
+			// The chord is released
+			chordStack.erase(foundChord);
+		}
+	}
+
+	// Pretty wrapper
+	inline float GetPressDurationMS(int index)
+	{
+		return static_cast<float>(std::chrono::duration_cast<std::chrono::milliseconds>(time_now - press_times[index]).count());
+	}
+
+	// Indicate if the button is currently sending an assigned mapping.
+	bool IsActive(int mappingIndex)
+	{
+		if (mappingIndex >= 0 && mappingIndex < MAPPING_SIZE)
+		{
+			auto state = btnState[mappingIndex];
+			return state == BtnState::BtnPress || state == BtnState::HoldPress; // Add Sim Press State? Only with Setting?
+		}
+		return false;
+	}
+
+	inline const ComboMap* GetMatchingSimMap(int index)
+	{
+		// Find the simMapping where the other btn is in the same state as this btn.
+		// POTENTIAL FLAW: The mapping you find may not necessarily be the one that got you in a 
+		// Simultaneous state in the first place if there is a second SimPress going on where one
+		// of the buttons has a third SimMap with this one. I don't know if it's worth solving though...
+		if (sim_mappings.find(index) != sim_mappings.cend())
+		{
+			auto match = std::find_if(sim_mappings[index].cbegin(), sim_mappings[index].cend(),
+				[this, index](const auto& simMap)
+				{
+					return btnState[simMap.btn] == btnState[index];
+				});
+			return match == sim_mappings[index].cend() ? nullptr : &*match;
+		}
+		return nullptr;
+	}
 
 	void ResetSmoothSample() {
 		_frontSample = 0;
@@ -287,13 +531,6 @@ public:
 		outY = yResult + y * immediateFactor;
 	}
 
-	void QueueRelease(int index, std::chrono::steady_clock::time_point timeNow) {
-		ReleaseQueueItem queueItem;
-		queueItem.index = index;
-		queueItem.time_queued = timeNow;
-		tap_release_queue.push(queueItem);
-	}
-
 	~JoyShock() {
 	}
 };
@@ -355,8 +592,25 @@ static int keyToBitOffset(WORD index) {
 	}
 }
 
+bool IsPressed(const JOY_SHOCK_STATE& state, int mappingIndex)
+{
+	if (mappingIndex >= 0 && mappingIndex < MAPPING_SIZE)
+	{
+		if (mappingIndex == MAPPING_ZLF) return state.lTrigger == 1.0;
+		else if (mappingIndex == MAPPING_ZRF) return state.rTrigger == 1.0;
+		// Is it better to consider trigger_threshold for GYRO_ON/OFF on ZL/ZR?
+		else if (mappingIndex == MAPPING_ZL) return state.lTrigger > trigger_threshold;
+		else if (mappingIndex == MAPPING_ZR) return state.rTrigger > trigger_threshold;
+		else return state.buttons & (1 << keyToBitOffset(mappingIndex));
+	}
+	return false;
+}
+
 /// Yes, this looks slow. But it's only there to help set up mappings more easily
 static int keyToMappingIndex(std::string& s) {
+	if (s.rfind("NONE", 0) == 0) {
+		return MAPPING_NONE;
+	}
 	if (s.compare("UP") == 0) {
 		return MAPPING_UP;
 	}
@@ -570,7 +824,13 @@ static int keyToMappingIndex(std::string& s) {
 	if (s.rfind("AUTOLOAD", 0) == 0) {
 		return AUTOLOAD;
 	}
-	return -1;
+	if (s.rfind("HELP", 0) == 0) {
+		return HELP;
+	}
+	if (s.rfind("WHITELISTER", 0) == 0) {
+		return WHITELISTER;
+	}
+	return MAPPING_ERROR;
 }
 
 static StickMode nameToStickMode(std::string& name, bool print = false) {
@@ -619,6 +879,14 @@ static TriggerMode nameToTriggerMode(std::string& name, bool print = false) {
 	if (name.compare("MUST_SKIP") == 0) {
 		if (print) printf("Trigger can only apply full pull binding on a quick full pull, skipping trigger binding");
 		return TriggerMode::mustSkip;
+	}
+	if (name.compare("MAY_SKIP_R") == 0) {
+		if (print) printf("experimental responsive may skip.");
+		return TriggerMode::maySkipResp;
+	}
+	if (name.compare("MUST_SKIP_R") == 0) {
+		if (print) printf("experimental responsive must skip.");
+		return TriggerMode::mustSkipResp;
 	}
 	if (print) printf("\"%s\" invalid", name.c_str());
 	return TriggerMode::invalid;
@@ -702,7 +970,7 @@ static void resetAllMappings() {
 	trigger_threshold = 0.0f;
 	os_mouse_speed = 1.0f;
 	gyro_button = 0;
-	gyro_button_enables = false;
+	gyro_always_off = false;
 	aim_y_sign = 1.0f;
 	aim_x_sign = 1.0f;
 	gyro_y_sign = 1.0f;
@@ -762,13 +1030,15 @@ static void parseCommand(std::string line) {
 		strtrim(key);
 		//printf("Key: %s; ", key);
 		int index = keyToMappingIndex(std::string(key));
+		ComboMap *simMap = nullptr; // Used when parsing simultaneous press
+		ComboMap* chordMap = nullptr; // Used when parsing chorded press
 		// unary commands
 		switch (index) {
 		case NO_GYRO_BUTTON:
 			printf("No button disables or enables gyro\n");
-			gyro_button = 0;
-			gyro_button_enables = false;
-			gyro_ignore_mode = GyroIgnoreMode::none;
+			gyro_button = MAPPING_NONE;
+			gyro_always_off = false;
+			gyro_ignore_mode = GyroIgnoreMode::button;
 			return;
 		case RESET_MAPPINGS:
 			printf("Resetting all mappings to defaults\n");
@@ -821,7 +1091,7 @@ static void parseCommand(std::string line) {
 			}
 			return;
 		}
-		case RESTART_GYRO_CALIBRATION: {
+		case RESTART_GYRO_CALIBRATION:
 			printf("Restarting continuous calibration for all devices\n");
 			for (std::unordered_map<int, JoyShock*>::iterator iter = handle_to_joyshock.begin(); iter != handle_to_joyshock.end(); ++iter) {
 				JoyShock* jc = iter->second;
@@ -829,7 +1099,17 @@ static void parseCommand(std::string line) {
 				JslStartContinuousCalibration(jc->intHandle);
 			}
 			return;
-		}
+		case HELP:
+			printf("Opening online help in your browser\n");
+			if (auto err = ShowOnlineHelp() != 0)
+			{
+				printf("Could not open online help. Error #%d\n", err);
+			}
+			return;
+		case WHITELISTER:
+			printf("Launching HIDCerberus in your browser. Your PID is %lu\n", GetCurrentProcessId()); // WinAPI call!
+			Whitelister::ShowHIDCerberus();
+			return;
 		}
 		char value[128];
 		// other commands
@@ -838,11 +1118,8 @@ static void parseCommand(std::string line) {
 			//printf("Value: %s;\n", value);
 			// bam! got our thingy!
 			// now, let's map!
-			if (index < 0) {
-				printf("Warning: Input %s not recognised\n", key);
-				return;
-			}
-			else if (index == MAPPING_SIZE) {
+			// if index < 0 => handle Combo press after settings below
+			if (index == MAPPING_SIZE) {
 				printf("Error: Input %s somehow mapped to array size\n", key);
 				return;
 			}
@@ -968,10 +1245,10 @@ static void parseCommand(std::string line) {
 				case STICK_AXIS_X:
 				{
 					printf("Stick aim X axis: ");
-					AxisMode temp = nameToAxisMode(std::string(value), true);
+					AxisMode sign = nameToAxisMode(std::string(value), true);
 					printf("\n");
-					if (temp != AxisMode::invalid) {
-						aim_x_sign = temp == AxisMode::standard ? 1.0f : -1.0f;
+					if (sign) {
+						aim_x_sign = static_cast<float>(sign);
 					}
 					else {
 						printf("Valid settings for STICK_AXIS_X are STANDARD or INVERTED\n");
@@ -981,10 +1258,10 @@ static void parseCommand(std::string line) {
 				case STICK_AXIS_Y:
 				{
 					printf("Stick aim Y axis: ");
-					AxisMode temp = nameToAxisMode(std::string(value), true);
+					AxisMode sign = nameToAxisMode(std::string(value), true);
 					printf("\n");
-					if (temp != AxisMode::invalid) {
-						aim_y_sign = temp == AxisMode::standard ? 1.0f : -1.0f;
+					if (sign) {
+						aim_y_sign = static_cast<float>(sign);
 					}
 					else {
 						printf("Valid settings for STICK_AXIS_Y are STANDARD or INVERTED\n");
@@ -994,10 +1271,10 @@ static void parseCommand(std::string line) {
 				case GYRO_AXIS_X:
 				{
 					printf("Gyro aim X axis: ");
-					AxisMode temp = nameToAxisMode(std::string(value), true);
+					AxisMode sign = nameToAxisMode(std::string(value), true);
 					printf("\n");
-					if (temp != AxisMode::invalid) {
-						gyro_x_sign = temp == AxisMode::standard ? 1.0f : -1.0f;
+					if (sign) {
+						gyro_x_sign = static_cast<float>(sign);
 					}
 					else {
 						printf("Valid settings for GYRO_AXIS_X are STANDARD or INVERTED\n");
@@ -1007,10 +1284,10 @@ static void parseCommand(std::string line) {
 				case GYRO_AXIS_Y:
 				{
 					printf("Gyro aim Y axis: ");
-					AxisMode temp = nameToAxisMode(std::string(value), true);
+					AxisMode sign = nameToAxisMode(std::string(value), true);
 					printf("\n");
-					if (temp != AxisMode::invalid) {
-						gyro_y_sign = temp == AxisMode::standard ? 1.0f : -1.0f;
+					if (sign) {
+						gyro_y_sign = static_cast<float>(sign);
 					}
 					else {
 						printf("Valid settings for GYRO_AXIS_Y are STANDARD or INVERTED\n");
@@ -1073,23 +1350,29 @@ static void parseCommand(std::string line) {
 				{
 					std::string valueName = std::string(value);
 					int rhsMappingIndex = keyToMappingIndex(valueName);
-					if (rhsMappingIndex >= 0 && rhsMappingIndex < MAPPING_SIZE &&
-						rhsMappingIndex != MAPPING_ZRF && rhsMappingIndex != MAPPING_ZLF) // Full triggers are not valid options for gyro control
+					if (rhsMappingIndex >= 0 && rhsMappingIndex < MAPPING_SIZE)
 					{
-						gyro_button_enables = false;
+						gyro_always_off = false;
 						gyro_ignore_mode = GyroIgnoreMode::button;
-						gyro_button = 1 << keyToBitOffset(rhsMappingIndex);
+						gyro_button = rhsMappingIndex;
 						printf("Disable gyro with %s\n", value);
+					}
+					else if (rhsMappingIndex == MAPPING_NONE)
+					{
+						gyro_always_off = false;
+						gyro_ignore_mode = GyroIgnoreMode::button;
+						gyro_button = MAPPING_NONE;
+						printf("No button disables gyro\n");
 					}
 					else if (valueName.compare("LEFT_STICK") == 0)
 					{
-						gyro_button_enables = false;
+						gyro_always_off = false;
 						gyro_ignore_mode = GyroIgnoreMode::left;
 						printf("Disable gyro when left stick is used\n");
 					}
 					else if (valueName.compare("RIGHT_STICK") == 0)
 					{
-						gyro_button_enables = false;
+						gyro_always_off = false;
 						gyro_ignore_mode = GyroIgnoreMode::right;
 						printf("Disable gyro when right stick is used\n");
 					}
@@ -1102,23 +1385,29 @@ static void parseCommand(std::string line) {
 				{
 					std::string valueName = std::string(value);
 					int rhsMappingIndex = keyToMappingIndex(valueName);
-					if (rhsMappingIndex >= 0 && rhsMappingIndex < MAPPING_SIZE&&
-						rhsMappingIndex != MAPPING_ZRF && rhsMappingIndex != MAPPING_ZLF) // Full triggers are not valid options for gyro control
+					if (rhsMappingIndex >= 0 && rhsMappingIndex < MAPPING_SIZE)
 					{
-						gyro_button_enables = true;
+						gyro_always_off = true;
 						gyro_ignore_mode = GyroIgnoreMode::button;
-						gyro_button = 1 << keyToBitOffset(rhsMappingIndex);
+						gyro_button = rhsMappingIndex;
 						printf("Enable gyro with %s\n", value);
+					}
+					else if (rhsMappingIndex == MAPPING_NONE)
+					{
+						gyro_always_off = true;
+						gyro_ignore_mode = GyroIgnoreMode::button;
+						gyro_button = MAPPING_NONE;
+						printf("No button enables gyro\n");
 					}
 					else if (valueName.compare("LEFT_STICK") == 0)
 					{
-						gyro_button_enables = true;
+						gyro_always_off = true;
 						gyro_ignore_mode = GyroIgnoreMode::left;
 						printf("Enable gyro when left stick is used\n");
 					}
 					else if (valueName.compare("RIGHT_STICK") == 0)
 					{
-						gyro_button_enables = true;
+						gyro_always_off = true;
 						gyro_ignore_mode = GyroIgnoreMode::right;
 						printf("Enable gyro when right stick is used\n");
 					}
@@ -1254,11 +1543,12 @@ static void parseCommand(std::string line) {
 							if (JslGetControllerType(js.first) != JS_TYPE_DS4)
 							{
 								printf("WARNING: Dual Stage Triggers are only valid on analog triggers. Full pull bindings will be ignored on non DS4 controllers.\n");
+								break;
 							}
 						}
 					}
 					else {
-						printf("Valid settings for ZR_MODE are NO_FULL, NO_SKIP, MAY_SKIP and MUST_SKIP\n");
+						printf("Valid settings for ZR_MODE are NO_FULL, NO_SKIP, MAY_SKIP, MAY_SKIP_R, MUST_SKIP and MUST_SKIP_R\n");
 					}
 					return;
 				}
@@ -1274,11 +1564,12 @@ static void parseCommand(std::string line) {
 							if (JslGetControllerType(js.first) != JS_TYPE_DS4)
 							{
 								printf("WARNING: Dual Stage Triggers are only valid on analog triggers. Full pull bindings will be ignored on non DS4 controllers.\n");
+								break;
 							}
 						}
 					}
 					else {
-						printf("Valid settings for ZL_MODE are NO_FULL, NO_SKIP, MAY_SKIP and MUST_SKIP\n");
+						printf("Valid settings for ZR_MODE are NO_FULL, NO_SKIP, MAY_SKIP, MAY_SKIP_R, MUST_SKIP and MUST_SKIP_R\n");
 					}
 					return;
 				}
@@ -1309,8 +1600,71 @@ static void parseCommand(std::string line) {
 					printf("Error: Input %s somehow mapped to value out of mapping range\n", key);
 				}
 			}
-			// we have a valid input, so clear old hold_mapping for this input
-			hold_mappings[index] = 0;
+			else if (index < 0)
+			{
+				// Try Parsing a simultaneous Press
+				std::string keystr(key);
+				index = keyToMappingIndex(keystr.substr(0, keystr.find_first_of('+')));
+				int index2 = keyToMappingIndex(keystr.substr(keystr.find_first_of('+') + 1, keystr.size()));
+				if (index >= 0 && index < MAPPING_SIZE && index2 >= 0 && index2 < MAPPING_SIZE)
+				{
+					if (sim_mappings.find(index) != sim_mappings.end())
+					{
+						auto existingBinding = std::find_if(sim_mappings[index].begin(), sim_mappings[index].end(),
+							[index2] (const auto &mapping) {
+							return mapping.btn == index2;
+						});
+						if (existingBinding != sim_mappings[index].end())
+						{
+							// Remove any existing mapping
+							sim_mappings[index].erase(existingBinding);
+							// Is it fair to assume the opposing pair exists?
+							existingBinding = std::find_if(sim_mappings[index2].begin(), sim_mappings[index2].end(),
+								[index] (const auto &mapping) {
+								return mapping.btn == index;
+							});
+							sim_mappings[index2].erase(existingBinding);
+							if (sim_mappings[index2].size() == 0)
+							{
+								sim_mappings.erase(sim_mappings.find(index));
+							}
+						}
+					}
+					sim_mappings[index].push_back({ keystr, index2 });
+					simMap = &sim_mappings[index].back();
+				}
+				else
+				{
+					// Try parsing a chorded press
+					index = keyToMappingIndex(keystr.substr(0, keystr.find_first_of(',')));
+					int index2 = keyToMappingIndex(keystr.substr(keystr.find_first_of(',') + 1, keystr.size()));
+					if (index >= 0 && index < MAPPING_SIZE && index2 >= 0 && index2 < MAPPING_SIZE)
+					{
+						auto existingBinding = std::find_if(chord_mappings[index].cbegin(), chord_mappings[index].cend(),
+							[index2](const auto& chordMap) {
+								return chordMap.btn == index2;
+							});
+						if (existingBinding != chord_mappings[index].end())
+						{
+							// Remove any existing mapping
+							chord_mappings[index].erase(existingBinding);
+							if (chord_mappings[index2].size() == 0)
+							{
+								chord_mappings.erase(chord_mappings.find(index));
+							}
+						}
+						chord_mappings[index].push_back( { keystr, index2 } );
+						chordMap = &chord_mappings[index].back(); // point to vector item
+					}
+					else
+					{
+						printf("Warning: Input %s not recognized\n", key);
+						return;
+					}
+				}
+			}
+			// we have a valid single button input, so clear old hold_mapping for this input
+			if(index >= 0 && !simMap && !chordMap) hold_mappings[index] = 0;
 			WORD output = nameToKey(std::string(value));
 			if (output == NO_HOLD_MAPPED) {
 				output = 0;
@@ -1323,23 +1677,31 @@ static void parseCommand(std::string line) {
 				if (*subValue) {
 					// we haven't reached the end, we're good to go
 					*subValue = 0; // null terminating. now we maybe have two strings
+					subValue++;
 				}
-				subValue++;
+				// Else we have reached the end. Keep pointing at the 0
 				output = nameToKey(std::string(value));
 				WORD holdOutput = nameToKey(std::string(subValue));
 				if (output == 0x00) {
 					// tap and hold requires the tap to be a regular input. Hold can be none, if only taps should register input
-					printf("Tap output %s for %s not recognised\n", value, key);
+					printf("Tap output %s for %s not recognized\n", value, key);
 				}
 				else {
 					printf("Tap %s mapped to %s\n", key, value);
 				}
-				if (holdOutput == 0x00) {
-					printf("Hold output %s for input %s not recognised\n", subValue, key);
-				}
-				else {
-					hold_mappings[index] = holdOutput;
-					printf("Hold %s mapped to %s\n", key, subValue);
+				if (strlen(subValue) > 0)
+				{
+					if (holdOutput == 0x00 ) {
+						printf("Hold output %s for input %s not recognized\n", subValue, key);
+					}
+
+					else
+					{
+						simMap ? simMap->holdBind = holdOutput : 
+							chordMap ? chordMap->holdBind = holdOutput :
+							hold_mappings[index] = holdOutput;
+						printf("Hold %s mapped to %s\n", key, subValue);
+					}
 				}
 
 				// translate a "NONE" to 0 -- only keep it as a NO_HOLD_MAPPING for hold_mappings
@@ -1350,10 +1712,17 @@ static void parseCommand(std::string line) {
 			else {
 				printf("%s mapped to %s\n", key, value);
 			}
-			mappings[index] = output;
+			simMap ? simMap->pressBind = output : 
+				chordMap ? chordMap->pressBind = output :
+				mappings[index] = output;
+			if(simMap)
+			{
+				// Sim Press commands are added as twins
+				sim_mappings[simMap->btn].push_back( {simMap->name, index, simMap->pressBind, simMap->holdBind} );
+			}
 		}
 		else {
-			printf("Command \"%s\" not recognised\n", line.c_str());
+			printf("Command \"%s\" not recognized\nEnter HELP to open online documentation\n", line.c_str());
 		}
 	}
 }
@@ -1394,92 +1763,223 @@ bool processDeadZones(float& x, float& y) {
 	return false;
 }
 
-void handleButtonChange(int index, bool lastPressed, bool pressed, const char* name, JoyShock* jc) {
-	if (pressed && lastPressed && !jc->hold_triggered[index]) {
-		// does it need hold-checking?
-		if (hold_mappings[index] != 0 && hold_mappings[index] != NO_HOLD_MAPPED) {
-			// it does!
-			float pressTimeMS = ((float)std::chrono::duration_cast<std::chrono::microseconds>(jc->time_now - jc->press_times[index]).count()) / 1000.0f;
-			if (pressTimeMS >= MAGIC_HOLD_TIME) { // todo: get rid of magic number -- make this a user setting
-				pressKey(hold_mappings[index], true); // start pressing the hold key!
-				jc->hold_triggered[index] = true;
-				printf("%s: held\n", name);
-				// reset calibration
-				if (hold_mappings[index] == CALIBRATE) {
-					printf("Resetting continuous calibration\n");
-					JslResetContinuousCalibration(jc->intHandle);
-					JslStartContinuousCalibration(jc->intHandle);
-				}
-			}
-		}
-	}
-	if (lastPressed != pressed) {
-		if (hold_mappings[index] != 0) {
-			// we have to handle tapping or holding for this button!
-			if (pressed) {
-				// started being pressed, so start tracking time for this input
+void handleButtonChange(int index, bool pressed, const char* name, JoyShock* jc) {
+	switch (jc->btnState[index])
+	{
+	case BtnState::NoPress:
+		if (pressed)
+		{
+			if (sim_mappings.find(index) != sim_mappings.end() && sim_mappings[index].size() > 0)
+			{
+				jc->btnState[index] = BtnState::WaitSim;
 				jc->press_times[index] = jc->time_now;
 			}
-			else {
-				// released, so we have to either queue up a tap action or just do a simple release of the mapped hold key
-				float pressTimeMS = ((float)std::chrono::duration_cast<std::chrono::microseconds>(jc->time_now - jc->press_times[index]).count()) / 1000.0f;
-				if (pressTimeMS >= MAGIC_HOLD_TIME) { // todo: get rid of magic number -- make this a user setting
-					jc->hold_triggered[index] = false;
-					if (hold_mappings[index] != NO_HOLD_MAPPED) {
-						// it was a hold!
-						pressKey(hold_mappings[index], false);
-						printf("%s: hold released\n", name);
-						// handle calibration offset
-						if (hold_mappings[index] == CALIBRATE) {
-							JslPauseContinuousCalibration(jc->intHandle);
-							jc->toggleContinuous = false; // if we've held the calibration button, we're disabling continuous calibration
-							printf("Gyro calibration set\n");
-						}
-					}
-				}
-				else {
-					// it was a tap! press and then queue up a release
-					pressKey(mappings[index], true);
-					jc->QueueRelease(index, jc->time_now + std::chrono::milliseconds(30)); // another magic number
-					jc->hold_triggered[index] = false;
-					printf("%s: tapped\n", name);
-					// handle continous calibration toggle
-					if (mappings[index] == CALIBRATE) {
-						jc->toggleContinuous = !jc->toggleContinuous;
-						if (jc->toggleContinuous) {
-							JslResetContinuousCalibration(jc->intHandle);
-							JslStartContinuousCalibration(jc->intHandle);
-							printf("Enabled continuous calibration\n");
-						}
-						else {
-							JslPauseContinuousCalibration(jc->intHandle);
-							printf("Disabled continuous calibration\n");
-						}
-					}
-				}
+			else if (jc->GetHoldMapping(index))
+			{
+				jc->btnState[index] = BtnState::WaitHold;
+				jc->press_times[index] = jc->time_now;
+			}
+			else
+			{
+				jc->btnState[index] = BtnState::BtnPress;
+				jc->ApplyBtnPress(index);
+				printf("%s: true\n", name);
 			}
 		}
-		else {
-			pressKey(mappings[index], pressed);
-			jc->hold_triggered[index] = false;
-			printf("%s: %s\n", name, pressed ? "true" : "false");
-			if (mappings[index] == CALIBRATE) {
-				if (pressed) {
-					printf("Resetting continuous calibration\n");
-					JslResetContinuousCalibration(jc->intHandle);
-					JslStartContinuousCalibration(jc->intHandle);
+		break;
+	case BtnState::BtnPress:
+		if (!pressed)
+		{
+			jc->btnState[index] = BtnState::NoPress;
+			jc->ApplyBtnRelease(index);
+			printf("%s: false\n", name);
+		}
+		break;
+	case BtnState::WaitSim:
+		if (!pressed)
+		{
+			jc->btnState[index] = BtnState::TapRelease;
+			jc->press_times[index] = jc->time_now;
+			jc->ApplyBtnPress(index, true);
+			printf("%s: tapped\n", name);
+		}
+		else
+		{
+			// Is there a sim mapping on this button where the other button is in WaitSim state too?
+			auto simMap = jc->GetMatchingSimMap(index);
+			if (simMap)
+			{
+				// We have a simultaneous press!
+				if (simMap->holdBind)
+				{
+					jc->btnState[index] = BtnState::WaitSimHold;
+					jc->btnState[simMap->btn] = BtnState::WaitSimHold;
+					jc->press_times[index] = jc->time_now; // Reset Timer
 				}
-				else {
-					JslPauseContinuousCalibration(jc->intHandle);
-					jc->toggleContinuous = false; // if we've held the calibration button, we're disabling continuous calibration
-					printf("Gyro calibration set\n");
+				else
+				{
+					jc->btnState[index] = BtnState::SimPress;
+					jc->btnState[simMap->btn] = BtnState::SimPress;
+					jc->ApplyBtnPress(*simMap, index);
+					printf("%s: true\n", simMap->name.c_str());
 				}
 			}
+			else if (jc->GetPressDurationMS(index) > MAGIC_SIM_DELAY)
+			{
+				// Sim delay expired!
+				if (jc->GetHoldMapping(index))
+				{
+					jc->btnState[index] = BtnState::WaitHold;
+					// Don't reset time
+				}
+				else
+				{
+					jc->btnState[index] = BtnState::BtnPress;
+					jc->ApplyBtnPress(index);
+					printf("%s: true\n", name);
+				}
+			}
+			// Else let time flow, stay in this state, no output.
 		}
+		break;
+	case BtnState::WaitHold:
+		if (!pressed)
+		{
+			jc->btnState[index] = BtnState::TapRelease;
+			jc->press_times[index] = jc->time_now;
+			jc->ApplyBtnPress(index, true);
+			printf("%s: tapped\n", name);
+		}
+		else if (jc->GetPressDurationMS(index) > MAGIC_HOLD_TIME)
+		{
+			jc->btnState[index] = BtnState::HoldPress;
+			jc->ApplyBtnHold(index);
+			printf("%s: held\n", name);
+		}
+		// Else let time flow, stay in this state, no output.
+		break;
+	case BtnState::SimPress:
+	{
+		// Which is the sim mapping where the other button is in SimPress state too?
+		auto simMap = jc->GetMatchingSimMap(index);
+		if (!simMap)
+		{
+			// Should never happen but added for robustness.
+			printf("Error: lost track of matching sim press for %s! Resetting to NoPress.\n", name);
+			jc->btnState[index] = BtnState::NoPress;
+		}
+		else if (!pressed)
+		{
+			jc->btnState[index] = BtnState::SimRelease;
+			jc->btnState[simMap->btn] = BtnState::SimRelease;
+			jc->ApplyBtnRelease(*simMap, index);
+			printf("%s: false\n", simMap->name.c_str());
+		}
+		// else sim press is being held, as far as this button is concerned.
+		break;
+	}
+	case BtnState::HoldPress:
+		if (!pressed)
+		{
+			jc->btnState[index] = BtnState::NoPress;
+			jc->ApplyBtnRelease(index);
+			printf("%s: hold released\n", name);
+		}
+		break;
+	case BtnState::WaitSimHold:
+	{
+		// Which is the sim mapping where the other button is in WaitSimHold state too?
+		auto simMap = jc->GetMatchingSimMap(index);
+		if (!simMap)
+		{
+			// Should never happen but added for robustness.
+			printf("Error: lost track of matching sim press for %s! Resetting to NoPress.\n", name);
+			jc->btnState[index] = BtnState::NoPress;
+		}
+		else if (!pressed)
+		{
+			jc->btnState[index] = BtnState::SimTapRelease;
+			jc->btnState[simMap->btn] = BtnState::SimTapRelease;
+			jc->press_times[index] = jc->time_now;
+			jc->press_times[simMap->btn] = jc->time_now;
+			jc->ApplyBtnPress(*simMap, index, true);
+			printf("%s: tapped\n", simMap->name.c_str());
+		}
+		else if (jc->GetPressDurationMS(index) > MAGIC_HOLD_TIME)
+		{
+			jc->btnState[index] = BtnState::SimHold;
+			jc->btnState[simMap->btn] = BtnState::SimHold;
+			jc->ApplyBtnHold(*simMap, index);
+			printf("%s: held\n", simMap->name.c_str());
+			// Else let time flow, stay in this state, no output.
+		}
+		break;
+	}
+	case BtnState::SimHold:
+	{
+		// Which is the sim mapping where the other button is in SimHold state too?
+		auto simMap = jc->GetMatchingSimMap(index);
+		if (!simMap)
+		{
+			// Should never happen but added for robustness.
+			printf("Error: lost track of matching sim press for %s! Resetting to NoPress.\n", name);
+			jc->btnState[index] = BtnState::NoPress;
+		}
+		else if (!pressed)
+		{
+			jc->btnState[index] = BtnState::SimRelease;
+			jc->btnState[simMap->btn] = BtnState::SimRelease;
+			jc->ApplyBtnRelease(*simMap, index);
+			printf("%s: hold released\n", simMap->name.c_str());
+		}
+		break;
+	}
+	case BtnState::SimRelease:
+		if (!pressed)
+		{
+			jc->btnState[index] = BtnState::NoPress;
+		}
+		break;
+	case BtnState::SimTapRelease:
+	{
+		// Which is the sim mapping where the other button is in SimTapRelease state too?
+		auto simMap = jc->GetMatchingSimMap(index);
+		if (!simMap)
+		{
+			// Should never happen but added for robustness.
+			printf("Error: lost track of matching sim press for %s! Resetting to NoPress.\n", name);
+			jc->btnState[index] = BtnState::NoPress;
+		}
+		else if (pressed)
+		{
+			jc->ApplyBtnRelease(*simMap, index, true);
+			jc->btnState[index] = BtnState::NoPress;
+			jc->btnState[simMap->btn] = BtnState::SimRelease;
+		}
+		else if (jc->GetPressDurationMS(index) > MAGIC_TAP_DURATION)
+		{
+			jc->ApplyBtnRelease(*simMap, index, true);
+			jc->btnState[index] = BtnState::SimRelease;
+			jc->btnState[simMap->btn] = BtnState::SimRelease;
+		}
+		break;
+	}
+	case BtnState::TapRelease:
+		if (pressed || jc->GetPressDurationMS(index) > MAGIC_TAP_DURATION)
+		{
+			jc->ApplyBtnRelease(index, true);
+			jc->btnState[index] = BtnState::NoPress;
+		}
+		break;
+	default:
+		printf("Invalid button state %d: Resetting to NoPress\n", jc->btnState[index]);
+		jc->btnState[index] = BtnState::NoPress;
+		break;
+		
 	}
 }
 
-void handleTriggerChange(int softIndex, int fullIndex, TriggerMode mode, float lastPressed, float pressed, char* softName, JoyShock* jc) {
+void handleTriggerChange(int softIndex, int fullIndex, TriggerMode mode, float pressed, char* softName, JoyShock* jc) {
 	std::string fullName(softName);
 	fullName.append("F");
 
@@ -1492,7 +1992,7 @@ void handleTriggerChange(int softIndex, int fullIndex, TriggerMode mode, float l
 	auto idxState = fullIndex - FIRST_ANALOG_TRIGGER; // Get analog trigger index
 	if (idxState < 0 || idxState >= jc->triggerState.size())
 	{
-		printf("Error: Trigger %s does not exist in state map. Dual Stage Trigger not possible.\n", fullName);
+		printf("Error: Trigger %s does not exist in state map. Dual Stage Trigger not possible.\n", fullName.c_str());
 		return;
 	}
 	switch (jc->triggerState[idxState])
@@ -1507,53 +2007,74 @@ void handleTriggerChange(int softIndex, int fullIndex, TriggerMode mode, float l
 				jc->triggerState[idxState] = DstState::PressStart;
 				jc->press_times[softIndex] = jc->time_now;
 			}
+			else if (mode == TriggerMode::maySkipResp || mode == TriggerMode::mustSkipResp)
+			{
+				jc->triggerState[idxState] = DstState::PressStartResp;
+				jc->press_times[softIndex] = jc->time_now;
+				handleButtonChange(softIndex, true, softName, jc);
+			}
 			else // mode == NO_FULL or NO_SKIP
 			{
 				jc->triggerState[idxState] = DstState::SoftPress;
-				// Reset the time for hold soft press purposes.
-				jc->press_times[softIndex] = jc->time_now;
-				handleButtonChange(softIndex, false, true, softName, jc);
+				handleButtonChange(softIndex, true, softName, jc);
 			}
 		}
 		break;
 	case DstState::PressStart:
-		if (lastPressed > trigger_threshold && pressed <= trigger_threshold) {
+		if (pressed <= trigger_threshold) {
 			// Trigger has been quickly tapped on the soft press
 			jc->triggerState[idxState] = DstState::QuickSoftTap;
-			handleButtonChange(softIndex, false, true, softName, jc);
+			handleButtonChange(softIndex, true, softName, jc);
 		}
-		else if (lastPressed > trigger_threshold && lastPressed < 1.0 && pressed == 1.0)
+		else if (pressed == 1.0)
 		{
 			// Trigger has been full pressed quickly
 			jc->triggerState[idxState] = DstState::QuickFullPress;
-			handleButtonChange(fullIndex, false, true, fullName.c_str(), jc);
+			handleButtonChange(fullIndex, true, fullName.c_str(), jc);
+		}
+		else if (jc->GetPressDurationMS(softIndex) >= MAGIC_DST_DELAY) { // todo: get rid of magic number -- make this a user setting )
+			jc->triggerState[idxState] = DstState::SoftPress;
+			// Reset the time for hold soft press purposes.
+			jc->press_times[softIndex] = jc->time_now;
+			handleButtonChange(softIndex, true, softName, jc);
+		}
+		// Else, time passes as soft press is being held, waiting to see if the soft binding should be skipped
+		break;
+	case DstState::PressStartResp:
+		if (pressed <= trigger_threshold) {
+			// Soft press is being released
+			jc->triggerState[idxState] = DstState::NoPress;
+			handleButtonChange(softIndex, false, softName, jc);
+		}
+		else if (pressed == 1.0)
+		{
+			// Trigger has been full pressed quickly
+			jc->triggerState[idxState] = DstState::QuickFullPress;
+			handleButtonChange(softIndex, false, softName, jc); // Remove soft press
+			handleButtonChange(fullIndex, true, fullName.c_str(), jc);
 		}
 		else
 		{
-			float pressTimeMS = ((float)std::chrono::duration_cast<std::chrono::microseconds>(jc->time_now - jc->press_times[softIndex]).count()) / 1000.0f;
-			if (pressTimeMS >= MAGIC_DST_DELAY) { // todo: get rid of magic number -- make this a user setting )
+			if (jc->GetPressDurationMS(softIndex) >= MAGIC_DST_DELAY) { // todo: get rid of magic number -- make this a user setting )
 				jc->triggerState[idxState] = DstState::SoftPress;
-				// Reset the time for hold soft press purposes.
-				jc->press_times[softIndex] = jc->time_now;
-				handleButtonChange(softIndex, false, true, softName, jc);
 			}
+			handleButtonChange(softIndex, true, softName, jc);
 		}
-		// Else, time passes as soft press is being held, waiting to see if the soft binding should be skipped
 		break;
 	case DstState::QuickSoftTap:
 		// Soft trigger is already released. Send release now!
 		jc->triggerState[idxState] = DstState::NoPress;
-		handleButtonChange(softIndex, true, false, softName, jc);
+		handleButtonChange(softIndex, false, softName, jc);
 		break;
 	case DstState::QuickFullPress:
-		if (lastPressed == 1.0f && pressed < 1.0f) {
+		if (pressed < 1.0f) {
 			// Full press is being release
 			jc->triggerState[idxState] = DstState::QuickFullRelease;
-			handleButtonChange(fullIndex, true, false, fullName.c_str(), jc);
+			handleButtonChange(fullIndex, false, fullName.c_str(), jc);
 		}
 		else {
 			// Full press is being held
-			handleButtonChange(fullIndex, true, true, fullName.c_str(), jc);
+			handleButtonChange(fullIndex, true, fullName.c_str(), jc);
 		}
 		break;
 	case DstState::QuickFullRelease:
@@ -1564,43 +2085,43 @@ void handleTriggerChange(int softIndex, int fullIndex, TriggerMode mode, float l
 		{
 			// Trigger is being full pressed again
 			jc->triggerState[idxState] = DstState::QuickFullPress;
-			handleButtonChange(fullIndex, false, true, fullName.c_str(), jc);
+			handleButtonChange(fullIndex, true, fullName.c_str(), jc);
 		}
 		// else wait for the the trigger to be fully released
 		break;
 	case DstState::SoftPress:
-		if (lastPressed > trigger_threshold && pressed <= trigger_threshold) {
+		if (pressed <= trigger_threshold) {
 			// Soft press is being released
 			jc->triggerState[idxState] = DstState::NoPress;
-			handleButtonChange(softIndex, true, false, softName, jc);
+			handleButtonChange(softIndex, false, softName, jc);
 		}
 		else // Soft Press is being held
 		{
-			handleButtonChange(softIndex, true, true, fullName.c_str(), jc);
+			handleButtonChange(softIndex, true, fullName.c_str(), jc);
 
-			if ((mode == TriggerMode::maySkip || mode == TriggerMode::noSkip) &&
-				lastPressed > trigger_threshold && lastPressed < 1.0 && pressed == 1.0)
+			if ((mode == TriggerMode::maySkip || mode == TriggerMode::noSkip || mode == TriggerMode::maySkipResp)
+				&& pressed == 1.0)
 			{
 				// Full press is allowed in addition to soft press
 				jc->triggerState[idxState] = DstState::DelayFullPress;
-				handleButtonChange(fullIndex, false, true, fullName.c_str(), jc);
+				handleButtonChange(fullIndex, true, fullName.c_str(), jc);
 			}
 			// else ignore full press on NO_FULL and MUST_SKIP
 		}
 		break;
 	case DstState::DelayFullPress:
-		if (lastPressed == 1.0 && pressed < 1.0)
+		if (pressed < 1.0)
 		{
 			// Full Press is being released
 			jc->triggerState[idxState] = DstState::SoftPress;
-			handleButtonChange(fullIndex, true, false, fullName.c_str(), jc);
+			handleButtonChange(fullIndex, false, fullName.c_str(), jc);
 		}
 		else // Full press is being held
 		{
-			handleButtonChange(fullIndex, true, true, fullName.c_str(), jc);
+			handleButtonChange(fullIndex, true, fullName.c_str(), jc);
 		}
 		// Soft press is always held regardless
-		handleButtonChange(softIndex, true, true, fullName.c_str(), jc);
+		handleButtonChange(softIndex, true, fullName.c_str(), jc);
 		break;
 	default:
 		// TODO: use magic enum to translate enum # to str
@@ -1736,12 +2257,6 @@ void joyShockPollCallback(int jcHandle, JOY_SHOCK_STATE state, JOY_SHOCK_STATE l
 	}
 
 	jc->time_now = std::chrono::steady_clock::now();
-	ReleaseQueueItem item;
-	while (jc->tap_release_queue.size() > 0 && (jc->tap_release_queue.front().time_queued - jc->time_now).count() < 0) {
-		item = jc->tap_release_queue.front();
-		pressKey(mappings[item.index], false);
-		jc->tap_release_queue.pop();
-	}
 
 	// sticks!
 	float camSpeedX = 0.0f;
@@ -1793,13 +2308,13 @@ void joyShockPollCallback(int jcHandle, JOY_SHOCK_STATE state, JOY_SHOCK_STATE l
 	}
 	else {
 		// left!
-		handleButtonChange(MAPPING_LLEFT, lastLeft, left, "LLEFT", jc);
+		handleButtonChange(MAPPING_LLEFT, left, "LLEFT", jc);
 		// right!
-		handleButtonChange(MAPPING_LRIGHT, lastRight, right, "LRIGHT", jc);
+		handleButtonChange(MAPPING_LRIGHT, right, "LRIGHT", jc);
 		// up!
-		handleButtonChange(MAPPING_LUP, lastUp, up, "LUP", jc);
+		handleButtonChange(MAPPING_LUP, up, "LUP", jc);
 		// down!
-		handleButtonChange(MAPPING_LDOWN, lastDown, down, "LDOWN", jc);
+		handleButtonChange(MAPPING_LDOWN, down, "LDOWN", jc);
 
 		leftAny = left | right | up | down;
 	}
@@ -1847,30 +2362,60 @@ void joyShockPollCallback(int jcHandle, JOY_SHOCK_STATE state, JOY_SHOCK_STATE l
 	}
 	else {
 		// left!
-		handleButtonChange(MAPPING_RLEFT, lastLeft, left, "RLEFT", jc);
+		handleButtonChange(MAPPING_RLEFT, left, "RLEFT", jc);
 		// right!
-		handleButtonChange(MAPPING_RRIGHT, lastRight, right, "RRIGHT", jc);
+		handleButtonChange(MAPPING_RRIGHT, right, "RRIGHT", jc);
 		// up!
-		handleButtonChange(MAPPING_RUP, lastUp, up, "RUP", jc);
+		handleButtonChange(MAPPING_RUP, up, "RUP", jc);
 		// down!
-		handleButtonChange(MAPPING_RDOWN, lastDown, down, "RDOWN", jc);
+		handleButtonChange(MAPPING_RDOWN, down, "RDOWN", jc);
 
 		rightAny = left | right | up | down;
 	}
 
+	// button mappings
+	handleButtonChange(MAPPING_UP, (state.buttons & JSMASK_UP) > 0, "UP", jc);
+	handleButtonChange(MAPPING_DOWN, (state.buttons & JSMASK_DOWN) > 0, "DOWN", jc);
+	handleButtonChange(MAPPING_LEFT, (state.buttons & JSMASK_LEFT) > 0, "LEFT", jc);
+	handleButtonChange(MAPPING_RIGHT, (state.buttons & JSMASK_RIGHT) > 0, "RIGHT", jc);
+	handleButtonChange(MAPPING_L, (state.buttons & JSMASK_L) > 0, "L", jc);
+	handleTriggerChange(MAPPING_ZL, MAPPING_ZLF, zlMode, state.lTrigger, "ZL", jc);
+	handleButtonChange(MAPPING_MINUS, (state.buttons & JSMASK_MINUS) > 0, "MINUS", jc);
+	handleButtonChange(MAPPING_CAPTURE, (state.buttons & JSMASK_CAPTURE) > 0, "CAPTURE", jc);
+	handleButtonChange(MAPPING_E, (state.buttons & JSMASK_E) > 0, "E", jc);
+	handleButtonChange(MAPPING_S, (state.buttons & JSMASK_S) > 0, "S", jc);
+	handleButtonChange(MAPPING_N, (state.buttons & JSMASK_N) > 0, "N", jc);
+	handleButtonChange(MAPPING_W, (state.buttons & JSMASK_W) > 0, "W", jc);
+	handleButtonChange(MAPPING_R, (state.buttons & JSMASK_R) > 0, "R", jc);
+	handleTriggerChange(MAPPING_ZR, MAPPING_ZRF, zrMode, state.rTrigger, "ZR", jc);
+	handleButtonChange(MAPPING_PLUS, (state.buttons & JSMASK_PLUS) > 0, "PLUS", jc);
+	handleButtonChange(MAPPING_HOME, (state.buttons & JSMASK_HOME) > 0, "HOME", jc);
+	handleButtonChange(MAPPING_SL, (state.buttons & JSMASK_SL) > 0, "SL", jc);
+	handleButtonChange(MAPPING_SR, (state.buttons & JSMASK_SR) > 0, "SR", jc);
+	handleButtonChange(MAPPING_L3, (state.buttons & JSMASK_LCLICK) > 0, "L3", jc);
+	handleButtonChange(MAPPING_R3, (state.buttons & JSMASK_RCLICK) > 0, "R3", jc);
+
+	// Handle buttons before GYRO because some of them may affect the value of blockGyro
 	switch (gyro_ignore_mode) {
-	case GyroIgnoreMode::none:
-		blockGyro = false;
-		break;
 	case GyroIgnoreMode::button:
-		blockGyro = (gyro_button_enables ^ ((state.buttons & gyro_button) != 0));
+		blockGyro = gyro_always_off ^ IsPressed(state, gyro_button); // Use jc->IsActive(gyro_button) to consider button state
 		break;
 	case GyroIgnoreMode::left:
-		blockGyro = (gyro_button_enables ^ leftAny);
+		blockGyro = (gyro_always_off ^ leftAny);
 		break;
 	case GyroIgnoreMode::right:
-		blockGyro = (gyro_button_enables ^ rightAny);
+		blockGyro = (gyro_always_off ^ rightAny);
 		break;
+	}
+	float gyro_x_sign_to_use = gyro_x_sign;
+
+	// Apply gyro modifiers in the queue from oldest to newest (thus giving priority to most recent)
+	for (auto pair : jc->gyroActionQueue)
+	{
+		// TODO: logic optimization
+		if (pair.second == GYRO_ON_BIND) blockGyro = false;
+		else if (pair.second == GYRO_OFF_BIND) blockGyro = true;
+		else if (pair.second == GYRO_INV_X) gyro_x_sign_to_use = -1 * gyro_x_sign; // Intentionally don't support multiple inversions
 	}
 
 	if (blockGyro) {
@@ -1883,30 +2428,8 @@ void joyShockPollCallback(int jcHandle, JOY_SHOCK_STATE state, JOY_SHOCK_STATE l
 	{
 		//printf("GX: %0.4f GY: %0.4f GZ: %0.4f\n", imuState.gyroX, imuState.gyroY, imuState.gyroZ);
 		float mouseCalibration = real_world_calibration / os_mouse_speed / in_game_sens;
-		shapedSensitivityMoveMouse(gyroX * gyro_x_sign, gyroY * gyro_y_sign, min_gyro_sens, max_gyro_sens, min_gyro_threshold, max_gyro_threshold, deltaTime, camSpeedX * aim_x_sign, -camSpeedY * aim_y_sign, mouseCalibration);
+		shapedSensitivityMoveMouse(gyroX * gyro_x_sign_to_use, gyroY * gyro_y_sign, min_gyro_sens, max_gyro_sens, min_gyro_threshold, max_gyro_threshold, deltaTime, camSpeedX * aim_x_sign, -camSpeedY * aim_y_sign, mouseCalibration);
 	}
-
-	// button mappings
-	handleButtonChange(MAPPING_UP, (lastState.buttons & JSMASK_UP) > 0, (state.buttons & JSMASK_UP) > 0, "UP", jc);
-	handleButtonChange(MAPPING_DOWN, (lastState.buttons & JSMASK_DOWN) > 0, (state.buttons & JSMASK_DOWN) > 0, "DOWN", jc);
-	handleButtonChange(MAPPING_LEFT, (lastState.buttons & JSMASK_LEFT) > 0, (state.buttons & JSMASK_LEFT) > 0, "LEFT", jc);
-	handleButtonChange(MAPPING_RIGHT, (lastState.buttons & JSMASK_RIGHT) > 0, (state.buttons & JSMASK_RIGHT) > 0, "RIGHT", jc);
-	handleButtonChange(MAPPING_L, (lastState.buttons & JSMASK_L) > 0, (state.buttons & JSMASK_L) > 0, "L", jc);
-	handleTriggerChange(MAPPING_ZL, MAPPING_ZLF, zlMode, lastState.lTrigger, state.lTrigger, "ZL", jc);
-	handleButtonChange(MAPPING_MINUS, (lastState.buttons & JSMASK_MINUS) > 0, (state.buttons & JSMASK_MINUS) > 0, "MINUS", jc);
-	handleButtonChange(MAPPING_CAPTURE, (lastState.buttons & JSMASK_CAPTURE) > 0, (state.buttons & JSMASK_CAPTURE) > 0, "CAPTURE", jc);
-	handleButtonChange(MAPPING_E, (lastState.buttons & JSMASK_E) > 0, (state.buttons & JSMASK_E) > 0, "E", jc);
-	handleButtonChange(MAPPING_S, (lastState.buttons & JSMASK_S) > 0, (state.buttons & JSMASK_S) > 0, "S", jc);
-	handleButtonChange(MAPPING_N, (lastState.buttons & JSMASK_N) > 0, (state.buttons & JSMASK_N) > 0, "N", jc);
-	handleButtonChange(MAPPING_W, (lastState.buttons & JSMASK_W) > 0, (state.buttons & JSMASK_W) > 0, "W", jc);
-	handleButtonChange(MAPPING_R, (lastState.buttons & JSMASK_R) > 0, (state.buttons & JSMASK_R) > 0, "R", jc);
-	handleTriggerChange(MAPPING_ZR, MAPPING_ZRF, zrMode, lastState.rTrigger, state.rTrigger, "ZR", jc);
-	handleButtonChange(MAPPING_PLUS, (lastState.buttons & JSMASK_PLUS) > 0, (state.buttons & JSMASK_PLUS) > 0, "PLUS", jc);
-	handleButtonChange(MAPPING_HOME, (lastState.buttons & JSMASK_HOME) > 0, (state.buttons & JSMASK_HOME) > 0, "HOME", jc);
-	handleButtonChange(MAPPING_SL, (lastState.buttons & JSMASK_SL) > 0, (state.buttons & JSMASK_SL) > 0, "SL", jc);
-	handleButtonChange(MAPPING_SR, (lastState.buttons & JSMASK_SR) > 0, (state.buttons & JSMASK_SR) > 0, "SR", jc);
-	handleButtonChange(MAPPING_L3, (lastState.buttons & JSMASK_LCLICK) > 0, (state.buttons & JSMASK_LCLICK) > 0, "L3", jc);
-	handleButtonChange(MAPPING_R3, (lastState.buttons & JSMASK_RCLICK) > 0, (state.buttons & JSMASK_RCLICK) > 0, "R3", jc);
 }
 
 void connectDevices() {
@@ -1975,6 +2498,7 @@ bool AutoLoadPoll(void *param)
 					loading_lock.lock();
 					parseCommand(cwd + file);
 					loading_lock.unlock();
+					printf("[AUTOLOAD] Loading completed\n");
 					success = true;
 					break;
 				}
@@ -1999,11 +2523,13 @@ int wWinMain(HINSTANCE hInstance, HINSTANCE prevInstance, LPWSTR cmdLine, int cm
 	// console
 	initConsole();
 	printf("Welcome to JoyShockMapper version %s!\n", version);
+	Whitelister whitelister(true); //Add on creation, Remove on destruction
+	if (whitelister) printf("JoyShockMapper was successfully whitelisted!\n");
 	// prepare for input
 	resetAllMappings();
 	connectDevices();
 	JslSetCallback(&joyShockPollCallback);
-	// Future Development!
+	
 	autoLoadThread.reset(new PollingThread(&AutoLoadPoll, nullptr, 1000, true)); // Start by default
 	if (*autoLoadThread) printf("AutoLoad is enabled. Configurations in \"AutoLoad\" folder will get loaded when matching application is in focus.\n");
 	else printf("[AUTOLOAD] AutoLoad is unavailable\n");

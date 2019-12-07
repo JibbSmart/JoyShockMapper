@@ -6,8 +6,13 @@
 #include <functional>
 #include <atomic>
 
+// https://docs.microsoft.com/en-us/windows/win32/inputdev/virtual-key-codes
+// Only use undefined keys from the above list for JSM custom commands
 #define NO_HOLD_MAPPED 0x07
 #define CALIBRATE 0x0A
+#define GYRO_INV_X 0x0B
+#define GYRO_OFF_BIND 0x0E // Not to be confused with settings GYRO_ON and GYRO_OFF
+#define GYRO_ON_BIND 0x0F  // Those here are bindings
 
 static WORD mouseMaps[] = { 0x0002, 0x0008, 0x0000, 0x0020 };
 // Windows' mouse speed settings translate non-linearly to speed.
@@ -226,6 +231,15 @@ WORD nameToKey(std::string& name) {
 	if (name.compare("CALIBRATE") == 0) {
 		return CALIBRATE;
 	}
+	if (name.compare("GYRO_INV_X") == 0) {
+		return GYRO_INV_X;
+	}
+	if (name.compare("GYRO_ON") == 0) {
+		return GYRO_ON_BIND;
+	}
+	if (name.compare("GYRO_OFF") == 0) {
+		return GYRO_OFF_BIND;
+	}
 	return 0x00;
 }
 
@@ -440,7 +454,11 @@ public:
 
 	~PollingThread()
 	{
-		Stop();
+		if (_continue)
+		{
+			Stop();
+			Sleep(_sleepTimeMs);
+		}
 		CloseHandle(_thread);
 		_thread = nullptr;
 	}
@@ -486,3 +504,19 @@ private:
 		return 1;
 	}
 };
+
+DWORD ShowOnlineHelp()
+{
+	STARTUPINFOA startupInfo;
+	PROCESS_INFORMATION procInfo;
+	memset(&startupInfo, 0, sizeof(STARTUPINFOA));
+	memset(&procInfo, 0, sizeof(PROCESS_INFORMATION));
+	auto success = CreateProcessA(NULL, R"(cmd /C "start https://github.com/JibbSmart/JoyShockMapper/blob/master/README.md")", NULL, NULL, FALSE, NORMAL_PRIORITY_CLASS, NULL, NULL, &startupInfo, &procInfo);
+	if (success == TRUE)
+	{
+		CloseHandle(procInfo.hProcess);
+		CloseHandle(procInfo.hThread);
+		return 0;
+	}
+	return GetLastError();
+}
