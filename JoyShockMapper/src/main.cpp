@@ -13,6 +13,7 @@
 #include "JoyShockLibrary.h"
 #include "Whitelister.h"
 #include "inputHelpers.cpp"
+#include "TrayIcon.h"
 
 #pragma warning(disable:4996)
 
@@ -50,61 +51,63 @@ const char* version = "1.4.0";
 #define MAPPING_LDOWN 21
 #define MAPPING_LLEFT 22
 #define MAPPING_LRIGHT 23
-#define MAPPING_RUP 24
-#define MAPPING_RDOWN 25
-#define MAPPING_RLEFT 26
-#define MAPPING_RRIGHT 27
-#define MAPPING_ZLF 28 // FIRST
+#define MAPPING_LRING 24
+#define MAPPING_RUP 25
+#define MAPPING_RDOWN 26
+#define MAPPING_RLEFT 27
+#define MAPPING_RRIGHT 28
+#define MAPPING_RRING 29
+#define MAPPING_ZLF 30 // FIRST
 // insert more analog triggers here
-#define MAPPING_ZRF 29 // LAST
-#define MAPPING_SIZE 30
+#define MAPPING_ZRF 31 // LAST
+#define MAPPING_SIZE 32
 
 #define FIRST_ANALOG_TRIGGER MAPPING_ZLF
 #define LAST_ANALOG_TRIGGER MAPPING_ZRF
 
-#define MIN_GYRO_SENS 31
-#define MAX_GYRO_SENS 32
-#define MIN_GYRO_THRESHOLD 33
-#define MAX_GYRO_THRESHOLD 34
-#define STICK_POWER 35
-#define STICK_SENS 36
-#define REAL_WORLD_CALIBRATION 37
-#define IN_GAME_SENS 38
-#define TRIGGER_THRESHOLD 39
-#define RESET_MAPPINGS 40
-#define NO_GYRO_BUTTON 41
-#define LEFT_STICK_MODE 42
-#define RIGHT_STICK_MODE 43
-#define GYRO_OFF 44
-#define GYRO_ON 45
-#define STICK_AXIS_X 46
-#define STICK_AXIS_Y 47
-#define GYRO_AXIS_X 48
-#define GYRO_AXIS_Y 49
-#define RECONNECT_CONTROLLERS 50
-#define COUNTER_OS_MOUSE_SPEED 51
-#define IGNORE_OS_MOUSE_SPEED 52
-#define JOYCON_GYRO_MASK 53
-#define GYRO_SENS 54
-#define FLICK_TIME 55
-#define GYRO_SMOOTH_THRESHOLD 56
-#define GYRO_SMOOTH_TIME 57
-#define GYRO_CUTOFF_SPEED 58
-#define GYRO_CUTOFF_RECOVERY 59
-#define STICK_ACCELERATION_RATE 60
-#define STICK_ACCELERATION_CAP 61
-#define STICK_DEADZONE_INNER 62
-#define STICK_DEADZONE_OUTER 63
-#define CALCULATE_REAL_WORLD_CALIBRATION 64
-#define FINISH_GYRO_CALIBRATION 65
-#define RESTART_GYRO_CALIBRATION 66
-#define MOUSE_X_FROM_GYRO_AXIS 67
-#define MOUSE_Y_FROM_GYRO_AXIS 68
-#define ZR_DUAL_STAGE_MODE 69
-#define ZL_DUAL_STAGE_MODE 70
-#define AUTOLOAD 71
-#define HELP 72
-#define WHITELISTER 73
+#define MIN_GYRO_SENS 33
+#define MAX_GYRO_SENS 34
+#define MIN_GYRO_THRESHOLD 35
+#define MAX_GYRO_THRESHOLD 36
+#define STICK_POWER 37
+#define STICK_SENS 38
+#define REAL_WORLD_CALIBRATION 39
+#define IN_GAME_SENS 40
+#define TRIGGER_THRESHOLD 41
+#define RESET_MAPPINGS 42
+#define NO_GYRO_BUTTON 43
+#define LEFT_STICK_MODE 44
+#define RIGHT_STICK_MODE 45
+#define GYRO_OFF 46
+#define GYRO_ON 47
+#define STICK_AXIS_X 48
+#define STICK_AXIS_Y 49
+#define GYRO_AXIS_X 50
+#define GYRO_AXIS_Y 51
+#define RECONNECT_CONTROLLERS 52
+#define COUNTER_OS_MOUSE_SPEED 53
+#define IGNORE_OS_MOUSE_SPEED 54
+#define JOYCON_GYRO_MASK 55
+#define GYRO_SENS 56
+#define FLICK_TIME 57
+#define GYRO_SMOOTH_THRESHOLD 58
+#define GYRO_SMOOTH_TIME 59
+#define GYRO_CUTOFF_SPEED 60
+#define GYRO_CUTOFF_RECOVERY 61
+#define STICK_ACCELERATION_RATE 62
+#define STICK_ACCELERATION_CAP 63
+#define STICK_DEADZONE_INNER 64
+#define STICK_DEADZONE_OUTER 65
+#define CALCULATE_REAL_WORLD_CALIBRATION 66
+#define FINISH_GYRO_CALIBRATION 67
+#define RESTART_GYRO_CALIBRATION 68
+#define MOUSE_X_FROM_GYRO_AXIS 69
+#define MOUSE_Y_FROM_GYRO_AXIS 70
+#define ZR_DUAL_STAGE_MODE 71
+#define ZL_DUAL_STAGE_MODE 72
+#define AUTOLOAD 73
+#define HELP 74
+#define WHITELISTER 75
 
 #define MAGIC_DST_DELAY 150.0f // in milliseconds
 #define MAGIC_TAP_DURATION 500.0f // in milliseconds
@@ -112,7 +115,7 @@ const char* version = "1.4.0";
 #define MAGIC_SIM_DELAY 50.0f // in milliseconds
 static_assert(MAGIC_SIM_DELAY < MAGIC_HOLD_TIME, "Simultaneous press delay has to be smaller than hold delay!");
 
-enum class StickMode { none, aim, flick, invalid };
+enum class StickMode { none, aim, flick, innerRing, outerRing, invalid };
 enum       AxisMode { standard=1, inverted=-1, invalid=0 }; // valid values are true!
 enum class TriggerMode { noFull, noSkip, maySkip, mustSkip, maySkipResp, mustSkipResp, invalid };
 enum class GyroAxisMask { none = 0, x = 1, y = 2, z = 4, invalid = 8 };
@@ -171,6 +174,9 @@ float stick_deadzone_inner = 0.0;
 float stick_deadzone_outer = 0.0;
 float last_flick_and_rotation = 0.0;
 std::unique_ptr<PollingThread> autoLoadThread;
+std::unique_ptr<PollingThread> consoleMonitor;
+std::unique_ptr<TrayIcon> tray;
+bool devicesCalibrating = false;
 
 char tempConfigName[128];
 
@@ -701,6 +707,12 @@ static int keyToMappingIndex(std::string& s) {
 	if (s.compare("ZLF") == 0) {
 		return MAPPING_ZLF;
 	}
+	if (s.compare("LRING") == 0) {
+		return MAPPING_LRING;
+	}
+	if (s.compare("RRING") == 0) {
+		return MAPPING_RRING;
+	}
 	if (s.compare("MIN_GYRO_SENS") == 0) {
 		return MIN_GYRO_SENS;
 	}
@@ -846,6 +858,14 @@ static StickMode nameToStickMode(std::string& name, bool print = false) {
 		if (print) printf("No mouse");
 		return StickMode::none;
 	}
+	if (name.compare("INNER_RING") == 0) {
+		if (print) printf("Inner Ring");
+		return StickMode::innerRing;
+	}
+	if (name.compare("OUTER_RING") == 0) {
+		if (print) printf("Outer Ring");
+		return StickMode::outerRing;
+	}
 	if (print) printf("\"%s\" invalid", name.c_str());
 	return StickMode::invalid;
 }
@@ -881,11 +901,11 @@ static TriggerMode nameToTriggerMode(std::string& name, bool print = false) {
 		return TriggerMode::mustSkip;
 	}
 	if (name.compare("MAY_SKIP_R") == 0) {
-		if (print) printf("experimental responsive may skip.");
+		if (print) printf("Trigger can skip trigger binding on a quick full pull, maximizing soft binding responsiveness");
 		return TriggerMode::maySkipResp;
 	}
 	if (name.compare("MUST_SKIP_R") == 0) {
-		if (print) printf("experimental responsive must skip.");
+		if (print) printf("Trigger can only apply full pull binding on a quick full pull, skipping trigger binding, maximizing soft binding responsiveness");
 		return TriggerMode::mustSkipResp;
 	}
 	if (print) printf("\"%s\" invalid", name.c_str());
@@ -1089,6 +1109,7 @@ static void parseCommand(std::string line) {
 				JoyShock* jc = iter->second;
 				JslPauseContinuousCalibration(jc->intHandle);
 			}
+			devicesCalibrating = false;
 			return;
 		}
 		case RESTART_GYRO_CALIBRATION:
@@ -1098,6 +1119,7 @@ static void parseCommand(std::string line) {
 				JslResetContinuousCalibration(jc->intHandle);
 				JslStartContinuousCalibration(jc->intHandle);
 			}
+			devicesCalibrating = true;
 			return;
 		case HELP:
 			printf("Opening online help in your browser\n");
@@ -1225,7 +1247,7 @@ static void parseCommand(std::string line) {
 						left_stick_mode = temp;
 					}
 					else {
-						printf("Valid settings for LEFT_STICK_MODE are NO_MOUSE, AIM, or FLICK\n");
+						printf("Valid settings for LEFT_STICK_MODE are NO_MOUSE, AIM, FLICK, INNER_RING or OUTER_RING\n");
 					}
 					return;
 				}
@@ -1238,7 +1260,7 @@ static void parseCommand(std::string line) {
 						right_stick_mode = temp;
 					}
 					else {
-						printf("Valid settings for RIGHT_STICK_MODE are NO_MOUSE, AIM, or FLICK\n");
+						printf("Valid settings for RIGHT_STICK_MODE are NO_MOUSE, AIM, FLICK, INNER_RING or OUTER_RING\n");
 					}
 					return;
 				}
@@ -1584,12 +1606,12 @@ static void parseCommand(std::string line) {
 					if (valueName.compare("ON") == 0)
 					{
 						autoLoadThread->Start();
-						printf("Autoload is now running.\n");
+						printf("AutoLoad is now running.\n");
 					}
 					else if (valueName.compare("OFF") == 0)
 					{
 						autoLoadThread->Stop();
-						printf("Autoload is stopped\n");
+						printf("AutoLoad is stopped\n");
 					}
 					else {
 						printf("%s is an invalid option\nAUTOLOAD can only be assigned ON or OFF\n", value);
@@ -2268,20 +2290,15 @@ void joyShockPollCallback(int jcHandle, JOY_SHOCK_STATE state, JOY_SHOCK_STATE l
 	float lastCalY = lastState.stickLY;
 	float calX = state.stickLX;
 	float calY = state.stickLY;
-	bool lastLeftPegged = processDeadZones(lastCalX, lastCalY);
 	bool leftPegged = processDeadZones(calX, calY);
-	float lastAbsX = abs(lastCalX);
-	float lastAbsY = abs(lastCalY);
 	float absX = abs(calX);
 	float absY = abs(calY);
-	bool lastLeft = lastCalX < -0.5f * lastAbsY;
-	bool lastRight = lastCalX > 0.5f * lastAbsY;
-	bool lastDown = lastCalY < -0.5f * lastAbsX;
-	bool lastUp = lastCalY > 0.5f * lastAbsX;
-	bool left = calX < -0.5f * absY;
-	bool right = calX > 0.5f * absY;
-	bool down = calY < -0.5f * absX;
-	bool up = calY > 0.5f * absX;
+	bool left = calX < -0.2f;
+	bool right = calX > 0.2f;
+	bool down = calY < -0.2f;
+	bool up = calY > 0.2f;
+	bool ring = left_stick_mode == StickMode::innerRing && (absX > 0.2f || absY > 0.2f) && absX < 0.6f && absY < 0.6f ||
+		        left_stick_mode == StickMode::outerRing && absX > 0.6f && absY > 0.6f;
 	if (left_stick_mode == StickMode::flick) {
 		camSpeedX += handleFlickStick(calX, calY, lastCalX, lastCalY, jc, mouseCalibrationFactor);
 		leftAny = leftPegged;
@@ -2307,6 +2324,8 @@ void joyShockPollCallback(int jcHandle, JOY_SHOCK_STATE state, JOY_SHOCK_STATE l
 		}
 	}
 	else {
+		// ring!
+		handleButtonChange(MAPPING_LRING, ring, "LRING", jc);
 		// left!
 		handleButtonChange(MAPPING_LLEFT, left, "LLEFT", jc);
 		// right!
@@ -2316,26 +2335,21 @@ void joyShockPollCallback(int jcHandle, JOY_SHOCK_STATE state, JOY_SHOCK_STATE l
 		// down!
 		handleButtonChange(MAPPING_LDOWN, down, "LDOWN", jc);
 
-		leftAny = left | right | up | down;
+		leftAny = left | right | up | down; // ring doesn't count
 	}
 	lastCalX = lastState.stickRX;
 	lastCalY = lastState.stickRY;
 	calX = state.stickRX;
 	calY = state.stickRY;
-	float lastRightPegged = processDeadZones(lastCalX, lastCalY);
 	float rightPegged = processDeadZones(calX, calY);
-	lastAbsX = abs(lastCalX);
-	lastAbsY = abs(lastCalY);
 	absX = abs(calX);
 	absY = abs(calY);
-	lastLeft = lastCalX < -0.5f * lastAbsY;
-	lastRight = lastCalX > 0.5f * lastAbsY;
-	lastDown = lastCalY < -0.5f * lastAbsX;
-	lastUp = lastCalY > 0.5f * lastAbsX;
-	left = calX < -0.5f * absY;
-	right = calX > 0.5f * absY;
-	down = calY < -0.5f * absX;
-	up = calY > 0.5f * absX;
+	left = calX < -0.2f;
+	right = calX > 0.2f;
+	down = calY < -0.2f;
+	up = calY > 0.2f;
+	ring = right_stick_mode == StickMode::innerRing && (absX > 0.2f || absY > 0.2f) && absX < 0.6f && absY < 0.6f ||
+		   right_stick_mode == StickMode::outerRing && absX > 0.6f && absY > 0.6f;
 	if (right_stick_mode == StickMode::flick) {
 		camSpeedX += handleFlickStick(calX, calY, lastCalX, lastCalY, jc, mouseCalibrationFactor);
 		rightAny = rightPegged;
@@ -2361,6 +2375,8 @@ void joyShockPollCallback(int jcHandle, JOY_SHOCK_STATE state, JOY_SHOCK_STATE l
 		}
 	}
 	else {
+		// ring!
+		handleButtonChange(MAPPING_RRING, ring, "RRING", jc);
 		// left!
 		handleButtonChange(MAPPING_RLEFT, left, "RLEFT", jc);
 		// right!
@@ -2370,7 +2386,7 @@ void joyShockPollCallback(int jcHandle, JOY_SHOCK_STATE state, JOY_SHOCK_STATE l
 		// down!
 		handleButtonChange(MAPPING_RDOWN, down, "RDOWN", jc);
 
-		rightAny = left | right | up | down;
+		rightAny = left | right | up | down; // ring doesn't count
 	}
 
 	// button mappings
@@ -2458,11 +2474,19 @@ void connectDevices() {
 		//JslStartContinuousCalibration(deviceHandles[i]);
 	}
 
+	std::string msg;
 	if (numConnected == 1) {
-		printf("1 device connected\n");
+		msg = "1 device connected\n";
 	}
 	else {
-		printf("%i devices connected\n", numConnected);
+		std::stringstream ss;
+		ss << numConnected << " devices connected" << std::endl;
+		msg = ss.str();
+	}
+	printf(msg.c_str());
+	if (!IsVisible())
+	{
+		tray->SendToast(std::wstring(msg.begin(), msg.end()));
 	}
 
 	//if (numConnected != 0) {
@@ -2524,9 +2548,32 @@ bool AutoLoadPoll(void *param)
 	return true;
 }
 
+bool MonitorConsolePoll(void *param)
+{
+	static bool firstToast = true;
+	if (isConsoleMinimized())
+	{
+		static_cast<TrayIcon*>(param)->Show();
+		HideConsole();
+		if (firstToast)
+		{
+			firstToast = !tray->SendToast(L"JoyShockMapper will keep running in the system tray.");
+		}
+		return false;
+	}
+	return true;
+}
+
+void OnShowConsole()
+{
+	tray->Hide();
+	ShowConsole();
+	consoleMonitor->Start();
+}
+
 //int main(int argc, char *argv[]) {
 int wWinMain(HINSTANCE hInstance, HINSTANCE prevInstance, LPWSTR cmdLine, int cmdShow) {
-
+	tray.reset(new TrayIcon(hInstance, prevInstance, cmdLine, cmdShow));
 	// console
 	initConsole();
 	printf("Welcome to JoyShockMapper version %s!\n", version);
@@ -2536,15 +2583,76 @@ int wWinMain(HINSTANCE hInstance, HINSTANCE prevInstance, LPWSTR cmdLine, int cm
 	resetAllMappings();
 	connectDevices();
 	JslSetCallback(&joyShockPollCallback);
-	
 	autoLoadThread.reset(new PollingThread(&AutoLoadPoll, nullptr, 1000, true)); // Start by default
-	if (*autoLoadThread) printf("AutoLoad is enabled. Configurations in \"AutoLoad\" folder will get loaded when matching application is in focus.\n");
+	consoleMonitor.reset(new PollingThread(&MonitorConsolePoll, tray.get(), 500, true));
+	if (autoLoadThread && *autoLoadThread) printf("AutoLoad is enabled. Configurations in \"AutoLoad\" folder will get loaded when matching application is in focus.\n");
 	else printf("[AUTOLOAD] AutoLoad is unavailable\n");
+
+	if (!tray || !*tray) printf("ERROR: Cannot create tray item.\n");
+	else
+	{
+		tray->AddMenuItem(L"Show Console", &OnShowConsole);
+		tray->AddMenuItem(L"Reconnect controllers", []() 
+			{
+				WriteToConsole("RECONNECT_CONTROLLERS"); 
+			});
+		tray->AddMenuItem(L"AutoLoad", [](bool isChecked)
+			{
+				isChecked ? 
+					autoLoadThread->Start() : 
+					autoLoadThread->Stop();
+			}, std::bind(&PollingThread::isRunning, autoLoadThread.get()));
+		tray->AddMenuItem(L"Calibrate all devices", [](bool isChecked)
+			{
+				isChecked ? 
+					WriteToConsole("RESTART_GYRO_CALIBRATION") : 
+					WriteToConsole("FINISH_GYRO_CALIBRATION");
+			}, []() 
+			{
+				return devicesCalibrating; 
+			});
+
+		std::string cwd(GetCWD());
+		std::string autoloadFolder = cwd + "\\AutoLoad\\";
+		for (auto file : ListDirectory(autoloadFolder.c_str()))
+		{
+			std::string fullPathName = autoloadFolder + file;
+			auto noext = file.substr(0, file.find_last_of('.'));
+			tray->AddMenuItem(L"QuickLoad", std::wstring(noext.begin(), noext.end()), [fullPathName] 
+				{
+					WriteToConsole(std::string(fullPathName.begin(), fullPathName.end()));
+					autoLoadThread->Stop();
+				});
+		}
+		std::string gyroConfigsFolder = cwd + "\\GyroConfigs\\";
+		for (auto file : ListDirectory(gyroConfigsFolder.c_str()))
+		{
+			std::string fullPathName = gyroConfigsFolder + file;
+			auto noext = file.substr(0, file.find_last_of('.'));
+			tray->AddMenuItem(L"GyroConfigs", std::wstring(noext.begin(), noext.end()), [fullPathName] 
+				{
+					WriteToConsole(std::string(fullPathName.begin(), fullPathName.end()));
+					autoLoadThread->Stop();
+				});
+		}
+		tray->AddMenuItem(L"Calculate RWC", []()
+			{
+				WriteToConsole("CALCULATE_REAL_WORLD_CALIBRATION");
+				OnShowConsole();
+			});
+		tray->AddMenuItem(L"Quit", [] ()
+			{
+				WriteToConsole("QUIT");
+			});
+	}
+
 	// poll joycons:
 	while (true) {
 		fgets(tempConfigName, 128, stdin);
 		removeNewLine(tempConfigName);
 		if (strcmp(tempConfigName, "QUIT") == 0) {
+			// Hide while cleanup and quit.
+			HideConsole();
 			break;
 		}
 		else {
@@ -2555,5 +2663,6 @@ int wWinMain(HINSTANCE hInstance, HINSTANCE prevInstance, LPWSTR cmdLine, int cm
 		//pollLoop();
 	}
 	JslDisconnectAndDisposeAll();
+	FreeConsole();
 	return 0;
 }

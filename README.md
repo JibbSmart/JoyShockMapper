@@ -128,10 +128,12 @@ LUP: Left stick tilted up
 LDOWN: Left stick tilted down
 LLEFT: Left stick tilted left
 LRIGHT: Left stick tilted right
+LRING: Left ring binding, either inner or outer.
 RUP: Right stick tilted up
 RDOWN: Right stick tilted down
 RLEFT: Right stick tilted left
 RRIGHT: Right stick tilted right
+RRING: Right ring binding, either inner or outer.
 ```
 
 These can all be mapped to the following keyboard and mouse inputs:
@@ -280,7 +282,6 @@ For example, in Call of Duty you have a binding to hold your breath when aiming 
 ZL_MODE = NO_SKIP   # Enable full pull binding, never skip ADS
 ZL = RMOUSE         # Aim Down Sights
 ZLF = LSHIFT        # Hold breath
-
 ```
 
 Using NO_SKIP mode makes it so that LSHIFT is only active if RMOUSE is active as well. Then on the right trigger, you can bind your different attack bindings: use the skipping functionality to avoid having them conflict with eachother like this:
@@ -289,7 +290,6 @@ Using NO_SKIP mode makes it so that LSHIFT is only active if RMOUSE is active as
 ZR_MODE = MUST_SKIP # Enable full pull binding, soft and full bindings are mutually exclusive
 ZR = LMOUSE         # Primary Fire
 ZRF = V G           # Quick full tap to melee; Quick hold full press to unpin grenade and throw on release
-
 ```
 
 Using MUST_SKIP mode makes sure that once you start firing, reaching the full pull will **not** make you stop firing to melee.
@@ -297,12 +297,14 @@ Using MUST_SKIP mode makes sure that once you start firing, reaching the full pu
 The "Responsive" variants of the skip modes enable a different behaviour that can give you a better experience than the original versions in specific circumstances. A typical example is when the soft binding is a mode-like binding like ADS or crouch, and there is no hold or simultaneous press binding on that soft press. The difference is that the soft binding is actived as soon as the trigger crosses the threshold, giving the desired responsive feeling, but gets removed if the full press is reached quickly, thus still allowing you to hip fire for example. This will result in a hopefully negligeable scope glitch but grants a snappier ADS activation.
 
 ### 3. Stick Mouse Inputs
-Each stick has 3 different modes to determine how it affects the mouse:
+Each stick has 5 different operation modes:
 
 ```
 AIM: traditional stick aiming
 FLICK: flick stick
-NO_MOUSE: don't affect the mouse (default)
+NO_MOUSE: don't affect the mouse, use button mappings (default)
+INNER_RING: Same as NO_MOUSE and bind the ring binding to the inner ring
+OUTER_RING: Same as NO_MOUSE and bind the ring binding to the outer ring
 ```
 
 The mode for the left and right stick are set like so:
@@ -331,6 +333,18 @@ Since *flick stick* only turns the camera horizontally, it's generally only prac
 Keep in mind that, once tilted, rotating the stick will rotate the camera instantly. There’s no need to smooth it out\*; the camera just needs to make the same movement the stick is. FLICK\_TIME only affects behaviour when you first tilt the stick.
 
 **\*Developer note:** The DualShock 4's stick input resolution is low enough that small *flick stick* rotations can be jittery. JoyShockMapper applies some smoothing just to very small changes in the *flick stick* angle, which is very effective at covering this up. Larger movements are not smoothed at all. This is more thoroughly explained for developers to implement in their own games on [GyroWiki](http://gyrowiki.jibbsmart.com).
+
+When using stick mode ```NO_MOUSE```, ```INNER_RING``` or ```OUTER_RING```, JSM will use the stick's UP DOWN LEFT and RIGHT bindings in a cross gate layout. There is a small square deadzone to ignore very small stick moves. Use ```INNER_RING``` when you have a command for walking in order to have two speed levels on the stick.
+
+```
+# Left stick moves
+LLEFT = A
+LRIGHT = D
+LUP = W
+LDOWN = S
+LEFT_STICK_MODE = INNER_RING
+LRING = LALT # Walk
+```
 
 ### 4. Gyro Mouse Inputs
 **The first thing you need to know about gyro mouse inputs** is that a controller's gyro will often need calibrating. This just means telling the application where "zero" is. Just like a scale, the gyro needs a point of reference to compare against in order to accurately give a result. This is done by leaving the controller still, or holding it very still in your hands, and finding the average velocity over a short time of staying still. It needs to be averaged over some time because the gyro will pick up a little bit of "noise" -- tiny variations that aren't caused by any real movement -- but this noise is negligible compared to the shakiness of human hands trying to hold a controller still.

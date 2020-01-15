@@ -54,15 +54,6 @@ float getMouseSpeed() {
 	return 1.0;
 }
 
-// just setting up the console with standard stuff
-void initConsole() {
-	AllocConsole();
-	// https://stackoverflow.com/a/15547699/1130520
-	freopen_s((FILE**)stdin, "conin$", "r", stdin);
-	freopen_s((FILE**)stdout, "conout$", "w", stdout);
-	freopen_s((FILE**)stderr, "conout$", "w", stderr);
-}
-
 /// Valid inputs:
 /// 0-9, N0-N9, F1-F29, A-Z, (L, R, )CONTROL, (L, R, )ALT, (L, R, )SHIFT, TAB, ENTER
 /// (L, M, R)MOUSE, SCROLL(UP, DOWN)
@@ -355,6 +346,72 @@ void shapedSensitivityMoveMouse(float x, float y, float lowSens, float hiSens, f
 	moveMouse((x * newSensitivity) * deltaTime + extraVelocityX, (y * newSensitivity) * deltaTime + extraVelocityY);
 }
 
+bool WriteToConsole(const std::string &command)
+{
+	static const INPUT_RECORD ESC_DOWN = { KEY_EVENT, {TRUE,  1, VK_ESCAPE, MapVirtualKey(VK_ESCAPE, MAPVK_VK_TO_VSC), VK_ESCAPE, 0} };
+	static const INPUT_RECORD ESC_UP = { KEY_EVENT, {FALSE, 1, VK_ESCAPE, MapVirtualKey(VK_ESCAPE, MAPVK_VK_TO_VSC), VK_ESCAPE, 0} };
+	static const INPUT_RECORD RET_DOWN = { KEY_EVENT, {TRUE,  1, VK_RETURN, MapVirtualKey(VK_RETURN, MAPVK_VK_TO_VSC), VK_RETURN, 0} };
+	static const INPUT_RECORD RET_UP = { KEY_EVENT, {FALSE, 1, VK_RETURN, MapVirtualKey(VK_RETURN, MAPVK_VK_TO_VSC), VK_RETURN, 0} };
+
+	printf("Writing to console: %s\n", command.c_str());
+
+	std::vector<INPUT_RECORD> inputs(0);
+	inputs.reserve(command.size() + 4);
+	inputs.push_back(ESC_DOWN);
+	inputs.push_back(ESC_UP);
+
+	for (auto c : command)
+	{
+		INPUT_RECORD ir;
+		ir.EventType = KEY_EVENT;
+		ir.Event.KeyEvent.bKeyDown = TRUE;
+		ir.Event.KeyEvent.wRepeatCount = 1;
+		auto vkc = nameToKey(std::string() + (char)(toupper(c)));
+		ir.Event.KeyEvent.wVirtualKeyCode = vkc;
+		ir.Event.KeyEvent.wVirtualScanCode = MapVirtualKey(vkc, MAPVK_VK_TO_VSC);
+		ir.Event.KeyEvent.uChar.UnicodeChar = c;
+		ir.Event.KeyEvent.dwControlKeyState = 0;
+
+		inputs.push_back(ir);
+	}
+	inputs.push_back(RET_DOWN);
+	inputs.push_back(RET_UP);
+
+	DWORD written;
+	if (WriteConsoleInput(GetStdHandle(STD_INPUT_HANDLE), inputs.data(), inputs.size(), &written) == FALSE) {
+		auto err = GetLastError();
+		printf("Error writing to console input: %lu\n", err);
+	}
+	FlushConsoleInputBuffer(GetStdHandle(STD_INPUT_HANDLE));
+	return written == inputs.size();
+}
+
+BOOL WINAPI ConsoleCtrlHandler(DWORD dwCtrlType)
+{
+	// https://docs.microsoft.com/en-us/windows/console/handlerroutine
+	switch (dwCtrlType)
+	{
+	case CTRL_C_EVENT:
+	case CTRL_BREAK_EVENT:
+	case CTRL_CLOSE_EVENT:
+	WriteToConsole("QUIT");
+	Sleep(1000); // Wait for JSM to close by itself
+	return TRUE;
+	}
+	return FALSE;
+}
+
+// just setting up the console with standard stuff
+void initConsole() {
+	AllocConsole();
+	SetConsoleTitle(L"JoyShockMapper");
+	// https://stackoverflow.com/a/15547699/1130520
+	freopen_s((FILE**)stdin, "conin$", "r", stdin);
+	freopen_s((FILE**)stdout, "conout$", "w", stdout);
+	freopen_s((FILE**)stderr, "conout$", "w", stderr);
+	SetConsoleCtrlHandler(&ConsoleCtrlHandler, TRUE);
+}
+
 std::tuple<std::string, std::string> GetActiveWindowName() {
 	HWND activeWindow = GetForegroundWindow();
 	if (activeWindow) {
@@ -454,7 +511,7 @@ public:
 		, _loopContent(loopContent)
 		, _sleepTimeMs(pollPeriodMs)
 		, _tid(0)
-		, _funcParam()
+		, _funcParam(funcParam)
 		, _continue(false)
 	{
 		if (startNow) Start();
@@ -467,8 +524,7 @@ public:
 			Stop();
 			Sleep(_sleepTimeMs);
 		}
-		CloseHandle(_thread);
-		_thread = nullptr;
+		// Let poll function cleanup
 	}
 
 	inline operator bool()
@@ -477,7 +533,11 @@ public:
 	}
 
 	bool Start() {
-		if (!_thread)
+		if (_thread && !_continue) // thread is running but hasn't stopped yet
+		{
+			Sleep(_sleepTimeMs);
+		}
+		if (!_thread) //thread is clear
 		{
 			_continue = true;
 			_thread = CreateThread(
@@ -487,13 +547,17 @@ public:
 				this,          // argument to thread function 
 				0,                      // use default creation flags 
 				&_tid);   // returns the thread identifier 
-			return true;
 		}
-		return false;
+		return isRunning();
 	}
 
 	void Stop() {
 		_continue = false;
+	}
+
+	bool isRunning()
+	{
+		return _thread && _continue;
 	}
 
 private:
@@ -502,7 +566,8 @@ private:
 		auto workerThread = reinterpret_cast<PollingThread*>(param);
 		if (workerThread)
 		{
-			while (workerThread->_loopContent(workerThread->_funcParam) && workerThread->_continue) {
+			while (workerThread->_continue && 
+				workerThread->_loopContent(workerThread->_funcParam)) {
 				Sleep(workerThread->_sleepTimeMs);
 			}
 			CloseHandle(workerThread->_thread);
@@ -527,4 +592,25 @@ DWORD ShowOnlineHelp()
 		return 0;
 	}
 	return GetLastError();
+}
+
+inline void HideConsole()
+{
+	ShowWindow(GetConsoleWindow(), SW_HIDE);
+}
+
+inline void ShowConsole()
+{
+	ShowWindow(GetConsoleWindow(), SW_SHOWDEFAULT);
+	SetForegroundWindow(GetConsoleWindow());
+}
+
+inline bool IsVisible()
+{
+	return IsWindowVisible(GetConsoleWindow());
+}
+
+inline bool isConsoleMinimized()
+{
+	return IsVisible() != FALSE && IsIconic(GetConsoleWindow()) != FALSE;
 }
