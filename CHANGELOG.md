@@ -1,0 +1,59 @@
+
+# Change log for JoyShockMapper
+Most recent updates will appear first.
+This is a summary of new features and bugfixes. Read the README to learn how to use the features mentioned here.
+
+## 1.4.0
+In 1.4, Nicolas added simultaneous and chorded press mappings, as well as a tray icon and shortcuts for configs and useful commands. Jibb added Bluetooth support for the DualShock 4.
+
+### Features
+* Simultaneous press - map a pair of inputs pressed at about the same time to a unique output.
+* Chorded press - change the mappings of one or more buttons while a particular other button is pressed.
+* Bluetooth support for the DualShock 4.
+* Whitelisting - add or remove JoyShockMapper to or from the HIDCerberus whitelist, if it's installed.
+* Tray icon - when minimised, JoyShockMapper has a tray icon that can be right-clicked to quickly access configs or useful commands.
+
+## 1.3.0
+In 1.3, Nicolas added AutoLoad and dual stage triggers, while Jibb fixed a couple of bugs.
+
+### Features
+* AutoLoad - automatically load the appropriate config when an application comes into focus.
+* Dual Stage Triggers - map soft presses and full presses of the DualShock 4's triggers to different outputs.
+
+### Bugfixes
+* Fixed SL and SR not working properly on Joy-Cons.
+* Fixed hold NONE mappings not working.
+
+## 1.2.0
+In 1.2, Jibb added features to help with single Joy-Con control, as well as more keyboard mappings and better comment support.
+
+### Features
+* Gyro axes can be mapped to different mouse axes using MOUSE\_X\_FROM\_GYRO\_AXIS and MOUSE\_Y\_FROM\_GYRO\_AXIS.
+* PAGEUP, PAGEDOWN, HOME, END, INSERT, and DELETE keyboard mappings were added.
+* /# comments can be added at the end of a line, instead of requiring their own line.
+
+## 1.1.0
+In 1.1, Jibb added more ways to enable or disable the gyro, changed the default behaviour of calibration, and fixed a couple of bugs.
+
+### Features
+* GYRO\_OFF and GYRO\_ON can be set to LEFT\_STICK or RIGHT\_STICK so that the gyro can be enabled or disabled depending on whether a given stick is being used.
+* Continuous calibration is now disabled when a device is first connected, since sometimes devices don't need to be calibrated on startup.
+
+### Bugfixes
+* Fixed d-pad up being the gyro off button when none was set.
+* Fixed a crash when a bad command was entered.
+
+## 1.0.2
+1.0.2 is a bugfix update.
+
+### Bugfixes
+* Fixed a bug where arrow keys couldn't be mapped properly.
+
+## 1.0.1
+1.0.1 is a bugfix update.
+
+### Bugfixes
+* Statically lilnked runtime so that users don't have to have any particular MSVC runtimes installed.
+
+## 1.0
+JoyShockMapper 1.0 was the first public release of JoyShockMapper. Its features are too many to list in the changelog, but explore the README to see what it offers!

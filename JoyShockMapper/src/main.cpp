@@ -1813,8 +1813,8 @@ bool processDeadZones(float& x, float& y) {
 
 void handleButtonChange(int index, bool pressed, const char* name, JoyShock* jc) {
 	// for tap duration, we need to know if the key in question is a gyro-related mapping or not
-	WORD keyToRelease = jc->keyToRelease[index];
-	float magicTapDuration = (keyToRelease >= GYRO_INV_X && keyToRelease <= GYRO_ON_BIND) ? MAGIC_GYRO_TAP_DURATION : MAGIC_TAP_DURATION;
+	WORD mapping = mappings[index];
+	float magicTapDuration = (mapping >= GYRO_INV_X && mapping <= GYRO_ON_BIND) ? MAGIC_GYRO_TAP_DURATION : MAGIC_TAP_DURATION;
 	switch (jc->btnState[index])
 	{
 	case BtnState::NoPress:
