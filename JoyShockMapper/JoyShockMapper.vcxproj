@@ -24,7 +24,6 @@
     <ClInclude Include="include\Whitelister.h" />
     <ClInclude Include="include\JoyShockLibrary.h" />
     <ClInclude Include="include\inputHelpers.cpp" />
-    <ClInclude Include="include\wintoastlib.h" />
     <ClInclude Include="three\common.hpp" />
     <ClInclude Include="three\config.hpp" />
     <ClInclude Include="three\console.hpp" />
@@ -39,7 +38,6 @@
     <ClCompile Include="src\main.cpp" />
     <ClCompile Include="src\TrayIcon.cpp" />
     <ClCompile Include="src\Whitelister.cpp" />
-    <ClCompile Include="src\wintoastlib.cpp" />
   </ItemGroup>
   <ItemGroup>
     <None Include="libs\JoyShockLibrary.dll" />
