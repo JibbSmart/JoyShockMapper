@@ -180,7 +180,7 @@ If you want □ to 'reload' when tapped, but do nothing at all when held, you ca
 W = R NONE
 ```
 
-Tap bindings will apply the button press for up to half a second.
+Gyro-related tap bindings will apply for about half a second from releasing the tap, but other bindings will simulate a very quick button tap.
 
 #### 1.2 Simultaneous Press
 JoyShockMapper additionally allows you to map simultaneous button presses to different mappings. For example you can bind character abilities on your bumpers and an ultimate ability on both like this:

@@ -112,7 +112,8 @@ const char* version = "1.4.0";
 #define WHITELIST_REMOVE 77
 
 #define MAGIC_DST_DELAY 150.0f // in milliseconds
-#define MAGIC_TAP_DURATION 500.0f // in milliseconds
+#define MAGIC_TAP_DURATION 40.0f // in milliseconds
+#define MAGIC_GYRO_TAP_DURATION 500.0f // in milliseconds
 #define MAGIC_HOLD_TIME 150.0f // in milliseconds
 #define MAGIC_SIM_DELAY 50.0f // in milliseconds
 static_assert(MAGIC_SIM_DELAY < MAGIC_HOLD_TIME, "Simultaneous press delay has to be smaller than hold delay!");
@@ -323,7 +324,7 @@ public:
 				printf("Gyro calibration set\n");
 			}
 		}
-		else if (keyToRelease[index] == GYRO_INV_X || keyToRelease[index] == GYRO_INV_Y || keyToRelease[index] == GYRO_INVERT || keyToRelease[index] == GYRO_ON_BIND || keyToRelease[index] == GYRO_OFF_BIND)
+		else if (keyToRelease[index] >= GYRO_INV_X && keyToRelease[index] <= GYRO_ON_BIND)
 		{
 			gyroActionQueue.erase(std::find_if(gyroActionQueue.begin(), gyroActionQueue.end(), 
 				[index](auto pair)
@@ -403,7 +404,7 @@ public:
 				printf("Gyro calibration set\n");
 			}
 		}
-		else if (keyToRelease[index] == GYRO_INV_X || keyToRelease[index] == GYRO_ON_BIND || keyToRelease[index] == GYRO_OFF_BIND)
+		else if (keyToRelease[index] >= GYRO_INV_X && keyToRelease[index] <= GYRO_ON_BIND)
 		{
 			gyroActionQueue.erase(std::find_if(gyroActionQueue.begin(), gyroActionQueue.end(),
 				[index](auto pair)
@@ -1811,6 +1812,9 @@ bool processDeadZones(float& x, float& y) {
 }
 
 void handleButtonChange(int index, bool pressed, const char* name, JoyShock* jc) {
+	// for tap duration, we need to know if the key in question is a gyro-related mapping or not
+	WORD keyToRelease = jc->keyToRelease[index];
+	float magicTapDuration = (keyToRelease >= GYRO_INV_X && keyToRelease <= GYRO_ON_BIND) ? MAGIC_GYRO_TAP_DURATION : MAGIC_TAP_DURATION;
 	switch (jc->btnState[index])
 	{
 	case BtnState::NoPress:
@@ -2003,7 +2007,7 @@ void handleButtonChange(int index, bool pressed, const char* name, JoyShock* jc)
 			jc->btnState[index] = BtnState::NoPress;
 			jc->btnState[simMap->btn] = BtnState::SimRelease;
 		}
-		else if (jc->GetPressDurationMS(index) > MAGIC_TAP_DURATION)
+		else if (jc->GetPressDurationMS(index) > magicTapDuration)
 		{
 			jc->ApplyBtnRelease(*simMap, index, true);
 			jc->btnState[index] = BtnState::SimRelease;
@@ -2012,7 +2016,7 @@ void handleButtonChange(int index, bool pressed, const char* name, JoyShock* jc)
 		break;
 	}
 	case BtnState::TapRelease:
-		if (pressed || jc->GetPressDurationMS(index) > MAGIC_TAP_DURATION)
+		if (pressed || jc->GetPressDurationMS(index) > magicTapDuration)
 		{
 			jc->ApplyBtnRelease(index, true);
 			jc->btnState[index] = BtnState::NoPress;
