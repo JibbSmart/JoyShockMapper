@@ -19,10 +19,10 @@
 #include <algorithm>
 
 #include "resource.h"
-#include "wintoastlib.h"
+//#include "wintoastlib.h"
 
-using WinToastLib::WinToastTemplate;
-using WinToastLib::WinToast;
+//using WinToastLib::WinToastTemplate;
+//using WinToastLib::WinToast;
 
 struct MenuItem
 {
@@ -66,16 +66,16 @@ std::vector<TrayIcon *> registry;
 
 static bool toastReady = false;
 
-class JSMToasts : public WinToastLib::IWinToastHandler
+class JSMToasts// : public WinToastLib::IWinToastHandler
 {
 public:
 	JSMToasts() { }
 	~JSMToasts() { }
 	// Public interfaces
-	void toastActivated() const override { }
-	void toastActivated(int actionIndex) const override { }
-	void toastDismissed(WinToastDismissalReason state) const override { }
-	void toastFailed() const override { }
+	//void toastActivated() const override { }
+	//void toastActivated(int actionIndex) const override { }
+	//void toastDismissed(WinToastDismissalReason state) const override { }
+	//void toastFailed() const override { }
 };
 
 TrayIcon::TrayIcon(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPTSTR lpCmdLine, int nCmdShow)
@@ -86,14 +86,14 @@ TrayIcon::TrayIcon(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPTSTR lpCmdLin
 {
 	registry.push_back(this);
 
-	auto *winToast = WinToast::instance();
-	if (!toastReady && WinToast::isCompatible() && !winToast->isInitialized())
-	{
-		winToast->setAppName(L"JoyShockMapper");
-		// https://docs.microsoft.com/fr-ca/windows/win32/shell/appids
-		winToast->setAppUserModelId(WinToast::configureAUMI(L"JibbSmart", L"JoyShockMapper"));
-		toastReady = winToast->initialize();
-	}
+	//auto *winToast = WinToast::instance();
+	//if (!toastReady && WinToast::isCompatible() && !winToast->isInitialized())
+	//{
+	//	winToast->setAppName(L"JoyShockMapper");
+	//	// https://docs.microsoft.com/fr-ca/windows/win32/shell/appids
+	//	winToast->setAppUserModelId(WinToast::configureAUMI(L"JibbSmart", L"JoyShockMapper"));
+	//	toastReady = winToast->initialize();
+	//}
 
 	_hInst = hInstance;
 
@@ -150,7 +150,7 @@ DWORD WINAPI TrayIcon::MessageHandlerLoop(LPVOID param)
 	return 1;
 }
 
-bool TrayIcon::SendToast(std::wstring message)
+/*bool TrayIcon::SendToast(std::wstring message)
 {
 	WinToastTemplate templ = WinToastTemplate(WinToastTemplate::ImageAndText02);
 	templ.setTextField(L"JoyShockMapper", WinToastTemplate::FirstLine);
@@ -168,7 +168,7 @@ bool TrayIcon::SendToast(std::wstring message)
 		return false;
 	}
 	return true;
-}
+}/**/
 
 void TrayIcon::AddMenuItem(const std::wstring & label, std::function<void()> onClick)
 {

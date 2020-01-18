@@ -107,7 +107,9 @@ const char* version = "1.4.0";
 #define ZL_DUAL_STAGE_MODE 72
 #define AUTOLOAD 73
 #define HELP 74
-#define WHITELISTER 75
+#define WHITELIST_SHOW 75
+#define WHITELIST_ADD 76
+#define WHITELIST_REMOVE 77
 
 #define MAGIC_DST_DELAY 150.0f // in milliseconds
 #define MAGIC_TAP_DURATION 500.0f // in milliseconds
@@ -177,6 +179,7 @@ std::unique_ptr<PollingThread> autoLoadThread;
 std::unique_ptr<PollingThread> consoleMonitor;
 std::unique_ptr<TrayIcon> tray;
 bool devicesCalibrating = false;
+Whitelister whitelister(false);
 
 char tempConfigName[128];
 
@@ -839,8 +842,14 @@ static int keyToMappingIndex(std::string& s) {
 	if (s.rfind("HELP", 0) == 0) {
 		return HELP;
 	}
-	if (s.rfind("WHITELISTER", 0) == 0) {
-		return WHITELISTER;
+	if (s.rfind("WHITELIST_SHOW", 0) == 0) {
+		return WHITELIST_SHOW;
+	}
+	if (s.rfind("WHITELIST_ADD", 0) == 0) {
+		return WHITELIST_ADD;
+	}
+	if (s.rfind("WHITELIST_REMOVE", 0) == 0) {
+		return WHITELIST_REMOVE;
 	}
 	return MAPPING_ERROR;
 }
@@ -1128,11 +1137,27 @@ static void parseCommand(std::string line) {
 				printf("Could not open online help. Error #%d\n", err);
 			}
 			return;
-		case WHITELISTER:
+		case WHITELIST_SHOW:
 			printf("Launching HIDCerberus in your browser. Your PID is %lu\n", GetCurrentProcessId()); // WinAPI call!
 			Whitelister::ShowHIDCerberus();
 			return;
+		case WHITELIST_ADD:
+			whitelister.Add();
+			if (whitelister)
+			{
+				printf("JoyShockMapper was successfully whitelisted\n");
+			}
+			else
+			{
+				printf("Whitelisting failed!\n");
+			}
+			return;
+		case WHITELIST_REMOVE:
+			whitelister.Remove();
+			printf("JoyShockMapper removed from whitelist\n");
+			return;
 		}
+
 		char value[128];
 		// other commands
 		if (is_line.getline(value, 128)) {
@@ -2484,10 +2509,10 @@ void connectDevices() {
 		msg = ss.str();
 	}
 	printf(msg.c_str());
-	if (!IsVisible())
-	{
-		tray->SendToast(std::wstring(msg.begin(), msg.end()));
-	}
+	//if (!IsVisible())
+	//{
+	//	tray->SendToast(std::wstring(msg.begin(), msg.end()));
+	//}
 
 	//if (numConnected != 0) {
 	//	printf("All devices have started continuous gyro calibration\n");
@@ -2555,10 +2580,10 @@ bool MonitorConsolePoll(void *param)
 	{
 		static_cast<TrayIcon*>(param)->Show();
 		HideConsole();
-		if (firstToast)
-		{
-			firstToast = !tray->SendToast(L"JoyShockMapper will keep running in the system tray.");
-		}
+		//if (firstToast)
+		//{
+		//	firstToast = !tray->SendToast(L"JoyShockMapper will keep running in the system tray.");
+		//}
 		return false;
 	}
 	return true;
@@ -2577,8 +2602,7 @@ int wWinMain(HINSTANCE hInstance, HINSTANCE prevInstance, LPWSTR cmdLine, int cm
 	// console
 	initConsole();
 	printf("Welcome to JoyShockMapper version %s!\n", version);
-	Whitelister whitelister(true); //Add on creation, Remove on destruction
-	if (whitelister) printf("JoyShockMapper was successfully whitelisted!\n");
+	//if (whitelister) printf("JoyShockMapper was successfully whitelisted!\n");
 	// prepare for input
 	resetAllMappings();
 	connectDevices();
@@ -2618,7 +2642,7 @@ int wWinMain(HINSTANCE hInstance, HINSTANCE prevInstance, LPWSTR cmdLine, int cm
 		{
 			std::string fullPathName = autoloadFolder + file;
 			auto noext = file.substr(0, file.find_last_of('.'));
-			tray->AddMenuItem(L"QuickLoad", std::wstring(noext.begin(), noext.end()), [fullPathName] 
+			tray->AddMenuItem(L"AutoLoad folder", std::wstring(noext.begin(), noext.end()), [fullPathName] 
 				{
 					WriteToConsole(std::string(fullPathName.begin(), fullPathName.end()));
 					autoLoadThread->Stop();
@@ -2629,7 +2653,7 @@ int wWinMain(HINSTANCE hInstance, HINSTANCE prevInstance, LPWSTR cmdLine, int cm
 		{
 			std::string fullPathName = gyroConfigsFolder + file;
 			auto noext = file.substr(0, file.find_last_of('.'));
-			tray->AddMenuItem(L"GyroConfigs", std::wstring(noext.begin(), noext.end()), [fullPathName] 
+			tray->AddMenuItem(L"GyroConfigs folder", std::wstring(noext.begin(), noext.end()), [fullPathName] 
 				{
 					WriteToConsole(std::string(fullPathName.begin(), fullPathName.end()));
 					autoLoadThread->Stop();
@@ -2664,5 +2688,6 @@ int wWinMain(HINSTANCE hInstance, HINSTANCE prevInstance, LPWSTR cmdLine, int cm
 	}
 	JslDisconnectAndDisposeAll();
 	FreeConsole();
+	whitelister.Remove();
 	return 0;
 }
