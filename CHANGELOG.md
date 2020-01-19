@@ -4,12 +4,15 @@ Most recent updates will appear first.
 This is a summary of new features and bugfixes. Read the README to learn how to use the features mentioned here.
 
 ## 1.4.0
-In 1.4, Nicolas added simultaneous and chorded press mappings, as well as a tray icon and shortcuts for configs and useful commands. Jibb added Bluetooth support for the DualShock 4.
+In 1.4, Nicolas added simultaneous and chorded press mappings, ring bindings, and options to map a button to inverting gyro input. He also added a tray icon (created by Bryan and coloured by Al) that gives access to configs and useful commands. Jibb added Bluetooth support for the DualShock 4.
 
 ### Features
 * Simultaneous press - map a pair of inputs pressed at about the same time to a unique output.
 * Chorded press - change the mappings of one or more buttons while a particular other button is pressed.
 * Bluetooth support for the DualShock 4.
+* Ring bindings - have a virtual input apply when either stick is fully pressed or only partially pressed, such as for walking or sprinting.
+* Invert gyro - have the gyro mouse inverted (in both axes or one axis of your choice) while pressing a button.
+* GYRO\_OFF, GYRO\_ON can appear on the right hand side of regular mappings for combining them with other inputs in interesting ways. Gyro-related mappings bound to a button tap will apply for 0.5s to give them time to be useful.
 * Whitelisting - add or remove JoyShockMapper to or from the HIDCerberus whitelist, if it's installed.
 * Tray icon - when minimised, JoyShockMapper has a tray icon that can be right-clicked to quickly access configs or useful commands.
 

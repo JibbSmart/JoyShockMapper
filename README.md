@@ -251,7 +251,7 @@ SL + SR = GYRO_OFF GYRO_INVERT  # Disable for .5s / Invert axis on simultaneous 
 
 Bound gyro actions like those have priority over the assigned gyro button should they conflict. 
 
-The command ```NO_GYRO_BUTTON``` can be used to remove the gyro-on or gyro-off mapping, making gyro always enabled. To have it always disabled, just set ```GYRO_ON = NONE```. 
+The command ```NO_GYRO_BUTTON``` can be used to remove the gyro-on or gyro-off mapping, making gyro always enabled. To have it always disabled, just set ```GYRO_ON = NONE``` or leave ```GYRO_SENS``` at 0. 
 
 ### 2. Analog Triggers
 
@@ -480,8 +480,8 @@ JoyCons and Pro Controllers can only be connected by Bluetooth. Even when connec
 ## Credits
 I'm Julian "Jibb" Smart, and I made JoyShockMapper. As of version 1.3, JoyShockMapper has benefited from substantial community contributions. Huge thanks to the following contributors:
 * Nicolas
-* CriticalComposer
-* AL2009man
+* Bryan Rumsey
+* Al. Lopez
 
 JoyShockMapper relies a lot on [JoyShockLibrary](https://github.com/jibbsmart/JoyShockLibrary), which it uses to read controller inputs. Check out that project to see who else made JoyShockLibrary possible.
 
