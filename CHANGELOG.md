@@ -3,6 +3,15 @@
 Most recent updates will appear first.
 This is a summary of new features and bugfixes. Read the README to learn how to use the features mentioned here.
 
+## 1.5.0
+In 1.5, Jibb added a mapping for BACKSPACE. TODO: add some more features before releasing this update; so far there's nothing urgent or big in here.
+
+### Features
+* BACKSPACE is now a supported input.
+
+### Bugfixes
+* Removed "Writing to console" text.
+
 ## 1.4.0
 In 1.4, Nicolas added simultaneous and chorded press mappings, ring bindings, and options to map a button to inverting gyro input. He also added a tray icon (created by Bryan and coloured by Al) that gives access to configs and useful commands. Jibb added Bluetooth support for the DualShock 4.
 
@@ -28,10 +37,11 @@ In 1.3, Nicolas added AutoLoad and dual stage triggers, while Jibb fixed a coupl
 * Fixed hold NONE mappings not working.
 
 ## 1.2.0
-In 1.2, Jibb added features to help with single Joy-Con control, as well as more keyboard mappings and better comment support.
+In 1.2, Jibb added features to help with single Joy-Con control as well as more keyboard mappings and better comment support.
 
 ### Features
 * Gyro axes can be mapped to different mouse axes using MOUSE\_X\_FROM\_GYRO\_AXIS and MOUSE\_Y\_FROM\_GYRO\_AXIS.
+* HOME and CAPTURE can now be mapped to any output. Any button can be mapped to CALIBRATE.
 * PAGEUP, PAGEDOWN, HOME, END, INSERT, and DELETE keyboard mappings were added.
 * /# comments can be added at the end of a line, instead of requiring their own line.
 
@@ -59,4 +69,4 @@ In 1.1, Jibb added more ways to enable or disable the gyro, changed the default 
 * Statically lilnked runtime so that users don't have to have any particular MSVC runtimes installed.
 
 ## 1.0
-JoyShockMapper 1.0 was the first public release of JoyShockMapper. Its features are too many to list in the changelog, but explore the README to see what it offers!
+JoyShockMapper 1.0 was the first public release of JoyShockMapper, created by Jibb Smart. Its features are too many to list in the changelog, but explore the README to see what it offers!

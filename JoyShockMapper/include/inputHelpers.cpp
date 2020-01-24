@@ -218,6 +218,9 @@ WORD nameToKey(std::string& name) {
 	if (name.compare("SCROLLUP") == 0) {
 		return VK_XBUTTON2;
 	}
+	if (name.compare("BACKSPACE") == 0) {
+		return VK_BACK;
+	}
 	if (name.compare("NONE") == 0) {
 		return NO_HOLD_MAPPED;
 	}
@@ -353,7 +356,7 @@ bool WriteToConsole(const std::string &command)
 	static const INPUT_RECORD RET_DOWN = { KEY_EVENT, {TRUE,  1, VK_RETURN, MapVirtualKey(VK_RETURN, MAPVK_VK_TO_VSC), VK_RETURN, 0} };
 	static const INPUT_RECORD RET_UP = { KEY_EVENT, {FALSE, 1, VK_RETURN, MapVirtualKey(VK_RETURN, MAPVK_VK_TO_VSC), VK_RETURN, 0} };
 
-	printf("Writing to console: %s\n", command.c_str());
+	//printf("Writing to console: %s\n", command.c_str());
 
 	std::vector<INPUT_RECORD> inputs(0);
 	inputs.reserve(command.size() + 4);

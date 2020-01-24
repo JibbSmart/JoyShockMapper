@@ -151,7 +151,7 @@ TAB: Tab
 ENTER: Enter
 LMOUSE, MMOUSE, RMOUSE: mouse left click, middle click, right click, respectively
 SCROLLUP, SCROLLDOWN: scroll the mouse wheel up, down, respectively
-PAGEUP, PAGEDOWN, HOME, END, INSERT, DELETE
+PAGEUP, PAGEDOWN, HOME, END, INSERT, DELETE, BACKSPACE
 NONE: No input
 CALIBRATE: recalibrate gyro when pressing this input
 GYRO_ON, GYRO_OFF: Enable or disable gyro
