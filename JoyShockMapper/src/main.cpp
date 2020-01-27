@@ -21,7 +21,7 @@
 // C increases when all that's happened is some bugs have been fixed.
 // B increases and C resets to 0 when new features have been added.
 // A increases and B and C reset to 0 when major new features have been added that warrant a new major version, or replacing older features with better ones that require the user to interact with them differently
-const char* version = "1.5.0";
+const char* version = "1.4.1";
 
 #define PI 3.14159265359f
 
@@ -2046,6 +2046,19 @@ void handleTriggerChange(int softIndex, int fullIndex, TriggerMode mode, float p
 		printf("Error: Trigger %s does not exist in state map. Dual Stage Trigger not possible.\n", fullName.c_str());
 		return;
 	}
+
+	// if either trigger is waiting to be tap released, give it a go
+	if (jc->btnState[softIndex] == BtnState::TapRelease || jc->btnState[softIndex] == BtnState::SimTapRelease)
+	{
+		// keep triggering until the tap release is complete
+		handleButtonChange(softIndex, false, softName, jc);
+	}
+	if (jc->btnState[fullIndex] == BtnState::TapRelease || jc->btnState[fullIndex] == BtnState::SimTapRelease)
+	{
+		// keep triggering until the tap release is complete
+		handleButtonChange(fullIndex, false, fullName.c_str(), jc);
+	}
+
 	switch (jc->triggerState[idxState])
 	{
 	case DstState::NoPress:
@@ -2148,7 +2161,7 @@ void handleTriggerChange(int softIndex, int fullIndex, TriggerMode mode, float p
 		}
 		else // Soft Press is being held
 		{
-			handleButtonChange(softIndex, true, fullName.c_str(), jc);
+			handleButtonChange(softIndex, true, softName, jc);
 
 			if ((mode == TriggerMode::maySkip || mode == TriggerMode::noSkip || mode == TriggerMode::maySkipResp)
 				&& pressed == 1.0)

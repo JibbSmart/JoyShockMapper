@@ -3,14 +3,14 @@
 Most recent updates will appear first.
 This is a summary of new features and bugfixes. Read the README to learn how to use the features mentioned here.
 
-## 1.5.0
-In 1.5, Jibb added a mapping for BACKSPACE. TODO: add some more features before releasing this update; so far there's nothing urgent or big in here.
-
-### Features
-* BACKSPACE is now a supported input.
+## 1.4.1
+1.4.1 is a bugfix update.
 
 ### Bugfixes
-* Removed "Writing to console" text.
+* Fixed combined tap mappings on ZL and ZR not releasing correctly.
+* Fixed GYRO_INVERT overlapping ENTER keyboard mapping.
+* Minor fixes to the console text.
+* Added BACKSPACE mapping (not really a bug, but too small for a feature release).
 
 ## 1.4.0
 In 1.4, Nicolas added simultaneous and chorded press mappings, ring bindings, and options to map a button to inverting gyro input. He also added a tray icon (created by Bryan and coloured by Al) that gives access to configs and useful commands. Jibb added Bluetooth support for the DualShock 4.
@@ -66,7 +66,7 @@ In 1.1, Jibb added more ways to enable or disable the gyro, changed the default 
 1.0.1 is a bugfix update.
 
 ### Bugfixes
-* Statically lilnked runtime so that users don't have to have any particular MSVC runtimes installed.
+* Statically linked runtime so that users don't have to have any particular MSVC runtimes installed.
 
 ## 1.0
 JoyShockMapper 1.0 was the first public release of JoyShockMapper, created by Jibb Smart. Its features are too many to list in the changelog, but explore the README to see what it offers!

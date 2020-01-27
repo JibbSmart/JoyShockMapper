@@ -10,11 +10,11 @@
 // Only use undefined keys from the above list for JSM custom commands
 #define NO_HOLD_MAPPED 0x07
 #define CALIBRATE 0x0A
-#define GYRO_INV_X 0x0B
-#define GYRO_INV_Y 0x0C
-#define GYRO_INVERT 0x0D
-#define GYRO_OFF_BIND 0x0E // Not to be confused with settings GYRO_ON and GYRO_OFF
-#define GYRO_ON_BIND 0x0F  // Those here are bindings
+#define GYRO_INV_X 0x88
+#define GYRO_INV_Y 0x89
+#define GYRO_INVERT 0x8A
+#define GYRO_OFF_BIND 0x8B // Not to be confused with settings GYRO_ON and GYRO_OFF
+#define GYRO_ON_BIND 0x8C  // Those here are bindings
 
 static WORD mouseMaps[] = { 0x0002, 0x0008, 0x0000, 0x0020 };
 // Windows' mouse speed settings translate non-linearly to speed.
