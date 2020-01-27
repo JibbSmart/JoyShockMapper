@@ -2345,7 +2345,7 @@ void joyShockPollCallback(int jcHandle, JOY_SHOCK_STATE state, JOY_SHOCK_STATE l
 	bool down = calY < -0.2f;
 	bool up = calY > 0.2f;
 	float stickLength = sqrt(calX * calX + calY * calY);
-	bool ring = left_stick_mode == StickMode::innerRing && stickLength < 0.7f ||
+	bool ring = left_stick_mode == StickMode::innerRing && stickLength > 0.0f && stickLength < 0.7f ||
 		left_stick_mode == StickMode::outerRing && stickLength > 0.7f;
 	if (left_stick_mode == StickMode::flick) {
 		camSpeedX += handleFlickStick(calX, calY, lastCalX, lastCalY, stickLength, jc->is_flicking_left, jc, mouseCalibrationFactor);
@@ -2397,7 +2397,7 @@ void joyShockPollCallback(int jcHandle, JOY_SHOCK_STATE state, JOY_SHOCK_STATE l
 	down = calY < -0.2f;
 	up = calY > 0.2f;
 	stickLength = sqrt(calX * calX + calY * calY);
-	ring = right_stick_mode == StickMode::innerRing && stickLength < 0.7f ||
+	ring = right_stick_mode == StickMode::innerRing && stickLength > 0.0f && stickLength < 0.7f ||
 		   right_stick_mode == StickMode::outerRing && stickLength > 0.7f;
 	if (right_stick_mode == StickMode::flick) {
 		camSpeedX += handleFlickStick(calX, calY, lastCalX, lastCalY, stickLength, jc->is_flicking_right, jc, mouseCalibrationFactor);
