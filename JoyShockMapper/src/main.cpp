@@ -2197,16 +2197,13 @@ void handleTriggerChange(int softIndex, int fullIndex, TriggerMode mode, float p
 	}
 }
 
-static float handleFlickStick(float calX, float calY, float lastCalX, float lastCalY, bool& isFlicking, JoyShock * jc, float mouseCalibrationFactor) {
+static float handleFlickStick(float calX, float calY, float lastCalX, float lastCalY, float stickLength, bool& isFlicking, JoyShock * jc, float mouseCalibrationFactor) {
 	float camSpeedX = 0.0f;
 	// let's centre this
 	float offsetX = calX;
 	float offsetY = calY;
 	float lastOffsetX = lastCalX;
 	float lastOffsetY = lastCalY;
-	float stickLength = sqrt(offsetX * offsetX + offsetY * offsetY);
-	//printf("Flick! %.4f ", stickLength);
-	float lastOffsetLength = sqrt(lastOffsetX * lastOffsetX + lastOffsetY * lastOffsetY);
 	float flickStickThreshold = 1.0f - stick_deadzone_outer;
 	if (isFlicking)
 	{
@@ -2347,10 +2344,11 @@ void joyShockPollCallback(int jcHandle, JOY_SHOCK_STATE state, JOY_SHOCK_STATE l
 	bool right = calX > 0.2f;
 	bool down = calY < -0.2f;
 	bool up = calY > 0.2f;
-	bool ring = left_stick_mode == StickMode::innerRing && (absX > 0.2f || absY > 0.2f) && absX < 0.6f && absY < 0.6f ||
-		        left_stick_mode == StickMode::outerRing && absX > 0.6f && absY > 0.6f;
+	float stickLength = sqrt(calX * calX + calY * calY);
+	bool ring = left_stick_mode == StickMode::innerRing && stickLength < 0.7f ||
+		left_stick_mode == StickMode::outerRing && stickLength > 0.7f;
 	if (left_stick_mode == StickMode::flick) {
-		camSpeedX += handleFlickStick(calX, calY, lastCalX, lastCalY, jc->is_flicking_left, jc, mouseCalibrationFactor);
+		camSpeedX += handleFlickStick(calX, calY, lastCalX, lastCalY, stickLength, jc->is_flicking_left, jc, mouseCalibrationFactor);
 		leftAny = leftPegged;
 	}
 	else if (left_stick_mode == StickMode::aim) {
@@ -2398,10 +2396,11 @@ void joyShockPollCallback(int jcHandle, JOY_SHOCK_STATE state, JOY_SHOCK_STATE l
 	right = calX > 0.2f;
 	down = calY < -0.2f;
 	up = calY > 0.2f;
-	ring = right_stick_mode == StickMode::innerRing && (absX > 0.2f || absY > 0.2f) && absX < 0.6f && absY < 0.6f ||
-		   right_stick_mode == StickMode::outerRing && absX > 0.6f && absY > 0.6f;
+	stickLength = sqrt(calX * calX + calY * calY);
+	ring = right_stick_mode == StickMode::innerRing && stickLength < 0.7f ||
+		   right_stick_mode == StickMode::outerRing && stickLength > 0.7f;
 	if (right_stick_mode == StickMode::flick) {
-		camSpeedX += handleFlickStick(calX, calY, lastCalX, lastCalY, jc->is_flicking_right, jc, mouseCalibrationFactor);
+		camSpeedX += handleFlickStick(calX, calY, lastCalX, lastCalY, stickLength, jc->is_flicking_right, jc, mouseCalibrationFactor);
 		rightAny = rightPegged;
 	}
 	else if (right_stick_mode == StickMode::aim) {
