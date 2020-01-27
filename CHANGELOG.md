@@ -9,6 +9,7 @@ This is a summary of new features and bugfixes. Read the README to learn how to 
 ### Bugfixes
 * Fixed combined tap mappings on ZL and ZR not releasing correctly.
 * Fixed GYRO_INVERT overlapping ENTER keyboard mapping.
+* Fixed phantom flicks when the flick stick was released too gradually.
 * Minor fixes to the console text.
 * Added BACKSPACE mapping (not really a bug, but too small for a feature release).
 

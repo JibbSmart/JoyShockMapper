@@ -220,7 +220,9 @@ public:
 	std::deque<std::pair<int, WORD>> gyroActionQueue; // Queue of gyro control actions currently in effect
 	std::chrono::steady_clock::time_point started_flick;
 	std::chrono::steady_clock::time_point time_now;
-	// tap_release_queue has been replaced with button states *TapRelease. The hold time of the tap is the polling period of the device.
+	// tap_release_queue has been replaced with button states *TapRelease. The hold time of the tap is effectively quantized to the polling period of the device.
+	bool is_flicking_left = false;
+	bool is_flicking_right = false;
 	float delta_flick = 0.0;
 	float flick_percent_done = 0.0;
 	float flick_rotation_counter = 0.0;
@@ -2195,7 +2197,7 @@ void handleTriggerChange(int softIndex, int fullIndex, TriggerMode mode, float p
 	}
 }
 
-static float handleFlickStick(float calX, float calY, float lastCalX, float lastCalY, JoyShock * jc, float mouseCalibrationFactor) {
+static float handleFlickStick(float calX, float calY, float lastCalX, float lastCalY, bool& isFlicking, JoyShock * jc, float mouseCalibrationFactor) {
 	float camSpeedX = 0.0f;
 	// let's centre this
 	float offsetX = calX;
@@ -2206,11 +2208,16 @@ static float handleFlickStick(float calX, float calY, float lastCalX, float last
 	//printf("Flick! %.4f ", stickLength);
 	float lastOffsetLength = sqrt(lastOffsetX * lastOffsetX + lastOffsetY * lastOffsetY);
 	float flickStickThreshold = 1.0f - stick_deadzone_outer;
+	if (isFlicking)
+	{
+		flickStickThreshold *= 0.9;
+	}
 	if (stickLength >= flickStickThreshold) {
 		float stickAngle = atan2(-offsetX, offsetY);
 		//printf(", %.4f\n", lastOffsetLength);
-		if (lastOffsetLength < flickStickThreshold) {
+		if (!isFlicking) {
 			// bam! new flick!
+			isFlicking = true;
 			jc->started_flick = std::chrono::steady_clock::now();
 			jc->delta_flick = stickAngle;
 			jc->flick_percent_done = 0.0f;
@@ -2237,9 +2244,10 @@ static float handleFlickStick(float calX, float calY, float lastCalX, float last
 			camSpeedX = jc->GetSmoothedStickRotation(flickSpeed, flickSpeedConstant * stepSize * 8.0f, flickSpeedConstant * stepSize * 16.0f, maxSmoothingSamples);
 		}
 	}
-	else if (lastOffsetLength >= flickStickThreshold) {
+	else if (isFlicking) {
 		// was a flick! how much was the flick and rotation?
 		last_flick_and_rotation = abs(jc->flick_rotation_counter) / (2.0 * PI);
+		isFlicking = false;
 	}
 	// do the flicking
 	float secondsSinceFlick = ((float)std::chrono::duration_cast<std::chrono::microseconds>(jc->time_now - jc->started_flick).count()) / 1000000.0f;
@@ -2342,7 +2350,7 @@ void joyShockPollCallback(int jcHandle, JOY_SHOCK_STATE state, JOY_SHOCK_STATE l
 	bool ring = left_stick_mode == StickMode::innerRing && (absX > 0.2f || absY > 0.2f) && absX < 0.6f && absY < 0.6f ||
 		        left_stick_mode == StickMode::outerRing && absX > 0.6f && absY > 0.6f;
 	if (left_stick_mode == StickMode::flick) {
-		camSpeedX += handleFlickStick(calX, calY, lastCalX, lastCalY, jc, mouseCalibrationFactor);
+		camSpeedX += handleFlickStick(calX, calY, lastCalX, lastCalY, jc->is_flicking_left, jc, mouseCalibrationFactor);
 		leftAny = leftPegged;
 	}
 	else if (left_stick_mode == StickMode::aim) {
@@ -2393,7 +2401,7 @@ void joyShockPollCallback(int jcHandle, JOY_SHOCK_STATE state, JOY_SHOCK_STATE l
 	ring = right_stick_mode == StickMode::innerRing && (absX > 0.2f || absY > 0.2f) && absX < 0.6f && absY < 0.6f ||
 		   right_stick_mode == StickMode::outerRing && absX > 0.6f && absY > 0.6f;
 	if (right_stick_mode == StickMode::flick) {
-		camSpeedX += handleFlickStick(calX, calY, lastCalX, lastCalY, jc, mouseCalibrationFactor);
+		camSpeedX += handleFlickStick(calX, calY, lastCalX, lastCalY, jc->is_flicking_right, jc, mouseCalibrationFactor);
 		rightAny = rightPegged;
 	}
 	else if (right_stick_mode == StickMode::aim) {
