@@ -2389,7 +2389,7 @@ void joyShockPollCallback(int jcHandle, JOY_SHOCK_STATE state, JOY_SHOCK_STATE l
 	lastCalY = lastState.stickRY;
 	calX = state.stickRX;
 	calY = state.stickRY;
-	float rightPegged = processDeadZones(calX, calY);
+	bool rightPegged = processDeadZones(calX, calY);
 	absX = abs(calX);
 	absY = abs(calY);
 	left = calX < -0.2f;
