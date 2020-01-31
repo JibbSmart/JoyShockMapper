@@ -2650,6 +2650,15 @@ int wWinMain(HINSTANCE hInstance, HINSTANCE prevInstance, LPWSTR cmdLine, int cm
 					autoLoadThread->Start() : 
 					autoLoadThread->Stop();
 			}, std::bind(&PollingThread::isRunning, autoLoadThread.get()));
+		if (Whitelister::IsHIDCerberusRunning())
+		{
+			tray->AddMenuItem(L"Whitelist", [](bool isChecked)
+			{
+				isChecked ?
+					whitelister.Add() :
+					whitelister.Remove();
+			}, std::bind(&Whitelister::operator bool, &whitelister));
+		}
 		tray->AddMenuItem(L"Calibrate all devices", [](bool isChecked)
 			{
 				isChecked ? 
@@ -2660,8 +2669,8 @@ int wWinMain(HINSTANCE hInstance, HINSTANCE prevInstance, LPWSTR cmdLine, int cm
 				return devicesCalibrating; 
 			});
 
-		std::string cwd(GetCWD());
-		std::string autoloadFolder = cwd + "\\AutoLoad\\";
+		//std::string cwd(GetCWD());
+		std::string autoloadFolder = "AutoLoad\\";
 		for (auto file : ListDirectory(autoloadFolder.c_str()))
 		{
 			std::string fullPathName = autoloadFolder + file;
@@ -2672,7 +2681,7 @@ int wWinMain(HINSTANCE hInstance, HINSTANCE prevInstance, LPWSTR cmdLine, int cm
 					autoLoadThread->Stop();
 				});
 		}
-		std::string gyroConfigsFolder = cwd + "\\GyroConfigs\\";
+		std::string gyroConfigsFolder = "GyroConfigs\\";
 		for (auto file : ListDirectory(gyroConfigsFolder.c_str()))
 		{
 			std::string fullPathName = gyroConfigsFolder + file;

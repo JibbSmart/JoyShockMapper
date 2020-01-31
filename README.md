@@ -26,6 +26,7 @@ JoyShockMapper works on Windows and uses JoyShockLibrary to read inputs from con
   * **[Real World Calibration](#5-real-world-calibration)**
   * **[Miscellaneous Commands](#6-miscellaneous-commands)**
 * **[Known and Perceived Issues](#known-and-perceived-issues)**
+* **[Troubleshooting](#troubleshooting)**
 * **[Credits](#credits)**
 * **[Helpful Resources](#helpful-resources)**
 * **[License](#license)**
@@ -470,12 +471,27 @@ There are a few other useful commands that don't fall under the above categories
 * **JOYCON\_GYRO\_MASK** (default IGNORE\_LEFT) - Most games that use gyro controls on Switch ignore the left JoyCon's gyro to avoid confusing behaviour when the JoyCons are held separately while playing. This is the default behaviour in JoyShockMapper. But you can also choose to IGNORE\_RIGHT, IGNORE\_BOTH, or USE\_BOTH.
 * **\# comments** - Any line or part of a line that begins with '\#' will be ignored. Use this to organise/annotate your configuration files, or to temporarily remove commands that you may want to add later.
 
+## Troubleshooting
+Some third-party devices that work as controllers on Switch or PS4 may not work with JoyShockMapper. It only _officially_ supports first-party controllers. Issues may still arise with those, though. Reach out, and hopefully we can figure out where the problem is.
+
+But first, here are some common problems that are worth checking first.
+
+The JoyShockMapper console will tell you how many devices are connected, and will output information with most inputs (button presses or releases, tilting the stick). However, the only way to test that the gyro is working is to enable it and see if you can move the mouse. The quickest way to check if gyro input is working without loading a config is to just enter the command ```GYRO\_SENS = 1``` and then move the controller. Don't forget that you might need to calibrate the gyro if the mouse is moving even when the controller isn't.
+
+Many users of JoyShockMapper rely on tools like HIDGuardian to hide controller input from the game. If JSM isn't recognising your controller, maybe you haven't whitelisted JoyShockMapper.
+
+In some circumstances, the JoyShockMapper console is responding to controller input and the mouse is responding to gyro movements, but the game you're playing isn't responding to it. This can happen when the you launch the game as an administrator. JoyShockMapper must also be launched with administrator rights in order to send keyboard and mouse events to the game.
+
+Some users have found stick inputs to be unresponsive in one or more directions. This can happen if the stick isn't using enough of the range available to it. In this case, increasing STICK\_DEADZONE\_OUTER can help. In the same way, the stick might be reporting a direction as pressed even when it's not touched. This happens when STICK\_DEADZONE\_INNER is too small.
+
 ## Known and Perceived Issues
 ### Polling rate
 New mouse and keyboard events are only sent when JoyShockMapper gets a new message from the controller. This means if your game's and display's refresh rates are higher than the controller's poll rate, sometimes the game and display will update without moving the mouse, even if you'd normally expect the mouse to move. The DualShock 4 sends 250 messages a second, which is plenty for even extremely high refresh rate displays. But JoyCons and Pro Controllers send 66.67 messages a second, which means you might encounter stuttering movements when playing (and displaying) above 66.67 frames per second. A future version of JoyShockMapper may work around this problem by repeating messages up to a desired refresh rate.
 
 ### Bluetooth connectivity
 JoyCons and Pro Controllers can only be connected by Bluetooth. Even when connected by USB, they currently still only communicate by Bluetooth. Some Bluetooth adapters can't keep up with these devices, resulting in **laggy input**. This is especially common when more than one device is connected (such as when using a pair of JoyCons). There is nothing JoyShockMapper or JoyShockLibrary can do about this.
+
+Bluetooth support for the DualShock 4 is new in JoyShockMapper, and isn't working for everyone. Please let me know if you encounter any issues with it.
 
 ## Credits
 I'm Julian "Jibb" Smart, and I made JoyShockMapper. As of version 1.3, JoyShockMapper has benefited from substantial community contributions. Huge thanks to the following contributors:

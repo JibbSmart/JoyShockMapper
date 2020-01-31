@@ -4,15 +4,19 @@ Most recent updates will appear first.
 This is a summary of new features and bugfixes. Read the README to learn how to use the features mentioned here.
 
 ## 1.4.1
-1.4.1 is a bugfix update.
+1.4.1 is a bugfix update, with some minor features as well.
+
+### Features
+* Added BACKSPACE mapping.
+* Added buffer between flick stick activation threshold and release threshold.
+* Added "Whitelist" toggle to tray menu.
 
 ### Bugfixes
 * Fixed combined tap mappings on ZL and ZR not releasing correctly.
 * Fixed GYRO_INVERT overlapping ENTER keyboard mapping.
 * Fixed outer ring bindings not working properly.
-* Fixed phantom flicks when the flick stick was released too gradually.
+* Configs shortcuts in tray menu now use relative paths instead of absolute paths.
 * Minor fixes to the console text.
-* Added BACKSPACE mapping (not really a bug, but too small for a feature release).
 
 ## 1.4.0
 In 1.4, Nicolas added simultaneous and chorded press mappings, ring bindings, and options to map a button to inverting gyro input. He also added a tray icon (created by Bryan and coloured by Al) that gives access to configs and useful commands. Jibb added Bluetooth support for the DualShock 4.
@@ -26,6 +30,7 @@ In 1.4, Nicolas added simultaneous and chorded press mappings, ring bindings, an
 * GYRO\_OFF, GYRO\_ON can appear on the right hand side of regular mappings for combining them with other inputs in interesting ways. Gyro-related mappings bound to a button tap will apply for 0.5s to give them time to be useful.
 * Whitelisting - add or remove JoyShockMapper to or from the HIDCerberus whitelist, if it's installed.
 * Tray icon - when minimised, JoyShockMapper has a tray icon that can be right-clicked to quickly access configs or useful commands.
+* The HELP command will open the README.
 
 ## 1.3.0
 In 1.3, Nicolas added AutoLoad and dual stage triggers, while Jibb fixed a couple of bugs.
