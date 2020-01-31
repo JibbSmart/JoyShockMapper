@@ -4,7 +4,7 @@ Most recent updates will appear first.
 This is a summary of new features and bugfixes. Read the README to learn how to use the features mentioned here.
 
 ## 1.4.1
-1.4.1 is a bugfix update, with some minor features as well.
+1.4.1 is a bugfix update, with some minor features as well. Jibb improved flick stick's behaviour when the stick is released slowly, added the BACKSPACE mapping, and made the list of available configs update whenever the tray menu is re-opened. Nicolas added a "Whitelist" toggle to the tray menu.
 
 ### Features
 * Added BACKSPACE mapping.
@@ -21,7 +21,7 @@ This is a summary of new features and bugfixes. Read the README to learn how to 
 * Fixed stick directional mappings to buttons not working as they should.
 
 ## 1.4.0
-In 1.4, Nicolas added simultaneous and chorded press mappings, ring bindings, and options to map a button to inverting gyro input. He also added a tray icon (created by Bryan and coloured by Al) that gives access to configs and useful commands. Jibb added Bluetooth support for the DualShock 4.
+In 1.4, Nicolas added simultaneous and chorded press mappings, ring bindings, and options to map a button to inverting gyro input. He also added a HELP shortcut to the latest version of the README and a tray icon (created by Bryan and coloured by Al) that gives easy access to configs and useful commands when JSM is minimised. Jibb added Bluetooth support for the DualShock 4.
 
 ### Features
 * Simultaneous press - map a pair of inputs pressed at about the same time to a unique output.
