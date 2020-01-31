@@ -2340,10 +2340,10 @@ void joyShockPollCallback(int jcHandle, JOY_SHOCK_STATE state, JOY_SHOCK_STATE l
 	bool leftPegged = processDeadZones(calX, calY);
 	float absX = abs(calX);
 	float absY = abs(calY);
-	bool left = calX < -0.2f;
-	bool right = calX > 0.2f;
-	bool down = calY < -0.2f;
-	bool up = calY > 0.2f;
+	bool left = calX < -0.5f * absY;
+	bool right = calX > 0.5f * absY;
+	bool down = calY < -0.5f * absX;
+	bool up = calY > 0.5f * absX;
 	float stickLength = sqrt(calX * calX + calY * calY);
 	bool ring = left_stick_mode == StickMode::innerRing && stickLength > 0.0f && stickLength < 0.7f ||
 		left_stick_mode == StickMode::outerRing && stickLength > 0.7f;
@@ -2392,10 +2392,10 @@ void joyShockPollCallback(int jcHandle, JOY_SHOCK_STATE state, JOY_SHOCK_STATE l
 	bool rightPegged = processDeadZones(calX, calY);
 	absX = abs(calX);
 	absY = abs(calY);
-	left = calX < -0.2f;
-	right = calX > 0.2f;
-	down = calY < -0.2f;
-	up = calY > 0.2f;
+	left = calX < -0.5f * absY;
+	right = calX > 0.5f * absY;
+	down = calY < -0.5f * absX;
+	up = calY > 0.5f * absX;
 	stickLength = sqrt(calX * calX + calY * calY);
 	ring = right_stick_mode == StickMode::innerRing && stickLength > 0.0f && stickLength < 0.7f ||
 		   right_stick_mode == StickMode::outerRing && stickLength > 0.7f;
