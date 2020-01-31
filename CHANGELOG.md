@@ -18,6 +18,7 @@ This is a summary of new features and bugfixes. Read the README to learn how to 
 * Fixed outer ring bindings not working properly.
 * Configs shortcuts in tray menu now use relative paths instead of absolute paths.
 * Minor fixes to the console text.
+* Fixed stick directional mappings to buttons not working as they should.
 
 ## 1.4.0
 In 1.4, Nicolas added simultaneous and chorded press mappings, ring bindings, and options to map a button to inverting gyro input. He also added a tray icon (created by Bryan and coloured by Al) that gives access to configs and useful commands. Jibb added Bluetooth support for the DualShock 4.
