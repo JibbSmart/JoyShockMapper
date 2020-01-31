@@ -78,7 +78,7 @@ public:
 	//void toastFailed() const override { }
 };
 
-TrayIcon::TrayIcon(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPTSTR lpCmdLine, int nCmdShow)
+TrayIcon::TrayIcon(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPTSTR lpCmdLine, int nCmdShow, void(*beforeShow)())
 	: _hInst(0)
 	, _niData({0})
 	, _menuMap()
@@ -104,6 +104,8 @@ TrayIcon::TrayIcon(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPTSTR lpCmdLin
 		this,          // argument to thread function 
 		0,                      // use default creation flags 
 		nullptr);			   // returns the thread identifier 
+
+	_beforeShow = beforeShow;
 }
 
 TrayIcon::~TrayIcon()
@@ -265,6 +267,7 @@ BOOL TrayIcon::InitInstance()
 // Name says it all
 void TrayIcon::ShowContextMenu(HWND hWnd)
 {
+	if (_beforeShow) _beforeShow();
 	if (!_clickMap.empty()) _clickMap.clear();
 	POINT pt;
 	GetCursorPos(&pt);

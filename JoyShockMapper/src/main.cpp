@@ -2620,9 +2620,80 @@ void OnShowConsole()
 	consoleMonitor->Start();
 }
 
+void beforeShowTrayMenu()
+{
+	if (!tray || !*tray) printf("ERROR: Cannot create tray item.\n");
+	else
+	{
+		tray->ClearMenuMap();
+		tray->AddMenuItem(L"Show Console", &OnShowConsole);
+		tray->AddMenuItem(L"Reconnect controllers", []()
+		{
+			WriteToConsole("RECONNECT_CONTROLLERS");
+		});
+		tray->AddMenuItem(L"AutoLoad", [](bool isChecked)
+		{
+			isChecked ?
+				autoLoadThread->Start() :
+				autoLoadThread->Stop();
+		}, std::bind(&PollingThread::isRunning, autoLoadThread.get()));
+		if (Whitelister::IsHIDCerberusRunning())
+		{
+			tray->AddMenuItem(L"Whitelist", [](bool isChecked)
+			{
+				isChecked ?
+					whitelister.Add() :
+					whitelister.Remove();
+			}, std::bind(&Whitelister::operator bool, &whitelister));
+		}
+		tray->AddMenuItem(L"Calibrate all devices", [](bool isChecked)
+		{
+			isChecked ?
+				WriteToConsole("RESTART_GYRO_CALIBRATION") :
+				WriteToConsole("FINISH_GYRO_CALIBRATION");
+		}, []()
+		{
+			return devicesCalibrating;
+		});
+
+		//std::string cwd(GetCWD());
+		std::string autoloadFolder = "AutoLoad\\";
+		for (auto file : ListDirectory(autoloadFolder.c_str()))
+		{
+			std::string fullPathName = autoloadFolder + file;
+			auto noext = file.substr(0, file.find_last_of('.'));
+			tray->AddMenuItem(L"AutoLoad folder", std::wstring(noext.begin(), noext.end()), [fullPathName]
+			{
+				WriteToConsole(std::string(fullPathName.begin(), fullPathName.end()));
+				autoLoadThread->Stop();
+			});
+		}
+		std::string gyroConfigsFolder = "GyroConfigs\\";
+		for (auto file : ListDirectory(gyroConfigsFolder.c_str()))
+		{
+			std::string fullPathName = gyroConfigsFolder + file;
+			auto noext = file.substr(0, file.find_last_of('.'));
+			tray->AddMenuItem(L"GyroConfigs folder", std::wstring(noext.begin(), noext.end()), [fullPathName]
+			{
+				WriteToConsole(std::string(fullPathName.begin(), fullPathName.end()));
+				autoLoadThread->Stop();
+			});
+		}
+		tray->AddMenuItem(L"Calculate RWC", []()
+		{
+			WriteToConsole("CALCULATE_REAL_WORLD_CALIBRATION");
+			OnShowConsole();
+		});
+		tray->AddMenuItem(L"Quit", []()
+		{
+			WriteToConsole("QUIT");
+		});
+	}
+}
+
 //int main(int argc, char *argv[]) {
 int wWinMain(HINSTANCE hInstance, HINSTANCE prevInstance, LPWSTR cmdLine, int cmdShow) {
-	tray.reset(new TrayIcon(hInstance, prevInstance, cmdLine, cmdShow));
+	tray.reset(new TrayIcon(hInstance, prevInstance, cmdLine, cmdShow, &beforeShowTrayMenu));
 	// console
 	initConsole();
 	printf("Welcome to JoyShockMapper version %s!\n", version);
@@ -2635,73 +2706,6 @@ int wWinMain(HINSTANCE hInstance, HINSTANCE prevInstance, LPWSTR cmdLine, int cm
 	consoleMonitor.reset(new PollingThread(&MonitorConsolePoll, tray.get(), 500, true));
 	if (autoLoadThread && *autoLoadThread) printf("AutoLoad is enabled. Configurations in \"AutoLoad\" folder will get loaded when matching application is in focus.\n");
 	else printf("[AUTOLOAD] AutoLoad is unavailable\n");
-
-	if (!tray || !*tray) printf("ERROR: Cannot create tray item.\n");
-	else
-	{
-		tray->AddMenuItem(L"Show Console", &OnShowConsole);
-		tray->AddMenuItem(L"Reconnect controllers", []() 
-			{
-				WriteToConsole("RECONNECT_CONTROLLERS"); 
-			});
-		tray->AddMenuItem(L"AutoLoad", [](bool isChecked)
-			{
-				isChecked ? 
-					autoLoadThread->Start() : 
-					autoLoadThread->Stop();
-			}, std::bind(&PollingThread::isRunning, autoLoadThread.get()));
-		if (Whitelister::IsHIDCerberusRunning())
-		{
-			tray->AddMenuItem(L"Whitelist", [](bool isChecked)
-			{
-				isChecked ?
-					whitelister.Add() :
-					whitelister.Remove();
-			}, std::bind(&Whitelister::operator bool, &whitelister));
-		}
-		tray->AddMenuItem(L"Calibrate all devices", [](bool isChecked)
-			{
-				isChecked ? 
-					WriteToConsole("RESTART_GYRO_CALIBRATION") : 
-					WriteToConsole("FINISH_GYRO_CALIBRATION");
-			}, []() 
-			{
-				return devicesCalibrating; 
-			});
-
-		//std::string cwd(GetCWD());
-		std::string autoloadFolder = "AutoLoad\\";
-		for (auto file : ListDirectory(autoloadFolder.c_str()))
-		{
-			std::string fullPathName = autoloadFolder + file;
-			auto noext = file.substr(0, file.find_last_of('.'));
-			tray->AddMenuItem(L"AutoLoad folder", std::wstring(noext.begin(), noext.end()), [fullPathName] 
-				{
-					WriteToConsole(std::string(fullPathName.begin(), fullPathName.end()));
-					autoLoadThread->Stop();
-				});
-		}
-		std::string gyroConfigsFolder = "GyroConfigs\\";
-		for (auto file : ListDirectory(gyroConfigsFolder.c_str()))
-		{
-			std::string fullPathName = gyroConfigsFolder + file;
-			auto noext = file.substr(0, file.find_last_of('.'));
-			tray->AddMenuItem(L"GyroConfigs folder", std::wstring(noext.begin(), noext.end()), [fullPathName] 
-				{
-					WriteToConsole(std::string(fullPathName.begin(), fullPathName.end()));
-					autoLoadThread->Stop();
-				});
-		}
-		tray->AddMenuItem(L"Calculate RWC", []()
-			{
-				WriteToConsole("CALCULATE_REAL_WORLD_CALIBRATION");
-				OnShowConsole();
-			});
-		tray->AddMenuItem(L"Quit", [] ()
-			{
-				WriteToConsole("QUIT");
-			});
-	}
 
 	// poll joycons:
 	while (true) {

@@ -12,12 +12,14 @@ class TrayIcon {
 	std::vector<MenuItem*> _menuMap;
 	std::map<UINT_PTR, std::function<void()>> _clickMap;
 	HANDLE _thread;
+	void(*_beforeShow)();
 
 public:
 	TrayIcon(HINSTANCE hInstance,
 		HINSTANCE hPrevInstance,
 		LPTSTR    lpCmdLine,
-		int       nCmdShow);
+		int       nCmdShow,
+		void(*beforeShow)());
 
 	~TrayIcon();
 
@@ -50,6 +52,8 @@ public:
 
 	void AddMenuItem(const std::wstring &label, const std::wstring &sublabel, std::function<void()> onClick);
 
+	void ClearMenuMap();
+
 private:
 
 	BOOL InitInstance();
@@ -61,6 +65,4 @@ private:
 	ULONGLONG GetDllVersion(LPCTSTR lpszDllName);
 
 	static INT_PTR CALLBACK DlgProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam);
-
-	void ClearMenuMap();
 };

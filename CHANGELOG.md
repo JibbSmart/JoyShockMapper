@@ -10,6 +10,7 @@ This is a summary of new features and bugfixes. Read the README to learn how to 
 * Added BACKSPACE mapping.
 * Added buffer between flick stick activation threshold and release threshold.
 * Added "Whitelist" toggle to tray menu.
+* Tray menu items are refreshed whenever the menu is re-opened.
 
 ### Bugfixes
 * Fixed combined tap mappings on ZL and ZR not releasing correctly.
