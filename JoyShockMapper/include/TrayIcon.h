@@ -12,14 +12,14 @@ class TrayIcon {
 	std::vector<MenuItem*> _menuMap;
 	std::map<UINT_PTR, std::function<void()>> _clickMap;
 	HANDLE _thread;
-	void(*_beforeShow)();
+	std::function<void()> _beforeShow;
 
 public:
 	TrayIcon(HINSTANCE hInstance,
 		HINSTANCE hPrevInstance,
 		LPTSTR    lpCmdLine,
 		int       nCmdShow,
-		void(*beforeShow)());
+		std::function<void()> beforeShow);
 
 	~TrayIcon();
 

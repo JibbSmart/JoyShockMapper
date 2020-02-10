@@ -3,6 +3,14 @@
 Most recent updates will appear first.
 This is a summary of new features and bugfixes. Read the README to learn how to use the features mentioned here.
 
+## 1.4.2
+1.4.2 is a bugfix update. Nicolas fixed a crash, and properly codes the clearing of combo (aka Simultaneous and Chorded) presses. Also added some code consistency with usage of std::function.
+
+### Bugfixes
+* Crash when left clicking the tray icon
+* Combo presses don't reset when calling RESET_MAPPINGS
+* Setting either combo presses to NONE doesn't clear the binding
+
 ## 1.4.1
 1.4.1 is a bugfix update, with some minor features as well. Jibb improved flick stick's behaviour when the stick is released slowly, added the BACKSPACE mapping, and made the list of available configs update whenever the tray menu is re-opened. Nicolas added a "Whitelist" toggle to the tray menu.
 

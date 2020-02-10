@@ -78,11 +78,12 @@ public:
 	//void toastFailed() const override { }
 };
 
-TrayIcon::TrayIcon(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPTSTR lpCmdLine, int nCmdShow, void(*beforeShow)())
+TrayIcon::TrayIcon(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPTSTR lpCmdLine, int nCmdShow, std::function<void()> beforeShow)
 	: _hInst(0)
 	, _niData({0})
 	, _menuMap()
 	, _thread (0)
+	, _beforeShow(beforeShow)
 {
 	registry.push_back(this);
 
@@ -104,8 +105,6 @@ TrayIcon::TrayIcon(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPTSTR lpCmdLin
 		this,          // argument to thread function 
 		0,                      // use default creation flags 
 		nullptr);			   // returns the thread identifier 
-
-	_beforeShow = beforeShow;
 }
 
 TrayIcon::~TrayIcon()
@@ -362,6 +361,10 @@ INT_PTR CALLBACK TrayIcon::DlgProc(HWND hWnd, UINT message, WPARAM wParam, LPARA
 		case WM_LBUTTONDOWN:
 			if (tray->_clickMap.empty())
 			{
+				if (tray->_menuMap.empty())
+				{
+					tray->_beforeShow();
+				}
 				auto *btn = dynamic_cast<MenuItemButton *>(tray->_menuMap[0]);
 				if (btn)
 				{

@@ -21,7 +21,7 @@
 // C increases when all that's happened is some bugs have been fixed.
 // B increases and C resets to 0 when new features have been added.
 // A increases and B and C reset to 0 when major new features have been added that warrant a new major version, or replacing older features with better ones that require the user to interact with them differently
-const char* version = "1.4.1";
+const char* version = "1.4.2";
 
 #define PI 3.14159265359f
 
@@ -983,6 +983,8 @@ static void strtrim(char* str) {
 static void resetAllMappings() {
 	memset(mappings, 0, sizeof(mappings));
 	memset(hold_mappings, 0, sizeof(hold_mappings));
+	sim_mappings.clear();
+	chord_mappings.clear();
 	mappings[MAPPING_HOME] = mappings[MAPPING_CAPTURE] = hold_mappings[MAPPING_HOME] = hold_mappings[MAPPING_CAPTURE] = CALIBRATE;
 	min_gyro_sens = 0.0f;
 	max_gyro_sens = 0.0f;
@@ -1674,9 +1676,9 @@ static void parseCommand(std::string line) {
 								return mapping.btn == index;
 							});
 							sim_mappings[index2].erase(existingBinding);
-							if (sim_mappings[index2].size() == 0)
+							if (sim_mappings[index2].empty())
 							{
-								sim_mappings.erase(sim_mappings.find(index));
+								sim_mappings.erase(sim_mappings.find(index2));
 							}
 						}
 					}
@@ -1698,10 +1700,6 @@ static void parseCommand(std::string line) {
 						{
 							// Remove any existing mapping
 							chord_mappings[index].erase(existingBinding);
-							if (chord_mappings[index2].size() == 0)
-							{
-								chord_mappings.erase(chord_mappings.find(index));
-							}
 						}
 						chord_mappings[index].push_back( { keystr, index2 } );
 						chordMap = &chord_mappings[index].back(); // point to vector item
@@ -1765,7 +1763,26 @@ static void parseCommand(std::string line) {
 			simMap ? simMap->pressBind = output : 
 				chordMap ? chordMap->pressBind = output :
 				mappings[index] = output;
-			if(simMap)
+			if (output == 0) // Setting a sim press or chord to NONE erases the bindings
+			{
+				if (simMap)
+				{
+					sim_mappings[index].pop_back();
+					if (sim_mappings[index].empty())
+					{
+						sim_mappings.erase(sim_mappings.find(index));
+					}
+				}
+				else if (chordMap)
+				{
+					chord_mappings[index].pop_back();
+					if (chord_mappings[index].empty())
+					{
+						chord_mappings.erase(chord_mappings.find(index));
+					}
+				}
+			}
+			else if(simMap) // and output not NONE
 			{
 				// Sim Press commands are added as twins
 				sim_mappings[simMap->btn].push_back( {simMap->name, index, simMap->pressBind, simMap->holdBind} );
