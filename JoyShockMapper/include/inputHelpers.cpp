@@ -356,8 +356,6 @@ bool WriteToConsole(const std::string &command)
 	static const INPUT_RECORD RET_DOWN = { KEY_EVENT, {TRUE,  1, VK_RETURN, MapVirtualKey(VK_RETURN, MAPVK_VK_TO_VSC), VK_RETURN, 0} };
 	static const INPUT_RECORD RET_UP = { KEY_EVENT, {FALSE, 1, VK_RETURN, MapVirtualKey(VK_RETURN, MAPVK_VK_TO_VSC), VK_RETURN, 0} };
 
-	//printf("Writing to console: %s\n", command.c_str());
-
 	std::vector<INPUT_RECORD> inputs(0);
 	inputs.reserve(command.size() + 4);
 	inputs.push_back(ESC_DOWN);
