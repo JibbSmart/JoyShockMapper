@@ -323,10 +323,10 @@ void moveMouse(float x, float y) {
 }
 
 // delta time will apply to shaped movement, but the extra (velocity parameters after deltaTime) is applied as given
-void shapedSensitivityMoveMouse(float x, float y, float lowSens, float hiSens, float minThreshold, float maxThreshold, float deltaTime, float extraVelocityX, float extraVelocityY, float calibration) {
+void shapedSensitivityMoveMouse(float x, float y, std::pair<float, float> lowSensXY, std::pair<float, float> hiSensXY, float minThreshold, 
+	float maxThreshold, float deltaTime, float extraVelocityX, float extraVelocityY, float calibration)
+{
 	// apply calibration factor
-	lowSens *= calibration;
-	hiSens *= calibration;
 	// get input velocity
 	float magnitude = sqrt(x * x + y * y);
 	//printf("Gyro mag: %.4f\n", magnitude);
@@ -342,11 +342,13 @@ void shapedSensitivityMoveMouse(float x, float y, float lowSens, float hiSens, f
 		newSensitivity = magnitude / denom;
 	}
 	if (newSensitivity > 1.0f) newSensitivity = 1.0f;
+		
 	// interpolate between low sensitivity and high sensitivity
-	newSensitivity = lowSens * (1.0f - newSensitivity) + (hiSens)* newSensitivity;
+	float newSensitivityX = lowSensXY.first * calibration * (1.0f - newSensitivity) + (hiSensXY.first * calibration)* newSensitivity;
+	float newSensitivityY = lowSensXY.second* calibration * (1.0f - newSensitivity) + (hiSensXY.second* calibration)* newSensitivity;
 
 	// apply all values
-	moveMouse((x * newSensitivity) * deltaTime + extraVelocityX, (y * newSensitivity) * deltaTime + extraVelocityY);
+	moveMouse((x * newSensitivityX) * deltaTime + extraVelocityX, (y * newSensitivityY) * deltaTime + extraVelocityY);
 }
 
 bool WriteToConsole(const std::string &command)

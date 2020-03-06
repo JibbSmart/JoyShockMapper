@@ -19,7 +19,8 @@ JoyShockMapper works on Windows and uses JoyShockLibrary to read inputs from con
     * **[Tap & Hold](#11-tap--hold)**
 	* **[Simultaneous Press](#12-simultaneous-press)**
 	* **[Chorded Press](#13-chorded-press)**
-	* **[Gyro Button](#14-gyro-button)**
+	* **[Double Press](#14-double-press)**
+	* **[Gyro Button](#15-gyro-button)**
   * **[Analog Triggers](#2-analog-triggers)**
   * **[Stick Mouse Inputs](#3-stick-mouse-inputs)**
   * **[Gyro Mouse Inputs](#4-gyro-mouse-inputs)**
@@ -195,7 +196,7 @@ L+R = Q    # Ultimate Ability
 To enable a simultaneous binding, both buttons need to be pressed within a very short time of each other. Doing so will ignore the individual button bindings and apply the specified binding until either of the button is released. Simultaneous bindings also support tap & hold bindings just like other mappings. This feature is great to make use of the dpad diagonals, or to add JSM specific features like gyro calibration and gyro control without taking away accessible buttons.
 
 #### 1.3 Chorded Press
-Chorded press works differently from Simultaneous Press, despite being similar at first blush. A chorded press mapping allows you to override a button mapping when the chord button is active. This enables a world of different practical combinations, allowing you to have contextual bindings, or even unmap a button. Here's an example for Left 4 Dead 2, that would enable you to equip items without lifting the thumb from the left stick.
+Chorded press works differently from Simultaneous Press, despite being similar at first blush. A chorded press mapping allows you to override a button mapping when the chord button is down. This enables a world of different practical combinations, allowing you to have contextual bindings, or even unmap a button. Here's an example for Left 4 Dead 2, that would enable you to equip items without lifting the thumb from the left stick.
 
 ```
 W = R E # Reload / Use
@@ -210,9 +211,19 @@ L,E = 5 # Medpack
 L,N = F # Flashlight
 ```
 
-A button can be chorded with multiple other buttons. In this case, the latest chord takes precedence over previous chords. This can be understood as a stack of layers being put on top of the binding each time a chord is pressed, where only the top one is active. Notice that you don't need to have NONE as a binding. The chord binding could very well bring up a weapon wheel.
+A button can be chorded with multiple other buttons. In this case, the latest chord takes precedence over previous chords. This can be understood as a stack of layers being put on top of the binding each time a chord is pressed, where only the top one is active. Notice that you don't need to have NONE as a binding. The chord binding could very well be bound to a mutton that bring up a weapon wheel for example.
 
-#### 1.4 Gyro Button
+#### 1.4 Double Press
+You can also assign the double press of a button to a different binding. Mapping a double press is entered by chording a button with itself. It supports taps and holds like all previous entries. 
+
+```
+N = SCROLLDOWN # Cycle weapon
+N,N = X # Cycle weapon fire mode
+```
+
+The double press binding is applied when a down press occurs within a fifth of a second from a first down press. In that period of time, no other binding can be assumed, so regular taps will have the delay introduced. At this point in time the time window cannot be changed.
+
+#### 1.5 Gyro Button
 Lastly, there is one digital input that works differently, because it can overlap with any other input. Well, two inputs, but you'll use at most one of them in a given configuration:
 
 ```
@@ -374,7 +385,7 @@ A single GYRO\_SENS setting may not be enough to get both the precision you need
 
 JoyShockMapper allows you to say, "When turning slowly, I want this sensitivity. When turning quickly, I want that sensitivity." You can do this by setting two real life speed thresholds and a sensitivity for each of those thresholds. Everything in-between will be linearly interpolated. To do this, use MIN\_GYRO\_THRESHOLD, MAX\_GYRO\_THRESHOLD, MIN\_GYRO\_SENS, and MAX\_GYRO\_SENS:
 
-* **MIN\_GYRO\_THRESHOLD** and **MAX\_GYRO\_THRESHOLD** (default 0.0 degrees per second); **MIN\_GYRO\_SENS** and **MAX\_GYRO\_SENS** (default 0.0) - MIN\_GYRO\_SENS and MAX\_GYRO\_SENS work just like GYRO\_SENS, but MIN\_GYRO\_SENS applies when the controller is turning at or below the speed defined by MIN\_GYRO\_THRESHOLD, and MAX\_GYRO\_SENS applies when the controller is turning at or above the speed defined by MAX\_GYRO\_THRESHOLD. When the controller is turning at a speed between those two thresholds, the gyro sensitivity is interpolated accordingly. The thresholds are in real life degrees per second. For example, if you think about how fast you need to turn the controller for it to turn a quarter circle in one second, that's 90 degrees per second. Setting GYRO\_SENS overrides MIN\_GYRO\_SENS and MAX\_GYRO\_SENS to be the same value.
+* **MIN\_GYRO\_THRESHOLD** and **MAX\_GYRO\_THRESHOLD** (default 0.0 degrees per second); **MIN\_GYRO\_SENS** and **MAX\_GYRO\_SENS** (default 0.0) - MIN\_GYRO\_SENS and MAX\_GYRO\_SENS work just like GYRO\_SENS, but MIN\_GYRO\_SENS applies when the controller is turning at or below the speed defined by MIN\_GYRO\_THRESHOLD, and MAX\_GYRO\_SENS applies when the controller is turning at or above the speed defined by MAX\_GYRO\_THRESHOLD. When the controller is turning at a speed between those two thresholds, the gyro sensitivity is interpolated accordingly. The thresholds are in real life degrees per second. For example, if you think about how fast you need to turn the controller for it to turn a quarter circle in one second, that's 90 degrees per second. Setting GYRO\_SENS overrides MIN\_GYRO\_SENS and MAX\_GYRO\_SENS to be the same value. You can set a different **vertical sensitivity** by giving two values to the command separated by a space, instead of just one.
 
 **Finally**, there are a bunch more settings you can tweak if you so desire:
 
