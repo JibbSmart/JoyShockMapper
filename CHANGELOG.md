@@ -4,12 +4,13 @@ Most recent updates will appear first.
 This is a summary of new features and bugfixes. Read the README to learn how to use the features mentioned here.
 
 ## 1.4.2
-1.4.2 is a bugfix update. Nicolas fixed a crash, and properly codes the clearing of combo (aka Simultaneous and Chorded) presses. Also added some code consistency with usage of std::function.
+1.4.2 is a bugfix update. Nicolas fixed a crash and combo (aka Simultaneous and Chorded) presses not clearing properly, as well as some under-the-hood tweaks. Jibb tweaked communication with Bluetooth DualShock 4.
 
 ### Bugfixes
-* Crash when left clicking the tray icon
-* Combo presses don't reset when calling RESET_MAPPINGS
-* Setting either combo presses to NONE doesn't clear the binding
+* Fixed crash when left clicking the tray icon
+* RESET_MAPPINGS should now clear combo mappings
+* Setting combo presses to NONE should now clear previous bindings
+* Changes to how Bluetooth works with DualShock 4 controllers might fix issues some had with gyro not working.
 
 ## 1.4.1
 1.4.1 is a bugfix update, with some minor features as well. Jibb improved flick stick's behaviour when the stick is released slowly, added the BACKSPACE mapping, and made the list of available configs update whenever the tray menu is re-opened. Nicolas added a "Whitelist" toggle to the tray menu.
