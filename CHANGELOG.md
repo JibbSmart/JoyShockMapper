@@ -4,11 +4,13 @@ Most recent updates will appear first.
 This is a summary of new features and bugfixes. Read the README to learn how to use the features mentioned here.
 
 ## 1.5.0
-Introducing double press bindings, as well as fixing the way logs are displayed. Also, chords are now active whenever the button is down, instead of when a binding is active. There's more refactoring code-wise that doesn't affect usage but paves the way for future improvements.
+Introducing double press bindings, as well as fixing the way logs are displayed. Also, chords are now active whenever the button is down, instead of when a binding is active. There's more refactoring code-wise that doesn't affect usage but paves the way for future improvements. Added support to mouse button forward and back.
 
 ### Features
 * Added ability to assign Double Press mappings to a button, by entering the button "chorded with itself"
 * Chords are now active when the controller button is down, instead of active.
+* Support mouse buttons 4 and 5 (back and forward)
+* Change some behind the scene mapping of commands to windows virtual key codes.
 
 ## 1.4.2
 1.4.2 is a bugfix update. Nicolas fixed a crash and combo (aka Simultaneous and Chorded) presses not clearing properly, as well as some under-the-hood tweaks. Jibb tweaked communication with Bluetooth DualShock 4.

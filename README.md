@@ -151,7 +151,8 @@ LALT, RALT, ALT: left Alt, right Alt, generic Alt, respectively
 LSHIFT, RSHIFT, SHIFT: left Shift, right Shift, generic Shift, respectively
 TAB: Tab
 ENTER: Enter
-LMOUSE, MMOUSE, RMOUSE: mouse left click, middle click, right click, respectively
+LMOUSE, MMOUSE, RMOUSE: mouse left click, middle click and right click respectively
+BMOUSE, FMOUSE: mouse back (button 4) click and mouse forward (button 5) click respectively
 SCROLLUP, SCROLLDOWN: scroll the mouse wheel up, down, respectively
 PAGEUP, PAGEDOWN, HOME, END, INSERT, DELETE, BACKSPACE
 NONE: No input

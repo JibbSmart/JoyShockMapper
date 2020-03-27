@@ -8,15 +8,16 @@
 
 // https://docs.microsoft.com/en-us/windows/win32/inputdev/virtual-key-codes
 // Only use undefined keys from the above list for JSM custom commands
-#define NO_HOLD_MAPPED 0x07
-#define CALIBRATE 0x0A
+#define V_WHEEL_UP 0x03 // Here I intentionally overwride VK_CANCEL because breaking a process with a keybind is not something we want to do
+#define V_WHEEL_DOWN 0x07 // I want all mouse bindings to be contiguous IDs for ease to distinguish
+#define NO_HOLD_MAPPED 0x0A
+#define CALIBRATE 0x0B
 #define GYRO_INV_X 0x88
 #define GYRO_INV_Y 0x89
 #define GYRO_INVERT 0x8A
 #define GYRO_OFF_BIND 0x8B // Not to be confused with settings GYRO_ON and GYRO_OFF
 #define GYRO_ON_BIND 0x8C  // Those here are bindings
 
-static WORD mouseMaps[] = { 0x0002, 0x0008, 0x0000, 0x0020 };
 // Windows' mouse speed settings translate non-linearly to speed.
 // Thankfully, the mappings are available here: https://liquipedia.net/counterstrike/Mouse_settings#Windows_Sensitivity
 static float windowsSensitivityMappings[] =
@@ -212,11 +213,17 @@ WORD nameToKey(std::string& name) {
 	if (name.compare("MMOUSE") == 0) {
 		return VK_MBUTTON;
 	}
-	if (name.compare("SCROLLDOWN") == 0) {
+	if (name.compare("BMOUSE") == 0) {
 		return VK_XBUTTON1;
 	}
-	if (name.compare("SCROLLUP") == 0) {
+	if (name.compare("FMOUSE") == 0) {
 		return VK_XBUTTON2;
+	}
+	if (name.compare("SCROLLDOWN") == 0) {
+		return V_WHEEL_DOWN;
+	}
+	if (name.compare("SCROLLUP") == 0) {
+		return V_WHEEL_UP;
 	}
 	if (name.compare("BACKSPACE") == 0) {
 		return VK_BACK;
@@ -245,29 +252,40 @@ WORD nameToKey(std::string& name) {
 	return 0x00;
 }
 
+// send mouse button
+int pressMouse(WORD vkKey, bool isPressed) {
+	// https://docs.microsoft.com/en-us/windows/win32/api/winuser/ns-winuser-mouseinput
+	// Map a VK id to mouse event id press (0) or release (1) and mouseData (2) complementary info
+	static std::unordered_map<WORD, std::tuple<DWORD, DWORD, DWORD>> mouseMaps = { 
+		{ VK_LBUTTON, {MOUSEEVENTF_LEFTDOWN, MOUSEEVENTF_LEFTUP, 0} },
+		{ VK_RBUTTON, {MOUSEEVENTF_RIGHTDOWN, MOUSEEVENTF_RIGHTUP, 0} },
+		{ VK_MBUTTON, {MOUSEEVENTF_MIDDLEDOWN, MOUSEEVENTF_MIDDLEUP, 0} },
+		{ VK_XBUTTON1, {MOUSEEVENTF_XDOWN, MOUSEEVENTF_XUP, XBUTTON1} },
+		{ VK_XBUTTON2, {MOUSEEVENTF_XDOWN, MOUSEEVENTF_XUP, XBUTTON2} },
+		{ V_WHEEL_UP, {MOUSEEVENTF_WHEEL, 0, WHEEL_DELTA} },
+		{ V_WHEEL_DOWN, {MOUSEEVENTF_WHEEL, 0, -WHEEL_DELTA} },
+	};
+
+	INPUT input;
+	input.type = INPUT_MOUSE;
+	input.mi.time = 0;
+	input.mi.dx = 0;
+	input.mi.dy = 0;
+	input.mi.dwFlags = isPressed ? std::get<0>(mouseMaps[vkKey]) : std::get<1>(mouseMaps[vkKey]);
+	input.mi.mouseData = std::get<2>(mouseMaps[vkKey]);
+	if (input.mi.dwFlags) { // Ignore if there's no event ID (ex: "wheel release")
+		return SendInput(1, &input, sizeof(input));
+	}
+	return 0;
+}
+
 // send key press
 int pressKey(WORD vkKey, bool pressed) {
 	if (vkKey == 0) return 0;
-	INPUT input;
-	if (vkKey <= VK_XBUTTON2) {
-		input.type = INPUT_MOUSE;
-		input.mi.mouseData = 0;
-		input.mi.time = 0;
-		input.mi.dx = 0;
-		input.mi.dy = 0;
-		if (vkKey <= VK_MBUTTON) {
-			vkKey = mouseMaps[vkKey - 1];
-			if (!pressed)
-				vkKey *= 2;
-			input.mi.dwFlags = vkKey;
-		}
-		else {
-			input.mi.dwFlags = MOUSEEVENTF_WHEEL;
-			input.mi.mouseData = (int16_t)(vkKey - (VK_XBUTTON1 - 1)) * 240 - 360;
-			if (!pressed) return 0;
-		}
-		return SendInput(1, &input, sizeof(input));
+	if (vkKey <= V_WHEEL_DOWN) { // Highest mouse ID
+		return pressMouse(vkKey, pressed);
 	}
+	INPUT input;
 	input.type = INPUT_KEYBOARD;
 	input.ki.time = 0;
 	input.ki.dwFlags = KEYEVENTF_SCANCODE;
@@ -278,23 +296,6 @@ int pressKey(WORD vkKey, bool pressed) {
 	//input.ki.wVk = vkKey;
 	input.ki.wVk = 0;
 	input.ki.wScan = MapVirtualKey(vkKey, MAPVK_VK_TO_VSC);
-	return SendInput(1, &input, sizeof(input));
-}
-
-// send mouse button
-int pressMouse(bool isLeft, bool isPressed) {
-	INPUT input;
-	input.type = INPUT_MOUSE;
-	if (isLeft) {
-		input.mi.dwFlags = isPressed ? MOUSEEVENTF_LEFTDOWN : MOUSEEVENTF_LEFTUP;
-	}
-	else {
-		input.mi.dwFlags = isPressed ? MOUSEEVENTF_RIGHTDOWN : MOUSEEVENTF_RIGHTUP;
-	}
-	input.mi.mouseData = 0;
-	input.mi.time = 0;
-	input.mi.dx = 0;
-	input.mi.dy = 0;
 	return SendInput(1, &input, sizeof(input));
 }
 
