@@ -323,6 +323,17 @@ void moveMouse(float x, float y) {
 	SendInput(1, &input, sizeof(input));
 }
 
+void setMouseNorm(float x, float y) {
+	INPUT input;
+	input.type = INPUT_MOUSE;
+	input.mi.mouseData = 0;
+	input.mi.time = 0;
+	input.mi.dx = roundf(65535.0f * x);
+	input.mi.dy = roundf(65535.0f * y);
+	input.mi.dwFlags = MOUSEEVENTF_MOVE | MOUSEEVENTF_ABSOLUTE;
+	SendInput(1, &input, sizeof(input));
+}
+
 // delta time will apply to shaped movement, but the extra (velocity parameters after deltaTime) is applied as given
 void shapedSensitivityMoveMouse(float x, float y, std::pair<float, float> lowSensXY, std::pair<float, float> hiSensXY, float minThreshold, 
 	float maxThreshold, float deltaTime, float extraVelocityX, float extraVelocityY, float calibration)

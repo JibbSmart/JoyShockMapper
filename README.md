@@ -317,7 +317,7 @@ AIM: traditional stick aiming
 FLICK: flick stick
 FLICK_ONLY: flick stick without rotation after tilting the stick
 ROTATE_ONLY: flick stick rotation without the initial flick
-ABSOLUTE_MOUSE: stick position sets the mouse position directly
+MOUSE_RING: stick position sets the mouse position directly
 NO_MOUSE: don't affect the mouse, use button mappings (default)
 ```
 
@@ -369,9 +369,11 @@ Since *flick stick* only turns the camera horizontally, it's generally only prac
 * **FLICK\_TIME** (default 0.1 seconds) - When you tilt the stick a direction, how long does it take the camera to complete its turn to face that direction? I find that 0.1 seconds provides a nice, snappy response, while still looking good. Set the value too low and it may look like you're cheating, instantly going from one direction to facing another.  
 Keep in mind that, once tilted, rotating the stick will rotate the camera instantly. There’s no need to smooth it out\*; the camera just needs to make the same movement the stick is. FLICK\_TIME only affects behaviour when you first tilt the stick.
 
+**\*Developer note:** The DualShock 4's stick input resolution is low enough that small *flick stick* rotations can be jittery. JoyShockMapper applies some smoothing just to very small changes in the *flick stick* angle, which is very effective at covering this up. Larger movements are not smoothed at all. This is more thoroughly explained for developers to implement in their own games on [GyroWiki](http://gyrowiki.jibbsmart.com).
+
 ```FLICK_ONLY``` and ```ROTATE_ONLY``` work the same as flick stick with some features blocked out. The former means you'll get the initial flick, but no subsequent rotation when rotating the stick. The latter means you won't get the initial flick, but subsequent rotations will work.
 
-**\*Developer note:** The DualShock 4's stick input resolution is low enough that small *flick stick* rotations can be jittery. JoyShockMapper applies some smoothing just to very small changes in the *flick stick* angle, which is very effective at covering this up. Larger movements are not smoothed at all. This is more thoroughly explained for developers to implement in their own games on [GyroWiki](http://gyrowiki.jibbsmart.com).
+When using the ```MOUSE_RING``` stick mode, tilting the stick will put the mouse cursor in a position offset from the centre of the screen by your stick position. To do this, the application needs to know your screen resolution (SCREEN\_RESOLUTION\_X and SCREEN\_RESOLUTION\_Y) and how far you want the cursor to sit from the centre of the screen (MOUSE\_RING\_RADIUS).
 
 When using stick mode ```NO_MOUSE```, JSM will use the stick's UP DOWN LEFT and RIGHT bindings in a cross gate layout. There is a small square deadzone to ignore very small stick moves.
 

@@ -114,6 +114,9 @@ const char* version = "1.5.0";
 #define WHITELIST_REMOVE 77
 #define LEFT_RING_MODE 78
 #define RIGHT_RING_MODE 79
+#define MOUSE_RING_RADIUS 80
+#define SCREEN_RESOLUTION_X 81
+#define SCREEN_RESOLUTION_Y 82
 
 #define MAGIC_DST_DELAY 150.0f // in milliseconds
 #define MAGIC_TAP_DURATION 40.0f // in milliseconds
@@ -125,7 +128,7 @@ static_assert(MAGIC_SIM_DELAY < MAGIC_HOLD_TIME, "Simultaneous press delay has t
 static_assert(MAGIC_HOLD_TIME < MAGIC_DBL_PRESS_WINDOW, "Hold delay has to be smaller than double press window!");
 
 enum class RingMode { outer, inner, invalid };
-enum class StickMode { none, aim, flick, flickOnly, rotateOnly, absoluteMouse, outer, inner, invalid };
+enum class StickMode { none, aim, flick, flickOnly, rotateOnly, mouseRing, outer, inner, invalid };
 enum       AxisMode { standard=1, inverted=-1, invalid=0 }; // valid values are true!
 enum class TriggerMode { noFull, noSkip, maySkip, mustSkip, maySkipResp, mustSkipResp, invalid };
 enum class GyroAxisMask { none = 0, x = 1, y = 2, z = 4, invalid = 8 };
@@ -526,6 +529,9 @@ float stick_acceleration_cap = 1.0;
 float stick_deadzone_inner = 0.0;
 float stick_deadzone_outer = 0.0;
 float last_flick_and_rotation = 0.0;
+float mouse_ring_radius = 128.0f;
+int screen_resolution_x = 1920;
+int screen_resolution_y = 1080;
 std::unique_ptr<PollingThread> autoLoadThread;
 std::unique_ptr<PollingThread> consoleMonitor;
 std::unique_ptr<TrayIcon> tray;
@@ -1370,6 +1376,15 @@ static int keyToMappingIndex(std::string& s) {
 	if (s.compare("MAX_GYRO_THRESHOLD") == 0) {
 		return MAX_GYRO_THRESHOLD;
 	}
+	if (s.compare("SCREEN_RESOLUTION_X") == 0) {
+		return SCREEN_RESOLUTION_X;
+	}
+	if (s.compare("SCREEN_RESOLUTION_Y") == 0) {
+		return SCREEN_RESOLUTION_Y;
+	}
+	if (s.compare("MOUSE_RING_RADIUS") == 0) {
+		return MOUSE_RING_RADIUS;
+	}
 	if (s.compare("STICK_POWER") == 0) {
 		return STICK_POWER;
 	}
@@ -1523,9 +1538,9 @@ static StickMode nameToStickMode(std::string& name, bool print = false) {
 		if (print) printf("Rotate only");
 		return StickMode::rotateOnly;
 	}
-	if (name.compare("ABSOLUTE_MOUSE") == 0) {
-		if (print) printf("Absolute Mouse");
-		return StickMode::absoluteMouse;
+	if (name.compare("MOUSE_RING") == 0) {
+		if (print) printf("Mouse ring");
+		return StickMode::mouseRing;
 	}
 	// just here for backwards compatibility
 	if (name.compare("INNER_RING") == 0) {
@@ -1692,6 +1707,9 @@ static void resetAllMappings() {
 	stick_deadzone_inner = 0.15f;
 	stick_deadzone_outer = 0.1f;
 	last_flick_and_rotation = 0.0f;
+	screen_resolution_x = 1920;
+	screen_resolution_y = 1080;
+	mouse_ring_radius = 128.0f;
 }
 
 void joyShockPollCallback(int jcHandle, JOY_SHOCK_STATE state, JOY_SHOCK_STATE lastState, IMU_STATE imuState, IMU_STATE lastImuState, float deltaTime);
@@ -1952,6 +1970,36 @@ static void parseCommand(std::string line) {
 					}
 					return;
 				}
+				case MOUSE_RING_RADIUS:
+					try {
+						float temp = std::stof(value);
+						mouse_ring_radius = temp;
+						printf("Mouse ring radius set to %s\n", value);
+					}
+					catch (std::invalid_argument ia) {
+						printf("Can't convert \"%s\" to a number\n", value);
+					}
+					return;
+				case SCREEN_RESOLUTION_X:
+					try {
+						int temp = std::stoi(value);
+						screen_resolution_x = temp;
+						printf("Screen resolution X set to %s\n", value);
+					}
+					catch (std::invalid_argument ia) {
+						printf("Can't convert \"%s\" to a number\n", value);
+					}
+					return;
+				case SCREEN_RESOLUTION_Y:
+					try {
+						int temp = std::stoi(value);
+						screen_resolution_y = temp;
+						printf("Screen resolution Y set to %s\n", value);
+					}
+					catch (std::invalid_argument ia) {
+						printf("Can't convert \"%s\" to a number\n", value);
+					}
+					return;
 				case TRIGGER_THRESHOLD:
 					try {
 						trigger_threshold = std::stof(value);
@@ -2636,6 +2684,7 @@ static float handleFlickStick(float calX, float calY, float lastCalX, float last
 
 void joyShockPollCallback(int jcHandle, JOY_SHOCK_STATE state, JOY_SHOCK_STATE lastState, IMU_STATE imuState, IMU_STATE lastImuState, float deltaTime) {
 	bool blockGyro = false;
+	bool lockMouse = false;
 	bool leftAny = false;
 	bool rightAny = false;
 	// get jc from handle
@@ -2744,6 +2793,22 @@ void joyShockPollCallback(int jcHandle, JOY_SHOCK_STATE state, JOY_SHOCK_STATE l
 			}
 		}
 	}
+	else if (left_stick_mode == StickMode::mouseRing) {
+		if (calX != 0.0f || calY != 0.0f) {
+			float stickLength = sqrt(calX * calX + calY * calY);
+			float normX = calX / stickLength;
+			float normY = calY / stickLength;
+			// use screen resolution
+			float mouseX = (float)screen_resolution_x * 0.5f + 0.5f + normX * mouse_ring_radius;
+			float mouseY = (float)screen_resolution_y * 0.5f + 0.5f - normY * mouse_ring_radius;
+			// normalize
+			mouseX = mouseX / screen_resolution_x;
+			mouseY = mouseY / screen_resolution_y;
+			// do it!
+			setMouseNorm(mouseX, mouseY);
+			lockMouse = true;
+		}
+	}
 	else {
 		// left!
 		jc->handleButtonChange(MAPPING_LLEFT, left);
@@ -2796,6 +2861,22 @@ void joyShockPollCallback(int jcHandle, JOY_SHOCK_STATE state, JOY_SHOCK_STATE l
 					jc->right_acceleration = stick_acceleration_cap;
 				}
 			}
+		}
+	}
+	else if (right_stick_mode == StickMode::mouseRing) {
+		if (calX != 0.0f || calY != 0.0f) {
+			float stickLength = sqrt(calX * calX + calY * calY);
+			float normX = calX / stickLength;
+			float normY = calY / stickLength;
+			// use screen resolution
+			float mouseX = (float)screen_resolution_x * 0.5f + 0.5f + normX * mouse_ring_radius;
+			float mouseY = (float)screen_resolution_y * 0.5f + 0.5f - normY * mouse_ring_radius;
+			// normalize
+			mouseX = mouseX / screen_resolution_x;
+			mouseY = mouseY / screen_resolution_y;
+			// do it!
+			setMouseNorm(mouseX, mouseY);
+			lockMouse = true;
 		}
 	}
 	else {
@@ -2868,8 +2949,9 @@ void joyShockPollCallback(int jcHandle, JOY_SHOCK_STATE state, JOY_SHOCK_STATE l
 		gyroY = 0;
 	}
 	// optionally ignore the gyro of one of the joycons
-	if (jc->controller_type == JS_SPLIT_TYPE_FULL ||
-		(jc->controller_type & (int)joycon_gyro_mask) == 0)
+	if (!lockMouse &&
+		(jc->controller_type == JS_SPLIT_TYPE_FULL ||
+		(jc->controller_type & (int)joycon_gyro_mask) == 0))
 	{
 		//printf("GX: %0.4f GY: %0.4f GZ: %0.4f\n", imuState.gyroX, imuState.gyroY, imuState.gyroZ);
 		float mouseCalibration = real_world_calibration / os_mouse_speed / in_game_sens;
