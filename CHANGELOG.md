@@ -4,13 +4,14 @@ Most recent updates will appear first.
 This is a summary of new features and bugfixes. Read the README to learn how to use the features mentioned here.
 
 ## 1.5.0
-Nicolas added double press bindings, improved chorded mapping behaviour when combined with taps and holds, and refactored a lot of code to prepare for some future changes. Also added support for mouse buttons forward and back, and changed the way logs are displayed. Jibb made it so ring bindings work alongside any stick mode,
+Nicolas added double press bindings, improved chorded mapping behaviour when combined with taps and holds, and refactored a lot of code to prepare for some future changes. Also added support for mouse buttons forward and back, and changed the way logs are displayed. Jibb made it so ring bindings work alongside any stick mode, added FLICK_ONLY and ROTATE_ONLY stick modes for those who want flick stick without the flick or without further rotation,
 
 ### Features
 * Added ability to assign Double Press mappings to a button, by entering the button chorded with itself (eg: S,S = SPACE).
 * Chords are now active when the controller button is down, instead of waiting for a bounded input to be resolved (such as taps and holds).
 * Support mouse buttons 4 and 5 (back and forward).
 * LEFT_RING_MODE and RIGHT_RING_MODE = INNER/OUTER allows setting ring bindings regardless of what LEFT_STICK_MODE and RIGHT_STICK_MODE are.
+* More settings to customise how flick stick works, including enabling only the flick (FLICK_ONLY) or rotation (ROTATE_ONLY)
 * Change some behind the scene mapping of commands to windows virtual key codes.
 
 ## 1.4.2

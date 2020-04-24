@@ -310,14 +310,15 @@ Using MUST_SKIP mode makes sure that once you start firing, reaching the full pu
 The "Responsive" variants of the skip modes enable a different behaviour that can give you a better experience than the original versions in specific circumstances. A typical example is when the soft binding is a mode-like binding like ADS or crouch, and there is no hold or simultaneous press binding on that soft press. The difference is that the soft binding is actived as soon as the trigger crosses the threshold, giving the desired responsive feeling, but gets removed if the full press is reached quickly, thus still allowing you to hip fire for example. This will result in a hopefully negligeable scope glitch but grants a snappier ADS activation.
 
 ### 3. Stick Mouse Inputs
-Each stick has 5 different operation modes:
+Each stick has 6 different operation modes:
 
 ```
 AIM: traditional stick aiming
 FLICK: flick stick
+FLICK_ONLY: flick stick without rotation after tilting the stick
+ROTATE_ONLY: flick stick rotation without the initial flick
+ABSOLUTE_MOUSE: stick position sets the mouse position directly
 NO_MOUSE: don't affect the mouse, use button mappings (default)
-INNER_RING: Same as NO_MOUSE and bind the ring binding to the inner ring
-OUTER_RING: Same as NO_MOUSE and bind the ring binding to the outer ring
 ```
 
 The mode for the left and right stick are set like so:
@@ -326,6 +327,29 @@ The mode for the left and right stick are set like so:
 LEFT_STICK_MODE = NO_MOUSE
 RIGHT_STICK_MODE = AIM
 ```
+
+Regardless of what mode you're in, you can have additional input bound to a partial or full tilt of either stick. For example, you might want to always be pressing LSHIFT when the stick is fully tilted:
+
+```
+LEFT_RING_MODE = OUTER # OUTER is default, so this line is optional
+LRING = LSHIFT
+```
+
+Or you might want to always be pressing LALT when the stick is only partially tilted:
+
+```
+LEFT_RING_MODE = INNER
+LRING = LALT
+```
+
+For backwards compatibility reasons, there are two extra options for ```LEFT_STICK_MODE``` and ```RIGHT_STICK_MODE``` that set the corresponding STICK_MODE and RING_MODE at the same time:
+
+```
+INNER_RING: Same as _STICK_MODE = NO_MOUSE and _RING_MODE = INNER
+OUTER_RING: Same as _STICK_MODE = NO_MOUSE and _RING_MODE = OUTER
+```
+
+Let's have a look at all the different operations modes.
 
 When using the ```AIM``` stick mode, there are a few important commands:
 
@@ -345,9 +369,11 @@ Since *flick stick* only turns the camera horizontally, it's generally only prac
 * **FLICK\_TIME** (default 0.1 seconds) - When you tilt the stick a direction, how long does it take the camera to complete its turn to face that direction? I find that 0.1 seconds provides a nice, snappy response, while still looking good. Set the value too low and it may look like you're cheating, instantly going from one direction to facing another.  
 Keep in mind that, once tilted, rotating the stick will rotate the camera instantly. There’s no need to smooth it out\*; the camera just needs to make the same movement the stick is. FLICK\_TIME only affects behaviour when you first tilt the stick.
 
+```FLICK_ONLY``` and ```ROTATE_ONLY``` work the same as flick stick with some features blocked out. The former means you'll get the initial flick, but no subsequent rotation when rotating the stick. The latter means you won't get the initial flick, but subsequent rotations will work.
+
 **\*Developer note:** The DualShock 4's stick input resolution is low enough that small *flick stick* rotations can be jittery. JoyShockMapper applies some smoothing just to very small changes in the *flick stick* angle, which is very effective at covering this up. Larger movements are not smoothed at all. This is more thoroughly explained for developers to implement in their own games on [GyroWiki](http://gyrowiki.jibbsmart.com).
 
-When using stick mode ```NO_MOUSE```, ```INNER_RING``` or ```OUTER_RING```, JSM will use the stick's UP DOWN LEFT and RIGHT bindings in a cross gate layout. There is a small square deadzone to ignore very small stick moves. Use ```INNER_RING``` when you have a command for walking in order to have two speed levels on the stick.
+When using stick mode ```NO_MOUSE```, JSM will use the stick's UP DOWN LEFT and RIGHT bindings in a cross gate layout. There is a small square deadzone to ignore very small stick moves.
 
 ```
 # Left stick moves
@@ -355,7 +381,7 @@ LLEFT = A
 LRIGHT = D
 LUP = W
 LDOWN = S
-LEFT_STICK_MODE = INNER_RING
+LEFT_RING_MODE = INNER
 LRING = LALT # Walk
 ```
 

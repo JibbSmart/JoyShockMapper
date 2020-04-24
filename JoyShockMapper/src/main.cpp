@@ -2557,7 +2557,7 @@ bool processDeadZones(float& x, float& y) {
 	return false;
 }
 
-static float handleFlickStick(float calX, float calY, float lastCalX, float lastCalY, float stickLength, bool& isFlicking, JoyShock * jc, float mouseCalibrationFactor) {
+static float handleFlickStick(float calX, float calY, float lastCalX, float lastCalY, float stickLength, bool& isFlicking, JoyShock * jc, float mouseCalibrationFactor, bool flickOnly, bool rotateOnly) {
 	float camSpeedX = 0.0f;
 	// let's centre this
 	float offsetX = calX;
@@ -2575,35 +2575,44 @@ static float handleFlickStick(float calX, float calY, float lastCalX, float last
 		if (!isFlicking) {
 			// bam! new flick!
 			isFlicking = true;
-			jc->started_flick = std::chrono::steady_clock::now();
-			jc->delta_flick = stickAngle;
-			jc->flick_percent_done = 0.0f;
-			jc->ResetSmoothSample();
-			jc->flick_rotation_counter = stickAngle; // track all rotation for this flick
-			// TODO: All these printfs should be hidden behind a setting. User might not want them.
-			printf("Flick: %.3f degrees\n", stickAngle * (180.0f / PI));
+			if (!rotateOnly)
+			{
+				jc->started_flick = std::chrono::steady_clock::now();
+				jc->delta_flick = stickAngle;
+				jc->flick_percent_done = 0.0f;
+				jc->ResetSmoothSample();
+				jc->flick_rotation_counter = stickAngle; // track all rotation for this flick
+				// TODO: All these printfs should be hidden behind a setting. User might not want them.
+				printf("Flick: %.3f degrees\n", stickAngle * (180.0f / PI));
+			}
 		}
 		else {
-			// not new? turn camera?
-			float lastStickAngle = atan2(-lastOffsetX, lastOffsetY);
-			float angleChange = stickAngle - lastStickAngle;
-			// https://stackoverflow.com/a/11498248/1130520
-			angleChange = fmod(angleChange + PI, 2.0f * PI);
-			if (angleChange < 0)
-				angleChange += 2.0f * PI;
-			angleChange -= PI;
-			jc->flick_rotation_counter += angleChange; // track all rotation for this flick
-			float flickSpeedConstant = real_world_calibration * mouseCalibrationFactor / in_game_sens;
-			float flickSpeed = -(angleChange * flickSpeedConstant);
-			int maxSmoothingSamples = min(jc->NumSamples, (int)(64.0f * (jc->poll_rate / 1000.0f))); // target a max smoothing window size of 64ms
-			float stepSize = jc->stick_step_size; // and we only want full on smoothing when the stick change each time we poll it is approximately the minimum stick resolution
-												  // the fact that we're using radians makes this really easy
-			camSpeedX = jc->GetSmoothedStickRotation(flickSpeed, flickSpeedConstant * stepSize * 8.0f, flickSpeedConstant * stepSize * 16.0f, maxSmoothingSamples);
+			if (!flickOnly)
+			{
+				// not new? turn camera?
+				float lastStickAngle = atan2(-lastOffsetX, lastOffsetY);
+				float angleChange = stickAngle - lastStickAngle;
+				// https://stackoverflow.com/a/11498248/1130520
+				angleChange = fmod(angleChange + PI, 2.0f * PI);
+				if (angleChange < 0)
+					angleChange += 2.0f * PI;
+				angleChange -= PI;
+				jc->flick_rotation_counter += angleChange; // track all rotation for this flick
+				float flickSpeedConstant = real_world_calibration * mouseCalibrationFactor / in_game_sens;
+				float flickSpeed = -(angleChange * flickSpeedConstant);
+				int maxSmoothingSamples = min(jc->NumSamples, (int)(64.0f * (jc->poll_rate / 1000.0f))); // target a max smoothing window size of 64ms
+				float stepSize = jc->stick_step_size; // and we only want full on smoothing when the stick change each time we poll it is approximately the minimum stick resolution
+													  // the fact that we're using radians makes this really easy
+				camSpeedX = jc->GetSmoothedStickRotation(flickSpeed, flickSpeedConstant * stepSize * 8.0f, flickSpeedConstant * stepSize * 16.0f, maxSmoothingSamples);
+			}
 		}
 	}
 	else if (isFlicking) {
 		// was a flick! how much was the flick and rotation?
-		last_flick_and_rotation = abs(jc->flick_rotation_counter) / (2.0 * PI);
+		if (!flickOnly && !rotateOnly)
+		{
+			last_flick_and_rotation = abs(jc->flick_rotation_counter) / (2.0 * PI);
+		}
 		isFlicking = false;
 	}
 	// do the flicking
@@ -2708,8 +2717,11 @@ void joyShockPollCallback(int jcHandle, JOY_SHOCK_STATE state, JOY_SHOCK_STATE l
 	bool ring = left_ring_mode == RingMode::inner && stickLength > 0.0f && stickLength < 0.7f ||
 		left_ring_mode == RingMode::outer && stickLength > 0.7f;
 	jc->handleButtonChange(MAPPING_LRING, ring);
-	if (left_stick_mode == StickMode::flick) {
-		camSpeedX += handleFlickStick(calX, calY, lastCalX, lastCalY, stickLength, jc->is_flicking_left, jc, mouseCalibrationFactor);
+
+	bool rotateOnly = left_stick_mode == StickMode::rotateOnly;
+	bool flickOnly = left_stick_mode == StickMode::flickOnly;
+	if (left_stick_mode == StickMode::flick || flickOnly || rotateOnly) {
+		camSpeedX += handleFlickStick(calX, calY, lastCalX, lastCalY, stickLength, jc->is_flicking_left, jc, mouseCalibrationFactor, flickOnly, rotateOnly);
 		leftAny = leftPegged;
 	}
 	else if (left_stick_mode == StickMode::aim) {
@@ -2759,8 +2771,11 @@ void joyShockPollCallback(int jcHandle, JOY_SHOCK_STATE state, JOY_SHOCK_STATE l
 	ring = right_ring_mode == RingMode::inner && stickLength > 0.0f && stickLength < 0.7f ||
 		   right_ring_mode == RingMode::outer && stickLength > 0.7f;
 	jc->handleButtonChange(MAPPING_RRING, ring);
-	if (right_stick_mode == StickMode::flick) {
-		camSpeedX += handleFlickStick(calX, calY, lastCalX, lastCalY, stickLength, jc->is_flicking_right, jc, mouseCalibrationFactor);
+
+	rotateOnly = right_stick_mode == StickMode::rotateOnly;
+	flickOnly = right_stick_mode == StickMode::flickOnly;
+	if (right_stick_mode == StickMode::flick || rotateOnly || flickOnly) {
+		camSpeedX += handleFlickStick(calX, calY, lastCalX, lastCalY, stickLength, jc->is_flicking_right, jc, mouseCalibrationFactor, flickOnly, rotateOnly);
 		rightAny = rightPegged;
 	}
 	else if (right_stick_mode == StickMode::aim) {
