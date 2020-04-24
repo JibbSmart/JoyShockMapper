@@ -4,15 +4,16 @@ Most recent updates will appear first.
 This is a summary of new features and bugfixes. Read the README to learn how to use the features mentioned here.
 
 ## 1.5.0
-Nicolas added double press bindings, improved chorded mapping behaviour when combined with taps and holds, and refactored a lot of code to prepare for some future changes. Also added support for mouse buttons forward and back, and changed the way logs are displayed. Jibb made it so ring bindings work alongside any stick mode, added FLICK_ONLY and ROTATE_ONLY stick modes for those who want flick stick without the flick or without further rotation, and added the MOUSE_RING stick mode for 2D twin-stick aiming.
+Nicolas added double press bindings, improved chorded mapping behaviour when combined with taps and holds, and refactored a lot of code to prepare for some future changes. Also added support for mouse buttons forward and back, and changed the way logs are displayed. Jibb made it so ring bindings work alongside any stick mode, added more settings to customise flick stick, and added the MOUSE\_RING stick mode for 2D twin-stick aiming.
 
 ### Features
 * Added ability to assign Double Press mappings to a button, by entering the button chorded with itself (eg: S,S = SPACE).
 * Chords are now active when the controller button is down, instead of waiting for a bounded input to be resolved (such as taps and holds).
 * Support mouse buttons 4 and 5 (back and forward).
-* LEFT_RING_MODE and RIGHT_RING_MODE = INNER/OUTER allows setting ring bindings regardless of what LEFT_STICK_MODE and RIGHT_STICK_MODE are.
-* More settings to customise how flick stick works, including enabling only the flick (FLICK_ONLY) or rotation (ROTATE_ONLY).
-* MOUSE_RING stick mode lets you use the stick to point the mouse in a direction relative to the centre of the screen.
+* LEFT\_RING\_MODE and RIGHT\_RING\_MODE = INNER/OUTER allows setting ring bindings regardless of what LEFT_STICK_MODE and RIGHT_STICK_MODE are.
+* Added new stick modes enabling only the flick (FLICK\_ONLY) or rotation (ROTATE\_ONLY) with flick stick.
+* MOUSE\_RING stick mode lets you use the stick to point the mouse in a direction relative to the centre of the screen.
+* Added the option to override the smoothing threshold for flick stick with ROTATE\_SMOOTH\_OVERRIDE. The smoothing window is still small, but it might soften things for those who found Switch sticks too twitchy.
 * Change some behind the scene mapping of commands to windows virtual key codes.
 
 ## 1.4.2
@@ -20,7 +21,7 @@ Nicolas added double press bindings, improved chorded mapping behaviour when com
 
 ### Bugfixes
 * Fixed crash when left clicking the tray icon.
-* RESET_MAPPINGS should now clear combo mappings.
+* RESET\_MAPPINGS should now clear combo mappings.
 * Setting combo presses to NONE should now clear previous bindings.
 * Changes to how Bluetooth works with DualShock 4 controllers might fix issues some had with gyro not working.
 

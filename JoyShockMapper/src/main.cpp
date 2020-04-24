@@ -117,6 +117,7 @@ const char* version = "1.5.0";
 #define MOUSE_RING_RADIUS 80
 #define SCREEN_RESOLUTION_X 81
 #define SCREEN_RESOLUTION_Y 82
+#define ROTATE_SMOOTH_OVERRIDE 83
 
 #define MAGIC_DST_DELAY 150.0f // in milliseconds
 #define MAGIC_TAP_DURATION 40.0f // in milliseconds
@@ -532,6 +533,7 @@ float last_flick_and_rotation = 0.0;
 float mouse_ring_radius = 128.0f;
 int screen_resolution_x = 1920;
 int screen_resolution_y = 1080;
+float rotate_smooth_override = -1.0f;
 std::unique_ptr<PollingThread> autoLoadThread;
 std::unique_ptr<PollingThread> consoleMonitor;
 std::unique_ptr<TrayIcon> tray;
@@ -547,8 +549,8 @@ typedef struct GyroSample {
 
 class JoyShock {
 private:
-	float _weightsRemaining[16];
-	float _flickSamples[16];
+	float _weightsRemaining[64];
+	float _flickSamples[64];
 	int _frontSample = 0;
 
 	GyroSample _gyroSamples[64];
@@ -602,7 +604,7 @@ public:
 
 
 	const int MaxGyroSamples = 64;
-	const int NumSamples = 16;
+	const int NumSamples = 64;
 	int intHandle;
 
 	std::array<DigitalButton, MAPPING_SIZE> buttons;
@@ -654,7 +656,7 @@ public:
 		float length = abs(value);
 		float immediateFactor;
 		if (topThreshold <= bottomThreshold) {
-			immediateFactor = 0.0f;
+			immediateFactor = 1.0f;
 		}
 		else {
 			immediateFactor = (length - bottomThreshold) / (topThreshold - bottomThreshold);
@@ -1382,6 +1384,9 @@ static int keyToMappingIndex(std::string& s) {
 	if (s.compare("SCREEN_RESOLUTION_Y") == 0) {
 		return SCREEN_RESOLUTION_Y;
 	}
+	if (s.compare("ROTATE_SMOOTH_OVERRIDE") == 0) {
+		return ROTATE_SMOOTH_OVERRIDE;
+	}
 	if (s.compare("MOUSE_RING_RADIUS") == 0) {
 		return MOUSE_RING_RADIUS;
 	}
@@ -1710,6 +1715,7 @@ static void resetAllMappings() {
 	screen_resolution_x = 1920;
 	screen_resolution_y = 1080;
 	mouse_ring_radius = 128.0f;
+	rotate_smooth_override = -1.0f;
 }
 
 void joyShockPollCallback(int jcHandle, JOY_SHOCK_STATE state, JOY_SHOCK_STATE lastState, IMU_STATE imuState, IMU_STATE lastImuState, float deltaTime);
@@ -1995,6 +2001,19 @@ static void parseCommand(std::string line) {
 						int temp = std::stoi(value);
 						screen_resolution_y = temp;
 						printf("Screen resolution Y set to %s\n", value);
+					}
+					catch (std::invalid_argument ia) {
+						printf("Can't convert \"%s\" to a number\n", value);
+					}
+					return;
+				case ROTATE_SMOOTH_OVERRIDE:
+					try {
+						float temp = std::stof(value);
+						if (temp < 0.0f) {
+							temp = -1.0f;
+						}
+						rotate_smooth_override = temp;
+						printf("Rotate smooth override set to %s\n", value);
 					}
 					catch (std::invalid_argument ia) {
 						printf("Can't convert \"%s\" to a number\n", value);
@@ -2651,7 +2670,14 @@ static float handleFlickStick(float calX, float calY, float lastCalX, float last
 				int maxSmoothingSamples = min(jc->NumSamples, (int)(64.0f * (jc->poll_rate / 1000.0f))); // target a max smoothing window size of 64ms
 				float stepSize = jc->stick_step_size; // and we only want full on smoothing when the stick change each time we poll it is approximately the minimum stick resolution
 													  // the fact that we're using radians makes this really easy
-				camSpeedX = jc->GetSmoothedStickRotation(flickSpeed, flickSpeedConstant * stepSize * 8.0f, flickSpeedConstant * stepSize * 16.0f, maxSmoothingSamples);
+				
+				if (rotate_smooth_override < 0.0f)
+				{
+					camSpeedX = jc->GetSmoothedStickRotation(flickSpeed, flickSpeedConstant * stepSize * 8.0f, flickSpeedConstant * stepSize * 16.0f, maxSmoothingSamples);
+				}
+				else {
+					camSpeedX = jc->GetSmoothedStickRotation(flickSpeed, flickSpeedConstant * rotate_smooth_override, flickSpeedConstant * rotate_smooth_override * 2.0f, maxSmoothingSamples);
+				}
 			}
 		}
 	}
