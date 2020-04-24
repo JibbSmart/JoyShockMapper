@@ -112,6 +112,8 @@ const char* version = "1.5.0";
 #define WHITELIST_SHOW 75
 #define WHITELIST_ADD 76
 #define WHITELIST_REMOVE 77
+#define LEFT_RING_MODE 78
+#define RIGHT_RING_MODE 79
 
 #define MAGIC_DST_DELAY 150.0f // in milliseconds
 #define MAGIC_TAP_DURATION 40.0f // in milliseconds
@@ -122,7 +124,8 @@ const char* version = "1.5.0";
 static_assert(MAGIC_SIM_DELAY < MAGIC_HOLD_TIME, "Simultaneous press delay has to be smaller than hold delay!");
 static_assert(MAGIC_HOLD_TIME < MAGIC_DBL_PRESS_WINDOW, "Hold delay has to be smaller than double press window!");
 
-enum class StickMode { none, aim, flick, innerRing, outerRing, invalid };
+enum class RingMode { outer, inner, invalid };
+enum class StickMode { none, aim, flick, flickOnly, rotateOnly, absoluteMouse, outer, inner, invalid };
 enum       AxisMode { standard=1, inverted=-1, invalid=0 }; // valid values are true!
 enum class TriggerMode { noFull, noSkip, maySkip, mustSkip, maySkipResp, mustSkipResp, invalid };
 enum class GyroAxisMask { none = 0, x = 1, y = 2, z = 4, invalid = 8 };
@@ -486,6 +489,8 @@ std::mutex loading_lock;
 
 StickMode left_stick_mode = StickMode::none;
 StickMode right_stick_mode = StickMode::none;
+RingMode left_ring_mode = RingMode::outer;
+RingMode right_ring_mode = RingMode::outer;
 GyroAxisMask mouse_x_from_gyro = GyroAxisMask::y;
 GyroAxisMask mouse_y_from_gyro = GyroAxisMask::x;
 JoyconMask joycon_gyro_mask = JoyconMask::ignoreLeft;
@@ -1392,6 +1397,12 @@ static int keyToMappingIndex(std::string& s) {
 	if (s.compare("RIGHT_STICK_MODE") == 0) {
 		return RIGHT_STICK_MODE;
 	}
+	if (s.compare("LEFT_RING_MODE") == 0) {
+		return LEFT_RING_MODE;
+	}
+	if (s.compare("RIGHT_RING_MODE") == 0) {
+		return RIGHT_RING_MODE;
+	}
 	if (s.compare("GYRO_OFF") == 0) {
 		return GYRO_OFF;
 	}
@@ -1504,16 +1515,42 @@ static StickMode nameToStickMode(std::string& name, bool print = false) {
 		if (print) printf("No mouse");
 		return StickMode::none;
 	}
+	if (name.compare("FLICK_ONLY") == 0) {
+		if (print) printf("Flick only");
+		return StickMode::flickOnly;
+	}
+	if (name.compare("ROTATE_ONLY") == 0) {
+		if (print) printf("Rotate only");
+		return StickMode::rotateOnly;
+	}
+	if (name.compare("ABSOLUTE_MOUSE") == 0) {
+		if (print) printf("Absolute Mouse");
+		return StickMode::absoluteMouse;
+	}
+	// just here for backwards compatibility
 	if (name.compare("INNER_RING") == 0) {
-		if (print) printf("Inner Ring");
-		return StickMode::innerRing;
+		if (print) printf("Inner Ring (Legacy)");
+		return StickMode::inner;
 	}
 	if (name.compare("OUTER_RING") == 0) {
-		if (print) printf("Outer Ring");
-		return StickMode::outerRing;
+		if (print) printf("Outer Ring (Legacy)");
+		return StickMode::outer;
 	}
 	if (print) printf("\"%s\" invalid", name.c_str());
 	return StickMode::invalid;
+}
+
+static RingMode nameToRingMode(std::string& name, bool print = false) {
+	if (name.compare("INNER") == 0) {
+		if (print) printf("Inner");
+		return RingMode::inner;
+	}
+	if (name.compare("OUTER") == 0) {
+		if (print) printf("Outer");
+		return RingMode::outer;
+	}
+	if (print) printf("\"%s\" invalid", name.c_str());
+	return RingMode::invalid;
 }
 
 static AxisMode nameToAxisMode(std::string& name, bool print = false) {
@@ -1630,6 +1667,8 @@ static void resetAllMappings() {
 	in_game_sens = 1.0f;
 	left_stick_mode = StickMode::none;
 	right_stick_mode = StickMode::none;
+	left_ring_mode = RingMode::outer;
+	right_ring_mode = RingMode::outer;
 	mouse_x_from_gyro = GyroAxisMask::y;
 	mouse_y_from_gyro = GyroAxisMask::x;
 	joycon_gyro_mask = JoyconMask::ignoreLeft;
@@ -1928,6 +1967,14 @@ static void parseCommand(std::string line) {
 					StickMode temp = nameToStickMode(std::string(value), true);
 					printf("\n");
 					if (temp != StickMode::invalid) {
+						if (temp == StickMode::inner) {
+							left_ring_mode = RingMode::inner;
+							temp = StickMode::none;
+						}
+						else if (temp == StickMode::outer) {
+							left_ring_mode = RingMode::outer;
+							temp = StickMode::none;
+						}
 						left_stick_mode = temp;
 					}
 					else {
@@ -1941,10 +1988,44 @@ static void parseCommand(std::string line) {
 					StickMode temp = nameToStickMode(std::string(value), true);
 					printf("\n");
 					if (temp != StickMode::invalid) {
+						if (temp == StickMode::inner) {
+							right_ring_mode = RingMode::inner;
+							temp = StickMode::none;
+						}
+						else if (temp == StickMode::outer) {
+							right_ring_mode = RingMode::outer;
+							temp = StickMode::none;
+						}
 						right_stick_mode = temp;
 					}
 					else {
-						printf("Valid settings for RIGHT_STICK_MODE are NO_MOUSE, AIM, FLICK, INNER_RING or OUTER_RING\n");
+						printf("Valid settings for RIGHT_STICK_MODE are NO_MOUSE, AIM, FLICK, FLICK_ONLY, ROTATE_ONLY, ABSOLUTE_MOUSOE, INNER_RING or OUTER_RING\n");
+					}
+					return;
+				}
+				case LEFT_RING_MODE:
+				{
+					printf("Left ring: ");
+					RingMode temp = nameToRingMode(std::string(value), true);
+					printf("\n");
+					if (temp != RingMode::invalid) {
+						left_ring_mode = temp;
+					}
+					else {
+						printf("Valid settings for LEFT_RING_MODE are INNER or OUTER\n");
+					}
+					return;
+				}
+				case RIGHT_RING_MODE:
+				{
+					printf("Right ring: ");
+					RingMode temp = nameToRingMode(std::string(value), true);
+					printf("\n");
+					if (temp != RingMode::invalid) {
+						right_ring_mode = temp;
+					}
+					else {
+						printf("Valid settings for RIGHT_RING_MODE are INNER or OUTER\n");
 					}
 					return;
 				}
@@ -2624,8 +2705,9 @@ void joyShockPollCallback(int jcHandle, JOY_SHOCK_STATE state, JOY_SHOCK_STATE l
 	bool down = calY < -0.5f * absX;
 	bool up = calY > 0.5f * absX;
 	float stickLength = sqrt(calX * calX + calY * calY);
-	bool ring = left_stick_mode == StickMode::innerRing && stickLength > 0.0f && stickLength < 0.7f ||
-		left_stick_mode == StickMode::outerRing && stickLength > 0.7f;
+	bool ring = left_ring_mode == RingMode::inner && stickLength > 0.0f && stickLength < 0.7f ||
+		left_ring_mode == RingMode::outer && stickLength > 0.7f;
+	jc->handleButtonChange(MAPPING_LRING, ring);
 	if (left_stick_mode == StickMode::flick) {
 		camSpeedX += handleFlickStick(calX, calY, lastCalX, lastCalY, stickLength, jc->is_flicking_left, jc, mouseCalibrationFactor);
 		leftAny = leftPegged;
@@ -2651,8 +2733,6 @@ void joyShockPollCallback(int jcHandle, JOY_SHOCK_STATE state, JOY_SHOCK_STATE l
 		}
 	}
 	else {
-		// ring!
-		jc->handleButtonChange(MAPPING_LRING, ring);
 		// left!
 		jc->handleButtonChange(MAPPING_LLEFT, left);
 		// right!
@@ -2676,8 +2756,9 @@ void joyShockPollCallback(int jcHandle, JOY_SHOCK_STATE state, JOY_SHOCK_STATE l
 	down = calY < -0.5f * absX;
 	up = calY > 0.5f * absX;
 	stickLength = sqrt(calX * calX + calY * calY);
-	ring = right_stick_mode == StickMode::innerRing && stickLength > 0.0f && stickLength < 0.7f ||
-		   right_stick_mode == StickMode::outerRing && stickLength > 0.7f;
+	ring = right_ring_mode == RingMode::inner && stickLength > 0.0f && stickLength < 0.7f ||
+		   right_ring_mode == RingMode::outer && stickLength > 0.7f;
+	jc->handleButtonChange(MAPPING_RRING, ring);
 	if (right_stick_mode == StickMode::flick) {
 		camSpeedX += handleFlickStick(calX, calY, lastCalX, lastCalY, stickLength, jc->is_flicking_right, jc, mouseCalibrationFactor);
 		rightAny = rightPegged;
@@ -2703,8 +2784,6 @@ void joyShockPollCallback(int jcHandle, JOY_SHOCK_STATE state, JOY_SHOCK_STATE l
 		}
 	}
 	else {
-		// ring!
-		jc->handleButtonChange(MAPPING_RRING, ring);
 		// left!
 		jc->handleButtonChange(MAPPING_RLEFT, left);
 		// right!

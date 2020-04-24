@@ -4,21 +4,22 @@ Most recent updates will appear first.
 This is a summary of new features and bugfixes. Read the README to learn how to use the features mentioned here.
 
 ## 1.5.0
-Introducing double press bindings, as well as fixing the way logs are displayed. Also, chords are now active whenever the button is down, instead of when a binding is active. There's more refactoring code-wise that doesn't affect usage but paves the way for future improvements. Added support to mouse button forward and back.
+Nicolas added double press bindings, improved chorded mapping behaviour when combined with taps and holds, and refactored a lot of code to prepare for some future changes. Also added support for mouse buttons forward and back, and changed the way logs are displayed. Jibb made it so ring bindings work alongside any stick mode,
 
 ### Features
-* Added ability to assign Double Press mappings to a button, by entering the button "chorded with itself"
-* Chords are now active when the controller button is down, instead of active.
-* Support mouse buttons 4 and 5 (back and forward)
+* Added ability to assign Double Press mappings to a button, by entering the button chorded with itself (eg: S,S = SPACE).
+* Chords are now active when the controller button is down, instead of waiting for a bounded input to be resolved (such as taps and holds).
+* Support mouse buttons 4 and 5 (back and forward).
+* LEFT_RING_MODE and RIGHT_RING_MODE = INNER/OUTER allows setting ring bindings regardless of what LEFT_STICK_MODE and RIGHT_STICK_MODE are.
 * Change some behind the scene mapping of commands to windows virtual key codes.
 
 ## 1.4.2
 1.4.2 is a bugfix update. Nicolas fixed a crash and combo (aka Simultaneous and Chorded) presses not clearing properly, as well as some under-the-hood tweaks. Jibb tweaked communication with Bluetooth DualShock 4.
 
 ### Bugfixes
-* Fixed crash when left clicking the tray icon
-* RESET_MAPPINGS should now clear combo mappings
-* Setting combo presses to NONE should now clear previous bindings
+* Fixed crash when left clicking the tray icon.
+* RESET_MAPPINGS should now clear combo mappings.
+* Setting combo presses to NONE should now clear previous bindings.
 * Changes to how Bluetooth works with DualShock 4 controllers might fix issues some had with gyro not working.
 
 ## 1.4.1

@@ -212,17 +212,17 @@ L,E = 5 # Medpack
 L,N = F # Flashlight
 ```
 
-A button can be chorded with multiple other buttons. In this case, the latest chord takes precedence over previous chords. This can be understood as a stack of layers being put on top of the binding each time a chord is pressed, where only the top one is active. Notice that you don't need to have NONE as a binding. The chord binding could very well be bound to a mutton that bring up a weapon wheel for example.
+A button can be chorded with multiple other buttons. In this case, the latest chord takes precedence over previous chords. This can be understood as a stack of layers being put on top of the binding each time a chord is pressed, where only the top one is active. Notice that you don't need to have NONE as a binding. The chord binding could very well be bound to a button that brings up a weapon wheel for example.
 
 #### 1.4 Double Press
-You can also assign the double press of a button to a different binding. Mapping a double press is entered by chording a button with itself. It supports taps and holds like all previous entries. 
+You can also assign the double press of a button to a different binding. Double press notation is the same as chorded button notation, except the button is chorded with iteself. It supports taps and holds like all previous entries. 
 
 ```
 N = SCROLLDOWN # Cycle weapon
 N,N = X # Cycle weapon fire mode
 ```
 
-The double press binding is applied when a down press occurs within a fifth of a second from a first down press. In that period of time, no other binding can be assumed, so regular taps will have the delay introduced. At this point in time the time window cannot be changed.
+The double press binding is applied when a down press occurs within a fifth of a second from a first down press. In that period of time no other binding can be assumed, so regular taps will have the delay introduced. At this point in time the time window cannot be changed.
 
 #### 1.5 Gyro Button
 Lastly, there is one digital input that works differently, because it can overlap with any other input. Well, two inputs, but you'll use at most one of them in a given configuration:
