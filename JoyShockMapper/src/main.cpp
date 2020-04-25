@@ -722,15 +722,17 @@ public:
 	}
 
 	void handleButtonChange(int index, bool pressed) {
-		if(pressed)
-			btnCommon.chordStack.push_front(index); // Always push at the fromt to make it a stack
-		else {
-			auto foundChord = std::find(btnCommon.chordStack.begin(), btnCommon.chordStack.end(), index);
+		auto foundChord = std::find(btnCommon.chordStack.begin(), btnCommon.chordStack.end(), index);
+		if (!pressed)
+		{
 			if (foundChord != btnCommon.chordStack.end())
 			{
 				// The chord is released
 				btnCommon.chordStack.erase(foundChord);
 			}
+		}
+		else if (foundChord == btnCommon.chordStack.end()) {
+			btnCommon.chordStack.push_front(index); // Always push at the fromt to make it a stack
 		}
 
 		switch (buttons[index]._btnState)
@@ -1066,6 +1068,10 @@ public:
 				triggerState[idxState] = DstState::SoftPress;
 				handleButtonChange(softIndex, true);
 			}
+		}
+		else
+		{
+			handleButtonChange(softIndex, false);
 		}
 		break;
 		case DstState::PressStart:
