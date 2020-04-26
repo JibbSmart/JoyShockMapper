@@ -118,6 +118,8 @@ const char* version = "1.5.0";
 #define SCREEN_RESOLUTION_X 81
 #define SCREEN_RESOLUTION_Y 82
 #define ROTATE_SMOOTH_OVERRIDE 83
+#define FLICK_SNAP_MODE 84
+#define FLICK_SNAP_STRENGTH 85
 
 #define MAGIC_DST_DELAY 150.0f // in milliseconds
 #define MAGIC_TAP_DURATION 40.0f // in milliseconds
@@ -130,6 +132,7 @@ static_assert(MAGIC_HOLD_TIME < MAGIC_DBL_PRESS_WINDOW, "Hold delay has to be sm
 
 enum class RingMode { outer, inner, invalid };
 enum class StickMode { none, aim, flick, flickOnly, rotateOnly, mouseRing, outer, inner, invalid };
+enum class FlickSnapMode { none, four, eight, invalid };
 enum       AxisMode { standard=1, inverted=-1, invalid=0 }; // valid values are true!
 enum class TriggerMode { noFull, noSkip, maySkip, mustSkip, maySkipResp, mustSkipResp, invalid };
 enum class GyroAxisMask { none = 0, x = 1, y = 2, z = 4, invalid = 8 };
@@ -534,6 +537,8 @@ float mouse_ring_radius = 128.0f;
 int screen_resolution_x = 1920;
 int screen_resolution_y = 1080;
 float rotate_smooth_override = -1.0f;
+float flick_snap_strength = 1.0f;
+FlickSnapMode flick_snap_mode = FlickSnapMode::none;
 std::unique_ptr<PollingThread> autoLoadThread;
 std::unique_ptr<PollingThread> consoleMonitor;
 std::unique_ptr<TrayIcon> tray;
@@ -1396,6 +1401,12 @@ static int keyToMappingIndex(std::string& s) {
 	if (s.compare("MOUSE_RING_RADIUS") == 0) {
 		return MOUSE_RING_RADIUS;
 	}
+	if (s.compare("FLICK_SNAP_MODE") == 0) {
+		return FLICK_SNAP_MODE;
+	}
+	if (s.compare("FLICK_SNAP_STRENGTH") == 0) {
+		return FLICK_SNAP_STRENGTH;
+	}
 	if (s.compare("STICK_POWER") == 0) {
 		return STICK_POWER;
 	}
@@ -1579,6 +1590,23 @@ static RingMode nameToRingMode(std::string& name, bool print = false) {
 	return RingMode::invalid;
 }
 
+static FlickSnapMode nameToFlickSnapMode(std::string& name, bool print = false) {
+	if (name.compare("NONE") == 0) {
+		if (print) printf("None");
+		return FlickSnapMode::none;
+	}
+	if (name.compare("4") == 0) {
+		if (print) printf("Four");
+		return FlickSnapMode::four;
+	}
+	if (name.compare("8") == 0) {
+		if (print) printf("Eight");
+		return FlickSnapMode::eight;
+	}
+	if (print) printf("\"%s\" invalid", name.c_str());
+	return FlickSnapMode::invalid;
+}
+
 static AxisMode nameToAxisMode(std::string& name, bool print = false) {
 	if (name.compare("STANDARD") == 0) {
 		if (print) printf("Standard");
@@ -1722,6 +1750,8 @@ static void resetAllMappings() {
 	screen_resolution_y = 1080;
 	mouse_ring_radius = 128.0f;
 	rotate_smooth_override = -1.0f;
+	flick_snap_strength = 1.0f;
+	flick_snap_mode = FlickSnapMode::none;
 }
 
 void joyShockPollCallback(int jcHandle, JOY_SHOCK_STATE state, JOY_SHOCK_STATE lastState, IMU_STATE imuState, IMU_STATE lastImuState, float deltaTime);
@@ -1940,7 +1970,7 @@ static void parseCommand(std::string line) {
 				case STICK_POWER:
 					try {
 						stick_power = max(0.0f, std::stof(value));
-						printf("Stick power set to %s\n", value);
+						printf("Stick power set to %0.4f\n", stick_power);
 					}
 					catch (std::invalid_argument ia) {
 						printf("Can't convert \"%s\" to a number\n", value);
@@ -2019,12 +2049,40 @@ static void parseCommand(std::string line) {
 							temp = -1.0f;
 						}
 						rotate_smooth_override = temp;
-						printf("Rotate smooth override set to %s\n", value);
+						printf("Rotate smooth override set to %0.4f\n", temp);
 					}
 					catch (std::invalid_argument ia) {
 						printf("Can't convert \"%s\" to a number\n", value);
 					}
 					return;
+				case FLICK_SNAP_STRENGTH:
+					try {
+						float temp = std::stof(value);
+						if (temp < 0.0f) {
+							temp = 0.0f;
+						}
+						if (temp > 1.0f) {
+							temp = 1.0f;
+						}
+						flick_snap_strength = temp;
+						printf("Flick snap strength set to %0.4f\n", temp);
+					}
+					catch (std::invalid_argument ia) {
+						printf("Can't convert \"%s\" to a number\n", value);
+					}
+					return;
+				case FLICK_SNAP_MODE:
+				{
+					FlickSnapMode temp = nameToFlickSnapMode(std::string(value));
+					if (temp != FlickSnapMode::invalid) {
+						flick_snap_mode = temp;
+						printf("Flick snap mode set to %s\n", value);
+					}
+					else {
+						printf("Valid settings for FLICK_SNAP_MODE are NONE, 4, or 8\n");
+					}
+					return;
+				}
 				case TRIGGER_THRESHOLD:
 					try {
 						trigger_threshold = std::stof(value);
@@ -2650,6 +2708,20 @@ static float handleFlickStick(float calX, float calY, float lastCalX, float last
 			isFlicking = true;
 			if (!rotateOnly)
 			{
+				if (flick_snap_mode != FlickSnapMode::none) {
+					// handle snapping
+					float snapInterval;
+					if (flick_snap_mode == FlickSnapMode::four) {
+						snapInterval = PI / 2.0f; // 90 degrees
+					}
+					else if (flick_snap_mode == FlickSnapMode::eight) {
+						snapInterval = PI / 4.0f; // 45 degrees
+					}
+					float snappedAngle = round(stickAngle / snapInterval) * snapInterval;
+					// lerp by snap strength
+					stickAngle = stickAngle * (1.0f - flick_snap_strength) + snappedAngle * flick_snap_strength;
+				}
+
 				jc->started_flick = std::chrono::steady_clock::now();
 				jc->delta_flick = stickAngle;
 				jc->flick_percent_done = 0.0f;
