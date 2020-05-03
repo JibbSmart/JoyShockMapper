@@ -4,12 +4,13 @@ Most recent updates will appear first.
 This is a summary of new features and bugfixes. Read the README to learn how to use the features mentioned here.
 
 ## 1.5.0
-Nicolas added double press bindings, improved chorded mapping behaviour when combined with taps and holds, and refactored a lot of code to prepare for some future changes. Also added support for mouse buttons forward and back, and changed the way logs are displayed. Jibb added new ways to configue flick stick: customise flick stick's smoothing, disable some of its features, or snap to angles. Also made it so ring bindings work alongside any stick mode and added the MOUSE\_RING stick mode for 2D twin-stick aiming.
+Nicolas added double press bindings, improved chorded mapping behaviour when combined with taps and holds, and refactored a lot of code to prepare for some future changes. Also added support for mouse buttons forward and back, separate horizontal and vertical gyro sensitivities, and changed the way logs are displayed. Jibb added new ways to configue flick stick: customise flick stick's smoothing, disable some of its features, or snap to angles. Also made it so ring bindings work alongside any stick mode and added the MOUSE\_RING stick mode for 2D twin-stick aiming.
 
 ### Features
 * Added ability to assign Double Press mappings to a button, by entering the button chorded with itself (eg: S,S = SPACE).
 * Chords are now active when the controller button is down, instead of waiting for a bounded input to be resolved (such as taps and holds).
 * Support mouse buttons 4 and 5 (back and forward).
+* Horizontal and vertical gyro sensitivities can now be set independently by including a second number for the Y sensitivity (first will be used for X).
 * Added MOUSE\_RING stick mode to let you use the stick to point the mouse in a direction relative to the centre of the screen.
 * Added new stick modes enabling only the flick (FLICK\_ONLY) or rotation (ROTATE\_ONLY) with flick stick.
 * Added FLICK\_SNAP\_MODE and FLICK\_SNAP\_STRENGTH for those who'd prefer flick stick snapped to cardinal (or intercardinal) directions with the initial flick.
