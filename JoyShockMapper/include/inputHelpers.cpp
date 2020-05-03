@@ -409,9 +409,8 @@ BOOL WINAPI ConsoleCtrlHandler(DWORD dwCtrlType)
 	case CTRL_C_EVENT:
 	case CTRL_BREAK_EVENT:
 	case CTRL_CLOSE_EVENT:
-	WriteToConsole("QUIT");
-	Sleep(1000); // Wait for JSM to close by itself
-	return TRUE;
+		WriteToConsole("QUIT");
+		return TRUE;
 	}
 	return FALSE;
 }

@@ -540,7 +540,6 @@ float rotate_smooth_override = -1.0f;
 float flick_snap_strength = 1.0f;
 FlickSnapMode flick_snap_mode = FlickSnapMode::none;
 std::unique_ptr<PollingThread> autoLoadThread;
-std::unique_ptr<PollingThread> consoleMonitor;
 std::unique_ptr<TrayIcon> tray;
 bool devicesCalibrating = false;
 Whitelister whitelister(false);
@@ -3157,36 +3156,13 @@ bool AutoLoadPoll(void *param)
 	return true;
 }
 
-bool MonitorConsolePoll(void *param)
-{
-	static bool firstToast = true;
-	if (isConsoleMinimized())
-	{
-		static_cast<TrayIcon*>(param)->Show();
-		HideConsole();
-		//if (firstToast)
-		//{
-		//	firstToast = !tray->SendToast(L"JoyShockMapper will keep running in the system tray.");
-		//}
-		return false;
-	}
-	return true;
-}
-
-void OnShowConsole()
-{
-	tray->Hide();
-	ShowConsole();
-	consoleMonitor->Start();
-}
-
 void beforeShowTrayMenu()
 {
 	if (!tray || !*tray) printf("ERROR: Cannot create tray item.\n");
 	else
 	{
 		tray->ClearMenuMap();
-		tray->AddMenuItem(L"Show Console", &OnShowConsole);
+		tray->AddMenuItem(L"Show Console", &ShowConsole);
 		tray->AddMenuItem(L"Reconnect controllers", []()
 		{
 			WriteToConsole("RECONNECT_CONTROLLERS");
@@ -3242,7 +3218,7 @@ void beforeShowTrayMenu()
 		tray->AddMenuItem(L"Calculate RWC", []()
 		{
 			WriteToConsole("CALCULATE_REAL_WORLD_CALIBRATION");
-			OnShowConsole();
+			ShowConsole();
 		});
 		tray->AddMenuItem(L"Quit", []()
 		{
@@ -3263,10 +3239,9 @@ int wWinMain(HINSTANCE hInstance, HINSTANCE prevInstance, LPWSTR cmdLine, int cm
 	connectDevices();
 	JslSetCallback(&joyShockPollCallback);
 	autoLoadThread.reset(new PollingThread(&AutoLoadPoll, nullptr, 1000, true)); // Start by default
-	consoleMonitor.reset(new PollingThread(&MonitorConsolePoll, tray.get(), 500, true));
 	if (autoLoadThread && *autoLoadThread) printf("AutoLoad is enabled. Configurations in \"AutoLoad\" folder will get loaded when matching application is in focus.\n");
 	else printf("[AUTOLOAD] AutoLoad is unavailable\n");
-
+	tray->Show();
 	// poll joycons:
 	while (true) {
 		fgets(tempConfigName, 128, stdin);

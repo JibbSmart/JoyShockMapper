@@ -3,6 +3,13 @@
 Most recent updates will appear first.
 This is a summary of new features and bugfixes. Read the README to learn how to use the features mentioned here.
 
+## 1.5.1
+Nicolas changed the tray icon to always be displayed. 
+
+### Bugfixe
+
+* The one second pause when exiting JSM was not necessary.
+
 ## 1.5.0
 Nicolas added double press bindings, improved chorded mapping behaviour when combined with taps and holds, and refactored a lot of code to prepare for some future changes. Also added support for mouse buttons forward and back, separate horizontal and vertical gyro sensitivities, and changed the way logs are displayed. Jibb added new ways to configue flick stick: customise flick stick's smoothing, disable some of its features, or snap to angles. Also made it so ring bindings work alongside any stick mode and added the MOUSE\_RING stick mode for 2D twin-stick aiming.
 
