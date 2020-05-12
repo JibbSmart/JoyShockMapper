@@ -3227,11 +3227,21 @@ void beforeShowTrayMenu()
 	}
 }
 
+// Perform all cleanup tasks when JSM is exiting
+void CleanUp()
+{
+	tray->Hide();
+	JslDisconnectAndDisposeAll();
+	FreeConsole();
+	whitelister.Remove();
+}
+
+
 //int main(int argc, char *argv[]) {
 int wWinMain(HINSTANCE hInstance, HINSTANCE prevInstance, LPWSTR cmdLine, int cmdShow) {
 	tray.reset(new TrayIcon(hInstance, prevInstance, cmdLine, cmdShow, &beforeShowTrayMenu));
 	// console
-	initConsole();
+	initConsole(&CleanUp);
 	printf("Welcome to JoyShockMapper version %s!\n", version);
 	//if (whitelister) printf("JoyShockMapper was successfully whitelisted!\n");
 	// prepare for input
@@ -3247,8 +3257,6 @@ int wWinMain(HINSTANCE hInstance, HINSTANCE prevInstance, LPWSTR cmdLine, int cm
 		fgets(tempConfigName, 128, stdin);
 		removeNewLine(tempConfigName);
 		if (strcmp(tempConfigName, "QUIT") == 0) {
-			// Hide while cleanup and quit.
-			HideConsole();
 			break;
 		}
 		else {
@@ -3258,8 +3266,7 @@ int wWinMain(HINSTANCE hInstance, HINSTANCE prevInstance, LPWSTR cmdLine, int cm
 		}
 		//pollLoop();
 	}
-	JslDisconnectAndDisposeAll();
-	FreeConsole();
-	whitelister.Remove();
+	// Exit JSM
+	CleanUp();
 	return 0;
 }
