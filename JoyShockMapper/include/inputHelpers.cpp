@@ -401,6 +401,9 @@ bool WriteToConsole(const std::string &command)
 	return written == inputs.size();
 }
 
+// Cleanup actions to perform on quit
+static std::function<void()> cleanupFunction;
+
 BOOL WINAPI ConsoleCtrlHandler(DWORD dwCtrlType)
 {
 	// https://docs.microsoft.com/en-us/windows/console/handlerroutine
@@ -409,15 +412,17 @@ BOOL WINAPI ConsoleCtrlHandler(DWORD dwCtrlType)
 	case CTRL_C_EVENT:
 	case CTRL_BREAK_EVENT:
 	case CTRL_CLOSE_EVENT:
-	WriteToConsole("QUIT");
-	Sleep(1000); // Wait for JSM to close by itself
-	return TRUE;
+		// Indirection is used to avoid having Windows stuff in main file
+		if (cleanupFunction)
+			cleanupFunction();
+		return TRUE;
 	}
 	return FALSE;
-}
+};
 
 // just setting up the console with standard stuff
-void initConsole() {
+void initConsole(std::function<void()> todoOnQuit) {
+	cleanupFunction = todoOnQuit; //Assign cleanup function
 	AllocConsole();
 	SetConsoleTitle(L"JoyShockMapper");
 	// https://stackoverflow.com/a/15547699/1130520
