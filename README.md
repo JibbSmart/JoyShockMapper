@@ -25,7 +25,8 @@ JoyShockMapper works on Windows and uses JoyShockLibrary to read inputs from con
   * **[Stick Mouse Inputs](#3-stick-mouse-inputs)**
   * **[Gyro Mouse Inputs](#4-gyro-mouse-inputs)**
   * **[Real World Calibration](#5-real-world-calibration)**
-  * **[Miscellaneous Commands](#6-miscellaneous-commands)**
+  * **[Modeshifts](#6-modeshifts)**
+  * **[Miscellaneous Commands](#7-miscellaneous-commands)**
 * **[Known and Perceived Issues](#known-and-perceived-issues)**
 * **[Troubleshooting](#troubleshooting)**
 * **[Credits](#credits)**
@@ -80,7 +81,8 @@ Commands can *mostly* be split into 4 categories:
 	* **Flick stick**. Map the flick or rotation of a stick to the same rotation in game. More on that later.
 4. **[Gyro Mouse Inputs](#4-gyro-mouse-inputs)**. Controlling the mouse with gyro generally provides far more precision than controlling it with a stick. Think of a gyro as a mouse on an invisible, frictionless mousepad. The mousepad extends however far you're comfortable rotating the controller. For games where you control the camera directly, stick mouse inputs provide convenient ways to complete big turns with little precision, while gyro mouse inputs allow you to make more precise, quick movements within a relatively limited range.
 5. **[Real World Calibration](#5-real-world-calibration)**. Calibrating correctly makes it possible for *flick stick* to work correctly, for the gyro and aim stick settings to have meaningful real-life values, and for players to share the same settings between different games.
-6. **[Miscellaneous Commands](#6-miscellaneous-commands)**. These don't fit in the above categories, but are nevertheless useful.
+6. **[Modeshifts](#6-modeshifts)**. Various settings can be reconfigured depending on the controller's current button presses, in a way akin to chorded presses. This is handy to handle weapon wheels for example. These are called modeshifts to echo the Steam Input naming convention.
+7. **[Miscellaneous Commands](#7-miscellaneous-commands)**. These don't fit in the above categories, but are nevertheless useful.
 
 So let's dig into the available commands.
 
@@ -197,7 +199,7 @@ L+R = Q    # Ultimate Ability
 To enable a simultaneous binding, both buttons need to be pressed within a very short time of each other. Doing so will ignore the individual button bindings and apply the specified binding until either of the button is released. Simultaneous bindings also support tap & hold bindings just like other mappings. This feature is great to make use of the dpad diagonals, or to add JSM specific features like gyro calibration and gyro control without taking away accessible buttons.
 
 #### 1.3 Chorded Press
-Chorded press works differently from Simultaneous Press, despite being similar at first blush. A chorded press mapping allows you to override a button mapping when the chord button is down. This enables a world of different practical combinations, allowing you to have contextual bindings, or even unmap a button. Here's an example for Left 4 Dead 2, that would enable you to equip items without lifting the thumb from the left stick.
+Chorded press works differently from Simultaneous Press, despite being similar at first blush. A chorded press mapping allows you to override a button mapping when the chord button is down. This enables a world of different practical combinations, allowing you to have contextual bindings. Here's an example for Left 4 Dead 2, that would enable you to equip items without lifting the thumb from the left stick.
 
 ```
 W = R E # Reload / Use
@@ -256,7 +258,7 @@ GYRO_ON = ZL  # Turn on gyro when ZL is pressed
 
 ```GYRO_ON``` and ```GYRO_OFF``` can also be bound as an action to particular buttons. Contrary to the command above, this takes the spot of the action binding. But you can still find creative ways with taps & holds or chorded press to bind the right gyro control where you need it.
 
-Since taps apply the binding for half a second, these gyro actions can be useful as tap bindings as well. Another option is inverting the gyro input with ```GYRO_INVERT```. Such a binding can be handy if you play with a single joycon because you don't have a second stick. When that action is enabled, the inversion makes it so that you can recenter the hands by continuing to turn in the opposite direction!
+Take note that taps apply gyro-related bindings for half a second. Another option is inverting the gyro input with ```GYRO_INVERT```. Such a binding can be handy if you play with a single joycon because you don't have a second stick. When that action is enabled, the inversion makes it so that you can recenter the hands by continuing to turn in the opposite direction!
 
 ```
 SL + SR = GYRO_OFF GYRO_INVERT  # Disable for .5s / Invert axis on simultaneous bumper hold
@@ -310,14 +312,15 @@ Using MUST_SKIP mode makes sure that once you start firing, reaching the full pu
 The "Responsive" variants of the skip modes enable a different behaviour that can give you a better experience than the original versions in specific circumstances. A typical example is when the soft binding is a mode-like binding like ADS or crouch, and there is no hold or simultaneous press binding on that soft press. The difference is that the soft binding is actived as soon as the trigger crosses the threshold, giving the desired responsive feeling, but gets removed if the full press is reached quickly, thus still allowing you to hip fire for example. This will result in a hopefully negligeable scope glitch but grants a snappier ADS activation.
 
 ### 3. Stick Mouse Inputs
-Each stick has 6 different operation modes:
+Each stick has 7 different operation modes:
 
 ```
 AIM: traditional stick aiming
 FLICK: flick stick
 FLICK_ONLY: flick stick without rotation after tilting the stick
 ROTATE_ONLY: flick stick rotation without the initial flick
-MOUSE_RING: stick position sets the mouse position directly
+MOUSE_RING: stick angle sets the mouse position on a circle directly around the center of the screen
+MOUSE_AREA: stick position sets the cursor in a circular area around the neutral position
 NO_MOUSE: don't affect the mouse, use button mappings (default)
 ```
 
@@ -375,7 +378,9 @@ Keep in mind that, once tilted, rotating the stick will rotate the camera instan
 
 The ```FLICK_ONLY``` and ```ROTATE_ONLY``` stick modes work the same as flick stick with some features blocked out. The former means you'll get the initial flick, but no subsequent rotation when rotating the stick. The latter means you won't get the initial flick, but subsequent rotations will work.
 
-When using the ```MOUSE_RING``` stick mode, tilting the stick will put the mouse cursor in a position offset from the centre of the screen by your stick position. To do this, the application needs to know your screen resolution (SCREEN\_RESOLUTION\_X and SCREEN\_RESOLUTION\_Y) and how far you want the cursor to sit from the centre of the screen (MOUSE\_RING\_RADIUS).
+When using the ```MOUSE_RING``` stick mode, tilting the stick will put the mouse cursor in a position offset from the centre of the screen by your stick position. This mode is primarily intended for twin-stick shooters. To do this, the application needs to know your screen resolution (SCREEN\_RESOLUTION\_X and SCREEN\_RESOLUTION\_Y) and how far you want the cursor to sit from the centre of the screen (MOUSE\_RING\_RADIUS). When this mode is in operation (i.e. the stick is not at rest), all other mouse movements are ignored.
+
+When using the ```MOUSE_AREA``` stick mode, the stick value directly sets the mouse position. So moving the stick rightward gradually all the way to the edge will move the cursor at the same speed for a number of pixel equal to the value of ```MOUSE_RING_RADIUS``` ; and moving the stick back to the middle will move the cursor back again to where it started. Contrary to the previous mode, this mode can operate in conjunction with other mouse inputs, such as gyro.
 
 When using stick mode ```NO_MOUSE```, JSM will use the stick's UP DOWN LEFT and RIGHT bindings in a cross gate layout. There is a small square deadzone to ignore very small stick moves.
 
@@ -505,7 +510,43 @@ You don't have to tell JoyShockMapper whether you're calibrating for a 2D game o
 
 With such a calibrated 2D game, you can choose your GYRO\_SENS or other settings by thinking about how much you want to turn your controller to move across the whole screen. A GYRO\_SENS of *1* would require a complete rotation of the controller to move from one side of the screen to the other, which is quite unreasonable! But a GYRO\_SENS of *8* means you only have to turn the controller one eighth of a complete rotation (45 degrees) to move from one side of the other, which is probably quite reasonable.
 
-### 6. Miscellaneous Commands
+### 6. Modeshifts 
+
+All settings described in previous sections that are assignations (i.e.: uses an equal sign '=') can be chorded like a regular button mapping. This is called a modeshift because you are reconfiguring the controller when specific buttons are enabled. The only *exceptions* are ```AUTOLOAD=[ON|OFF]``` command which is excluded since it is not related to the controller mapping, and ```NO_GYRO_BUTTON``` because it's the same as ```GYRO_OFF = NONE```.
+
+For example in DOOM (2016), this can enable you to use the right stick when you bring up a weapon wheel:
+
+```
+RIGHT_STICK_MODE = FLICK # Use flick stick
+GYRO_OFF = R3 # Use gyro, disable with stick click
+
+R = Q # Last weapon / Bring up weapon wheel
+
+R,GYRO_ON = NONE # Disable gyro when R is down
+R,RIGHT_STICK_MODE = MOUSE_AREA # Select wheel item with stick
+```
+
+Other ideas include changing the gyro sensitivity when aiming down sights, or only when fully pulling the trigger.
+
+```
+GYRO_SENS = 1 0.8 # Lower vertical sensitivity
+
+ZL_MODE = NO_SKIP # Use full pull
+ZL = RMOUSE # ADS
+ZLF = NONE # No binding on full pull
+
+ZLF,GYRO_SENS = 0.5 0.4 # Half sensitivity on full pull
+```
+
+These commands function exactly like chorded press bindings, whereas if multiple chords are active the latest has priority. Also the chord is active whenever the button is down regardless of whether a binding is active or not. It is also worth noting that a special case is handled on stick mode changes where upon returning to the normal mode by releasing the chord button, the stick input will be ignored until it returns to the center. In the DOOM example above, this prevents an undesirable flick upon releasing the chord.
+
+To remove an existing modeshift you have to assign ```NONE``` to the chord.
+
+```
+ZLF,GYRO_SENS = NONE
+```
+
+### 7. Miscellaneous Commands
 There are a few other useful commands that don't fall under the above categories:
 
 * **RESET\_MAPPINGS** - This will reset all JoyShockMapper's settings to their default values. This way you don't have to manually unset button mappings or other settings when making a big change. It can be useful to always start your configuration files with the RESET\_MAPPINGS command. The only exceptions to this are the calibration state and AUTOLOAD.
