@@ -524,6 +524,46 @@ public:
 	}
 };
 
+// Custom Optional
+template<typename T>
+class Optional
+{
+private:
+	bool valid = false;
+	T value;
+
+public:
+	Optional() {} // nullopt
+
+	Optional(T val)
+		: value(val)
+		, valid(true)
+	{}
+
+	inline operator bool() const
+	{
+		return valid;
+	}
+
+	inline T operator *() const
+	{
+		return value;
+	}
+
+	inline T *operator ->()
+	{
+		return &value;
+	}
+
+	inline T operator =(T newVal)
+	{
+		valid = true;
+		value = newVal;
+		return value;
+	}
+
+};
+
 std::mutex loading_lock;
 
 std::array<Mapping, MAPPING_SIZE> mappings; // std::array enables use of for each loop and other i/f
@@ -538,46 +578,46 @@ Whitelister whitelister(false);
 struct JSMSettings {
 	std::map<int, JSMSettings> modeshifts; // The chord button ID is used as key to access alternate setting set
 
-	std::optional<StickMode> left_stick_mode = std::nullopt;
-	std::optional<StickMode> right_stick_mode = std::nullopt;
-	std::optional<RingMode> left_ring_mode = std::nullopt;
-	std::optional<RingMode> right_ring_mode = std::nullopt;
-	std::optional<GyroAxisMask> mouse_x_from_gyro = std::nullopt;
-	std::optional<GyroAxisMask> mouse_y_from_gyro = std::nullopt;
-	std::optional<GyroSettings> gyro_settings = std::nullopt; // Ignore mode none means no GYRO_OFF button
-	std::optional<JoyconMask> joycon_gyro_mask = std::nullopt;
-	std::optional<TriggerMode> zlMode = std::nullopt;
-	std::optional<TriggerMode> zrMode = std::nullopt;
-	std::optional<float> min_gyro_sens_x = std::nullopt;
-	std::optional<float> min_gyro_sens_y = std::nullopt;
-	std::optional<float> max_gyro_sens_x = std::nullopt;
-	std::optional<float> max_gyro_sens_y = std::nullopt;
-	std::optional<float> min_gyro_threshold = std::nullopt;
-	std::optional<float> max_gyro_threshold = std::nullopt;
-	std::optional<float> stick_power = std::nullopt;
-	std::optional<float> stick_sens = std::nullopt;
-	std::optional<float> real_world_calibration = std::nullopt; // There's an argument that RWC has no interest in being modeshifted and thus could be outside this structure.
-	std::optional<float> in_game_sens = std::nullopt;
-	std::optional<float> trigger_threshold = std::nullopt;
-	std::optional<float> aim_y_sign = std::nullopt;
-	std::optional<float> aim_x_sign = std::nullopt;
-	std::optional<float> gyro_y_sign = std::nullopt;
-	std::optional<float> gyro_x_sign = std::nullopt;
-	std::optional<float> flick_time = std::nullopt;
-	std::optional<float> gyro_smooth_time = std::nullopt;
-	std::optional<float> gyro_smooth_threshold = std::nullopt;
-	std::optional<float> gyro_cutoff_speed = std::nullopt;
-	std::optional<float> gyro_cutoff_recovery = std::nullopt;
-	std::optional<float> stick_acceleration_rate = std::nullopt;
-	std::optional<float> stick_acceleration_cap = std::nullopt;
-	std::optional<float> stick_deadzone_inner = std::nullopt;
-	std::optional<float> stick_deadzone_outer = std::nullopt;
-	std::optional<float> mouse_ring_radius = std::nullopt;
-	std::optional<int> screen_resolution_x = std::nullopt;
-	std::optional<int> screen_resolution_y = std::nullopt;
-	std::optional<float> rotate_smooth_override = std::nullopt;
-	std::optional<float> flick_snap_strength = std::nullopt;
-	std::optional<FlickSnapMode> flick_snap_mode = std::nullopt;
+	Optional<StickMode> left_stick_mode;
+	Optional<StickMode> right_stick_mode;
+	Optional<RingMode> left_ring_mode;
+	Optional<RingMode> right_ring_mode;
+	Optional<GyroAxisMask> mouse_x_from_gyro;
+	Optional<GyroAxisMask> mouse_y_from_gyro;
+	Optional<GyroSettings> gyro_settings; // Ignore mode none means no GYRO_OFF button
+	Optional<JoyconMask> joycon_gyro_mask;
+	Optional<TriggerMode> zlMode;
+	Optional<TriggerMode> zrMode;
+	Optional<float> min_gyro_sens_x;
+	Optional<float> min_gyro_sens_y;
+	Optional<float> max_gyro_sens_x;
+	Optional<float> max_gyro_sens_y;
+	Optional<float> min_gyro_threshold;
+	Optional<float> max_gyro_threshold;
+	Optional<float> stick_power;
+	Optional<float> stick_sens;
+	Optional<float> real_world_calibration; // There's an argument that RWC has no interest in being modeshifted and thus could be outside this structure.
+	Optional<float> in_game_sens;
+	Optional<float> trigger_threshold;
+	Optional<float> aim_y_sign;
+	Optional<float> aim_x_sign;
+	Optional<float> gyro_y_sign;
+	Optional<float> gyro_x_sign;
+	Optional<float> flick_time;
+	Optional<float> gyro_smooth_time;
+	Optional<float> gyro_smooth_threshold;
+	Optional<float> gyro_cutoff_speed;
+	Optional<float> gyro_cutoff_recovery;
+	Optional<float> stick_acceleration_rate;
+	Optional<float> stick_acceleration_cap;
+	Optional<float> stick_deadzone_inner;
+	Optional<float> stick_deadzone_outer;
+	Optional<float> mouse_ring_radius;
+	Optional<int> screen_resolution_x;
+	Optional<int> screen_resolution_y;
+	Optional<float> rotate_smooth_override;
+	Optional<float> flick_snap_strength;
+	Optional<FlickSnapMode> flick_snap_mode;
 } baseSettings;
 
 // Forward declare for use in JoyShock::IsPressed()
@@ -671,7 +711,7 @@ public:
 private:
 
 	template<typename E>
-	std::optional<E> getSettingRec(const JSMSettings &settings, int index, std::deque<int> chordStack, bool topLevel)
+	Optional<E> getSettingRec(const JSMSettings &settings, int index, std::deque<int> chordStack, bool topLevel)
 	{
 		static_assert(std::is_enum<E>::value, "Parameter of JoyShock::getSetting<E> has to be an enum type");
 		// Look at active chord mappings starting with the latest activates chord
@@ -680,43 +720,43 @@ private:
 			auto modeshiftSettings = settings.modeshifts.find(*activeChord);
 			if (modeshiftSettings != settings.modeshifts.end())
 			{
-				auto val = getSettingRec<E>(modeshiftSettings->second, index, std::deque(activeChord + 1, chordStack.end()), false);
+				auto val = getSettingRec<E>(modeshiftSettings->second, index, std::deque<int>(activeChord + 1, chordStack.end()), false);
 				if (val)
 					return val;
 			}
 		}
 		switch (index) {
 		case MOUSE_X_FROM_GYRO_AXIS:
-			return settings.mouse_x_from_gyro ? std::optional(static_cast<E>(*settings.mouse_x_from_gyro)) : std::nullopt;
+			return settings.mouse_x_from_gyro ? Optional<E>(static_cast<E>(*settings.mouse_x_from_gyro)) :  Optional<E>();
 		case MOUSE_Y_FROM_GYRO_AXIS:
-			return  settings.mouse_y_from_gyro ? std::optional(static_cast<E>(*settings.mouse_y_from_gyro)) : std::nullopt;
+			return  settings.mouse_y_from_gyro ? Optional<E>(static_cast<E>(*settings.mouse_y_from_gyro)) :  Optional<E>();
 		case LEFT_STICK_MODE:
 			ignore_left_stick_mode |= !topLevel; // Enable the ignore flag when a chord stick mode enables
 			return settings.left_stick_mode ? 
-				std::optional(static_cast<E>(topLevel && ignore_left_stick_mode ? StickMode::invalid : *settings.left_stick_mode)) : 
-				std::nullopt;
+				Optional<E>(static_cast<E>(topLevel && ignore_left_stick_mode ? StickMode::invalid : *settings.left_stick_mode)) : 
+				 Optional<E>();
 		case RIGHT_STICK_MODE:
 			ignore_right_stick_mode |= !topLevel; // Enable the ignore flag when a chord stick mode enables
 			return settings.right_stick_mode ? 
-				std::optional(static_cast<E>(topLevel && ignore_right_stick_mode ? StickMode::invalid : *settings.right_stick_mode)) : 
-				std::nullopt;
+				Optional<E>(static_cast<E>(topLevel && ignore_right_stick_mode ? StickMode::invalid : *settings.right_stick_mode)) : 
+				 Optional<E>();
 		case LEFT_RING_MODE:
-			return settings.left_ring_mode ? std::optional(static_cast<E>(*settings.left_ring_mode)) : std::nullopt;
+			return settings.left_ring_mode ? Optional<E>(static_cast<E>(*settings.left_ring_mode)) :  Optional<E>();
 		case RIGHT_RING_MODE:
-			return settings.right_ring_mode ? std::optional(static_cast<E>(*settings.right_ring_mode)) : std::nullopt;
+			return settings.right_ring_mode ? Optional<E>(static_cast<E>(*settings.right_ring_mode)) :  Optional<E>();
 		case JOYCON_GYRO_MASK:
-			return settings.joycon_gyro_mask ? std::optional(static_cast<E>(*settings.joycon_gyro_mask)) : std::nullopt;
+			return settings.joycon_gyro_mask ? Optional<E>(static_cast<E>(*settings.joycon_gyro_mask)) :  Optional<E>();
 		case ZR_DUAL_STAGE_MODE:
-			return settings.zrMode ? std::optional(static_cast<E>(*settings.zrMode)) : std::nullopt;
+			return settings.zrMode ? Optional<E>(static_cast<E>(*settings.zrMode)) :  Optional<E>();
 		case ZL_DUAL_STAGE_MODE:
-			return settings.zlMode ? std::optional(static_cast<E>(*settings.zlMode)) : std::nullopt;
+			return settings.zlMode ? Optional<E>(static_cast<E>(*settings.zlMode)) :  Optional<E>();
 		case FLICK_SNAP_MODE:
-			return settings.flick_snap_mode ? std::optional(static_cast<E>(*settings.flick_snap_mode)) : std::nullopt;
+			return settings.flick_snap_mode ? Optional<E>(static_cast<E>(*settings.flick_snap_mode)) :  Optional<E>();
 		}
 		throw std::exception((std::stringstream() << "Index " << index << " is not a valid enum setting").str().c_str());
 	}
 
-	std::optional<float> getSettingRec(const JSMSettings &settings, int index, std::deque<int> chordStack, bool topLevel)
+	Optional<float> getSettingRec(const JSMSettings &settings, int index, std::deque<int> chordStack, bool topLevel)
 	{
 		// Look at active chord mappings starting with the latest activates chord
 		for (auto activeChord = chordStack.begin(); activeChord != chordStack.end(); activeChord++)
@@ -724,7 +764,7 @@ private:
 			auto modeshiftSettings = settings.modeshifts.find(*activeChord);
 			if (modeshiftSettings != settings.modeshifts.end())
 			{
-				auto val = getSettingRec(modeshiftSettings->second, index, std::deque(activeChord + 1, chordStack.end()), false);
+				auto val = getSettingRec(modeshiftSettings->second, index, std::deque<int>(activeChord + 1, chordStack.end()), false);
 				if (val)
 					return val;
 			}
@@ -786,7 +826,7 @@ private:
 	}
 
 	template<>
-	std::optional<FloatXY> getSettingRec<FloatXY>(const JSMSettings &settings, int index, std::deque<int> chordStack, bool topLevel)
+	Optional<FloatXY> getSettingRec<FloatXY>(const JSMSettings &settings, int index, std::deque<int> chordStack, bool topLevel)
 	{
 		// Look at active chord mappings starting with the latest activates chord
 		for (auto activeChord = chordStack.begin(); activeChord != chordStack.end(); activeChord++)
@@ -794,7 +834,7 @@ private:
 			auto modeshiftSettings = settings.modeshifts.find(*activeChord);
 			if (modeshiftSettings != settings.modeshifts.end())
 			{
-				auto val = getSettingRec<FloatXY>(modeshiftSettings->second, index, std::deque(activeChord + 1, chordStack.end()), false);
+				auto val = getSettingRec<FloatXY>(modeshiftSettings->second, index, std::deque<int>(activeChord + 1, chordStack.end()), false);
 				if (val)
 					return val;
 			}
@@ -805,18 +845,18 @@ private:
 			if (settings.min_gyro_sens_x && settings.min_gyro_sens_y)
 				return FloatXY{ *settings.min_gyro_sens_x, *settings.min_gyro_sens_y };
 			else
-				return std::nullopt;
+				return Optional<FloatXY>();
 		case MAX_GYRO_SENS:
 			if (settings.max_gyro_sens_x && settings.max_gyro_sens_y)
 				return FloatXY{ *settings.max_gyro_sens_x, *settings.max_gyro_sens_y };
 			else
-				return std::nullopt;
+				return Optional<FloatXY>();
 		}
 		throw std::exception((std::stringstream() << "Index " << index << " is not a valid FloatXY setting").str().c_str());
 	}
 
 	template<>
-	std::optional<GyroSettings> getSettingRec<GyroSettings>(const JSMSettings &settings, int index, std::deque<int> chordStack, bool topLevel)
+	Optional<GyroSettings> getSettingRec<GyroSettings>(const JSMSettings &settings, int index, std::deque<int> chordStack, bool topLevel)
 	{
 		if (index == GYRO_ON || index == GYRO_OFF)
 		{
@@ -826,7 +866,7 @@ private:
 				auto modeshiftSettings = settings.modeshifts.find(*activeChord);
 				if (modeshiftSettings != settings.modeshifts.end())
 				{
-					auto val = getSettingRec<GyroSettings>(modeshiftSettings->second, index, std::deque(activeChord + 1, chordStack.end()), false);
+					auto val = getSettingRec<GyroSettings>(modeshiftSettings->second, index, std::deque<int>(activeChord + 1, chordStack.end()), false);
 					if (val)
 						return val;
 				}
@@ -1460,7 +1500,7 @@ static bool iequals(const std::string& a, const std::string& b)
 	});
 }
 
-std::optional<float> getFloat(const std::string &str, size_t *newpos = nullptr)
+Optional<float> getFloat(const std::string &str, size_t *newpos = nullptr)
 {
 	try
 	{
@@ -1469,7 +1509,7 @@ std::optional<float> getFloat(const std::string &str, size_t *newpos = nullptr)
 	}
 	catch (std::invalid_argument)
 	{
-		return std::nullopt;
+		return Optional<float>();
 	}
 }
 
@@ -2029,14 +2069,14 @@ static bool loadMappings(std::string fileName) {
 }
 
 template <typename T>
-bool processChordRemoval(int chord, const char *rhs, std::optional<T> &setting)
+bool processChordRemoval(int chord, const char *rhs, Optional<T> &setting)
 {
 	if (chord >= 0 && chord <= MAPPING_SIZE && strncmp("NONE", rhs, 4) == 0)
 	{
 		if (setting)
 		{
 			printf("modeshift removed.\n");
-			setting = std::nullopt;
+			setting;
 		}
 		return true;
 	}
@@ -2183,7 +2223,7 @@ static void parseCommand(std::string line) {
 			return;
 		}
 
-		std::optional<float> sens;
+		Optional<float> sens;
 		size_t pos;
 		char value[128];
 		// other commands
