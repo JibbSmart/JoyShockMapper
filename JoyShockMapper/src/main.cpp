@@ -10,7 +10,7 @@
 #include <memory>
 #include <mutex>
 #include <array>
-#include <optional>
+//#include <optional>
 
 #include "JoyShockLibrary.h"
 #include "Whitelister.h"
