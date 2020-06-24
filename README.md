@@ -559,7 +559,7 @@ Some third-party devices that work as controllers on Switch or PS4 may not work 
 
 But first, here are some common problems that are worth checking first.
 
-The JoyShockMapper console will tell you how many devices are connected, and will output information with most inputs (button presses or releases, tilting the stick). However, the only way to test that the gyro is working is to enable it and see if you can move the mouse. The quickest way to check if gyro input is working without loading a config is to just enter the command ```GYRO\_SENS = 1``` and then move the controller. Don't forget that you might need to calibrate the gyro if the mouse is moving even when the controller isn't.
+The JoyShockMapper console will tell you how many devices are connected, and will output information with most inputs (button presses or releases, tilting the stick). However, the only way to test that the gyro is working is to enable it and see if you can move the mouse. The quickest way to check if gyro input is working without loading a config is to just enter the command ```GYRO_SENS = 1``` and then move the controller. Don't forget that you might need to calibrate the gyro if the mouse is moving even when the controller isn't.
 
 Many users of JoyShockMapper rely on tools like HIDGuardian to hide controller input from the game. If JSM isn't recognising your controller, maybe you haven't whitelisted JoyShockMapper.
 
@@ -582,7 +582,9 @@ I'm Julian "Jibb" Smart, and I made JoyShockMapper. As of version 1.3, JoyShockM
 * Bryan Rumsey
 * Al. Lopez
 
-JoyShockMapper relies a lot on [JoyShockLibrary](https://github.com/jibbsmart/JoyShockLibrary), which it uses to read controller inputs. Check out that project to see who else made JoyShockLibrary possible.
+Have a look at the CHANGELOG for a better idea of who contributed what. Nicolas, in particular, regularly contributes a lot of work. He is responsible for a lot of the cool quality-of-life and advanced mapping features.
+
+JoyShockMapper relies a lot on [JoyShockLibrary](https://github.com/jibbsmart/JoyShockLibrary), which it uses to read controller inputs. Check out that project to see what prior work made JoyShockLibrary possible.
 
 ## Helpful Resources
 * [GyroWiki](http://gyrowiki.jibbsmart.com) - All about good gyro controls for games:
