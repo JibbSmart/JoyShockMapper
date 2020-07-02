@@ -46,6 +46,8 @@ The latest version of JoyShockMapper can always be found [here](https://github.c
 
 Included is a folder called GyroConfigs. This includes templates for creating new configurations for 2D and 3D games, and configuration files that include the settings used for simple [Real World Calibration](#4-real-world-calibration).
 
+Note: If upon launch you get an error saying that vcruntime140.dll was not found, then you need to install it. [Go here](https://www.microsoft.com/en-us/download/details.aspx?id=52685) and select vc_redist.x86.exe on the download page, then run that file. A restart may be necessary.
+
 ## Quick Start
 1. Connect your DualShock 4 by USB or Bluetooth, or your JoyCons or Pro Controller by Bluetooth.
 
