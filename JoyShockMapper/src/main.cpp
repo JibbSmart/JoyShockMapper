@@ -14,7 +14,7 @@
 
 #include "JoyShockLibrary.h"
 #include "Whitelister.h"
-#include "inputHelpers.cpp"
+#include "inputHelpers.h"
 #include "TrayIcon.h"
 
 #pragma warning(disable:4996)
@@ -3672,7 +3672,7 @@ void CleanUp()
 
 
 //int main(int argc, char *argv[]) {
-int wWinMain(HINSTANCE hInstance, HINSTANCE prevInstance, LPWSTR cmdLine, int cmdShow) {
+int __stdcall wWinMain(HINSTANCE hInstance, HINSTANCE prevInstance, LPWSTR cmdLine, int cmdShow) {
 	tray.reset(new TrayIcon(hInstance, prevInstance, cmdLine, cmdShow, &beforeShowTrayMenu));
 	// console
 	initConsole(&CleanUp);

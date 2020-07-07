@@ -1,22 +1,10 @@
 #pragma once
 
-#include <Windows.h>
-#include <math.h>
-#include <Winuser.h>
-#include <functional>
-#include <atomic>
+#include "inputHelpers.h"
+#include <unordered_map>
 
-// https://docs.microsoft.com/en-us/windows/win32/inputdev/virtual-key-codes
-// Only use undefined keys from the above list for JSM custom commands
-#define V_WHEEL_UP 0x03 // Here I intentionally overwride VK_CANCEL because breaking a process with a keybind is not something we want to do
-#define V_WHEEL_DOWN 0x07 // I want all mouse bindings to be contiguous IDs for ease to distinguish
-#define NO_HOLD_MAPPED 0x0A
-#define CALIBRATE 0x0B
-#define GYRO_INV_X 0x88
-#define GYRO_INV_Y 0x89
-#define GYRO_INVERT 0x8A
-#define GYRO_OFF_BIND 0x8B // Not to be confused with settings GYRO_ON and GYRO_OFF
-#define GYRO_ON_BIND 0x8C  // Those here are bindings
+static float accumulatedX = 0;
+static float accumulatedY = 0;
 
 // Windows' mouse speed settings translate non-linearly to speed.
 // Thankfully, the mappings are available here: https://liquipedia.net/counterstrike/Mouse_settings#Windows_Sensitivity
@@ -256,7 +244,7 @@ WORD nameToKey(std::string& name) {
 int pressMouse(WORD vkKey, bool isPressed) {
 	// https://docs.microsoft.com/en-us/windows/win32/api/winuser/ns-winuser-mouseinput
 	// Map a VK id to mouse event id press (0) or release (1) and mouseData (2) complementary info
-	static std::unordered_map<WORD, std::tuple<DWORD, DWORD, DWORD>> mouseMaps = { 
+	static std::unordered_map<WORD, std::tuple<DWORD, DWORD, DWORD>> mouseMaps = {
 		{ VK_LBUTTON, {MOUSEEVENTF_LEFTDOWN, MOUSEEVENTF_LEFTUP, 0} },
 		{ VK_RBUTTON, {MOUSEEVENTF_RIGHTDOWN, MOUSEEVENTF_RIGHTUP, 0} },
 		{ VK_MBUTTON, {MOUSEEVENTF_MIDDLEDOWN, MOUSEEVENTF_MIDDLEUP, 0} },
@@ -299,9 +287,6 @@ int pressKey(WORD vkKey, bool pressed) {
 	return SendInput(1, &input, sizeof(input));
 }
 
-float accumulatedX = 0;
-float accumulatedY = 0;
-
 void moveMouse(float x, float y) {
 	accumulatedX += x;
 	accumulatedY += y;
@@ -335,7 +320,7 @@ void setMouseNorm(float x, float y) {
 }
 
 // delta time will apply to shaped movement, but the extra (velocity parameters after deltaTime) is applied as given
-void shapedSensitivityMoveMouse(float x, float y, std::pair<float, float> lowSensXY, std::pair<float, float> hiSensXY, float minThreshold, 
+void shapedSensitivityMoveMouse(float x, float y, std::pair<float, float> lowSensXY, std::pair<float, float> hiSensXY, float minThreshold,
 	float maxThreshold, float deltaTime, float extraVelocityX, float extraVelocityY, float calibration)
 {
 	// apply calibration factor
@@ -354,16 +339,16 @@ void shapedSensitivityMoveMouse(float x, float y, std::pair<float, float> lowSen
 		newSensitivity = magnitude / denom;
 	}
 	if (newSensitivity > 1.0f) newSensitivity = 1.0f;
-		
+
 	// interpolate between low sensitivity and high sensitivity
-	float newSensitivityX = lowSensXY.first * calibration * (1.0f - newSensitivity) + (hiSensXY.first * calibration)* newSensitivity;
-	float newSensitivityY = lowSensXY.second* calibration * (1.0f - newSensitivity) + (hiSensXY.second* calibration)* newSensitivity;
+	float newSensitivityX = lowSensXY.first * calibration * (1.0f - newSensitivity) + (hiSensXY.first * calibration) * newSensitivity;
+	float newSensitivityY = lowSensXY.second * calibration * (1.0f - newSensitivity) + (hiSensXY.second * calibration) * newSensitivity;
 
 	// apply all values
 	moveMouse((x * newSensitivityX) * deltaTime + extraVelocityX, (y * newSensitivityY) * deltaTime + extraVelocityY);
 }
 
-bool WriteToConsole(const std::string &command)
+bool WriteToConsole(const std::string& command)
 {
 	static const INPUT_RECORD ESC_DOWN = { KEY_EVENT, {TRUE,  1, VK_ESCAPE, MapVirtualKey(VK_ESCAPE, MAPVK_VK_TO_VSC), VK_ESCAPE, 0} };
 	static const INPUT_RECORD ESC_UP = { KEY_EVENT, {FALSE, 1, VK_ESCAPE, MapVirtualKey(VK_ESCAPE, MAPVK_VK_TO_VSC), VK_ESCAPE, 0} };
@@ -400,9 +385,6 @@ bool WriteToConsole(const std::string &command)
 	FlushConsoleInputBuffer(GetStdHandle(STD_INPUT_HANDLE));
 	return written == inputs.size();
 }
-
-// Cleanup actions to perform on quit
-static std::function<void()> cleanupFunction;
 
 BOOL WINAPI ConsoleCtrlHandler(DWORD dwCtrlType)
 {
@@ -516,87 +498,61 @@ std::string GetCWD()
 	return cwd;
 }
 
-class PollingThread {
-private:
-	HANDLE _thread;
-	std::function<bool(void*)> _loopContent;
-	DWORD _sleepTimeMs;
-	DWORD _tid;
-	void * _funcParam;
-	std::atomic_bool _continue;
+PollingThread::PollingThread(std::function<bool(void*)> loopContent, void* funcParam, DWORD pollPeriodMs, bool startNow)
+	: _thread(nullptr)
+	, _loopContent(loopContent)
+	, _sleepTimeMs(pollPeriodMs)
+	, _tid(0)
+	, _funcParam(funcParam)
+	, _continue(false)
+{
+	if (startNow) Start();
+}
 
-public:
-	PollingThread(std::function<bool(void*)> loopContent, void* funcParam, DWORD pollPeriodMs, bool startNow)
-		: _thread(nullptr)
-		, _loopContent(loopContent)
-		, _sleepTimeMs(pollPeriodMs)
-		, _tid(0)
-		, _funcParam(funcParam)
-		, _continue(false)
+PollingThread::~PollingThread()
+{
+	if (_continue)
 	{
-		if (startNow) Start();
+		Stop();
+		Sleep(_sleepTimeMs);
 	}
+	// Let poll function cleanup
+}
 
-	~PollingThread()
+bool PollingThread::Start() {
+	if (_thread && !_continue) // thread is running but hasn't stopped yet
 	{
-		if (_continue)
-		{
-			Stop();
-			Sleep(_sleepTimeMs);
+		Sleep(_sleepTimeMs);
+	}
+	if (!_thread) //thread is clear
+	{
+		_continue = true;
+		_thread = CreateThread(
+			NULL,                   // default security attributes
+			0,                      // use default stack size  
+			&pollFunction,       // thread function name
+			this,          // argument to thread function 
+			0,                      // use default creation flags 
+			&_tid);   // returns the thread identifier 
+	}
+	return isRunning();
+}
+
+DWORD __stdcall PollingThread::pollFunction(void *param)
+{
+	auto workerThread = reinterpret_cast<PollingThread*>(param);
+	if (workerThread)
+	{
+		while (workerThread->_continue &&
+			workerThread->_loopContent(workerThread->_funcParam)) {
+			Sleep(workerThread->_sleepTimeMs);
 		}
-		// Let poll function cleanup
+		CloseHandle(workerThread->_thread);
+		workerThread->_thread = nullptr;
+		return 0;
 	}
-
-	inline operator bool()
-	{
-		return _thread != 0;
-	}
-
-	bool Start() {
-		if (_thread && !_continue) // thread is running but hasn't stopped yet
-		{
-			Sleep(_sleepTimeMs);
-		}
-		if (!_thread) //thread is clear
-		{
-			_continue = true;
-			_thread = CreateThread(
-				NULL,                   // default security attributes
-				0,                      // use default stack size  
-				&pollFunction,       // thread function name
-				this,          // argument to thread function 
-				0,                      // use default creation flags 
-				&_tid);   // returns the thread identifier 
-		}
-		return isRunning();
-	}
-
-	void Stop() {
-		_continue = false;
-	}
-
-	bool isRunning()
-	{
-		return _thread && _continue;
-	}
-
-private:
-	static DWORD WINAPI pollFunction(LPVOID param)
-	{
-		auto workerThread = reinterpret_cast<PollingThread*>(param);
-		if (workerThread)
-		{
-			while (workerThread->_continue && 
-				workerThread->_loopContent(workerThread->_funcParam)) {
-				Sleep(workerThread->_sleepTimeMs);
-			}
-			CloseHandle(workerThread->_thread);
-			workerThread->_thread = nullptr;
-			return 0;
-		}
-		return 1;
-	}
-};
+	return 1;
+}
 
 DWORD ShowOnlineHelp()
 {
@@ -614,23 +570,23 @@ DWORD ShowOnlineHelp()
 	return GetLastError();
 }
 
-inline void HideConsole()
+void HideConsole()
 {
 	ShowWindow(GetConsoleWindow(), SW_HIDE);
 }
 
-inline void ShowConsole()
+void ShowConsole()
 {
 	ShowWindow(GetConsoleWindow(), SW_SHOWDEFAULT);
 	SetForegroundWindow(GetConsoleWindow());
 }
 
-inline bool IsVisible()
+bool IsVisible()
 {
 	return IsWindowVisible(GetConsoleWindow());
 }
 
-inline bool isConsoleMinimized()
+bool isConsoleMinimized()
 {
 	return IsVisible() != FALSE && IsIconic(GetConsoleWindow()) != FALSE;
 }
