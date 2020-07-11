@@ -1,68 +1,79 @@
 #pragma once
-#include <windows.h>
+
+#include "PlatformDefinitions.h"
+
 #include <functional>
-#include <vector>
-#include <map>
+#include <type_traits>
+#include <utility>
 
-struct MenuItem;
+template<typename TrayIconImplementation>
+class TrayIconInterface
+{
+public:
+	inline TrayIconInterface(TrayIconData platformData, std::function<void()> &&beforeShow)
+	  : implementation_{ platformData, std::move(beforeShow) }
+	{
+	}
 
-class TrayIcon {
-	HINSTANCE		_hInst;	// current instance
-	NOTIFYICONDATA	_niData;	// notify icon data
-	std::vector<MenuItem*> _menuMap;
-	std::map<UINT_PTR, std::function<void()>> _clickMap;
-	HANDLE _thread;
-	std::function<void()> _beforeShow;
+	inline ~TrayIconInterface() = default;
 
 public:
-	TrayIcon(HINSTANCE hInstance,
-		HINSTANCE hPrevInstance,
-		LPTSTR    lpCmdLine,
-		int       nCmdShow,
-		std::function<void()> beforeShow);
-
-	~TrayIcon();
-
-	inline operator bool()
-	{
-		return _hInst != 0 && _thread != 0;
-	}
-
-	inline bool operator ==(HWND handle)
-	{
-		HINSTANCE inst = (HINSTANCE)GetWindowLong(handle, GWL_HINSTANCE);
-		return inst == _hInst;
-	}
-
 	inline bool Show()
 	{
-		return Shell_NotifyIcon(NIM_ADD, &_niData) != FALSE;
+		return implementation_.Show();
 	}
 
 	inline bool Hide()
 	{
-		return Shell_NotifyIcon(NIM_DELETE, &_niData) != FALSE;
+		return implementation_.Hide();
 	}
 
-	bool SendToast(std::wstring message);
+	inline bool SendNotification(const UnicodeString &message)
+	{
+		return implementation_.SendNotification(message);
+	}
 
-	void AddMenuItem(const std::wstring &label, std::function<void()> onClick);
+	template<typename Callback>
+	inline void AddMenuItem(const UnicodeString &label, Callback &&onClick)
+	{
+		// static_assert(std::is_invocable_r_v<void, Callback> || std::is_invocable_r_v<void, Callback, bool>, "");
 
-	void AddMenuItem(const std::wstring &label, std::function<void(bool)> onClick, std::function<bool()> getState);
+		implementation_.AddMenuItem(label, std::forward<Callback>(onClick));
+	}
 
-	void AddMenuItem(const std::wstring &label, const std::wstring &sublabel, std::function<void()> onClick);
+	template<typename ClickCallback, typename StateCallback>
+	inline void AddMenuItem(const UnicodeString &label, ClickCallback &&onClick, StateCallback &&getState)
+	{
+		// static_assert(std::is_invocable_r_v<void, ClickCallback, bool>, "");
+		// static_assert(std::is_invocable_r_v<bool, ClickCallback>, "");
 
-	void ClearMenuMap();
+		implementation_.AddMenuItem(label, std::forward<ClickCallback>(onClick), std::forward<StateCallback>(getState));
+	}
+
+	template<typename Callback>
+	inline void AddMenuItem(const UnicodeString &label, const UnicodeString &subLabel, Callback &&onClick)
+	{
+		implementation_.AddMenuItem(label, subLabel, std::forward<Callback>(onClick));
+	}
+
+	inline void ClearMenuMap()
+	{
+		implementation_.ClearMenuMap();
+	}
+
+	inline operator bool()
+	{
+		return implementation_.operator bool();
+	}
 
 private:
-
-	BOOL InitInstance();
-
-	static DWORD WINAPI MessageHandlerLoop(LPVOID param);
-
-	void ShowContextMenu(HWND hWnd);
-
-	ULONGLONG GetDllVersion(LPCTSTR lpszDllName);
-
-	static INT_PTR CALLBACK DlgProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam);
+	TrayIconImplementation implementation_;
 };
+
+#ifdef _WIN32
+#include "win32/WindowsTrayIcon.h"
+using TrayIcon = TrayIconInterface<WindowsTrayIcon>;
+#else
+#include "linux/StatusNotifierItem.h"
+using TrayIcon = TrayIconInterface<StatusNotifierItem>;
+#endif

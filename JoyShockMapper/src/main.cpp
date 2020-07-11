@@ -2,7 +2,8 @@
 #include <chrono>
 #include <sstream>
 #include <algorithm>
-#include <string.h>
+#include <cstring>
+#include <cmath>
 #include <iostream>
 #include <fstream>
 #include <unordered_map>
@@ -10,11 +11,13 @@
 #include <memory>
 #include <mutex>
 #include <array>
-//#include <optional>
+#include <map>
+#include <string>
 
+#include "PlatformDefinitions.h"
 #include "JoyShockLibrary.h"
 #include "Whitelister.h"
-#include "inputHelpers.h"
+#include "InputHelpers.h"
 #include "TrayIcon.h"
 
 #pragma warning(disable:4996)
@@ -753,7 +756,10 @@ private:
 		case FLICK_SNAP_MODE:
 			return settings.flick_snap_mode ? Optional<E>(static_cast<E>(*settings.flick_snap_mode)) :  Optional<E>();
 		}
-		throw std::exception((std::stringstream() << "Index " << index << " is not a valid enum setting").str().c_str());
+
+		std::stringstream message{};
+		message << "Index " << index << " is not a valid enum setting";
+		throw std::out_of_range(message.str().c_str());
 	}
 
 	Optional<float> getSettingRec(const JSMSettings &settings, int index, std::deque<int> chordStack, bool topLevel)
@@ -814,15 +820,18 @@ private:
 		case MOUSE_RING_RADIUS:
 			return settings.mouse_ring_radius;
 		case SCREEN_RESOLUTION_X:
-			return settings.screen_resolution_x;
+			return *settings.screen_resolution_x;
 		case SCREEN_RESOLUTION_Y:
-			return settings.screen_resolution_y;
+			return *settings.screen_resolution_y;
 		case ROTATE_SMOOTH_OVERRIDE:
 			return settings.rotate_smooth_override;
 		case FLICK_SNAP_STRENGTH:
 			return settings.flick_snap_strength;
 		}
-		throw std::exception((std::stringstream() << "Index " << index << " is not a valid float setting").str().c_str());
+
+		std::stringstream message{};
+		message << "Index " << index << " is not a valid float setting";
+		throw std::out_of_range(message.str().c_str());
 	}
 
 	template<>
@@ -852,7 +861,10 @@ private:
 			else
 				return Optional<FloatXY>();
 		}
-		throw std::exception((std::stringstream() << "Index " << index << " is not a valid FloatXY setting").str().c_str());
+
+		std::stringstream message{};
+		message << "Index " << index << " is not a valid FloatXY setting";
+		throw std::out_of_range(message.str().c_str());
 	}
 
 	template<>
@@ -873,7 +885,10 @@ private:
 			}
 			return settings.gyro_settings;
 		}
-		throw std::exception((std::stringstream() << "Index " << index << " is not a valid GyroSetting").str().c_str());
+
+		std::stringstream message{};
+		message << "Index " << index << " is not a valid GyroSetting";
+		throw std::out_of_range(message.str().c_str());
 	}
 
 
@@ -1561,7 +1576,7 @@ static int keyToBitOffset(WORD index) {
 }
 
 /// Yes, this looks slow. But it's only there to help set up mappings more easily
-static int keyToMappingIndex(std::string& s) {
+static int keyToMappingIndex(const std::string& s) {
 	if (s.rfind("NONE", 0) == 0) {
 		return MAPPING_NONE;
 	}
@@ -1823,7 +1838,7 @@ static int keyToMappingIndex(std::string& s) {
 	return MAPPING_ERROR;
 }
 
-static StickMode nameToStickMode(std::string& name, bool print = false) {
+static StickMode nameToStickMode(const std::string& name, bool print = false) {
 	if (name.compare("AIM") == 0) {
 		if (print) printf("Aim");
 		return StickMode::aim;
@@ -1865,7 +1880,7 @@ static StickMode nameToStickMode(std::string& name, bool print = false) {
 	return StickMode::invalid;
 }
 
-static RingMode nameToRingMode(std::string& name, bool print = false) {
+static RingMode nameToRingMode(const std::string& name, bool print = false) {
 	if (name.compare("INNER") == 0) {
 		if (print) printf("Inner");
 		return RingMode::inner;
@@ -1878,7 +1893,7 @@ static RingMode nameToRingMode(std::string& name, bool print = false) {
 	return RingMode::invalid;
 }
 
-static FlickSnapMode nameToFlickSnapMode(std::string& name, bool print = false) {
+static FlickSnapMode nameToFlickSnapMode(const std::string& name, bool print = false) {
 	if (name.compare("NONE") == 0) {
 		if (print) printf("None");
 		return FlickSnapMode::none;
@@ -1895,7 +1910,7 @@ static FlickSnapMode nameToFlickSnapMode(std::string& name, bool print = false) 
 	return FlickSnapMode::invalid;
 }
 
-static AxisMode nameToAxisMode(std::string& name, bool print = false) {
+static AxisMode nameToAxisMode(const std::string& name, bool print = false) {
 	if (name.compare("STANDARD") == 0) {
 		if (print) printf("Standard");
 		return AxisMode::standard;
@@ -1908,7 +1923,7 @@ static AxisMode nameToAxisMode(std::string& name, bool print = false) {
 	return AxisMode::invalid;
 }
 
-static TriggerMode nameToTriggerMode(std::string& name, bool print = false) {
+static TriggerMode nameToTriggerMode(const std::string& name, bool print = false) {
 	if (name.compare("NO_FULL") == 0) {
 		if (print) printf("Trigger will never apply full pull binding");
 		return TriggerMode::noFull;
@@ -1937,7 +1952,7 @@ static TriggerMode nameToTriggerMode(std::string& name, bool print = false) {
 	return TriggerMode::invalid;
 }
 
-static GyroAxisMask nameToGyroAxisMask(std::string& name, bool print = false) {
+static GyroAxisMask nameToGyroAxisMask(const std::string& name, bool print = false) {
 	if (name.compare("X") == 0) {
 		if (print) printf("X");
 		return GyroAxisMask::x;
@@ -1958,7 +1973,7 @@ static GyroAxisMask nameToGyroAxisMask(std::string& name, bool print = false) {
 	return GyroAxisMask::invalid;
 }
 
-static JoyconMask nameToJoyconMask(std::string& name, bool print = false) {
+static JoyconMask nameToJoyconMask(const std::string& name, bool print = false) {
 	if (name.compare("USE_BOTH") == 0) {
 		if (print) printf("Use both");
 		return JoyconMask::useBoth;
@@ -1979,18 +1994,26 @@ static JoyconMask nameToJoyconMask(std::string& name, bool print = false) {
 	return JoyconMask::invalid;
 }
 
+constexpr bool isWhitespace(char c)
+{
+	return c == ' ' || c == '\t' || c == '\n' || c == '\r';
+}
+
 // https://stackoverflow.com/questions/25345598/c-implementation-to-trim-char-array-of-leading-trailing-white-space-not-workin
-static void strtrim(char* str) {
+static int strtrim(char* str) {
 	int start = 0; // number of leading spaces
 	char* buffer = str;
-	while (*str && *str++ == ' ') ++start;
+	while (*str && isWhitespace(*str++)) ++start;
 	while (*str++); // move to end of string
 	int end = str - buffer - 1;
-	while (end > 0 && buffer[end - 1] == ' ') --end; // backup over trailing spaces
+	while (end > 0 && isWhitespace(buffer[end - 1])) --end; // backup over trailing spaces
 	buffer[end] = 0; // remove trailing spaces
-	if (end <= start || start == 0) return; // exit if no leading spaces or string is now empty
+	if (end <= start) return 0; // exit if string is now empty
+	if (start == 0) return end - start; // exit if no leading spaces
 	str = buffer + start;
-	while ((*buffer++ = *str++));  // remove leading spaces: K&R
+	while ((*buffer++ = *str++)) { ++start; };  // remove leading spaces: K&R
+
+	return end - start; // return the size of the trimmed string
 }
 
 static void resetAllMappings() {
@@ -2050,8 +2073,10 @@ void connectDevices();
 static void parseCommand(std::string line);
 
 static bool loadMappings(std::string fileName) {
+	const bool absolutePath = fileName[0] == '/' || fileName[1] == ':';
+
 	// https://stackoverflow.com/questions/2602013/read-whole-ascii-file-into-c-stdstring
-	std::ifstream t(fileName);
+	std::ifstream t(absolutePath ? fileName : BASE_JSM_CONFIG_FOLDER + fileName);
 	if (t)
 	{
 		printf("Loading commands from file %s\n", fileName.c_str());
@@ -2102,8 +2127,11 @@ static void parseCommand(std::string line) {
 	//printf("Processing line %s\n", line);
 	std::istringstream is_line(line);
 	char key[128];
-	if (is_line.getline(key, 128, '=')) {
-		strtrim(key);
+	if (is_line.getline(key, 128, '='))
+	{
+		const auto trimmedSize = strtrim(key);
+		if (trimmedSize == 0) return;
+
 		//printf("Key: %s; ", key);
 		int index = keyToMappingIndex(std::string(key));
 		int chord = MAPPING_ERROR, index2 = MAPPING_ERROR;
@@ -2307,7 +2335,7 @@ static void parseCommand(std::string line) {
 					if (processChordRemoval(chord, value, settings->stick_power))
 						return;
 					try {
-						settings->stick_power = max(0.0f, std::stof(value));
+						settings->stick_power = std::max(0.0f, std::stof(value));
 						printf("Stick power set to %0.4f\n", *settings->stick_power);
 					}
 					catch (std::invalid_argument ia) {
@@ -2804,7 +2832,7 @@ static void parseCommand(std::string line) {
 					if (processChordRemoval(chord, value, settings->stick_acceleration_rate))
 						return;
 					try {
-						settings->stick_acceleration_rate = max(0.0f, std::stof(value));
+						settings->stick_acceleration_rate = std::max(0.0f, std::stof(value));
 						printf("Stick speed when fully pressed increases by a factor of %s per second\n", value);
 					}
 					catch (std::invalid_argument ia) {
@@ -2817,7 +2845,7 @@ static void parseCommand(std::string line) {
 					if (processChordRemoval(chord, value, settings->stick_acceleration_cap))
 						return;
 					try {
-						settings->stick_acceleration_cap = max(1.0f, std::stof(value));
+						settings->stick_acceleration_cap = std::max(1.0f, std::stof(value));
 						printf("Stick acceleration factor capped at %s\n", value);
 					}
 					catch (std::invalid_argument ia) {
@@ -2830,7 +2858,7 @@ static void parseCommand(std::string line) {
 					if (processChordRemoval(chord, value, settings->stick_deadzone_inner))
 						return;
 					try {
-						settings->stick_deadzone_inner = max(0.0f, min(1.0f, std::stof(value)));
+						settings->stick_deadzone_inner = std::max(0.0f, std::min(1.0f, std::stof(value)));
 						printf("Stick treats any value within %s of the centre as the centre\n", value);
 					}
 					catch (std::invalid_argument ia) {
@@ -2843,7 +2871,7 @@ static void parseCommand(std::string line) {
 					if (processChordRemoval(chord, value, settings->stick_deadzone_outer))
 						return;
 					try {
-						settings->stick_deadzone_outer = max(0.0f, min(1.0f, std::stof(value)));
+						settings->stick_deadzone_outer = std::max(0.0f, std::min(1.0f, std::stof(value)));
 						printf("Stick treats any value within %s of the edge as the edge\n", value);
 					}
 					catch (std::invalid_argument ia) {
@@ -3123,7 +3151,7 @@ static float handleFlickStick(float calX, float calY, float lastCalX, float last
 				jc->flick_rotation_counter += angleChange; // track all rotation for this flick
 				float flickSpeedConstant = jc->getSetting(REAL_WORLD_CALIBRATION) * mouseCalibrationFactor / jc->getSetting(IN_GAME_SENS);
 				float flickSpeed = -(angleChange * flickSpeedConstant);
-				int maxSmoothingSamples = min(jc->NumSamples, (int)(64.0f * (jc->poll_rate / 1000.0f))); // target a max smoothing window size of 64ms
+				int maxSmoothingSamples = std::min(jc->NumSamples, (int)(64.0f * (jc->poll_rate / 1000.0f))); // target a max smoothing window size of 64ms
 				float stepSize = jc->stick_step_size; // and we only want full on smoothing when the stick change each time we poll it is approximately the minimum stick resolution
 													  // the fact that we're using radians makes this really easy
 				auto rotate_smooth_override = jc->getSetting(ROTATE_SMOOTH_OVERRIDE);
@@ -3553,37 +3581,27 @@ bool AutoLoadPoll(void *param)
 	if (!windowModule.empty() && windowModule != lastModuleName && windowModule.compare("JoyShockMapper.exe") != 0)
 	{
 		lastModuleName = windowModule;
-		std::string cwd(GetCWD());
-		if (!cwd.empty())
+		auto files = ListDirectory(AUTOLOAD_FOLDER);
+		auto noextmodule = windowModule.substr(0, windowModule.find_first_of('.'));
+		printf("[AUTOLOAD] \"%s\" in focus: ", windowTitle.c_str()); // looking for config : " , );
+		bool success = false;
+		for (auto file : files)
 		{
-			cwd.append("\\AutoLoad\\");
-			auto files = ListDirectory(cwd);
-			auto noextmodule = windowModule.substr(0, windowModule.find_first_of('.'));
-			printf("[AUTOLOAD] \"%s\" in focus: ", windowTitle.c_str()); // looking for config : " , );
-			bool success = false;
-			for (auto file : files)
+			auto noextconfig = file.substr(0, file.find_first_of('.'));
+			if (iequals(noextconfig, noextmodule))
 			{
-				auto noextconfig = file.substr(0, file.find_first_of('.'));
-				if (iequals(noextconfig, noextmodule))
-				{
-					printf("loading \"AutoLoad\\%s.txt\".\n", noextconfig.c_str());
-					loading_lock.lock();
-					parseCommand(cwd + file);
-					loading_lock.unlock();
-					printf("[AUTOLOAD] Loading completed\n");
-					success = true;
-					break;
-				}
-			}
-			if (!success)
-			{
-				printf("create \"AutoLoad\\%s.txt\" to autoload for this application.\n", noextmodule.c_str());
+				printf("loading \"%s%s.txt\".\n", AUTOLOAD_FOLDER, noextconfig.c_str());
+				loading_lock.lock();
+				parseCommand(AUTOLOAD_FOLDER + file);
+				loading_lock.unlock();
+				printf("[AUTOLOAD] Loading completed\n");
+				success = true;
+				break;
 			}
 		}
-		else
+		if (!success)
 		{
-			printf("[AUTOLOAD] ERROR could not load CWD. Disabling AUTOLOAD.");
-			return false;
+			printf("create \"%s%s.txt\" to autoload for this application.\n", AUTOLOAD_FOLDER, noextmodule.c_str());
 		}
 	}
 	return true;
@@ -3595,12 +3613,12 @@ void beforeShowTrayMenu()
 	else
 	{
 		tray->ClearMenuMap();
-		tray->AddMenuItem(L"Show Console", &ShowConsole);
-		tray->AddMenuItem(L"Reconnect controllers", []()
+		tray->AddMenuItem(U("Show Console"), &ShowConsole);
+		tray->AddMenuItem(U("Reconnect controllers"), []()
 		{
 			WriteToConsole("RECONNECT_CONTROLLERS");
 		});
-		tray->AddMenuItem(L"AutoLoad", [](bool isChecked)
+		tray->AddMenuItem(U("AutoLoad"), [](bool isChecked)
 			{
 				isChecked ? 
 					autoLoadThread->Start() : 
@@ -3609,14 +3627,14 @@ void beforeShowTrayMenu()
 
 		if (Whitelister::IsHIDCerberusRunning())
 		{
-			tray->AddMenuItem(L"Whitelist", [](bool isChecked)
+			tray->AddMenuItem(U("Whitelist"), [](bool isChecked)
 				{
 					isChecked ?
 						whitelister.Add() :
 						whitelister.Remove();
 				}, std::bind(&Whitelister::operator bool, &whitelister));
 		}
-		tray->AddMenuItem(L"Calibrate all devices", [](bool isChecked)
+		tray->AddMenuItem(U("Calibrate all devices"), [](bool isChecked)
 		{
 			isChecked ?
 				WriteToConsole("RESTART_GYRO_CALIBRATION") :
@@ -3627,34 +3645,34 @@ void beforeShowTrayMenu()
 		});
 
 		//std::string cwd(GetCWD());
-		std::string autoloadFolder = "AutoLoad\\";
+		std::string autoloadFolder{ AUTOLOAD_FOLDER };
 		for (auto file : ListDirectory(autoloadFolder.c_str()))
 		{
 			std::string fullPathName = autoloadFolder + file;
 			auto noext = file.substr(0, file.find_last_of('.'));
-			tray->AddMenuItem(L"AutoLoad folder", std::wstring(noext.begin(), noext.end()), [fullPathName]
+			tray->AddMenuItem(U("AutoLoad folder"), UnicodeString(noext.begin(), noext.end()), [fullPathName]
 			{
 				WriteToConsole(std::string(fullPathName.begin(), fullPathName.end()));
 				autoLoadThread->Stop();
 			});
 		}
-		std::string gyroConfigsFolder = "GyroConfigs\\";
+		std::string gyroConfigsFolder{ GYRO_CONFIGS_FOLDER };
 		for (auto file : ListDirectory(gyroConfigsFolder.c_str()))
 		{
 			std::string fullPathName = gyroConfigsFolder + file;
 			auto noext = file.substr(0, file.find_last_of('.'));
-			tray->AddMenuItem(L"GyroConfigs folder", std::wstring(noext.begin(), noext.end()), [fullPathName]
+			tray->AddMenuItem(U("GyroConfigs folder"), UnicodeString(noext.begin(), noext.end()), [fullPathName]
 			{
 				WriteToConsole(std::string(fullPathName.begin(), fullPathName.end()));
 				autoLoadThread->Stop();
 			});
 		}
-		tray->AddMenuItem(L"Calculate RWC", []()
+		tray->AddMenuItem(U("Calculate RWC"), []()
 		{
 			WriteToConsole("CALCULATE_REAL_WORLD_CALIBRATION");
 			ShowConsole();
 		});
-		tray->AddMenuItem(L"Quit", []()
+		tray->AddMenuItem(U("Quit"), []()
 		{
 			WriteToConsole("QUIT");
 		});
@@ -3666,14 +3684,20 @@ void CleanUp()
 {
 	tray->Hide();
 	JslDisconnectAndDisposeAll();
-	FreeConsole();
+	ReleaseConsole();
 	whitelister.Remove();
 }
 
-
-//int main(int argc, char *argv[]) {
+#ifdef _WIN32
 int __stdcall wWinMain(HINSTANCE hInstance, HINSTANCE prevInstance, LPWSTR cmdLine, int cmdShow) {
-	tray.reset(new TrayIcon(hInstance, prevInstance, cmdLine, cmdShow, &beforeShowTrayMenu));
+	auto trayIconData = hInstance;
+#else
+int main(int argc, char *argv[]) {
+	static_cast<void>(argc);
+	static_cast<void>(argv);
+	void *trayIconData = nullptr;
+#endif // _WIN32
+	tray.reset(new TrayIcon(trayIconData, std::function<void()>{ &beforeShowTrayMenu }));
 	// console
 	initConsole(&CleanUp);
 	printf("Welcome to JoyShockMapper version %s!\n", version);
@@ -3683,7 +3707,10 @@ int __stdcall wWinMain(HINSTANCE hInstance, HINSTANCE prevInstance, LPWSTR cmdLi
 	connectDevices();
 	JslSetCallback(&joyShockPollCallback);
 	autoLoadThread.reset(new PollingThread(&AutoLoadPoll, nullptr, 1000, true)); // Start by default
-	if (autoLoadThread && *autoLoadThread) printf("AutoLoad is enabled. Configurations in \"AutoLoad\" folder will get loaded when matching application is in focus.\n");
+	if (autoLoadThread && *autoLoadThread)
+	{
+		printf("AutoLoad is enabled. Configurations in \"%s\" folder will get loaded when matching application is in focus.\n", AUTOLOAD_FOLDER);
+	}
 	else printf("[AUTOLOAD] AutoLoad is unavailable\n");
 	tray->Show();
 	// poll joycons:
