@@ -2019,7 +2019,7 @@ static void resetAllMappings() {
 	baseSettings.zrMode = TriggerMode::noFull;
 	baseSettings.trigger_threshold = 0.0f;
 	baseSettings.gyro_settings->ignore_mode = GyroIgnoreMode::button;
-	baseSettings.gyro_settings->button = 0;
+	baseSettings.gyro_settings->button = MAPPING_NONE;
 	baseSettings.gyro_settings->always_off = false;
 	baseSettings.aim_y_sign = 1.0f;
 	baseSettings.aim_x_sign = 1.0f;
