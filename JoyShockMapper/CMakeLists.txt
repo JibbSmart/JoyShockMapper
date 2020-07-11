@@ -25,14 +25,20 @@ if (WINDOWS)
         PROPERTIES WIN32_EXECUTABLE ON
     )
 
+    set_target_properties (
+        ${BINARY_NAME}
+        PROPERTIES VS_DEBUGGER_WORKING_DIRECTORY
+        "$(ProjectDir)/$(Configuration)/"
+    )
+
     set (BUILD_SHARED_LIBS ON)
 
     add_custom_command(
         TARGET ${BINARY_NAME}
         POST_BUILD
         COMMAND ${CMAKE_COMMAND} -E copy
-            $<TARGET_FILE:JoyShockLibrary>
-            $<TARGET_FILE_DIR:${PROJECT_NAME}>/$<TARGET_FILE_NAME:JoyShockLibrary>
+            "$<TARGET_FILE:JoyShockLibrary>"
+            "$<TARGET_FILE_DIR:${PROJECT_NAME}>/$<TARGET_FILE_NAME:JoyShockLibrary>"
     )
 endif ()
 
@@ -69,4 +75,3 @@ target_link_libraries (
     Platform::Dependencies
     JoyShockLibrary
 )
-
