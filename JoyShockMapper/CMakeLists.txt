@@ -75,3 +75,7 @@ target_link_libraries (
     Platform::Dependencies
     JoyShockLibrary
 )
+
+install (
+    TARGETS ${BINARY_NAME} JoyShockLibrary
+)
