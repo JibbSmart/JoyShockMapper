@@ -3552,7 +3552,7 @@ void connectDevices() {
 		ss << numConnected << " devices connected" << std::endl;
 		msg = ss.str();
 	}
-	printf(msg.c_str());
+	printf("%s\n", msg.c_str());
 	//if (!IsVisible())
 	//{
 	//	tray->SendToast(std::wstring(msg.begin(), msg.end()));
