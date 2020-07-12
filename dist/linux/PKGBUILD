@@ -1,7 +1,7 @@
 pkgname='joyshockmapper'
 _pkgname='joyshockmapper'
 pkgver=1.6.0
-pkgrel=2
+pkgrel=3
 pkgdesc='Play PC games with Sony PlayStation DualShock 4, Nintendo Switch JoyCons or Nintendo Switch Pro Controller using gyroscopic controls'
 arch=('x86_64')
 url='http://gyrowiki.jibbsmart.com/'

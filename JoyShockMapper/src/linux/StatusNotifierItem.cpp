@@ -9,7 +9,7 @@ StatusNotifierItem::StatusNotifierItem(TrayIconData, std::function<void()> &&bef
 
 	  menu_ = std::make_unique<Gtk::Menu>();
 
-	  indicator_ = app_indicator_new(APPLICATION_RDN APPLICATION_NAME, "image-loading", APP_INDICATOR_CATEGORY_APPLICATION_STATUS);
+	  indicator_ = app_indicator_new(APPLICATION_RDN APPLICATION_NAME, "jsm-status-dark", APP_INDICATOR_CATEGORY_APPLICATION_STATUS);
 	  app_indicator_set_status(indicator_, APP_INDICATOR_STATUS_ACTIVE);
 	  app_indicator_set_menu(indicator_, menu_->gobj());
 
