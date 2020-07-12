@@ -3,6 +3,22 @@ if (WIN32)
     set_property (GLOBAL PROPERTY USE_FOLDERS ON)
     enable_language (RC)
 
+    if (MSVC)
+        # Statically link the runtime libraries
+        set (
+            MSVC_COMPILE_FLAGS
+            CMAKE_CXX_FLAGS
+            CMAKE_CXX_FLAGS_DEBUG
+            CMAKE_CXX_FLAGS_RELEASE
+            CMAKE_C_FLAGS
+            CMAKE_C_FLAGS_DEBUG
+            CMAKE_C_FLAGS_RELEASE
+        )
+        foreach (FLAG ${MSVC_COMPILE_FLAGS})
+            string(REPLACE "/MD" "/MT" ${FLAG} "${${FLAG}}")
+        endforeach ()
+    endif ()
+
     add_library (
         platform_dependencies INTERFACE
     )
