@@ -1,0 +1,28 @@
+pkgname='joyshockmapper'
+_pkgname='joyshockmapper'
+pkgver=1.6.0
+pkgrel=2
+pkgdesc='Play PC games with Sony PlayStation DualShock 4, Nintendo Switch JoyCons or Nintendo Switch Pro Controller using gyroscopic controls'
+arch=('x86_64')
+url='http://gyrowiki.jibbsmart.com/'
+license=('MIT')
+makedepends=('clang')
+depends=('libevdev' 'libinput' 'hidapi' 'gtkmm3' 'libappindicator-gtk3')
+optdepends=('libx11: Autoload configuration based on focused window.')
+provides=("${_pkgname}")
+source=("https://codeload.github.com/kicsyromy/JoyShockMapper/zip/linux-packaging")
+sha256sums=('SKIP')
+
+build() {
+    cd ${srcdir}/
+    cmake JoyShockMapper-linux-packaging \
+        -DCMAKE_CXX_COMPILER=clang++ \
+        -DCMAKE_BUILD_TYPE=Release \
+        -DCMAKE_INSTALL_PREFIX=/usr/
+    make
+}
+
+package() {
+    DESTDIR=${pkgdir} make install
+    rm ${pkgdir}/usr/lib/*.a
+}
