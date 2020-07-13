@@ -28,7 +28,7 @@ struct JSMSettings {
 	JSMSetting<RingMode> right_ring_mode = JSMSetting<RingMode>(SettingID::LEFT_RING_MODE, RingMode::outer);
 	JSMSetting<GyroAxisMask> mouse_x_from_gyro = JSMSetting<GyroAxisMask>(SettingID::MOUSE_X_FROM_GYRO_AXIS, GyroAxisMask::none);
 	JSMSetting<GyroAxisMask> mouse_y_from_gyro = JSMSetting<GyroAxisMask>(SettingID::MOUSE_Y_FROM_GYRO_AXIS, GyroAxisMask::none);
-	JSMSetting<GyroSettings> gyro_settings = JSMSetting<GyroSettings>(SettingID::GYRO_ON, { false, ButtonID::NONE, GyroIgnoreMode::button }); // Ignore mode none means no GYRO_OFF button
+	JSMSetting<GyroSettings> gyro_settings = JSMSetting<GyroSettings>(SettingID::GYRO_ON, GyroSettings()); // Ignore mode none means no GYRO_OFF button
 	JSMSetting<JoyconMask> joycon_gyro_mask = JSMSetting<JoyconMask>(SettingID::JOYCON_GYRO_MASK, JoyconMask::ignoreLeft);
 	JSMSetting<TriggerMode> zlMode = JSMSetting<TriggerMode>(SettingID::ZL_DUAL_STAGE_MODE, TriggerMode::noFull);
 	JSMSetting<TriggerMode> zrMode = JSMSetting<TriggerMode>(SettingID::ZR_DUAL_STAGE_MODE, TriggerMode::noFull);;
@@ -65,7 +65,7 @@ struct JSMSettings {
 
 mutex loading_lock;
 
-array<Mapping, MAPPING_SIZE> mappings; // array enables use of for each loop and other i/f
+vector<JSMMapping> mappings; // array enables use of for each loop and other i/f
 JSMSettings baseSettings;
 
 float os_mouse_speed = 1.0;
@@ -98,7 +98,7 @@ public:
 		Common(int handle = 0)
 			: intHandle(handle)
 		{
-			chordStack.push_front(ButtonID::NONE); //Always hold mapping none at the end to handle modeshifts
+			chordStack.push_front(ButtonID::NONE); //Always hold mapping none at the end to handle modeshifts and chords
 		}
 		bool toggleContinuous = false;
 		deque<pair<ButtonID, WORD>> gyroActionQueue; // Queue of gyro control actions currently in effect
@@ -114,7 +114,7 @@ public:
 		, _press_times()
 		, _btnState(BtnState::NoPress)
 		, _keyToRelease(0)
-		, _nameToRelease(nullptr)
+		, _nameToRelease()
 	{
 
 	}
@@ -122,11 +122,11 @@ public:
 	Common &_common;
 	const ButtonID _id;
 	const string _name; // Display name of the mapping
-	const Mapping &_mapping;
+	const JSMMapping &_mapping;
 	chrono::steady_clock::time_point _press_times;
 	BtnState _btnState = BtnState::NoPress;
 	WORD _keyToRelease = 0; // At key press, remember what to release
-	const char * _nameToRelease = nullptr;
+	string _nameToRelease;
 
 	float GetTapDuration()
 	{
@@ -140,19 +140,16 @@ public:
 		// Look at active chord mappings starting with the latest activates chord
 		for (auto activeChord = _common.chordStack.begin(); activeChord != _common.chordStack.end(); activeChord++)
 		{
-			for (auto &chordPress : _mapping.chord_mappings)
+			auto binding = _mapping.get(*activeChord);
+			if (binding)
 			{
-				if (chordPress.btn == *activeChord && chordPress.btn != _id)
-				{
-					_keyToRelease = chordPress.pressBind;
-					_nameToRelease = chordPress.name.c_str();
-					return chordPress.pressBind;
-				}
+				_keyToRelease = binding->pressBind;
+				_nameToRelease = _mapping.getName(*activeChord);
+				return binding->pressBind;
 			}
 		}
-		_keyToRelease = _mapping.pressBind;
-		_nameToRelease = _name.c_str();
-		return _mapping.pressBind;
+		// Chord stack should always include NONE which will provide a value in the loop above
+		return 0;
 	}
 
 	bool HasHoldMapping()
@@ -160,20 +157,19 @@ public:
 		// Look at active chord mappings starting with the latest activates chord
 		for (auto activeChord = _common.chordStack.begin(); activeChord != _common.chordStack.end(); activeChord++)
 		{
-			for (auto &chordPress : _mapping.chord_mappings)
+			auto binding = _mapping.get(*activeChord);
+			if(binding) 
 			{
-				if (chordPress.btn == *activeChord)
-				{
-					return chordPress.holdBind != 0;
-				}
+				return binding->holdBind != 0;
 			}
 		}
-		return _mapping.holdBind != 0;
+		// Chord stack should always include NONE which will provide a value in the loop above
+		return false;
 	}
 
 	inline bool HasSimMapping()
 	{
-		return !_mapping.sim_mappings.empty();
+		return _mapping.HasSimMappings();
 	}
 
 	inline bool HasDblPressMapping()
@@ -425,7 +421,7 @@ private:
 	int _frontGyroSample = 0;
 
 	template<typename E1, typename E2>
-	static inline Optional<E1> GetOptionalSetting(const JSMSetting<E2> &setting, ButtonID chord)
+	static inline Optional<E1> GetOptionalSetting(const JSMSetting<E2> &setting, ButtonID chord) 
 	{
 		return setting.get(chord) ? Optional<E1>(static_cast<E1>(*setting.get(chord))) : Optional<E1>();
 	}
@@ -1416,7 +1412,7 @@ JoyShock* getJoyShockFromHandle(int handle) {
 
 bool do_NO_GYRO_BUTTON() {
 	// TODO: handle chords
-	baseSettings.gyro_settings = GyroSettings{ false, ButtonID::NONE, GyroIgnoreMode::button };
+	baseSettings.gyro_settings = GyroSettings();
 	return true;
 }
 
@@ -2386,6 +2382,12 @@ int __stdcall wWinMain(HINSTANCE hInstance, HINSTANCE prevInstance, LPWSTR cmdLi
 	else printf("[AUTOLOAD] AutoLoad is unavailable\n");
 	tray->Show();
 
+	mappings.reserve(MAPPING_SIZE);
+	for (int id = 0; id < MAPPING_SIZE; ++id)
+	{
+		mappings.push_back(JSMMapping(ButtonID(id)));
+	}
+
 	CmdRegistry commandRegistry;
 
 	// Irregular commands are encapsulated in its own object.
@@ -2487,21 +2489,7 @@ int __stdcall wWinMain(HINSTANCE hInstance, HINSTANCE prevInstance, LPWSTR cmdLi
 		loading_lock.lock();
 		commandRegistry.processLine(enteredCommand);
 		loading_lock.unlock();
-	} 
-	//// poll joycons:
-	//while (true) {
-	//	char tempConfigName[128];
-	//	fgets(tempConfigName, 128, stdin);
-	//	removeNewLine(tempConfigName);
-	//	if (strcmp(tempConfigName, "QUIT") == 0) {
-	//		break;
-	//	}
-	//	else {
-	//		parseCommand(tempConfigName);
-	//	}
-	//	//pollLoop();
-	//}
-	// Exit JSM
+	}
 	CleanUp();
 	return 0;
 }

@@ -190,9 +190,14 @@ static istream &operator >> (istream &in, FloatXY fxy)
 
 // Set of gyro control settings bundled in one structure
 struct GyroSettings {
-	bool always_off;
-	ButtonID button;
-	GyroIgnoreMode ignore_mode;
+	bool always_off = false;
+	ButtonID button = ButtonID::NONE;
+	GyroIgnoreMode ignore_mode = GyroIgnoreMode::button;
+
+	GyroSettings() = default;
+
+	// This constructor is required to make use of the default value of JSMVariable's constructor
+	GyroSettings(int dummy) : GyroSettings() {}
 };
 
 // Structure representing any kind of combination action, such as chords and modeshifts
@@ -214,16 +219,16 @@ struct Mapping
 {
 	WORD pressBind = 0; // Press or tap binding
 	WORD holdBind = 0; // Hold binding if any.
-	vector<ComboMap> sim_mappings;
-	vector<ComboMap> chord_mappings; // Binds a chord button to one or many remappings
+	//vector<ComboMap> sim_mappings;
+	//vector<ComboMap> chord_mappings; // Binds a chord button to one or many remappings
 
-	void reset()
-	{
-		pressBind = 0;
-		holdBind = 0;
-		sim_mappings.clear();
-		chord_mappings.clear();
-	}
+	//void reset()
+	//{
+	//	pressBind = 0;
+	//	holdBind = 0;
+	//	sim_mappings.clear();
+	//	chord_mappings.clear();
+	//}
 };
 
 
@@ -296,41 +301,3 @@ ostream &operator <<(ostream &out, JoyconMask joyconMask);
 
 istream &operator >>(istream &in, GyroSettings &gyro_settings);
 ostream &operator <<(ostream &out, GyroSettings gyro_settings);
-
-//template<typename T>
-//struct ChordedVariable
-//{
-//	ChordedVariable(int id, T defval)
-//		: base  (id, defval)
-//	{}
-//	JSMVariable<T> base;
-//	map<int, JSMVariable<T>> chorded;
-//
-//	void AddChordedValue(int chord, T defaultValue)
-//	{
-//		auto existingChord = chorded.find(int);
-//		if (existingChord != chorded.end())
-//		{
-//			chorded.erase(existingChord);
-//		}
-//		chorded[chord] = JSMVariable(base, default);
-//	}
-//
-//	JSMVariable<T> &operator =(T baseValue)
-//	{
-//		base = baseValue;
-//		return base;
-//	}
-//
-//	T &operator [](int chord)
-//	{
-//		auto existingChord = chorded.find(chord);
-//		if (existingChord != chorded.end())
-//		{
-//			chorded.erase(existingChord);
-//		}
-//		chorded[chord] = JSMVariable(base);
-//		return chorded[chord];
-//	}
-//};
-

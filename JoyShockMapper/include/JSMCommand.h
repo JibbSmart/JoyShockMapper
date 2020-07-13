@@ -54,6 +54,11 @@ public:
 		return this;
 	}
 
+	virtual unique_ptr<JSMCommand> GetModifiedCmd(char op, in_string chord)
+	{
+		return nullptr;
+	}
+
 	// Get the help string for the command.
 	inline string Help()
 	{
@@ -120,26 +125,48 @@ public:
 		if (!line.empty())
 		{
 			smatch results;
-			string name, arguments, label;
+			string combo, name, arguments, label;
+			char op;
 			// Break up the line of text in its relevant parts.
 			// Pro tip: use regex101.com to develop these beautiful monstrosities. :P
 			// Also, use raw strings R"(...)" to avoid the need to escape characters
-			if (regex_match(line, results, regex(R"(^ *(\w+)( *=? *[^#\n]*)#? *(.*)$)")))
+			if (regex_match(line, results, regex(R"(^ *(\w+) *([,\+]? *\w*)( *=? *[^#\n]*)#? *(.*)$)")))
 			{
-				name = results[1];
-				arguments = results[2];
-				label = results[3];
+				if (results[2].length() > 0)
+				{
+					combo = results[1];
+					op = results[2].str()[0];
+					name = results[2].str().substr(1);
+				}
+				else
+				{
+					name = results[1];
+					combo = results[2];
+				}
+				arguments = results[3];
+				label = results[4];
 			}
 
-			bool commandProcessed = false;
+			bool hasProcessed = false;
 			CmdMap::iterator cmd = find_if(_registry.begin(), _registry.end(), bind(&CmdRegistry::findCommandWithName, name, placeholders::_1));
 			while (cmd != _registry.end())
 			{
-				commandProcessed |= cmd->second->ParseData(arguments);
-				cmd = find_if(cmd, _registry.end(), bind(&CmdRegistry::findCommandWithName, name, placeholders::_1));
+				if (combo.empty())
+				{
+					hasProcessed |= cmd->second->ParseData(arguments);
+				}
+				else
+				{
+					auto modCommand = cmd->second->GetModifiedCmd(op, combo);
+					if (modCommand)
+					{
+						hasProcessed |= modCommand->ParseData(arguments);
+					}
+				}
+				cmd = find_if(++cmd, _registry.end(), bind(&CmdRegistry::findCommandWithName, name, placeholders::_1));
 			}
 
-			if (!commandProcessed)
+			if (!hasProcessed)
 			{
 				cout << "Unrecognized command. Enter HELP to display all commands." << endl;
 			}
@@ -225,16 +252,20 @@ protected:
 	// The default parser uses the overloaded >> operator to parse
 	// any base type. Custom types can also be extracted if you define
 	// a static parse operation for it.
-	bool DefaultParser(in_string data)
+	static bool DefaultParser(JSMCommand *cmd, in_string data)
 	{
+		auto inst = dynamic_cast<JSMAssignment<T> *>(cmd);
 		stringstream ss(data);
 		// Ignore whitespaces until the '=' is found
 		char c;
-		for (c = ss.peek(); ss.good() && c == ' '; ss >> c);
+		do {
+			ss >> c;
+		} while (ss.good() && c != '=');
 		if (!ss.good())
 		{
 			//No assignment? Display current assignment
-			cout << _name << " = " << (T)_var << endl;
+			cout << inst->_name << " = " << (T)inst->_var << endl;
+			return true;
 		}
 		if (c == '=')
 		{
@@ -243,7 +274,7 @@ protected:
 			ss >> value;
 			if (!ss.fail())
 			{
-				_var = value;
+				inst->_var = value;
 				return true; // Command processed successfully
 			}
 			// Couldn't read the value
@@ -257,6 +288,26 @@ protected:
 		cout << _name << " has been set to " << _var << endl;
 	}
 
+	virtual unique_ptr<JSMCommand> GetModifiedCmd(char op, in_string chord) override
+	{
+		if (op == ',')
+		{
+			ButtonID btn;
+			stringstream(chord) >> btn;
+			auto chordedVar = dynamic_cast<ChordedVariable<T>*>(&_var);
+			if (chordedVar && int(btn) >= 0)
+			{
+				string name = chord + "," + _name;
+				unique_ptr<JSMCommand> chordAssignment(new JSMAssignment<T>(name, chordedVar->CreateChord(btn)));
+				chordAssignment->SetHelp(_help)->SetParser(_parse);
+				// BE ADVISED! If a custom parser was set using bind(), the very same bound vars will
+				// be passed along.
+				return chordAssignment;
+			}
+		}
+		return JSMCommand::GetModifiedCmd(op, chord);
+	}
+
 	// JSMVariable<T>::OnChangeDelegate _displayNewValue;
 	unsigned int _listenerId;
 
@@ -268,13 +319,9 @@ public:
 	{
 		// Child Classes assign their own parser. Use bind to convert instance function call
 		// into a static function call.
-		SetParser(bind(&JSMAssignment::DefaultParser, this, placeholders::_2));
+		SetParser(&JSMAssignment::DefaultParser);
 		_listenerId = _var.AddOnChangeListener(bind(&JSMAssignment::DisplayNewValue, this, placeholders::_1));
 	}
-
-	JSMAssignment(in_string name, JSMSetting<T> &var)
-		: JSMAssignment(name, static_cast<JSMVariable<T> &>(var))
-	{}
 
 	virtual ~JSMAssignment()
 	{
