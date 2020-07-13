@@ -1,202 +1,91 @@
+#include "JoyShockMapper.h"
+#include "JoyShockLibrary.h"
+#include "Whitelister.h"
+#include "inputHelpers.h"
+#include "TrayIcon.h"
+#include "JSMVariable.h"
+#include "JSMCommand.h"
 
-#include <chrono>
-#include <sstream>
 #include <algorithm>
-#include <string.h>
 #include <iostream>
 #include <fstream>
 #include <unordered_map>
-#include <deque>
-#include <memory>
 #include <mutex>
+#include <math.h>
 #include <array>
-//#include <optional>
-
-#include "JoyShockLibrary.h"
-#include "Whitelister.h"
-#include "inputHelpers.cpp"
-#include "TrayIcon.h"
 
 #pragma warning(disable:4996)
 
-// versions will be in the format A.B.C
-// C increases when all that's happened is some bugs have been fixed.
-// B increases and C resets to 0 when new features have been added.
-// A increases and B and C reset to 0 when major new features have been added that warrant a new major version, or replacing older features with better ones that require the user to interact with them differently
-const char* version = "1.6.0";
-
 #define PI 3.14159265359f
 
-#define MAPPING_ERROR	-2 // Represents an error in user input
-#define MAPPING_NONE	-1 // Represents no button when explicitely stated by the user. Not to be confused with NO_HOLD_MAPPED which is no action bound.
-#define MAPPING_UP		0
-#define MAPPING_DOWN	1
-#define MAPPING_LEFT	2
-#define MAPPING_RIGHT	3
-#define MAPPING_L		4
-#define MAPPING_ZL		5
-#define MAPPING_MINUS	6
-#define MAPPING_CAPTURE 7
-#define MAPPING_E		8
-#define MAPPING_S		9
-#define MAPPING_N		10
-#define MAPPING_W		11
-#define MAPPING_R		12
-#define MAPPING_ZR		13
-#define MAPPING_PLUS	14
-#define MAPPING_HOME	15
-#define MAPPING_SL		16
-#define MAPPING_SR		17
-#define MAPPING_L3		18
-#define MAPPING_R3		19
-#define MAPPING_LUP		20
-#define MAPPING_LDOWN	21
-#define MAPPING_LLEFT	22
-#define MAPPING_LRIGHT	23
-#define MAPPING_LRING	24
-#define MAPPING_RUP		25
-#define MAPPING_RDOWN	26
-#define MAPPING_RLEFT	27
-#define MAPPING_RRIGHT	28
-#define MAPPING_RRING	29
-#define MAPPING_ZLF		30 // FIRST
-// insert more analog triggers here
-#define MAPPING_ZRF		31 // LAST
-#define MAPPING_SIZE	32
+class JoyShock;
 
-#define FIRST_ANALOG_TRIGGER MAPPING_ZLF
-#define LAST_ANALOG_TRIGGER MAPPING_ZRF
-
-#define MIN_GYRO_SENS 33
-#define MAX_GYRO_SENS 34
-#define MIN_GYRO_THRESHOLD 35
-#define MAX_GYRO_THRESHOLD 36
-#define STICK_POWER 37
-#define STICK_SENS 38
-#define REAL_WORLD_CALIBRATION 39
-#define IN_GAME_SENS 40
-#define TRIGGER_THRESHOLD 41
-#define RESET_MAPPINGS 42
-#define NO_GYRO_BUTTON 43
-#define LEFT_STICK_MODE 44
-#define RIGHT_STICK_MODE 45
-#define GYRO_OFF 46
-#define GYRO_ON 47
-#define STICK_AXIS_X 48
-#define STICK_AXIS_Y 49
-#define GYRO_AXIS_X 50
-#define GYRO_AXIS_Y 51
-#define RECONNECT_CONTROLLERS 52
-#define COUNTER_OS_MOUSE_SPEED 53
-#define IGNORE_OS_MOUSE_SPEED 54
-#define JOYCON_GYRO_MASK 55
-#define GYRO_SENS 56
-#define FLICK_TIME 57
-#define GYRO_SMOOTH_THRESHOLD 58
-#define GYRO_SMOOTH_TIME 59
-#define GYRO_CUTOFF_SPEED 60
-#define GYRO_CUTOFF_RECOVERY 61
-#define STICK_ACCELERATION_RATE 62
-#define STICK_ACCELERATION_CAP 63
-#define STICK_DEADZONE_INNER 64
-#define STICK_DEADZONE_OUTER 65
-#define CALCULATE_REAL_WORLD_CALIBRATION 66
-#define FINISH_GYRO_CALIBRATION 67
-#define RESTART_GYRO_CALIBRATION 68
-#define MOUSE_X_FROM_GYRO_AXIS 69
-#define MOUSE_Y_FROM_GYRO_AXIS 70
-#define ZR_DUAL_STAGE_MODE 71
-#define ZL_DUAL_STAGE_MODE 72
-#define AUTOLOAD 73
-#define HELP 74
-#define WHITELIST_SHOW 75
-#define WHITELIST_ADD 76
-#define WHITELIST_REMOVE 77
-#define LEFT_RING_MODE 78
-#define RIGHT_RING_MODE 79
-#define MOUSE_RING_RADIUS 80
-#define SCREEN_RESOLUTION_X 81
-#define SCREEN_RESOLUTION_Y 82
-#define ROTATE_SMOOTH_OVERRIDE 83
-#define FLICK_SNAP_MODE 84
-#define FLICK_SNAP_STRENGTH 85
-
-#define MAGIC_DST_DELAY 150.0f // in milliseconds
-#define MAGIC_TAP_DURATION 40.0f // in milliseconds
-#define MAGIC_GYRO_TAP_DURATION 500.0f // in milliseconds
-#define MAGIC_HOLD_TIME 150.0f // in milliseconds
-#define MAGIC_SIM_DELAY 50.0f // in milliseconds
-#define MAGIC_DBL_PRESS_WINDOW 200.0f // in milliseconds
-static_assert(MAGIC_SIM_DELAY < MAGIC_HOLD_TIME, "Simultaneous press delay has to be smaller than hold delay!");
-static_assert(MAGIC_HOLD_TIME < MAGIC_DBL_PRESS_WINDOW, "Hold delay has to be smaller than double press window!");
-
-enum class RingMode { outer, inner, invalid };
-enum class StickMode { none, aim, flick, flickOnly, rotateOnly, mouseRing, mouseArea, outer, inner, invalid };
-enum class FlickSnapMode { none, four, eight, invalid };
-enum       AxisMode { standard=1, inverted=-1, invalid=0 }; // valid values are true!
-enum class TriggerMode { noFull, noSkip, maySkip, mustSkip, maySkipResp, mustSkipResp, invalid };
-enum class GyroAxisMask { none = 0, x = 1, y = 2, z = 4, invalid = 8 };
-enum class JoyconMask { useBoth = 0, ignoreLeft = 1, ignoreRight = 2, ignoreBoth = 3, invalid = 4 };
-enum class GyroIgnoreMode { button, left, right };
-enum class DstState { NoPress = 0, PressStart, QuickSoftTap, QuickFullPress, QuickFullRelease, SoftPress, DelayFullPress, PressStartResp, invalid };
-enum class BtnState { NoPress = 0, BtnPress, WaitHold, HoldPress, TapRelease,
-					  WaitSim, SimPress, WaitSimHold, SimHold, SimTapRelease, SimRelease, 
-					  DblPressStart, DblPressNoPress, DblPressPress, DblPressWaitHold, DblPressHold, invalid};
-
-// Used for XY pair values such as sensitivity or GyroSample
-// that includes a nicer accessor
-struct FloatXY : public std::pair<float, float>
-{
-	FloatXY(float x = 0, float y = 0)
-		: pair(x,y)
-	{}
-
-	inline float x() {
-		return first;
-	}
-
-	inline float y() {
-		return second;
-	}
+// Contains all settings that can be modeshifted. They should be accessed only via Joyshock::getSetting
+struct JSMSettings {
+	JSMSetting<StickMode> left_stick_mode = JSMSetting<StickMode>(SettingID::LEFT_STICK_MODE, StickMode::none);
+	JSMSetting<StickMode> right_stick_mode = JSMSetting<StickMode>(SettingID::RIGHT_STICK_MODE, StickMode::none);
+	JSMSetting<RingMode> left_ring_mode = JSMSetting<RingMode>(SettingID::LEFT_RING_MODE, RingMode::outer);
+	JSMSetting<RingMode> right_ring_mode = JSMSetting<RingMode>(SettingID::LEFT_RING_MODE, RingMode::outer);
+	JSMSetting<GyroAxisMask> mouse_x_from_gyro = JSMSetting<GyroAxisMask>(SettingID::MOUSE_X_FROM_GYRO_AXIS, GyroAxisMask::none);
+	JSMSetting<GyroAxisMask> mouse_y_from_gyro = JSMSetting<GyroAxisMask>(SettingID::MOUSE_Y_FROM_GYRO_AXIS, GyroAxisMask::none);
+	JSMSetting<GyroSettings> gyro_settings = JSMSetting<GyroSettings>(SettingID::GYRO_ON, { false, ButtonID::NONE, GyroIgnoreMode::button }); // Ignore mode none means no GYRO_OFF button
+	JSMSetting<JoyconMask> joycon_gyro_mask = JSMSetting<JoyconMask>(SettingID::JOYCON_GYRO_MASK, JoyconMask::ignoreLeft);
+	JSMSetting<TriggerMode> zlMode = JSMSetting<TriggerMode>(SettingID::ZL_DUAL_STAGE_MODE, TriggerMode::noFull);
+	JSMSetting<TriggerMode> zrMode = JSMSetting<TriggerMode>(SettingID::ZR_DUAL_STAGE_MODE, TriggerMode::noFull);;
+	JSMSetting<FlickSnapMode> flick_snap_mode = JSMSetting<FlickSnapMode>(SettingID::FLICK_SNAP_MODE, FlickSnapMode::none);
+	JSMSetting<FloatXY> min_gyro_sens = JSMSetting<FloatXY>(SettingID::MIN_GYRO_SENS, { 0.0f, 0.0f });
+	JSMSetting<FloatXY> max_gyro_sens = JSMSetting<FloatXY>(SettingID::MAX_GYRO_SENS, { 0.0f, 0.0f });
+	JSMSetting<float> min_gyro_threshold = JSMSetting<float>(SettingID::MIN_GYRO_THRESHOLD, 0.0f);
+	JSMSetting<float> max_gyro_threshold = JSMSetting<float>(SettingID::MAX_GYRO_THRESHOLD, 0.0f);
+	JSMSetting<float> stick_power = JSMSetting<float>(SettingID::STICK_POWER, 1.0f);
+	JSMSetting<float> stick_sens = JSMSetting<float>(SettingID::STICK_SENS, 360.0f);
+	// There's an argument that RWC has no interest in being modeshifted and thus could be outside this structure.
+	JSMSetting<float> real_world_calibration = JSMSetting<float>(SettingID::REAL_WORLD_CALIBRATION, 40.0f);
+	JSMSetting<float> in_game_sens = JSMSetting<float>(SettingID::IN_GAME_SENS, 1.0f);
+	JSMSetting<float> trigger_threshold = JSMSetting<float>(SettingID::TRIGGER_THRESHOLD, 0.0f);
+	JSMSetting<float> aim_y_sign = JSMSetting<float>(SettingID::STICK_AXIS_Y, 1.0f);
+	JSMSetting<float> aim_x_sign = JSMSetting<float>(SettingID::STICK_AXIS_X, 1.0f);
+	JSMSetting<float> gyro_y_sign = JSMSetting<float>(SettingID::GYRO_AXIS_Y, 1.0f);
+	JSMSetting<float> gyro_x_sign = JSMSetting<float>(SettingID::GYRO_AXIS_X, 1.0f);
+	JSMSetting<float> flick_time = JSMSetting<float>(SettingID::FLICK_TIME, 0.1f);
+	JSMSetting<float> gyro_smooth_time = JSMSetting<float>(SettingID::GYRO_SMOOTH_TIME, 0.125f);
+	JSMSetting<float> gyro_smooth_threshold = JSMSetting<float>(SettingID::GYRO_SMOOTH_THRESHOLD, 0.0f);
+	JSMSetting<float> gyro_cutoff_speed = JSMSetting<float>(SettingID::GYRO_CUTOFF_SPEED, 0.0f);
+	JSMSetting<float> gyro_cutoff_recovery = JSMSetting<float>(SettingID::GYRO_CUTOFF_RECOVERY, 0.0f);
+	JSMSetting<float> stick_acceleration_rate = JSMSetting<float>(SettingID::STICK_ACCELERATION_RATE, 0.0f);
+	JSMSetting<float> stick_acceleration_cap = JSMSetting<float>(SettingID::STICK_ACCELERATION_CAP, 1000000.0f);
+	JSMSetting<float> stick_deadzone_inner = JSMSetting<float>(SettingID::STICK_DEADZONE_INNER, 0.15f);
+	JSMSetting<float> stick_deadzone_outer = JSMSetting<float>(SettingID::STICK_DEADZONE_OUTER, 0.1f);
+	JSMSetting<float> mouse_ring_radius = JSMSetting<float>(SettingID::MOUSE_RING_RADIUS, 128.0f);
+	JSMSetting<float> screen_resolution_x = JSMSetting<float>(SettingID::SCREEN_RESOLUTION_X, 1920.0f);
+	JSMSetting<float> screen_resolution_y = JSMSetting<float>(SettingID::SCREEN_RESOLUTION_Y, 1080.0f);
+	JSMSetting<float> rotate_smooth_override = JSMSetting<float>(SettingID::ROTATE_SMOOTH_OVERRIDE, -1.0f);
+	JSMSetting<float> flick_snap_strength = JSMSetting<float>(SettingID::FLICK_SNAP_STRENGTH, 01.0f);
 };
 
-// Set of gyro control settings bundled in one structure
-struct GyroSettings {
-	bool always_off;
-	int button;
-	GyroIgnoreMode ignore_mode;
-};
+mutex loading_lock;
 
-// Structure representing any kind of combination action, such as chords and modeshifts
-// The location of this element in the overarching data structure identifies to what button
-// or setting the binding is bound.
-struct ComboMap
-{
-	std::string name; // Display name of the command
-	int btn;           // ID of the key this commands is combined with
-	WORD pressBind = 0;
-	WORD holdBind = 0;
-};
+array<Mapping, MAPPING_SIZE> mappings; // array enables use of for each loop and other i/f
+JSMSettings baseSettings;
 
-// This structure holds information about a simple button binding that can possibly be held.
-// It also contains all alternate values it can provide via button combination.
-// The location of this element in the overarching data structure identifies to what button
-// the binding is bound.
-struct Mapping
-{
-	WORD pressBind = 0; // Press or tap binding
-	WORD holdBind = 0; // Hold binding if any.
-	std::vector<ComboMap> sim_mappings;
-	std::vector<ComboMap> chord_mappings; // Binds a chord button to one or many remappings
+float os_mouse_speed = 1.0;
+float last_flick_and_rotation = 0.0;
+unique_ptr<PollingThread> autoLoadThread;
+unique_ptr<TrayIcon> tray;
+bool devicesCalibrating = false;
+Whitelister whitelister(false);
+unordered_map<int, JoyShock*> handle_to_joyshock;
 
-	void reset()
-	{
-		pressBind = 0;
-		holdBind = 0;
-		sim_mappings.clear();
-		chord_mappings.clear();
-	}
-};
+#pragma once
+
+#include "JoyShockMapper.h"
+#include <deque>
+#include <chrono>
+#include <array>
+#include <sstream>
+
+//Forward Declaration
+struct JOY_SHOCK_STATE;
 
 // This class holds all the logic related to a single digital button. It does not hold the mapping but only a reference
 // to it. It also contains it's various states, flags and data.
@@ -208,18 +97,20 @@ public:
 	struct Common {
 		Common(int handle = 0)
 			: intHandle(handle)
-		{}
+		{
+			chordStack.push_front(ButtonID::NONE); //Always hold mapping none at the end to handle modeshifts
+		}
 		bool toggleContinuous = false;
-		std::deque<std::pair<int, WORD>> gyroActionQueue; // Queue of gyro control actions currently in effect
-		std::deque<int> chordStack; // Represents the current active buttons in order from most recent to latest
+		deque<pair<ButtonID, WORD>> gyroActionQueue; // Queue of gyro control actions currently in effect
+		deque<ButtonID> chordStack; // Represents the current active buttons in order from most recent to latest
 		int intHandle;
 	};
 
-	DigitalButton(DigitalButton::Common &btnCommon, int id, const char *name, const Mapping &mapping)
+	DigitalButton(DigitalButton::Common &btnCommon, ButtonID id)
 		: _common(btnCommon)
 		, _id(id)
-		, _name(name)
-		, _mapping(mapping)
+		, _name((stringstream() << id).str())
+		, _mapping(mappings[int(_id)])
 		, _press_times()
 		, _btnState(BtnState::NoPress)
 		, _keyToRelease(0)
@@ -229,10 +120,10 @@ public:
 	}
 
 	Common &_common;
-	int _id;
-	const char *_name; // Display name of the mapping
+	const ButtonID _id;
+	const string _name; // Display name of the mapping
 	const Mapping &_mapping;
-	std::chrono::steady_clock::time_point _press_times;
+	chrono::steady_clock::time_point _press_times;
 	BtnState _btnState = BtnState::NoPress;
 	WORD _keyToRelease = 0; // At key press, remember what to release
 	const char * _nameToRelease = nullptr;
@@ -260,7 +151,7 @@ public:
 			}
 		}
 		_keyToRelease = _mapping.pressBind;
-		_nameToRelease = _name;
+		_nameToRelease = _name.c_str();
 		return _mapping.pressBind;
 	}
 
@@ -292,7 +183,7 @@ public:
 
 	const ComboMap *GetDblPressMapping()
 	{
-		auto maps = std::find_if(_mapping.chord_mappings.begin(), _mapping.chord_mappings.end(),
+		auto maps = find_if(_mapping.chord_mappings.begin(), _mapping.chord_mappings.end(),
 			[this](ComboMap map)
 			{
 				return map.btn == _id;
@@ -316,7 +207,7 @@ public:
 			}
 		}
 		_keyToRelease = _mapping.holdBind;
-		_nameToRelease = _name;
+		_nameToRelease = _name.c_str();
 		return _mapping.holdBind;
 	}
 
@@ -342,7 +233,7 @@ public:
 			pressKey(key, true);
 		}
 		_keyToRelease = key;
-		//if (std::find(_common.chordStack.begin(), _common.chordStack.end(), _id) == _common.chordStack.end())
+		//if (find(_common.chordStack.begin(), _common.chordStack.end(), _id) == _common.chordStack.end())
 		//{
 		//	_common.chordStack.push_front(_id); // Always push at the fromt to make it a stack
 		//}
@@ -367,7 +258,7 @@ public:
 			pressKey(key, true);
 		}
 		_keyToRelease = key;
-		//if (std::find(_common.chordStack.begin(), _common.chordStack.end(), _id) == _common.chordStack.end())
+		//if (find(_common.chordStack.begin(), _common.chordStack.end(), _id) == _common.chordStack.end())
 		//{
 		//	_common.chordStack.push_front(_id); // Always push at the fromt to make it a stack
 		//}
@@ -386,7 +277,7 @@ public:
 		}
 		else if (_keyToRelease >= GYRO_INV_X && _keyToRelease <= GYRO_ON_BIND)
 		{
-			_common.gyroActionQueue.erase(std::find_if(_common.gyroActionQueue.begin(), _common.gyroActionQueue.end(),
+			_common.gyroActionQueue.erase(find_if(_common.gyroActionQueue.begin(), _common.gyroActionQueue.end(),
 				[this](auto pair)
 				{
 					return pair.first == _id;
@@ -397,7 +288,7 @@ public:
 			printf(tap ? "" : "%s: false\n", _nameToRelease); // Is this good coding? [Insert meme]
 			pressKey(_keyToRelease, false);
 		}
-		//auto foundChord = std::find(_common.chordStack.begin(), _common.chordStack.end(), _id);
+		//auto foundChord = find(_common.chordStack.begin(), _common.chordStack.end(), _id);
 		//if (foundChord != _common.chordStack.end())
 		//{
 		//	// The chord is released
@@ -429,7 +320,6 @@ public:
 		_keyToRelease = map.pressBind;
 		_nameToRelease = map.name.c_str();
 	}
-
 
 	void ApplyBtnHold(const ComboMap &map)
 	{
@@ -466,12 +356,12 @@ public:
 		}
 		else if (_keyToRelease >= GYRO_INV_X && _keyToRelease <= GYRO_ON_BIND)
 		{
-			_common.gyroActionQueue.erase(std::find_if(_common.gyroActionQueue.begin(), _common.gyroActionQueue.end(),
-				[this] (auto pair)
+			_common.gyroActionQueue.erase(find_if(_common.gyroActionQueue.begin(), _common.gyroActionQueue.end(),
+				[this](auto pair)
 				{
 					return pair.first == _id;
 				}));
-			_common.gyroActionQueue.erase(std::find_if(_common.gyroActionQueue.begin(), _common.gyroActionQueue.end(),
+			_common.gyroActionQueue.erase(find_if(_common.gyroActionQueue.begin(), _common.gyroActionQueue.end(),
 				[map](auto pair)
 				{
 					return pair.first == map.btn;
@@ -482,7 +372,7 @@ public:
 			printf(tap ? "" : "%s: false\n", _nameToRelease);
 			pressKey(_keyToRelease, false);
 		}
-		auto foundChord = std::find(_common.chordStack.begin(), _common.chordStack.end(), _id);
+		auto foundChord = find(_common.chordStack.begin(), _common.chordStack.end(), _id);
 		if (foundChord != _common.chordStack.end())
 		{
 			// The chord is released
@@ -512,117 +402,19 @@ public:
 	}
 
 	// Pretty wrapper
-	inline float GetPressDurationMS(std::chrono::steady_clock::time_point time_now)
+	inline float GetPressDurationMS(chrono::steady_clock::time_point time_now)
 	{
-		return static_cast<float>(std::chrono::duration_cast<std::chrono::milliseconds>(time_now - _press_times).count());
+		return static_cast<float>(chrono::duration_cast<chrono::milliseconds>(time_now - _press_times).count());
 	}
 
 	// Indicate if the button is currently sending an assigned mapping.
-	bool IsActive()
+	inline bool IsActive()
 	{
 		return _btnState == BtnState::BtnPress || _btnState == BtnState::HoldPress; // Add Sim Press State? Only with Setting?
 	}
 };
 
-// Custom Optional
-template<typename T>
-class Optional
-{
-private:
-	bool valid = false;
-	T value;
-
-public:
-	Optional() {} // nullopt
-
-	Optional(T val)
-		: value(val)
-		, valid(true)
-	{}
-
-	inline operator bool() const
-	{
-		return valid;
-	}
-
-	inline T operator *() const
-	{
-		return value;
-	}
-
-	inline T *operator ->()
-	{
-		return &value;
-	}
-
-	inline T operator =(T newVal)
-	{
-		valid = true;
-		value = newVal;
-		return value;
-	}
-
-};
-
-std::mutex loading_lock;
-
-std::array<Mapping, MAPPING_SIZE> mappings; // std::array enables use of for each loop and other i/f
-float os_mouse_speed = 1.0;
-float last_flick_and_rotation = 0.0;
-std::unique_ptr<PollingThread> autoLoadThread;
-std::unique_ptr<TrayIcon> tray;
-bool devicesCalibrating = false;
-Whitelister whitelister(false);
-
-// Contains all settings that can be modeshifted. They should be accessed only via Joyshock::getSetting
-struct JSMSettings {
-	std::map<int, JSMSettings> modeshifts; // The chord button ID is used as key to access alternate setting set
-
-	Optional<StickMode> left_stick_mode;
-	Optional<StickMode> right_stick_mode;
-	Optional<RingMode> left_ring_mode;
-	Optional<RingMode> right_ring_mode;
-	Optional<GyroAxisMask> mouse_x_from_gyro;
-	Optional<GyroAxisMask> mouse_y_from_gyro;
-	Optional<GyroSettings> gyro_settings; // Ignore mode none means no GYRO_OFF button
-	Optional<JoyconMask> joycon_gyro_mask;
-	Optional<TriggerMode> zlMode;
-	Optional<TriggerMode> zrMode;
-	Optional<float> min_gyro_sens_x;
-	Optional<float> min_gyro_sens_y;
-	Optional<float> max_gyro_sens_x;
-	Optional<float> max_gyro_sens_y;
-	Optional<float> min_gyro_threshold;
-	Optional<float> max_gyro_threshold;
-	Optional<float> stick_power;
-	Optional<float> stick_sens;
-	Optional<float> real_world_calibration; // There's an argument that RWC has no interest in being modeshifted and thus could be outside this structure.
-	Optional<float> in_game_sens;
-	Optional<float> trigger_threshold;
-	Optional<float> aim_y_sign;
-	Optional<float> aim_x_sign;
-	Optional<float> gyro_y_sign;
-	Optional<float> gyro_x_sign;
-	Optional<float> flick_time;
-	Optional<float> gyro_smooth_time;
-	Optional<float> gyro_smooth_threshold;
-	Optional<float> gyro_cutoff_speed;
-	Optional<float> gyro_cutoff_recovery;
-	Optional<float> stick_acceleration_rate;
-	Optional<float> stick_acceleration_cap;
-	Optional<float> stick_deadzone_inner;
-	Optional<float> stick_deadzone_outer;
-	Optional<float> mouse_ring_radius;
-	Optional<int> screen_resolution_x;
-	Optional<int> screen_resolution_y;
-	Optional<float> rotate_smooth_override;
-	Optional<float> flick_snap_strength;
-	Optional<FlickSnapMode> flick_snap_mode;
-} baseSettings;
-
-// Forward declare for use in JoyShock::IsPressed()
-static int keyToBitOffset(WORD index);
-
+// Aninstance of this class represents a single controller device that JSM is listening to.
 class JoyShock {
 private:
 	float _weightsRemaining[64];
@@ -632,14 +424,66 @@ private:
 	FloatXY _gyroSamples[64];
 	int _frontGyroSample = 0;
 
+	template<typename E1, typename E2>
+	static inline Optional<E1> GetOptionalSetting(const JSMSetting<E2> &setting, ButtonID chord)
+	{
+		return setting.get(chord) ? Optional<E1>(static_cast<E1>(*setting.get(chord))) : Optional<E1>();
+	}
+
+	int keyToBitOffset(ButtonID index) {
+		switch (index) {
+		case ButtonID::UP:
+			return JSOFFSET_UP;
+		case ButtonID::DOWN:
+			return JSOFFSET_DOWN;
+		case ButtonID::LEFT:
+			return JSOFFSET_LEFT;
+		case ButtonID::RIGHT:
+			return JSOFFSET_RIGHT;
+		case ButtonID::L:
+			return JSOFFSET_L;
+		case ButtonID::ZL:
+			return JSOFFSET_ZL;
+		case ButtonID::MINUS:
+			return JSOFFSET_MINUS;
+		case ButtonID::CAPTURE:
+			return JSOFFSET_CAPTURE;
+		case ButtonID::E:
+			return JSOFFSET_E;
+		case ButtonID::S:
+			return JSOFFSET_S;
+		case ButtonID::N:
+			return JSOFFSET_N;
+		case ButtonID::W:
+			return JSOFFSET_W;
+		case ButtonID::R:
+			return JSOFFSET_R;
+		case ButtonID::ZR:
+			return JSOFFSET_ZR;
+		case ButtonID::PLUS:
+			return JSOFFSET_PLUS;
+		case ButtonID::HOME:
+			return JSOFFSET_HOME;
+		case ButtonID::SL:
+			return JSOFFSET_SL;
+		case ButtonID::SR:
+			return JSOFFSET_SR;
+		case ButtonID::L3:
+			return JSOFFSET_LCLICK;
+		case ButtonID::R3:
+			return JSOFFSET_RCLICK;
+		}
+		throw exception((stringstream() << "Button " << index << " is not valid ").str().c_str());
+	}
+
 public:
 	const int MaxGyroSamples = 64;
 	const int NumSamples = 64;
 	int intHandle;
 
-	std::array<DigitalButton, MAPPING_SIZE> buttons;
-	std::chrono::steady_clock::time_point started_flick;
-	std::chrono::steady_clock::time_point time_now;
+	vector<DigitalButton> buttons;
+	chrono::steady_clock::time_point started_flick;
+	chrono::steady_clock::time_point time_now;
 	// tap_release_queue has been replaced with button states *TapRelease. The hold time of the tap is effectively quantized to the polling period of the device.
 	bool is_flicking_left = false;
 	bool is_flicking_right = false;
@@ -655,7 +499,7 @@ public:
 
 	float left_acceleration = 1.0;
 	float right_acceleration = 1.0;
-	std::vector<DstState> triggerState; // State of analog triggers when skip mode is active
+	vector<DstState> triggerState; // State of analog triggers when skip mode is active
 	DigitalButton::Common btnCommon;
 
 	// Modeshifting the stick mode can create quirky behaviours on transition. These flags 
@@ -669,241 +513,209 @@ public:
 		, poll_rate(pollRate)
 		, controller_type(controllerSplitType)
 		, stick_step_size(stickStepSize)
-		, triggerState(LAST_ANALOG_TRIGGER - FIRST_ANALOG_TRIGGER + 1, DstState::NoPress)
+		, triggerState(NUM_ANALOG_TRIGGERS, DstState::NoPress)
 		, btnCommon(intHandle)
-		, buttons{
-			DigitalButton(btnCommon, MAPPING_UP, "UP", mappings[MAPPING_UP]),
-			DigitalButton(btnCommon, MAPPING_DOWN, "DOWN", mappings[MAPPING_DOWN]),
-			DigitalButton(btnCommon, MAPPING_LEFT, "LEFT", mappings[MAPPING_LEFT]),
-			DigitalButton(btnCommon, MAPPING_RIGHT, "RIGHT", mappings[MAPPING_RIGHT]),
-			DigitalButton(btnCommon, MAPPING_L, "L", mappings[MAPPING_L]),
-			DigitalButton(btnCommon, MAPPING_ZL, "ZL", mappings[MAPPING_ZL]),
-			DigitalButton(btnCommon, MAPPING_MINUS, "MINUS", mappings[MAPPING_MINUS]),
-			DigitalButton(btnCommon, MAPPING_CAPTURE, "CAPTURE", mappings[MAPPING_CAPTURE]),
-			DigitalButton(btnCommon, MAPPING_E, "E", mappings[MAPPING_E]),
-			DigitalButton(btnCommon, MAPPING_S, "S", mappings[MAPPING_S]),
-			DigitalButton(btnCommon, MAPPING_N, "N", mappings[MAPPING_N]),
-			DigitalButton(btnCommon, MAPPING_W, "W", mappings[MAPPING_W]),
-			DigitalButton(btnCommon, MAPPING_R, "R", mappings[MAPPING_R]),
-			DigitalButton(btnCommon, MAPPING_ZR, "ZR", mappings[MAPPING_ZR]),
-			DigitalButton(btnCommon, MAPPING_PLUS, "PLUS", mappings[MAPPING_PLUS]),
-			DigitalButton(btnCommon, MAPPING_HOME, "HOME", mappings[MAPPING_HOME]),
-			DigitalButton(btnCommon, MAPPING_SL, "SL", mappings[MAPPING_SL]),
-			DigitalButton(btnCommon, MAPPING_SR, "SR", mappings[MAPPING_SR]),
-			DigitalButton(btnCommon, MAPPING_L3, "L3", mappings[MAPPING_L3]),
-			DigitalButton(btnCommon, MAPPING_R3, "R3", mappings[MAPPING_R3]),
-			DigitalButton(btnCommon, MAPPING_LUP, "LUP", mappings[MAPPING_LUP]),
-			DigitalButton(btnCommon, MAPPING_LDOWN, "LDOWN", mappings[MAPPING_LDOWN]),
-			DigitalButton(btnCommon, MAPPING_LLEFT, "LLEFT", mappings[MAPPING_LLEFT]),
-			DigitalButton(btnCommon, MAPPING_LRIGHT, "LRIGHT", mappings[MAPPING_LRIGHT]),
-			DigitalButton(btnCommon, MAPPING_LRING, "LRING", mappings[MAPPING_LRING]),
-			DigitalButton(btnCommon, MAPPING_RUP, "RUP", mappings[MAPPING_RUP]),
-			DigitalButton(btnCommon, MAPPING_RDOWN, "RDOWN", mappings[MAPPING_RDOWN]),
-			DigitalButton(btnCommon, MAPPING_RLEFT, "RLEFT", mappings[MAPPING_RLEFT]),
-			DigitalButton(btnCommon, MAPPING_RRIGHT, "RRIGHT", mappings[MAPPING_RRIGHT]),
-			DigitalButton(btnCommon, MAPPING_RRING, "RRING", mappings[MAPPING_RRING]),
-			DigitalButton(btnCommon, MAPPING_ZLF, "ZLF", mappings[MAPPING_ZLF]),
-			DigitalButton(btnCommon, MAPPING_ZRF, "ZRF", mappings[MAPPING_ZRF]),
-		}
+		, buttons()
 	{
+		buttons.reserve(MAPPING_SIZE);
+		for (int i = 0; i < MAPPING_SIZE; ++i)
+		{
+			buttons.push_back( DigitalButton(btnCommon, ButtonID(i)) );
+		}
 	}
 
-private:
+
+	~JoyShock()
+	{}
 
 	template<typename E>
-	Optional<E> getSettingRec(const JSMSettings &settings, int index, std::deque<int> chordStack, bool topLevel)
+	E getSetting(SettingID index)
 	{
-		static_assert(std::is_enum<E>::value, "Parameter of JoyShock::getSetting<E> has to be an enum type");
+		static_assert(is_enum<E>::value, "Parameter of JoyShock::getSetting<E> has to be an enum type");
 		// Look at active chord mappings starting with the latest activates chord
-		for (auto activeChord = chordStack.begin(); activeChord != chordStack.end(); activeChord++)
+		for (auto activeChord = btnCommon.chordStack.begin(); activeChord != btnCommon.chordStack.end(); activeChord++)
 		{
-			auto modeshiftSettings = settings.modeshifts.find(*activeChord);
-			if (modeshiftSettings != settings.modeshifts.end())
-			{
-				auto val = getSettingRec<E>(modeshiftSettings->second, index, std::deque<int>(activeChord + 1, chordStack.end()), false);
-				if (val)
-					return val;
+			Optional<E> opt;
+			switch (index) {
+			case SettingID::MOUSE_X_FROM_GYRO_AXIS:
+				opt = GetOptionalSetting<E>(baseSettings.mouse_x_from_gyro, *activeChord);
+				break;
+			case SettingID::MOUSE_Y_FROM_GYRO_AXIS:
+				opt = GetOptionalSetting<E>(baseSettings.mouse_y_from_gyro, *activeChord);
+				break;
+			case SettingID::LEFT_STICK_MODE:
+				opt = GetOptionalSetting<E>(baseSettings.left_stick_mode, *activeChord);
+				break;
+			case SettingID::RIGHT_STICK_MODE:
+				//ignore_right_stick_mode |= !topLevel; // Enable the ignore flag when a chord stick mode enables
+				opt = GetOptionalSetting<E>(baseSettings.right_stick_mode, *activeChord);
+				break;
+			case SettingID::LEFT_RING_MODE:
+				opt = GetOptionalSetting<E>(baseSettings.left_ring_mode, *activeChord);
+				break;
+			case SettingID::RIGHT_RING_MODE:
+				opt = GetOptionalSetting<E>(baseSettings.right_ring_mode, *activeChord);
+				break;
+			case SettingID::JOYCON_GYRO_MASK:
+				opt = GetOptionalSetting<E>(baseSettings.joycon_gyro_mask, *activeChord);
+				break;
+			case SettingID::ZR_DUAL_STAGE_MODE:
+				opt = GetOptionalSetting<E>(baseSettings.zrMode, *activeChord);
+				break;
+			case SettingID::ZL_DUAL_STAGE_MODE:
+				opt = GetOptionalSetting<E>(baseSettings.zlMode, *activeChord);
+				break;
+			case SettingID::FLICK_SNAP_MODE:
+				opt = GetOptionalSetting<E>(baseSettings.flick_snap_mode, *activeChord);
+				break;
 			}
+			if (opt) return *opt;
 		}
-		switch (index) {
-		case MOUSE_X_FROM_GYRO_AXIS:
-			return settings.mouse_x_from_gyro ? Optional<E>(static_cast<E>(*settings.mouse_x_from_gyro)) :  Optional<E>();
-		case MOUSE_Y_FROM_GYRO_AXIS:
-			return  settings.mouse_y_from_gyro ? Optional<E>(static_cast<E>(*settings.mouse_y_from_gyro)) :  Optional<E>();
-		case LEFT_STICK_MODE:
-			ignore_left_stick_mode |= !topLevel; // Enable the ignore flag when a chord stick mode enables
-			return settings.left_stick_mode ? 
-				Optional<E>(static_cast<E>(topLevel && ignore_left_stick_mode ? StickMode::invalid : *settings.left_stick_mode)) : 
-				 Optional<E>();
-		case RIGHT_STICK_MODE:
-			ignore_right_stick_mode |= !topLevel; // Enable the ignore flag when a chord stick mode enables
-			return settings.right_stick_mode ? 
-				Optional<E>(static_cast<E>(topLevel && ignore_right_stick_mode ? StickMode::invalid : *settings.right_stick_mode)) : 
-				 Optional<E>();
-		case LEFT_RING_MODE:
-			return settings.left_ring_mode ? Optional<E>(static_cast<E>(*settings.left_ring_mode)) :  Optional<E>();
-		case RIGHT_RING_MODE:
-			return settings.right_ring_mode ? Optional<E>(static_cast<E>(*settings.right_ring_mode)) :  Optional<E>();
-		case JOYCON_GYRO_MASK:
-			return settings.joycon_gyro_mask ? Optional<E>(static_cast<E>(*settings.joycon_gyro_mask)) :  Optional<E>();
-		case ZR_DUAL_STAGE_MODE:
-			return settings.zrMode ? Optional<E>(static_cast<E>(*settings.zrMode)) :  Optional<E>();
-		case ZL_DUAL_STAGE_MODE:
-			return settings.zlMode ? Optional<E>(static_cast<E>(*settings.zlMode)) :  Optional<E>();
-		case FLICK_SNAP_MODE:
-			return settings.flick_snap_mode ? Optional<E>(static_cast<E>(*settings.flick_snap_mode)) :  Optional<E>();
-		}
-		throw std::exception((std::stringstream() << "Index " << index << " is not a valid enum setting").str().c_str());
+		throw exception((stringstream() << "Index " << index << " is not a valid enum setting").str().c_str());
 	}
 
-	Optional<float> getSettingRec(const JSMSettings &settings, int index, std::deque<int> chordStack, bool topLevel)
+	float getSetting(SettingID index)
 	{
 		// Look at active chord mappings starting with the latest activates chord
-		for (auto activeChord = chordStack.begin(); activeChord != chordStack.end(); activeChord++)
+		for (auto activeChord = btnCommon.chordStack.begin(); activeChord != btnCommon.chordStack.end(); activeChord++)
 		{
-			auto modeshiftSettings = settings.modeshifts.find(*activeChord);
-			if (modeshiftSettings != settings.modeshifts.end())
+			Optional<float> opt;
+			switch (index)
 			{
-				auto val = getSettingRec(modeshiftSettings->second, index, std::deque<int>(activeChord + 1, chordStack.end()), false);
-				if (val)
-					return val;
+			case SettingID::MIN_GYRO_THRESHOLD:
+				opt = baseSettings.min_gyro_threshold.get(*activeChord);
+				break;
+			case SettingID::MAX_GYRO_THRESHOLD:
+				opt = baseSettings.max_gyro_threshold.get(*activeChord);
+				break;
+			case SettingID::STICK_POWER:
+				opt = baseSettings.stick_power.get(*activeChord);
+				break;
+			case SettingID::STICK_SENS:
+				opt = baseSettings.stick_sens.get(*activeChord);
+				break;
+			case SettingID::REAL_WORLD_CALIBRATION:
+				opt = baseSettings.real_world_calibration.get(*activeChord);
+				break;
+			case SettingID::IN_GAME_SENS:
+				opt = baseSettings.in_game_sens.get(*activeChord);
+				break;
+			case SettingID::TRIGGER_THRESHOLD:
+				opt = baseSettings.trigger_threshold.get(*activeChord);
+				break;
+			case SettingID::STICK_AXIS_X:
+				opt = baseSettings.aim_x_sign.get(*activeChord);
+				break;
+			case SettingID::STICK_AXIS_Y:
+				opt = baseSettings.aim_y_sign.get(*activeChord);
+				break;
+			case SettingID::GYRO_AXIS_X:
+				opt = baseSettings.gyro_x_sign.get(*activeChord);
+				break;
+			case SettingID::GYRO_AXIS_Y:
+				opt = baseSettings.gyro_y_sign.get(*activeChord);
+				break;
+			case SettingID::FLICK_TIME:
+				opt = baseSettings.flick_time.get(*activeChord);
+				break;
+			case SettingID::GYRO_SMOOTH_THRESHOLD:
+				opt = baseSettings.gyro_smooth_threshold.get(*activeChord);
+				break;
+			case SettingID::GYRO_SMOOTH_TIME:
+				opt = baseSettings.gyro_smooth_time.get(*activeChord);
+				break;
+			case SettingID::GYRO_CUTOFF_SPEED:
+				opt = baseSettings.gyro_cutoff_speed.get(*activeChord);
+				break;
+			case SettingID::GYRO_CUTOFF_RECOVERY:
+				opt = baseSettings.gyro_cutoff_recovery.get(*activeChord);
+				break;
+			case SettingID::STICK_ACCELERATION_RATE:
+				opt = baseSettings.stick_acceleration_rate.get(*activeChord);
+				break;
+			case SettingID::STICK_ACCELERATION_CAP:
+				opt = baseSettings.stick_acceleration_cap.get(*activeChord);
+				break;
+			case SettingID::STICK_DEADZONE_INNER:
+				opt = baseSettings.stick_deadzone_inner.get(*activeChord);
+				break;
+			case SettingID::STICK_DEADZONE_OUTER:
+				opt = baseSettings.stick_deadzone_outer.get(*activeChord);
+				break;
+			case SettingID::MOUSE_RING_RADIUS:
+				opt = baseSettings.mouse_ring_radius.get(*activeChord);
+				break;
+			case SettingID::SCREEN_RESOLUTION_X:
+				opt = baseSettings.screen_resolution_x.get(*activeChord);
+				break;
+			case SettingID::SCREEN_RESOLUTION_Y:
+				opt = baseSettings.screen_resolution_y.get(*activeChord);
+				break;
+			case SettingID::ROTATE_SMOOTH_OVERRIDE:
+				opt = baseSettings.rotate_smooth_override.get(*activeChord);
+				break;
+			case SettingID::FLICK_SNAP_STRENGTH:
+				opt = baseSettings.flick_snap_strength.get(*activeChord);
+				break;
 			}
+			if (opt) return *opt;
 		}
-		switch (index)
-		{
-		case MIN_GYRO_THRESHOLD:
-			return settings.min_gyro_threshold;
-		case MAX_GYRO_THRESHOLD:
-			return settings.max_gyro_threshold;
-		case STICK_POWER:
-			return settings.stick_power;
-		case STICK_SENS:
-			return settings.stick_sens;
-		case REAL_WORLD_CALIBRATION:
-			return settings.real_world_calibration;
-		case IN_GAME_SENS:
-			return settings.in_game_sens;
-		case TRIGGER_THRESHOLD:
-			return settings.trigger_threshold;
-		case STICK_AXIS_X:
-			return settings.aim_x_sign;
-		case STICK_AXIS_Y:
-			return settings.aim_y_sign;
-		case GYRO_AXIS_X:
-			return settings.gyro_x_sign;
-		case GYRO_AXIS_Y:
-			return settings.gyro_y_sign;
-		case FLICK_TIME:
-			return settings.flick_time;
-		case GYRO_SMOOTH_THRESHOLD:
-			return settings.gyro_smooth_threshold;
-		case GYRO_SMOOTH_TIME:
-			return settings.gyro_smooth_time;
-		case GYRO_CUTOFF_SPEED:
-			return settings.gyro_cutoff_speed;
-		case GYRO_CUTOFF_RECOVERY:
-			return settings.gyro_cutoff_recovery;
-		case STICK_ACCELERATION_RATE:
-			return settings.stick_acceleration_rate;
-		case STICK_ACCELERATION_CAP:
-			return settings.stick_acceleration_cap;
-		case STICK_DEADZONE_INNER:
-			return settings.stick_deadzone_inner;
-		case STICK_DEADZONE_OUTER:
-			return settings.stick_deadzone_outer;
-		case MOUSE_RING_RADIUS:
-			return settings.mouse_ring_radius;
-		case SCREEN_RESOLUTION_X:
-			return settings.screen_resolution_x;
-		case SCREEN_RESOLUTION_Y:
-			return settings.screen_resolution_y;
-		case ROTATE_SMOOTH_OVERRIDE:
-			return settings.rotate_smooth_override;
-		case FLICK_SNAP_STRENGTH:
-			return settings.flick_snap_strength;
-		}
-		throw std::exception((std::stringstream() << "Index " << index << " is not a valid float setting").str().c_str());
+
+		throw exception((stringstream() << "Index " << index << " is not a valid float setting").str().c_str());
 	}
 
 	template<>
-	Optional<FloatXY> getSettingRec<FloatXY>(const JSMSettings &settings, int index, std::deque<int> chordStack, bool topLevel)
+	FloatXY getSetting<FloatXY>(SettingID index)
 	{
 		// Look at active chord mappings starting with the latest activates chord
-		for (auto activeChord = chordStack.begin(); activeChord != chordStack.end(); activeChord++)
+		for (auto activeChord = btnCommon.chordStack.begin(); activeChord != btnCommon.chordStack.end(); activeChord++)
 		{
-			auto modeshiftSettings = settings.modeshifts.find(*activeChord);
-			if (modeshiftSettings != settings.modeshifts.end())
+			Optional<FloatXY> opt;
+			switch (index)
 			{
-				auto val = getSettingRec<FloatXY>(modeshiftSettings->second, index, std::deque<int>(activeChord + 1, chordStack.end()), false);
-				if (val)
-					return val;
+			case SettingID::MIN_GYRO_SENS:
+				opt = baseSettings.min_gyro_sens.get(*activeChord);
+				break;
+			case SettingID::MAX_GYRO_SENS:
+				opt = baseSettings.max_gyro_sens.get(*activeChord);
+				break;
 			}
+			if (opt) return *opt;
 		}// Check next Chord
-		switch (index)
-		{
-		case MIN_GYRO_SENS:
-			if (settings.min_gyro_sens_x && settings.min_gyro_sens_y)
-				return FloatXY{ *settings.min_gyro_sens_x, *settings.min_gyro_sens_y };
-			else
-				return Optional<FloatXY>();
-		case MAX_GYRO_SENS:
-			if (settings.max_gyro_sens_x && settings.max_gyro_sens_y)
-				return FloatXY{ *settings.max_gyro_sens_x, *settings.max_gyro_sens_y };
-			else
-				return Optional<FloatXY>();
-		}
-		throw std::exception((std::stringstream() << "Index " << index << " is not a valid FloatXY setting").str().c_str());
+
+		throw exception((stringstream() << "Index " << index << " is not a valid FloatXY setting").str().c_str());
 	}
 
 	template<>
-	Optional<GyroSettings> getSettingRec<GyroSettings>(const JSMSettings &settings, int index, std::deque<int> chordStack, bool topLevel)
+	GyroSettings getSetting<GyroSettings>(SettingID index)
 	{
-		if (index == GYRO_ON || index == GYRO_OFF)
+		if (index == SettingID::GYRO_ON || index == SettingID::GYRO_OFF)
 		{
 			// Look at active chord mappings starting with the latest activates chord
-			for (auto activeChord = chordStack.begin(); activeChord != chordStack.end(); activeChord++)
+			for (auto activeChord = btnCommon.chordStack.begin(); activeChord != btnCommon.chordStack.end(); activeChord++)
 			{
-				auto modeshiftSettings = settings.modeshifts.find(*activeChord);
-				if (modeshiftSettings != settings.modeshifts.end())
-				{
-					auto val = getSettingRec<GyroSettings>(modeshiftSettings->second, index, std::deque<int>(activeChord + 1, chordStack.end()), false);
-					if (val)
-						return val;
-				}
+				auto opt = baseSettings.gyro_settings.get(*activeChord);
+				if (opt) return *opt;
 			}
-			return settings.gyro_settings;
 		}
-		throw std::exception((std::stringstream() << "Index " << index << " is not a valid GyroSetting").str().c_str());
+		throw exception((stringstream() << "Index " << index << " is not a valid GyroSetting").str().c_str());
 	}
-
 
 public:
-	template<typename E>
-	E getSetting(int index)
-	{
-		// Call the recursive variant
-		return *getSettingRec<E>(baseSettings, index, btnCommon.chordStack, true);
-	}
 
-	float getSetting(int index)
-	{
-		// Call the recursive variant
-		return *getSettingRec(baseSettings, index, btnCommon.chordStack, true);
-	}
-
-	const ComboMap* GetMatchingSimMap(int index)
+	const ComboMap* GetMatchingSimMap(const array<Mapping, MAPPING_SIZE> &mappings, ButtonID index)
 	{
 		// Call the recursive variant
 		// Find the simMapping where the other btn is in the same state as this btn.
 		// POTENTIAL FLAW: The mapping you find may not necessarily be the one that got you in a 
 		// Simultaneous state in the first place if there is a second SimPress going on where one
 		// of the buttons has a third SimMap with this one. I don't know if it's worth solving though...
-		auto match = std::find_if(mappings[index].sim_mappings.cbegin(), mappings[index].sim_mappings.cend(),
-			[this, index] (const ComboMap& simMap)
+		auto match = find_if(mappings[int(index)].sim_mappings.cbegin(), mappings[int(index)].sim_mappings.cend(),
+			[this, index](const ComboMap& simMap)
 			{
-				return buttons[simMap.btn]._btnState == buttons[index]._btnState && index != simMap.btn;
+				return buttons[int(simMap.btn)]._btnState == buttons[int(index)]._btnState && index != simMap.btn;
 			});
-		return match == mappings[index].sim_mappings.cend() ? nullptr : &*match;
+		return match == mappings[int(index)].sim_mappings.cend() ? nullptr : &*match;
 	}
 
 	void ResetSmoothSample() {
@@ -983,11 +795,9 @@ public:
 		outY = yResult + y * immediateFactor;
 	}
 
-	~JoyShock() {
-	}
-
-	void handleButtonChange(int index, bool pressed) {
-		auto foundChord = std::find(btnCommon.chordStack.begin(), btnCommon.chordStack.end(), index);
+	void handleButtonChange(ButtonID index, bool pressed)
+	{
+		auto foundChord = find(btnCommon.chordStack.begin(), btnCommon.chordStack.end(), index);
 		if (!pressed)
 		{
 			if (foundChord != btnCommon.chordStack.end())
@@ -1000,86 +810,88 @@ public:
 			btnCommon.chordStack.push_front(index); // Always push at the fromt to make it a stack
 		}
 
-		switch (buttons[index]._btnState)
+		DigitalButton &button = buttons[int(index)];
+
+		switch (button._btnState)
 		{
 		case BtnState::NoPress:
 			if (pressed)
 			{
-				if (buttons[index].HasSimMapping())
+				if (button.HasSimMapping())
 				{
-					buttons[index]._btnState = BtnState::WaitSim;
-					buttons[index]._press_times = time_now;
+					button._btnState = BtnState::WaitSim;
+					button._press_times = time_now;
 				}
-				else if (buttons[index].HasHoldMapping())
+				else if (button.HasHoldMapping())
 				{
-					buttons[index]._btnState = BtnState::WaitHold;
-					buttons[index]._press_times = time_now;
+					button._btnState = BtnState::WaitHold;
+					button._press_times = time_now;
 				}
-				else if (buttons[index].HasDblPressMapping())
+				else if (button.HasDblPressMapping())
 				{
 					// Start counting time between two start presses
-					buttons[index]._btnState = BtnState::DblPressStart;
-					buttons[index]._press_times = time_now;
+					button._btnState = BtnState::DblPressStart;
+					button._press_times = time_now;
 				}
 				else
 				{
-					buttons[index]._btnState = BtnState::BtnPress;
-					buttons[index].ApplyBtnPress();
+					button._btnState = BtnState::BtnPress;
+					button.ApplyBtnPress();
 				}
 			}
 			break;
 		case BtnState::BtnPress:
 			if (!pressed)
 			{
-				buttons[index]._btnState = BtnState::NoPress;
-				buttons[index].ApplyBtnRelease();
+				button._btnState = BtnState::NoPress;
+				button.ApplyBtnRelease();
 			}
 			break;
 		case BtnState::WaitSim:
 			if (!pressed)
 			{
-				buttons[index]._btnState = BtnState::TapRelease;
-				buttons[index]._press_times = time_now;
-				buttons[index].ApplyBtnPress(true);
+				button._btnState = BtnState::TapRelease;
+				button._press_times = time_now;
+				button.ApplyBtnPress(true);
 			}
 			else
 			{
 				// Is there a sim mapping on this button where the other button is in WaitSim state too?
-				auto simMap = GetMatchingSimMap(index);
+				auto simMap = GetMatchingSimMap(mappings, index);
 				if (simMap)
 				{
 					// We have a simultaneous press!
 					if (simMap->holdBind)
 					{
-						buttons[index]._btnState = BtnState::WaitSimHold;
-						buttons[simMap->btn]._btnState = BtnState::WaitSimHold;
-						buttons[index]._press_times = time_now; // Reset Timer
+						button._btnState = BtnState::WaitSimHold;
+						buttons[int(simMap->btn)]._btnState = BtnState::WaitSimHold;
+						button._press_times = time_now; // Reset Timer
 					}
 					else
 					{
-						buttons[index]._btnState = BtnState::SimPress;
-						buttons[simMap->btn]._btnState = BtnState::SimPress;
-						buttons[index].ApplyBtnPress(*simMap);
-						buttons[simMap->btn].SyncSimPress(*simMap);
+						button._btnState = BtnState::SimPress;
+						buttons[int(simMap->btn)]._btnState = BtnState::SimPress;
+						button.ApplyBtnPress(*simMap);
+						buttons[int(simMap->btn)].SyncSimPress(*simMap);
 					}
 				}
-				else if (buttons[index].GetPressDurationMS(time_now) > MAGIC_SIM_DELAY)
+				else if (button.GetPressDurationMS(time_now) > MAGIC_SIM_DELAY)
 				{
 					// Sim delay expired!
-					if (buttons[index].HasHoldMapping())
+					if (button.HasHoldMapping())
 					{
-						buttons[index]._btnState = BtnState::WaitHold;
+						button._btnState = BtnState::WaitHold;
 						// Don't reset time
 					}
-					else if (buttons[index].HasDblPressMapping())
+					else if (button.HasDblPressMapping())
 					{
 						// Start counting time between two start presses
-						buttons[index]._btnState = BtnState::DblPressStart;
+						button._btnState = BtnState::DblPressStart;
 					}
 					else
 					{
-						buttons[index]._btnState = BtnState::BtnPress;
-						buttons[index].ApplyBtnPress();
+						button._btnState = BtnState::BtnPress;
+						button.ApplyBtnPress();
 					}
 				}
 				// Else let time flow, stay in this state, no output.
@@ -1088,39 +900,39 @@ public:
 		case BtnState::WaitHold:
 			if (!pressed)
 			{
-				if (buttons[index].HasDblPressMapping())
+				if (button.HasDblPressMapping())
 				{
-					buttons[index]._btnState = BtnState::DblPressStart;
+					button._btnState = BtnState::DblPressStart;
 				}
 				else
 				{
-					buttons[index]._btnState = BtnState::TapRelease;
-					buttons[index]._press_times = time_now;
-					buttons[index].ApplyBtnPress(true);
+					button._btnState = BtnState::TapRelease;
+					button._press_times = time_now;
+					button.ApplyBtnPress(true);
 				}
 			}
-			else if (buttons[index].GetPressDurationMS(time_now) > MAGIC_HOLD_TIME)
+			else if (button.GetPressDurationMS(time_now) > MAGIC_HOLD_TIME)
 			{
-				buttons[index]._btnState = BtnState::HoldPress;
-				buttons[index].ApplyBtnHold();
+				button._btnState = BtnState::HoldPress;
+				button.ApplyBtnHold();
 			}
 			// Else let time flow, stay in this state, no output.
 			break;
 		case BtnState::SimPress:
 		{
 			// Which is the sim mapping where the other button is in SimPress state too?
-			auto simMap = GetMatchingSimMap(index);
+			auto simMap = GetMatchingSimMap(mappings, index);
 			if (!simMap)
 			{
 				// Should never happen but added for robustness.
-				printf("Error: lost track of matching sim press for %s! Resetting to NoPress.\n", buttons[index]._name);
-				buttons[index]._btnState = BtnState::NoPress;
+				printf("Error: lost track of matching sim press for %s! Resetting to NoPress.\n", button._name.c_str());
+				button._btnState = BtnState::NoPress;
 			}
 			else if (!pressed)
 			{
-				buttons[index]._btnState = BtnState::SimRelease;
-				buttons[simMap->btn]._btnState = BtnState::SimRelease;
-				buttons[index].ApplyBtnRelease(*simMap, index);
+				button._btnState = BtnState::SimRelease;
+				buttons[int(simMap->btn)]._btnState = BtnState::SimRelease;
+				button.ApplyBtnRelease(*simMap);
 			}
 			// else sim press is being held, as far as this button is concerned.
 			break;
@@ -1128,35 +940,35 @@ public:
 		case BtnState::HoldPress:
 			if (!pressed)
 			{
-				buttons[index]._btnState = BtnState::NoPress;
-				buttons[index].ApplyBtnRelease();
+				button._btnState = BtnState::NoPress;
+				button.ApplyBtnRelease();
 			}
 			break;
 		case BtnState::WaitSimHold:
 		{
 			// Which is the sim mapping where the other button is in WaitSimHold state too?
-			auto simMap = GetMatchingSimMap(index);
+			auto simMap = GetMatchingSimMap(mappings, index);
 			if (!simMap)
 			{
 				// Should never happen but added for robustness.
-				printf("Error: lost track of matching sim press for %s! Resetting to NoPress.\n", buttons[index]._name);
-				buttons[index]._btnState = BtnState::NoPress;
+				printf("Error: lost track of matching sim press for %s! Resetting to NoPress.\n", button._name.c_str());
+				button._btnState = BtnState::NoPress;
 			}
 			else if (!pressed)
 			{
-				buttons[index]._btnState = BtnState::SimTapRelease;
-				buttons[simMap->btn]._btnState = BtnState::SimTapRelease;
-				buttons[index]._press_times = time_now;
-				buttons[simMap->btn]._press_times = time_now;
-				buttons[index].ApplyBtnPress(*simMap, true);
-				buttons[simMap->btn].SyncSimPress(*simMap);
+				button._btnState = BtnState::SimTapRelease;
+				buttons[int(simMap->btn)]._btnState = BtnState::SimTapRelease;
+				button._press_times = time_now;
+				buttons[int(simMap->btn)]._press_times = time_now;
+				button.ApplyBtnPress(*simMap, true);
+				buttons[int(simMap->btn)].SyncSimPress(*simMap);
 			}
-			else if (buttons[index].GetPressDurationMS(time_now) > MAGIC_HOLD_TIME)
+			else if (button.GetPressDurationMS(time_now) > MAGIC_HOLD_TIME)
 			{
-				buttons[index]._btnState = BtnState::SimHold;
-				buttons[simMap->btn]._btnState = BtnState::SimHold;
-				buttons[index].ApplyBtnHold(*simMap);
-				buttons[simMap->btn].SyncSimHold(*simMap);
+				button._btnState = BtnState::SimHold;
+				buttons[int(simMap->btn)]._btnState = BtnState::SimHold;
+				button.ApplyBtnHold(*simMap);
+				buttons[int(simMap->btn)].SyncSimHold(*simMap);
 				// Else let time flow, stay in this state, no output.
 			}
 			break;
@@ -1164,126 +976,126 @@ public:
 		case BtnState::SimHold:
 		{
 			// Which is the sim mapping where the other button is in SimHold state too?
-			auto simMap = GetMatchingSimMap(index);
+			auto simMap = GetMatchingSimMap(mappings, index);
 			if (!simMap)
 			{
 				// Should never happen but added for robustness.
-				printf("Error: lost track of matching sim press for %s! Resetting to NoPress.\n", buttons[index]._name);
-				buttons[index]._btnState = BtnState::NoPress;
+				printf("Error: lost track of matching sim press for %s! Resetting to NoPress.\n", button._name.c_str());
+				button._btnState = BtnState::NoPress;
 			}
 			else if (!pressed)
 			{
-				buttons[index]._btnState = BtnState::SimRelease;
-				buttons[simMap->btn]._btnState = BtnState::SimRelease;
-				buttons[index].ApplyBtnRelease(*simMap);
+				button._btnState = BtnState::SimRelease;
+				buttons[int(simMap->btn)]._btnState = BtnState::SimRelease;
+				button.ApplyBtnRelease(*simMap);
 			}
 			break;
 		}
 		case BtnState::SimRelease:
 			if (!pressed)
 			{
-				buttons[index]._btnState = BtnState::NoPress;
+				button._btnState = BtnState::NoPress;
 			}
 			break;
 		case BtnState::SimTapRelease:
 		{
 			// Which is the sim mapping where the other button is in SimTapRelease state too?
-			auto simMap = GetMatchingSimMap(index);
+			auto simMap = GetMatchingSimMap(mappings, index);
 			if (!simMap)
 			{
 				// Should never happen but added for robustness.
-				printf("Error: lost track of matching sim press for %s! Resetting to NoPress.\n", buttons[index]._name);
-				buttons[index]._btnState = BtnState::NoPress;
+				printf("Error: lost track of matching sim press for %s! Resetting to NoPress.\n", button._name.c_str());
+				button._btnState = BtnState::NoPress;
 			}
 			else if (pressed)
 			{
-				buttons[index].ApplyBtnRelease(*simMap, true);
-				buttons[index]._btnState = BtnState::NoPress;
-				buttons[simMap->btn]._btnState = BtnState::SimRelease;
+				button.ApplyBtnRelease(*simMap, true);
+				button._btnState = BtnState::NoPress;
+				buttons[int(simMap->btn)]._btnState = BtnState::SimRelease;
 			}
-			else if (buttons[index].GetPressDurationMS(time_now) > buttons[index].GetTapDuration())
+			else if (button.GetPressDurationMS(time_now) > button.GetTapDuration())
 			{
-				buttons[index].ApplyBtnRelease(*simMap, true);
-				buttons[index]._btnState = BtnState::SimRelease;
-				buttons[simMap->btn]._btnState = BtnState::SimRelease;
+				button.ApplyBtnRelease(*simMap, true);
+				button._btnState = BtnState::SimRelease;
+				buttons[int(simMap->btn)]._btnState = BtnState::SimRelease;
 			}
 			break;
 		}
 		case BtnState::TapRelease:
-			if (pressed || buttons[index].GetPressDurationMS(time_now) > buttons[index].GetTapDuration())
+			if (pressed || button.GetPressDurationMS(time_now) > button.GetTapDuration())
 			{
-				buttons[index].ApplyBtnRelease(true);
-				buttons[index]._btnState = BtnState::NoPress;
+				button.ApplyBtnRelease(true);
+				button._btnState = BtnState::NoPress;
 			}
 			break;
 		case BtnState::DblPressStart:
-			if (buttons[index].GetPressDurationMS(time_now) > MAGIC_DBL_PRESS_WINDOW)
+			if (button.GetPressDurationMS(time_now) > MAGIC_DBL_PRESS_WINDOW)
 			{
-				buttons[index]._btnState = BtnState::BtnPress;
-				buttons[index].ApplyBtnPress();
+				button._btnState = BtnState::BtnPress;
+				button.ApplyBtnPress();
 			}
 			else if (!pressed)
 			{
-				buttons[index]._btnState = BtnState::DblPressNoPress;
+				button._btnState = BtnState::DblPressNoPress;
 			}
 			break;
 		case BtnState::DblPressNoPress:
-			if (buttons[index].GetPressDurationMS(time_now) > MAGIC_DBL_PRESS_WINDOW)
+			if (button.GetPressDurationMS(time_now) > MAGIC_DBL_PRESS_WINDOW)
 			{
-				buttons[index]._btnState = BtnState::TapRelease;
-				buttons[index].ApplyBtnPress(true);
+				button._btnState = BtnState::TapRelease;
+				button.ApplyBtnPress(true);
 			}
 			else if (pressed)
 			{
 				// dblPress will be valid because HasDblPressMapping already returned true.
-				if (buttons[index].GetDblPressMapping()->holdBind)
+				if (button.GetDblPressMapping()->holdBind)
 				{
-					buttons[index]._btnState = BtnState::DblPressWaitHold;
-					buttons[index]._press_times = time_now;
+					button._btnState = BtnState::DblPressWaitHold;
+					button._press_times = time_now;
 				}
 				else
 				{
-					buttons[index]._btnState = BtnState::DblPressPress;
-					buttons[index].ApplyBtnPress(*buttons[index].GetDblPressMapping());
+					button._btnState = BtnState::DblPressPress;
+					button.ApplyBtnPress(*button.GetDblPressMapping());
 				}
 			}
 			break;
 		case BtnState::DblPressPress:
 			if (!pressed)
 			{
-				buttons[index]._btnState = BtnState::NoPress;
-				buttons[index].ApplyBtnRelease(*buttons[index].GetDblPressMapping());
+				button._btnState = BtnState::NoPress;
+				button.ApplyBtnRelease(*button.GetDblPressMapping());
 			}
 			break;
 		case BtnState::DblPressWaitHold:
 			if (!pressed)
 			{
-				buttons[index]._btnState = BtnState::TapRelease;
-				buttons[index]._press_times = time_now;
-				buttons[index].ApplyBtnPress(*buttons[index].GetDblPressMapping(), true);
+				button._btnState = BtnState::TapRelease;
+				button._press_times = time_now;
+				button.ApplyBtnPress(*button.GetDblPressMapping(), true);
 			}
-			else if (buttons[index].GetPressDurationMS(time_now) > MAGIC_HOLD_TIME)
+			else if (button.GetPressDurationMS(time_now) > MAGIC_HOLD_TIME)
 			{
-				buttons[index]._btnState = BtnState::DblPressHold;
-				buttons[index].ApplyBtnHold(*buttons[index].GetDblPressMapping());
+				button._btnState = BtnState::DblPressHold;
+				button.ApplyBtnHold(*button.GetDblPressMapping());
 			}
 			break;
 		case BtnState::DblPressHold:
 			if (!pressed)
 			{
-				buttons[index]._btnState = BtnState::NoPress;
-				buttons[index].ApplyBtnRelease(*buttons[index].GetDblPressMapping());
+				button._btnState = BtnState::NoPress;
+				button.ApplyBtnRelease(*button.GetDblPressMapping());
 			}
 			break;
 		default:
-			printf("Invalid button state %d: Resetting to NoPress\n", buttons[index]._btnState);
-			buttons[index]._btnState = BtnState::NoPress;
+			printf("Invalid button state %d: Resetting to NoPress\n", button._btnState);
+			button._btnState = BtnState::NoPress;
 			break;
 
 		}
 	}
 
-	void handleTriggerChange(int softIndex, int fullIndex, TriggerMode mode, float pressed)
+	void handleTriggerChange(ButtonID softIndex, ButtonID fullIndex, TriggerMode mode, float pressed)
 	{
 		if (JslGetControllerType(intHandle) != JS_TYPE_DS4)
 		{
@@ -1291,20 +1103,20 @@ public:
 			mode = TriggerMode::noFull;
 		}
 
-		auto idxState = fullIndex - FIRST_ANALOG_TRIGGER; // Get analog trigger index
-		if (idxState < 0 || idxState >= triggerState.size())
+		auto idxState = int(fullIndex) - int(ButtonID::FIRST_ANALOG_TRIGGER); // Get analog trigger index
+		if (idxState < 0 || idxState >= (int)triggerState.size())
 		{
-			printf("Error: Trigger %s does not exist in state map. Dual Stage Trigger not possible.\n", buttons[fullIndex]._name);
+			printf("Error: Trigger %s does not exist in state map. Dual Stage Trigger not possible.\n", buttons[int(fullIndex)]._name.c_str());
 			return;
 		}
 
 		// if either trigger is waiting to be tap released, give it a go
-		if (buttons[softIndex]._btnState == BtnState::TapRelease || buttons[softIndex]._btnState == BtnState::SimTapRelease)
+		if (buttons[int(softIndex)]._btnState == BtnState::TapRelease || buttons[int(softIndex)]._btnState == BtnState::SimTapRelease)
 		{
 			// keep triggering until the tap release is complete
 			handleButtonChange(softIndex, false);
 		}
-		if (buttons[fullIndex]._btnState == BtnState::TapRelease || buttons[fullIndex]._btnState == BtnState::SimTapRelease)
+		if (buttons[int(fullIndex)]._btnState == BtnState::TapRelease || buttons[int(fullIndex)]._btnState == BtnState::SimTapRelease)
 		{
 			// keep triggering until the tap release is complete
 			handleButtonChange(fullIndex, false);
@@ -1314,18 +1126,18 @@ public:
 		{
 		case DstState::NoPress:
 			// It actually doesn't matter what the last Press is. Theoretically, we could have missed the edge.
-			if (pressed > getSetting(TRIGGER_THRESHOLD))
+			if (pressed > getSetting(SettingID::TRIGGER_THRESHOLD))
 			{
 				if (mode == TriggerMode::maySkip || mode == TriggerMode::mustSkip)
 				{
 					// Start counting press time to see if soft binding should be skipped
 					triggerState[idxState] = DstState::PressStart;
-					buttons[softIndex]._press_times = time_now;
+					buttons[int(softIndex)]._press_times = time_now;
 				}
 				else if (mode == TriggerMode::maySkipResp || mode == TriggerMode::mustSkipResp)
 				{
 					triggerState[idxState] = DstState::PressStartResp;
-					buttons[softIndex]._press_times = time_now;
+					buttons[int(softIndex)]._press_times = time_now;
 					handleButtonChange(softIndex, true);
 				}
 				else // mode == NO_FULL or NO_SKIP
@@ -1340,7 +1152,7 @@ public:
 			}
 			break;
 		case DstState::PressStart:
-			if (pressed <= getSetting(TRIGGER_THRESHOLD)) {
+			if (pressed <= getSetting(SettingID::TRIGGER_THRESHOLD)) {
 				// Trigger has been quickly tapped on the soft press
 				triggerState[idxState] = DstState::QuickSoftTap;
 				handleButtonChange(softIndex, true);
@@ -1351,16 +1163,16 @@ public:
 				triggerState[idxState] = DstState::QuickFullPress;
 				handleButtonChange(fullIndex, true);
 			}
-			else if (buttons[softIndex].GetPressDurationMS(time_now) >= MAGIC_DST_DELAY) { // todo: get rid of magic number -- make this a user setting )
+			else if (buttons[int(softIndex)].GetPressDurationMS(time_now) >= MAGIC_DST_DELAY) { // todo: get rid of magic number -- make this a user setting )
 				triggerState[idxState] = DstState::SoftPress;
 				// Reset the time for hold soft press purposes.
-				buttons[softIndex]._press_times = time_now;
+				buttons[int(softIndex)]._press_times = time_now;
 				handleButtonChange(softIndex, true);
 			}
 			// Else, time passes as soft press is being held, waiting to see if the soft binding should be skipped
 			break;
 		case DstState::PressStartResp:
-			if (pressed <= getSetting(TRIGGER_THRESHOLD)) {
+			if (pressed <= getSetting(SettingID::TRIGGER_THRESHOLD)) {
 				// Soft press is being released
 				triggerState[idxState] = DstState::NoPress;
 				handleButtonChange(softIndex, false);
@@ -1374,7 +1186,7 @@ public:
 			}
 			else
 			{
-				if (buttons[softIndex].GetPressDurationMS(time_now) >= MAGIC_DST_DELAY) { // todo: get rid of magic number -- make this a user setting )
+				if (buttons[int(softIndex)].GetPressDurationMS(time_now) >= MAGIC_DST_DELAY) { // todo: get rid of magic number -- make this a user setting )
 					triggerState[idxState] = DstState::SoftPress;
 				}
 				handleButtonChange(softIndex, true);
@@ -1397,7 +1209,7 @@ public:
 			}
 			break;
 		case DstState::QuickFullRelease:
-			if (pressed <= getSetting(TRIGGER_THRESHOLD)) {
+			if (pressed <= getSetting(SettingID::TRIGGER_THRESHOLD)) {
 				triggerState[idxState] = DstState::NoPress;
 			}
 			else if (pressed == 1.0f)
@@ -1409,7 +1221,7 @@ public:
 			// else wait for the the trigger to be fully released
 			break;
 		case DstState::SoftPress:
-			if (pressed <= getSetting(TRIGGER_THRESHOLD)) {
+			if (pressed <= getSetting(SettingID::TRIGGER_THRESHOLD)) {
 				// Soft press is being released
 				triggerState[idxState] = DstState::NoPress;
 				handleButtonChange(softIndex, false);
@@ -1444,21 +1256,21 @@ public:
 			break;
 		default:
 			// TODO: use magic enum to translate enum # to str
-			printf("Error: Trigger %s has invalid state #%d. Reset to NoPress.\n", buttons[softIndex]._name, triggerState[idxState]);
+			printf("Error: Trigger %s has invalid state #%d. Reset to NoPress.\n", buttons[int(softIndex)]._name.c_str(), triggerState[idxState]);
 			triggerState[idxState] = DstState::NoPress;
 			break;
 		}
 	}
 
-	bool IsPressed(const JOY_SHOCK_STATE& state, int mappingIndex)
+	bool IsPressed(const JOY_SHOCK_STATE& state, ButtonID mappingIndex)
 	{
-		if (mappingIndex >= 0 && mappingIndex < MAPPING_SIZE)
+		if (mappingIndex > ButtonID::NONE)
 		{
-			if (mappingIndex == MAPPING_ZLF) return state.lTrigger == 1.0;
-			else if (mappingIndex == MAPPING_ZRF) return state.rTrigger == 1.0;
+			if (mappingIndex == ButtonID::ZLF) return state.lTrigger == 1.0;
+			else if (mappingIndex == ButtonID::ZRF) return state.rTrigger == 1.0;
 			// Is it better to consider trigger_threshold for GYRO_ON/OFF on ZL/ZR?
-			else if (mappingIndex == MAPPING_ZL) return state.lTrigger > getSetting(TRIGGER_THRESHOLD);
-			else if (mappingIndex == MAPPING_ZR) return state.rTrigger > getSetting(TRIGGER_THRESHOLD);
+			else if (mappingIndex == ButtonID::ZL) return state.lTrigger > getSetting(SettingID::TRIGGER_THRESHOLD);
+			else if (mappingIndex == ButtonID::ZR) return state.rTrigger > getSetting(SettingID::TRIGGER_THRESHOLD);
 			else return state.buttons & (1 << keyToBitOffset(mappingIndex));
 		}
 		return false;
@@ -1466,8 +1278,8 @@ public:
 
 	// return true if it hits the outer deadzone
 	bool processDeadZones(float& x, float& y) {
-		float innerDeadzone = getSetting(STICK_DEADZONE_INNER);
-		float outerDeadzone = 1.0f - getSetting(STICK_DEADZONE_OUTER);
+		float innerDeadzone = getSetting(SettingID::STICK_DEADZONE_INNER);
+		float outerDeadzone = 1.0f - getSetting(SettingID::STICK_DEADZONE_OUTER);
 		float length = sqrtf(x*x + y * y);
 		if (length <= innerDeadzone) {
 			x = 0.0f;
@@ -1490,15 +1302,6 @@ public:
 	}
 };
 
-// https://stackoverflow.com/a/4119881/1130520 gives us case insensitive equality
-static bool iequals(const std::string& a, const std::string& b)
-{
-	return std::equal(a.begin(), a.end(),
-		b.begin(), b.end(),
-		[](char a, char b) {
-		return tolower(a) == tolower(b);
-	});
-}
 
 Optional<float> getFloat(const std::string &str, size_t *newpos = nullptr)
 {
@@ -1511,472 +1314,6 @@ Optional<float> getFloat(const std::string &str, size_t *newpos = nullptr)
 	{
 		return Optional<float>();
 	}
-}
-
-std::unordered_map<int, JoyShock*> handle_to_joyshock;
-
-static int keyToBitOffset(WORD index) {
-	switch (index) {
-	case MAPPING_UP:
-		return JSOFFSET_UP;
-	case MAPPING_DOWN:
-		return JSOFFSET_DOWN;
-	case MAPPING_LEFT:
-		return JSOFFSET_LEFT;
-	case MAPPING_RIGHT:
-		return JSOFFSET_RIGHT;
-	case MAPPING_L:
-		return JSOFFSET_L;
-	case MAPPING_ZL:
-		return JSOFFSET_ZL;
-	case MAPPING_MINUS:
-		return JSOFFSET_MINUS;
-	case MAPPING_CAPTURE:
-		return JSOFFSET_CAPTURE;
-	case MAPPING_E:
-		return JSOFFSET_E;
-	case MAPPING_S:
-		return JSOFFSET_S;
-	case MAPPING_N:
-		return JSOFFSET_N;
-	case MAPPING_W:
-		return JSOFFSET_W;
-	case MAPPING_R:
-		return JSOFFSET_R;
-	case MAPPING_ZR:
-		return JSOFFSET_ZR;
-	case MAPPING_PLUS:
-		return JSOFFSET_PLUS;
-	case MAPPING_HOME:
-		return JSOFFSET_HOME;
-	case MAPPING_SL:
-		return JSOFFSET_SL;
-	case MAPPING_SR:
-		return JSOFFSET_SR;
-	case MAPPING_L3:
-		return JSOFFSET_LCLICK;
-	case MAPPING_R3:
-		return JSOFFSET_RCLICK;
-	}
-}
-
-/// Yes, this looks slow. But it's only there to help set up mappings more easily
-static int keyToMappingIndex(std::string& s) {
-	if (s.rfind("NONE", 0) == 0) {
-		return MAPPING_NONE;
-	}
-	if (s.compare("UP") == 0) {
-		return MAPPING_UP;
-	}
-	if (s.compare("DOWN") == 0) {
-		return MAPPING_DOWN;
-	}
-	if (s.compare("LEFT") == 0) {
-		return MAPPING_LEFT;
-	}
-	if (s.compare("RIGHT") == 0) {
-		return MAPPING_RIGHT;
-	}
-	if (s.compare("L") == 0) {
-		return MAPPING_L;
-	}
-	if (s.compare("ZL") == 0) {
-		return MAPPING_ZL;
-	}
-	if (s.compare("-") == 0) {
-		return MAPPING_MINUS;
-	}
-	if (s.compare("CAPTURE") == 0) {
-		return MAPPING_CAPTURE;
-	}
-	if (s.compare("E") == 0) {
-		return MAPPING_E;
-	}
-	if (s.compare("S") == 0) {
-		return MAPPING_S;
-	}
-	if (s.compare("N") == 0) {
-		return MAPPING_N;
-	}
-	if (s.compare("W") == 0) {
-		return MAPPING_W;
-	}
-	if (s.compare("R") == 0) {
-		return MAPPING_R;
-	}
-	if (s.compare("ZR") == 0) {
-		return MAPPING_ZR;
-	}
-	if (s.compare("+") == 0) {
-		return MAPPING_PLUS;
-	}
-	if (s.compare("HOME") == 0) {
-		return MAPPING_HOME;
-	}
-	if (s.compare("SL") == 0) {
-		return MAPPING_SL;
-	}
-	if (s.compare("SR") == 0) {
-		return MAPPING_SR;
-	}
-	if (s.compare("L3") == 0) {
-		return MAPPING_L3;
-	}
-	if (s.compare("R3") == 0) {
-		return MAPPING_R3;
-	}
-	if (s.compare("LUP") == 0) {
-		return MAPPING_LUP;
-	}
-	if (s.compare("LDOWN") == 0) {
-		return MAPPING_LDOWN;
-	}
-	if (s.compare("LLEFT") == 0) {
-		return MAPPING_LLEFT;
-	}
-	if (s.compare("LRIGHT") == 0) {
-		return MAPPING_LRIGHT;
-	}
-	if (s.compare("RUP") == 0) {
-		return MAPPING_RUP;
-	}
-	if (s.compare("RDOWN") == 0) {
-		return MAPPING_RDOWN;
-	}
-	if (s.compare("RLEFT") == 0) {
-		return MAPPING_RLEFT;
-	}
-	if (s.compare("RRIGHT") == 0) {
-		return MAPPING_RRIGHT;
-	}
-	if (s.compare("ZRF") == 0) {
-		return MAPPING_ZRF;
-	}
-	if (s.compare("ZLF") == 0) {
-		return MAPPING_ZLF;
-	}
-	if (s.compare("LRING") == 0) {
-		return MAPPING_LRING;
-	}
-	if (s.compare("RRING") == 0) {
-		return MAPPING_RRING;
-	}
-	if (s.compare("MIN_GYRO_SENS") == 0) {
-		return MIN_GYRO_SENS;
-	}
-	if (s.compare("MAX_GYRO_SENS") == 0) {
-		return MAX_GYRO_SENS;
-	}
-	if (s.compare("MIN_GYRO_THRESHOLD") == 0) {
-		return MIN_GYRO_THRESHOLD;
-	}
-	if (s.compare("MAX_GYRO_THRESHOLD") == 0) {
-		return MAX_GYRO_THRESHOLD;
-	}
-	if (s.compare("SCREEN_RESOLUTION_X") == 0) {
-		return SCREEN_RESOLUTION_X;
-	}
-	if (s.compare("SCREEN_RESOLUTION_Y") == 0) {
-		return SCREEN_RESOLUTION_Y;
-	}
-	if (s.compare("ROTATE_SMOOTH_OVERRIDE") == 0) {
-		return ROTATE_SMOOTH_OVERRIDE;
-	}
-	if (s.compare("MOUSE_RING_RADIUS") == 0) {
-		return MOUSE_RING_RADIUS;
-	}
-	if (s.compare("FLICK_SNAP_MODE") == 0) {
-		return FLICK_SNAP_MODE;
-	}
-	if (s.compare("FLICK_SNAP_STRENGTH") == 0) {
-		return FLICK_SNAP_STRENGTH;
-	}
-	if (s.compare("STICK_POWER") == 0) {
-		return STICK_POWER;
-	}
-	if (s.compare("STICK_SENS") == 0) {
-		return STICK_SENS;
-	}
-	if (s.compare("REAL_WORLD_CALIBRATION") == 0) {
-		return REAL_WORLD_CALIBRATION;
-	}
-	if (s.compare("IN_GAME_SENS") == 0) {
-		return IN_GAME_SENS;
-	}
-	if (s.compare("TRIGGER_THRESHOLD") == 0) {
-		return TRIGGER_THRESHOLD;
-	}
-	if (s.compare("RESET_MAPPINGS") == 0) {
-		return RESET_MAPPINGS;
-	}
-	if (s.compare("NO_GYRO_BUTTON") == 0) {
-		return NO_GYRO_BUTTON;
-	}
-	if (s.compare("LEFT_STICK_MODE") == 0) {
-		return LEFT_STICK_MODE;
-	}
-	if (s.compare("RIGHT_STICK_MODE") == 0) {
-		return RIGHT_STICK_MODE;
-	}
-	if (s.compare("LEFT_RING_MODE") == 0) {
-		return LEFT_RING_MODE;
-	}
-	if (s.compare("RIGHT_RING_MODE") == 0) {
-		return RIGHT_RING_MODE;
-	}
-	if (s.compare("GYRO_OFF") == 0) {
-		return GYRO_OFF;
-	}
-	if (s.compare("GYRO_ON") == 0) {
-		return GYRO_ON;
-	}
-	if (s.compare("STICK_AXIS_X") == 0) {
-		return STICK_AXIS_X;
-	}
-	if (s.compare("STICK_AXIS_Y") == 0) {
-		return STICK_AXIS_Y;
-	}
-	if (s.compare("GYRO_AXIS_X") == 0) {
-		return GYRO_AXIS_X;
-	}
-	if (s.compare("GYRO_AXIS_Y") == 0) {
-		return GYRO_AXIS_Y;
-	}
-	if (s.compare("RECONNECT_CONTROLLERS") == 0) {
-		return RECONNECT_CONTROLLERS;
-	}
-	if (s.compare("COUNTER_OS_MOUSE_SPEED") == 0) {
-		return COUNTER_OS_MOUSE_SPEED;
-	}
-	if (s.compare("IGNORE_OS_MOUSE_SPEED") == 0) {
-		return IGNORE_OS_MOUSE_SPEED;
-	}
-	if (s.compare("JOYCON_GYRO_MASK") == 0) {
-		return JOYCON_GYRO_MASK;
-	}
-	if (s.compare("GYRO_SENS") == 0) {
-		return GYRO_SENS;
-	}
-	if (s.compare("FLICK_TIME") == 0) {
-		return FLICK_TIME;
-	}
-	if (s.compare("GYRO_SMOOTH_THRESHOLD") == 0) {
-		return GYRO_SMOOTH_THRESHOLD;
-	}
-	if (s.compare("GYRO_SMOOTH_TIME") == 0) {
-		return GYRO_SMOOTH_TIME;
-	}
-	if (s.compare("GYRO_CUTOFF_SPEED") == 0) {
-		return GYRO_CUTOFF_SPEED;
-	}
-	if (s.compare("GYRO_CUTOFF_RECOVERY") == 0) {
-		return GYRO_CUTOFF_RECOVERY;
-	}
-	if (s.compare("STICK_ACCELERATION_RATE") == 0) {
-		return STICK_ACCELERATION_RATE;
-	}
-	if (s.compare("STICK_ACCELERATION_CAP") == 0) {
-		return STICK_ACCELERATION_CAP;
-	}
-	if (s.compare("STICK_DEADZONE_INNER") == 0) {
-		return STICK_DEADZONE_INNER;
-	}
-	if (s.compare("STICK_DEADZONE_OUTER") == 0) {
-		return STICK_DEADZONE_OUTER;
-	}
-	if (s.rfind("CALCULATE_REAL_WORLD_CALIBRATION", 0) == 0) {
-		return CALCULATE_REAL_WORLD_CALIBRATION;
-	}
-	if (s.rfind("FINISH_GYRO_CALIBRATION", 0) == 0) {
-		return FINISH_GYRO_CALIBRATION;
-	}
-	if (s.rfind("RESTART_GYRO_CALIBRATION", 0) == 0) {
-		return RESTART_GYRO_CALIBRATION;
-	}
-	if (s.rfind("MOUSE_X_FROM_GYRO_AXIS", 0) == 0) {
-		return MOUSE_X_FROM_GYRO_AXIS;
-	}
-	if (s.rfind("MOUSE_Y_FROM_GYRO_AXIS", 0) == 0) {
-		return MOUSE_Y_FROM_GYRO_AXIS;
-	}
-	if (s.rfind("ZR_MODE", 0) == 0) {
-		return ZR_DUAL_STAGE_MODE;
-	}
-	if (s.rfind("ZL_MODE", 0) == 0) {
-		return ZL_DUAL_STAGE_MODE;
-	}
-	if (s.rfind("AUTOLOAD", 0) == 0) {
-		return AUTOLOAD;
-	}
-	if (s.rfind("HELP", 0) == 0) {
-		return HELP;
-	}
-	if (s.rfind("WHITELIST_SHOW", 0) == 0) {
-		return WHITELIST_SHOW;
-	}
-	if (s.rfind("WHITELIST_ADD", 0) == 0) {
-		return WHITELIST_ADD;
-	}
-	if (s.rfind("WHITELIST_REMOVE", 0) == 0) {
-		return WHITELIST_REMOVE;
-	}
-	return MAPPING_ERROR;
-}
-
-static StickMode nameToStickMode(std::string& name, bool print = false) {
-	if (name.compare("AIM") == 0) {
-		if (print) printf("Aim");
-		return StickMode::aim;
-	}
-	if (name.compare("FLICK") == 0) {
-		if (print) printf("Flick");
-		return StickMode::flick;
-	}
-	if (name.compare("NO_MOUSE") == 0) {
-		if (print) printf("No mouse");
-		return StickMode::none;
-	}
-	if (name.compare("FLICK_ONLY") == 0) {
-		if (print) printf("Flick only");
-		return StickMode::flickOnly;
-	}
-	if (name.compare("ROTATE_ONLY") == 0) {
-		if (print) printf("Rotate only");
-		return StickMode::rotateOnly;
-	}
-	if (name.compare("MOUSE_RING") == 0) {
-		if (print) printf("Mouse ring");
-		return StickMode::mouseRing;
-	}
-	if (name.compare("MOUSE_AREA") == 0) {
-		if (print) printf("Mouse area");
-		return StickMode::mouseArea;
-	}
-	// just here for backwards compatibility
-	if (name.compare("INNER_RING") == 0) {
-		if (print) printf("Inner Ring (Legacy)");
-		return StickMode::inner;
-	}
-	if (name.compare("OUTER_RING") == 0) {
-		if (print) printf("Outer Ring (Legacy)");
-		return StickMode::outer;
-	}
-	if (print) printf("\"%s\" invalid", name.c_str());
-	return StickMode::invalid;
-}
-
-static RingMode nameToRingMode(std::string& name, bool print = false) {
-	if (name.compare("INNER") == 0) {
-		if (print) printf("Inner");
-		return RingMode::inner;
-	}
-	if (name.compare("OUTER") == 0) {
-		if (print) printf("Outer");
-		return RingMode::outer;
-	}
-	if (print) printf("\"%s\" invalid", name.c_str());
-	return RingMode::invalid;
-}
-
-static FlickSnapMode nameToFlickSnapMode(std::string& name, bool print = false) {
-	if (name.compare("NONE") == 0) {
-		if (print) printf("None");
-		return FlickSnapMode::none;
-	}
-	if (name.compare("4") == 0) {
-		if (print) printf("Four");
-		return FlickSnapMode::four;
-	}
-	if (name.compare("8") == 0) {
-		if (print) printf("Eight");
-		return FlickSnapMode::eight;
-	}
-	if (print) printf("\"%s\" invalid", name.c_str());
-	return FlickSnapMode::invalid;
-}
-
-static AxisMode nameToAxisMode(std::string& name, bool print = false) {
-	if (name.compare("STANDARD") == 0) {
-		if (print) printf("Standard");
-		return AxisMode::standard;
-	}
-	if (name.compare("INVERTED") == 0) {
-		if (print) printf("Inverted");
-		return AxisMode::inverted;
-	}
-	if (print) printf("\"%s\" invalid", name.c_str());
-	return AxisMode::invalid;
-}
-
-static TriggerMode nameToTriggerMode(std::string& name, bool print = false) {
-	if (name.compare("NO_FULL") == 0) {
-		if (print) printf("Trigger will never apply full pull binding");
-		return TriggerMode::noFull;
-	}
-	if (name.compare("NO_SKIP") == 0) {
-		if (print) printf("Trigger will never skip trigger binding to apply full pull binding");
-		return TriggerMode::noSkip;
-	}
-	if (name.compare("MAY_SKIP") == 0) {
-		if (print) printf("Trigger can skip trigger binding on a quick full pull");
-		return TriggerMode::maySkip;
-	}
-	if (name.compare("MUST_SKIP") == 0) {
-		if (print) printf("Trigger can only apply full pull binding on a quick full pull, skipping trigger binding");
-		return TriggerMode::mustSkip;
-	}
-	if (name.compare("MAY_SKIP_R") == 0) {
-		if (print) printf("Trigger can skip trigger binding on a quick full pull, maximizing soft binding responsiveness");
-		return TriggerMode::maySkipResp;
-	}
-	if (name.compare("MUST_SKIP_R") == 0) {
-		if (print) printf("Trigger can only apply full pull binding on a quick full pull, skipping trigger binding, maximizing soft binding responsiveness");
-		return TriggerMode::mustSkipResp;
-	}
-	if (print) printf("\"%s\" invalid", name.c_str());
-	return TriggerMode::invalid;
-}
-
-static GyroAxisMask nameToGyroAxisMask(std::string& name, bool print = false) {
-	if (name.compare("X") == 0) {
-		if (print) printf("X");
-		return GyroAxisMask::x;
-	}
-	if (name.compare("Y") == 0) {
-		if (print) printf("Y");
-		return GyroAxisMask::y;
-	}
-	if (name.compare("Z") == 0) {
-		if (print) printf("Z");
-		return GyroAxisMask::z;
-	}
-	if (name.compare("NONE") == 0) {
-		if (print) printf("NONE");
-		return GyroAxisMask::none;
-	}
-	if (print) printf("\"%s\" invalid", name.c_str());
-	return GyroAxisMask::invalid;
-}
-
-static JoyconMask nameToJoyconMask(std::string& name, bool print = false) {
-	if (name.compare("USE_BOTH") == 0) {
-		if (print) printf("Use both");
-		return JoyconMask::useBoth;
-	}
-	if (name.compare("IGNORE_LEFT") == 0) {
-		if (print) printf("Ignore left");
-		return JoyconMask::ignoreLeft;
-	}
-	if (name.compare("IGNORE_RIGHT") == 0) {
-		if (print) printf("Ignore right");
-		return JoyconMask::ignoreRight;
-	}
-	if (name.compare("IGNORE_BOTH") == 0) {
-		if (print) printf("Ignore both");
-		return JoyconMask::ignoreBoth;
-	}
-	if (print) printf("\"%s\" invalid", name.c_str());
-	return JoyconMask::invalid;
 }
 
 // https://stackoverflow.com/questions/25345598/c-implementation-to-trim-char-array-of-leading-trailing-white-space-not-workin
@@ -1994,52 +1331,47 @@ static void strtrim(char* str) {
 }
 
 static void resetAllMappings() {
-	std::for_each(mappings.begin(), mappings.end(), [] (auto &map) { map.reset(); });
-	baseSettings.modeshifts.clear();
+	for_each(mappings.begin(), mappings.end(), [] (auto &map) { map.reset(); });
 	// Question: Why is this a default mapping? Shouldn't it be empty? It's always possible to calibrate with RESET_GYRO_CALIBRATION
-	mappings[MAPPING_HOME].pressBind = mappings[MAPPING_CAPTURE].pressBind = mappings[MAPPING_HOME].holdBind = mappings[MAPPING_CAPTURE].holdBind = CALIBRATE;
-	baseSettings.min_gyro_sens_x = 0.0f;
-	baseSettings.min_gyro_sens_y = 0.0f;
-	baseSettings.max_gyro_sens_x = 0.0f;
-	baseSettings.max_gyro_sens_y = 0.0f;
-	baseSettings.min_gyro_threshold = 0.0f;
-	baseSettings.max_gyro_threshold = 0.0f;
-	baseSettings.stick_power = 1.0f;
-	baseSettings.stick_sens = 360.0f;
-	baseSettings.real_world_calibration = 40.0f;
-	baseSettings.in_game_sens = 1.0f;
-	baseSettings.left_stick_mode = StickMode::none;
-	baseSettings.right_stick_mode = StickMode::none;
-	baseSettings.left_ring_mode = RingMode::outer;
-	baseSettings.right_ring_mode = RingMode::outer;
-	baseSettings.mouse_x_from_gyro = GyroAxisMask::y;
-	baseSettings.mouse_y_from_gyro = GyroAxisMask::x;
-	baseSettings.joycon_gyro_mask = JoyconMask::ignoreLeft;
-	baseSettings.zlMode = TriggerMode::noFull;
-	baseSettings.zrMode = TriggerMode::noFull;
-	baseSettings.trigger_threshold = 0.0f;
-	baseSettings.gyro_settings->ignore_mode = GyroIgnoreMode::button;
-	baseSettings.gyro_settings->button = 0;
-	baseSettings.gyro_settings->always_off = false;
-	baseSettings.aim_y_sign = 1.0f;
-	baseSettings.aim_x_sign = 1.0f;
-	baseSettings.gyro_y_sign = 1.0f;
-	baseSettings.gyro_x_sign = 1.0f;
-	baseSettings.flick_time = 0.1f;
-	baseSettings.gyro_smooth_time = 0.125f;
-	baseSettings.gyro_smooth_threshold = 0.0f;
-	baseSettings.gyro_cutoff_speed = 0.0f;
-	baseSettings.gyro_cutoff_recovery = 0.0f;
-	baseSettings.stick_acceleration_rate = 0.0f;
-	baseSettings.stick_acceleration_cap = 1000000.0f;
-	baseSettings.stick_deadzone_inner = 0.15f;
-	baseSettings.stick_deadzone_outer = 0.1f;
-	baseSettings.screen_resolution_x = 1920;
-	baseSettings.screen_resolution_y = 1080;
-	baseSettings.mouse_ring_radius = 128.0f;
-	baseSettings.rotate_smooth_override = -1.0f;
-	baseSettings.flick_snap_strength = 1.0f;
-	baseSettings.flick_snap_mode = FlickSnapMode::none;
+	mappings[int(ButtonID::HOME)].pressBind = mappings[int(ButtonID::CAPTURE)].pressBind = mappings[int(ButtonID::HOME)].holdBind = mappings[int(ButtonID::CAPTURE)].holdBind = CALIBRATE;
+	baseSettings.min_gyro_sens.Reset();
+	baseSettings.max_gyro_sens.Reset();
+	baseSettings.min_gyro_threshold.Reset();
+	baseSettings.max_gyro_threshold.Reset();
+	baseSettings.stick_power.Reset();
+	baseSettings.stick_sens.Reset();
+	baseSettings.real_world_calibration.Reset();
+	baseSettings.in_game_sens.Reset();
+	baseSettings.left_stick_mode.Reset();
+	baseSettings.right_stick_mode.Reset();
+	baseSettings.left_ring_mode.Reset();
+	baseSettings.right_ring_mode.Reset();
+	baseSettings.mouse_x_from_gyro.Reset();
+	baseSettings.mouse_y_from_gyro.Reset();
+	baseSettings.joycon_gyro_mask.Reset();
+	baseSettings.zlMode.Reset();
+	baseSettings.zrMode.Reset();
+	baseSettings.trigger_threshold.Reset();
+	baseSettings.gyro_settings.Reset();
+	baseSettings.aim_y_sign.Reset();
+	baseSettings.aim_x_sign.Reset();
+	baseSettings.gyro_y_sign.Reset();
+	baseSettings.gyro_x_sign.Reset();
+	baseSettings.flick_time.Reset();
+	baseSettings.gyro_smooth_time.Reset();
+	baseSettings.gyro_smooth_threshold.Reset();
+	baseSettings.gyro_cutoff_speed.Reset();
+	baseSettings.gyro_cutoff_recovery.Reset();
+	baseSettings.stick_acceleration_rate.Reset();
+	baseSettings.stick_acceleration_cap.Reset();
+	baseSettings.stick_deadzone_inner.Reset();
+	baseSettings.stick_deadzone_outer.Reset();
+	baseSettings.screen_resolution_x.Reset();
+	baseSettings.screen_resolution_y.Reset();
+	baseSettings.mouse_ring_radius.Reset();
+	baseSettings.rotate_smooth_override.Reset();
+	baseSettings.flick_snap_strength.Reset();
+	baseSettings.flick_snap_mode.Reset();
 	
 	os_mouse_speed = 1.0f;
 	last_flick_and_rotation = 0.0f;
@@ -2047,16 +1379,19 @@ static void resetAllMappings() {
 
 void joyShockPollCallback(int jcHandle, JOY_SHOCK_STATE state, JOY_SHOCK_STATE lastState, IMU_STATE imuState, IMU_STATE lastImuState, float deltaTime);
 void connectDevices();
-static void parseCommand(std::string line);
+static void parseCommand(string line)
+{
 
-static bool loadMappings(std::string fileName) {
+}
+
+static bool loadMappings(string fileName) {
 	// https://stackoverflow.com/questions/2602013/read-whole-ascii-file-into-c-stdstring
-	std::ifstream t(fileName);
+	ifstream t(fileName);
 	if (t)
 	{
 		printf("Loading commands from file %s\n", fileName.c_str());
 		// https://stackoverflow.com/questions/6892754/creating-a-simple-configuration-file-and-parser-in-c
-		std::string line;
+		string line;
 		while (getline(t, line)) {
 			parseCommand(line);
 		}
@@ -2065,991 +1400,6 @@ static bool loadMappings(std::string fileName) {
 	}
 	else {
 		return false;
-	}
-}
-
-template <typename T>
-bool processChordRemoval(int chord, const char *rhs, Optional<T> &setting)
-{
-	if (chord >= 0 && chord <= MAPPING_SIZE && strncmp("NONE", rhs, 4) == 0)
-	{
-		if (setting)
-		{
-			printf("modeshift removed.\n");
-			setting;
-		}
-		return true;
-	}
-	return false;
-}
-
-static void parseCommand(std::string line) {
-	// This function has a vocation to become a member of JSMSettings 
-	JSMSettings *settings = &baseSettings;
-
-	if (line[0] == 0) {
-		return;
-	}
-	// # for comments
-	if (line[0] == '#') {
-		return;
-	}
-	// replace further comment markers with null so that input ends there
-	std::replace(line.begin(), line.end(), '#', (char)0);
-	if (loadMappings(line)) {
-		return;
-	}
-	//printf("Processing line %s\n", line);
-	std::istringstream is_line(line);
-	char key[128];
-	if (is_line.getline(key, 128, '=')) {
-		strtrim(key);
-		//printf("Key: %s; ", key);
-		int index = keyToMappingIndex(std::string(key));
-		int chord = MAPPING_ERROR, index2 = MAPPING_ERROR;
-		if (index < 0)
-		{
-			std::string keystr(key);
-			chord = keyToMappingIndex(keystr.substr(0, keystr.find_first_of(',')));
-			index = keyToMappingIndex(keystr.substr(keystr.find_first_of(',') + 1, keystr.size()));
-			if (chord >= 0 && chord < MAPPING_SIZE && index >= MAPPING_SIZE)
-			{
-				if (baseSettings.modeshifts.find(chord) == baseSettings.modeshifts.end())
-				{
-					// modeshift is created if it doesn't exist;
-					JSMSettings newSettings;
-					baseSettings.modeshifts.emplace(chord, newSettings);
-				}
-				settings = &baseSettings.modeshifts[chord];
-				printf("When %s is pressed, ", keystr.substr(0, keystr.find_first_of(',')).c_str());
-			}
-		}
-
-
-		ComboMap *simMap = nullptr; // Used when parsing simultaneous press
-		ComboMap* chordMap = nullptr; // Used when parsing chorded press
-		// unary commands
-		switch (index) {
-		case NO_GYRO_BUTTON:
-			printf("No button disables or enables gyro\n");
-			settings->gyro_settings = { false, MAPPING_NONE, GyroIgnoreMode::button };
-			return;
-		case RESET_MAPPINGS:
-			printf("Resetting all mappings to defaults\n");
-			resetAllMappings();
-			return;
-		case RECONNECT_CONTROLLERS:
-			printf("Reconnecting controllers\n");
-			JslDisconnectAndDisposeAll();
-			connectDevices();
-			JslSetCallback(&joyShockPollCallback);
-			return;
-		case COUNTER_OS_MOUSE_SPEED:
-			printf("Countering OS mouse speed setting\n");
-			os_mouse_speed = getMouseSpeed();
-			return;
-		case IGNORE_OS_MOUSE_SPEED:
-			printf("Ignoring OS mouse speed setting\n");
-			os_mouse_speed = 1.0;
-			return;
-		case CALCULATE_REAL_WORLD_CALIBRATION: {
-			// first, check for a parameter
-			std::string keyAsString = std::string(key);
-			std::string crwcArgument = keyAsString.substr(std::string("CALCULATE_REAL_WORLD_CALIBRATION").length(), 64); // no argument bigger than 64, I assume
-			float numRotations = 1.0;
-			if (crwcArgument.length() > 0) {
-				try {
-					numRotations = std::stof(crwcArgument);
-				}
-				catch (std::invalid_argument ia) {
-					printf("Can't convert \"%s\" to a number\n", crwcArgument.c_str());
-					return;
-				}
-			}
-			if (numRotations == 0) {
-				printf("Can't calculate calibration from zero rotations\n");
-			}
-			else if (last_flick_and_rotation == 0) {
-				printf("Need to use the flick stick at least once before calculating an appropriate calibration value\n");
-			}
-			else {
-				printf("Recommendation: REAL_WORLD_CALIBRATION = %.5g\n", *settings->real_world_calibration * last_flick_and_rotation / numRotations);
-			}
-			return;
-		}
-		case FINISH_GYRO_CALIBRATION: {
-			printf("Finishing continuous calibration for all devices\n");
-			for (std::unordered_map<int, JoyShock*>::iterator iter = handle_to_joyshock.begin(); iter != handle_to_joyshock.end(); ++iter) {
-				JoyShock* jc = iter->second;
-				JslPauseContinuousCalibration(jc->intHandle);
-			}
-			devicesCalibrating = false;
-			return;
-		}
-		case RESTART_GYRO_CALIBRATION:
-			printf("Restarting continuous calibration for all devices\n");
-			for (std::unordered_map<int, JoyShock*>::iterator iter = handle_to_joyshock.begin(); iter != handle_to_joyshock.end(); ++iter) {
-				JoyShock* jc = iter->second;
-				JslResetContinuousCalibration(jc->intHandle);
-				JslStartContinuousCalibration(jc->intHandle);
-			}
-			devicesCalibrating = true;
-			return;
-		case HELP:
-			printf("Opening online help in your browser\n");
-			if (auto err = ShowOnlineHelp() != 0)
-			{
-				printf("Could not open online help. Error #%d\n", err);
-			}
-			return;
-		case WHITELIST_SHOW:
-			printf("Launching HIDCerberus in your browser. Your PID is %lu\n", GetCurrentProcessId()); // WinAPI call!
-			Whitelister::ShowHIDCerberus();
-			return;
-		case WHITELIST_ADD:
-			whitelister.Add();
-			if (whitelister)
-			{
-				printf("JoyShockMapper was successfully whitelisted\n");
-			}
-			else
-			{
-				printf("Whitelisting failed!\n");
-			}
-			return;
-		case WHITELIST_REMOVE:
-			whitelister.Remove();
-			printf("JoyShockMapper removed from whitelist\n");
-			return;
-		}
-
-		Optional<float> sens;
-		size_t pos;
-		char value[128];
-		// other commands
-		if (is_line.getline(value, 128)) {
-			strtrim(value);
-			//printf("Value: %s;\n", value);
-			// bam! got our thingy!
-			// now, let's map!
-			// if index < 0 => handle Combo press after settings below
-			if (index == MAPPING_SIZE) {
-				printf("Error: Input %s somehow mapped to array size\n", key);
-				return;
-			}
-			// settings
-			else if (index > MAPPING_SIZE) {
-				switch (index) {
-				case MIN_GYRO_SENS:
-					if (processChordRemoval(chord, value, settings->min_gyro_sens_x) ||
-						processChordRemoval(chord, value, settings->min_gyro_sens_y))
-						return;
-					sens = getFloat(value, &pos);
-					if(sens)
-					{
-						settings->min_gyro_sens_x = settings->min_gyro_sens_y = *sens;
-						sens = getFloat(&value[pos]);
-						if (sens) {
-							settings->min_gyro_sens_y = *sens;
-							value[pos] = 0;
-							printf("Min gyro sensitivity set to X:%sx Y:%sx\n", value, &value[pos+1]);
-						} else {
-							printf("Min gyro sensitivity set to %sx\n", value);
-						}
-					} else {
-						printf("Can't convert \"%s\" to one or two numbers\n", value);
-					}
-					return;
-				case MAX_GYRO_SENS:
-					if (processChordRemoval(chord, value, settings->max_gyro_sens_x) ||
-						processChordRemoval(chord, value, settings->max_gyro_sens_y))
-						return;
-					sens = getFloat(value, &pos);
-					if (sens)
-					{
-						settings->max_gyro_sens_x = settings->max_gyro_sens_y = *sens;
-						sens = getFloat(&value[pos]);
-						if (sens) {
-							settings->max_gyro_sens_y = *sens;
-							value[pos] = 0;
-							printf("Max gyro sensitivity set to X:%sx Y:%sx\n", value, &value[pos + 1]);
-						} else {
-							printf("Max gyro sensitivity set to %sx\n", value);
-						}
-					}
-					else {
-						printf("Can't convert \"%s\" to one or two numbers\n", value);
-					}
-					return;
-				case MIN_GYRO_THRESHOLD:
-					if (processChordRemoval(chord, value, settings->min_gyro_threshold))
-						return;
-					try {
-						settings->min_gyro_threshold = std::stof(value);
-						printf("Min gyro sensitivity used at and below %sdps\n", value);
-					}
-					catch (std::invalid_argument ia) {
-						printf("Can't convert \"%s\" to a number\n", value);
-					}
-					return;
-				case MAX_GYRO_THRESHOLD:
-					if (processChordRemoval(chord, value, settings->max_gyro_threshold))
-						return;
-					try {
-						settings->max_gyro_threshold = std::stof(value);
-						printf("Max gyro sensitivity used at and above %sdps\n", value);
-					}
-					catch (std::invalid_argument ia) {
-						printf("Can't convert \"%s\" to a number\n", value);
-					}
-					return;
-				case STICK_POWER:
-					if (processChordRemoval(chord, value, settings->stick_power))
-						return;
-					try {
-						settings->stick_power = max(0.0f, std::stof(value));
-						printf("Stick power set to %0.4f\n", *settings->stick_power);
-					}
-					catch (std::invalid_argument ia) {
-						printf("Can't convert \"%s\" to a number\n", value);
-					}
-					return;
-				case STICK_SENS:
-					if (processChordRemoval(chord, value, settings->stick_sens))
-						return;
-					try {
-						settings->stick_sens = std::stof(value);
-						printf("Stick sensitivity set to %sdps\n", value);
-					}
-					catch (std::invalid_argument ia) {
-						printf("Can't convert \"%s\" to a number\n", value);
-					}
-					return;
-				case REAL_WORLD_CALIBRATION:
-					if (processChordRemoval(chord, value, settings->real_world_calibration))
-						return;
-					try {
-						settings->real_world_calibration = std::stof(value);
-						printf("Real world calibration set to %s\n", value);
-					}
-					catch (std::invalid_argument ia) {
-						printf("Can't convert \"%s\" to a number\n", value);
-					}
-					return;
-				case IN_GAME_SENS:
-				{
-					if (processChordRemoval(chord, value, settings->in_game_sens))
-						return;
-					try {
-						float old_sens = *settings->in_game_sens;
-						settings->in_game_sens = std::stof(value);
-						if (settings->in_game_sens == 0) {
-							settings->in_game_sens = old_sens;
-							printf("Can't set IN_GAME_SENS to zero. Reverting to previous setting (%0.4f)\n", *settings->in_game_sens);
-						}
-						else {
-							printf("In game sensitivity set to %s\n", value);
-						}
-					}
-					catch (std::invalid_argument ia) {
-						printf("Can't convert \"%s\" to a number\n", value);
-					}
-					return;
-				}
-				case MOUSE_RING_RADIUS:
-					if (processChordRemoval(chord, value, settings->mouse_ring_radius))
-						return;
-					try {
-						float temp = std::stof(value);
-						settings->mouse_ring_radius = temp;
-						printf("Mouse ring radius set to %s\n", value);
-					}
-					catch (std::invalid_argument ia) {
-						printf("Can't convert \"%s\" to a number\n", value);
-					}
-					return;
-				case SCREEN_RESOLUTION_X:
-					if (processChordRemoval(chord, value, settings->screen_resolution_x))
-						return;
-					try {
-						int temp = std::stoi(value);
-						settings->screen_resolution_x = temp;
-						printf("Screen resolution X set to %s\n", value);
-					}
-					catch (std::invalid_argument ia) {
-						printf("Can't convert \"%s\" to a number\n", value);
-					}
-					return;
-				case SCREEN_RESOLUTION_Y:
-					if (processChordRemoval(chord, value, settings->screen_resolution_y))
-						return;
-					try {
-						int temp = std::stoi(value);
-						settings->screen_resolution_y = temp;
-						printf("Screen resolution Y set to %s\n", value);
-					}
-					catch (std::invalid_argument ia) {
-						printf("Can't convert \"%s\" to a number\n", value);
-					}
-					return;
-				case ROTATE_SMOOTH_OVERRIDE:
-					if (processChordRemoval(chord, value, settings->rotate_smooth_override))
-						return;
-					try {
-						float temp = std::stof(value);
-						if (temp < 0.0f) {
-							temp = -1.0f;
-						}
-						settings->rotate_smooth_override = temp;
-						printf("Rotate smooth override set to %0.4f\n", temp);
-					}
-					catch (std::invalid_argument ia) {
-						printf("Can't convert \"%s\" to a number\n", value);
-					}
-					return;
-				case FLICK_SNAP_STRENGTH:
-					if (processChordRemoval(chord, value, settings->flick_snap_strength))
-						return;
-					try {
-						float temp = std::stof(value);
-						if (temp < 0.0f) {
-							temp = 0.0f;
-						}
-						if (temp > 1.0f) {
-							temp = 1.0f;
-						}
-						settings->flick_snap_strength = temp;
-						printf("Flick snap strength set to %0.4f\n", temp);
-					}
-					catch (std::invalid_argument ia) {
-						printf("Can't convert \"%s\" to a number\n", value);
-					}
-					return;
-				case FLICK_SNAP_MODE:
-				{
-					if (processChordRemoval(chord, value, settings->flick_snap_mode))
-						return;
-					FlickSnapMode temp = nameToFlickSnapMode(std::string(value));
-					if (temp != FlickSnapMode::invalid) {
-						settings->flick_snap_mode = temp;
-						printf("Flick snap mode set to %s\n", value);
-					}
-					else {
-						printf("Valid settings for FLICK_SNAP_MODE are NONE, 4, or 8\n");
-					}
-					return;
-				}
-				case TRIGGER_THRESHOLD:
-					if (processChordRemoval(chord, value, settings->trigger_threshold))
-						return;
-					try {
-						settings->trigger_threshold = std::stof(value);
-						printf("Trigger ignored below %s\n", value);
-					}
-					catch (std::invalid_argument ia) {
-						printf("Can't convert \"%s\" to a number\n", value);
-					}
-					return;
-				case LEFT_STICK_MODE:
-				{
-					if (processChordRemoval(chord, value, settings->left_stick_mode))
-						return;
-					printf("Left stick: ");
-					StickMode temp = nameToStickMode(std::string(value), true);
-					printf("\n");
-					if (temp != StickMode::invalid) {
-						if (temp == StickMode::inner) {
-							settings->left_ring_mode = RingMode::inner;
-							temp = StickMode::none;
-						}
-						else if (temp == StickMode::outer) {
-							settings->left_ring_mode = RingMode::outer;
-							temp = StickMode::none;
-						}
-						settings->left_stick_mode = temp;
-					}
-					else {
-						printf("Valid settings for LEFT_STICK_MODE are NO_MOUSE, AIM, FLICK, FLICK_ONLY, ROTATE_ONLY, MOUSE_RING or MOUSE_AREA\n");
-					}
-					return;
-				}
-				case RIGHT_STICK_MODE:
-				{
-					if (processChordRemoval(chord, value, settings->right_stick_mode))
-						return;
-					printf("Right stick: ");
-					StickMode temp = nameToStickMode(std::string(value), true);
-					printf("\n");
-					if (temp != StickMode::invalid) {
-						if (temp == StickMode::inner) {
-							settings->right_ring_mode = RingMode::inner;
-							temp = StickMode::none;
-						}
-						else if (temp == StickMode::outer) {
-							settings->right_ring_mode = RingMode::outer;
-							temp = StickMode::none;
-						}
-						settings->right_stick_mode = temp;
-					}
-					else {
-						printf("Valid settings for RIGHT_STICK_MODE are NO_MOUSE, AIM, FLICK, FLICK_ONLY, ROTATE_ONLY, MOUSE_RING or MOUSE_AREA\n");
-					}
-					return;
-				}
-				case LEFT_RING_MODE:
-				{
-					if (processChordRemoval(chord, value, settings->left_ring_mode))
-						return;
-					printf("Left ring: ");
-					RingMode temp = nameToRingMode(std::string(value), true);
-					printf("\n");
-					if (temp != RingMode::invalid) {
-						settings->left_ring_mode = temp;
-					}
-					else {
-						printf("Valid settings for LEFT_RING_MODE are INNER or OUTER\n");
-					}
-					return;
-				}
-				case RIGHT_RING_MODE:
-				{
-					if (processChordRemoval(chord, value, settings->right_ring_mode))
-						return;
-					printf("Right ring: ");
-					RingMode temp = nameToRingMode(std::string(value), true);
-					printf("\n");
-					if (temp != RingMode::invalid) {
-						settings->right_ring_mode = temp;
-					}
-					else {
-						printf("Valid settings for RIGHT_RING_MODE are INNER or OUTER\n");
-					}
-					return;
-				}
-				case STICK_AXIS_X:
-				{
-					if (processChordRemoval(chord, value, settings->aim_x_sign))
-						return;
-					printf("Stick aim X axis: ");
-					AxisMode sign = nameToAxisMode(std::string(value), true);
-					printf("\n");
-					if (sign) {
-						settings->aim_x_sign = static_cast<float>(sign);
-					}
-					else {
-						printf("Valid settings for STICK_AXIS_X are STANDARD or INVERTED\n");
-					}
-					return;
-				}
-				case STICK_AXIS_Y:
-				{
-					if (processChordRemoval(chord, value, settings->aim_y_sign))
-						return;
-					printf("Stick aim Y axis: ");
-					AxisMode sign = nameToAxisMode(std::string(value), true);
-					printf("\n");
-					if (sign) {
-						settings->aim_y_sign = static_cast<float>(sign);
-					}
-					else {
-						printf("Valid settings for STICK_AXIS_Y are STANDARD or INVERTED\n");
-					}
-					return;
-				}
-				case GYRO_AXIS_X:
-				{
-					if (processChordRemoval(chord, value, settings->gyro_x_sign))
-						return;
-					printf("Gyro aim X axis: ");
-					AxisMode sign = nameToAxisMode(std::string(value), true);
-					printf("\n");
-					if (sign) {
-						settings->gyro_x_sign = static_cast<float>(sign);
-					}
-					else {
-						printf("Valid settings for GYRO_AXIS_X are STANDARD or INVERTED\n");
-					}
-					return;
-				}
-				case GYRO_AXIS_Y:
-				{
-					if (processChordRemoval(chord, value, settings->gyro_y_sign))
-						return;
-					printf("Gyro aim Y axis: ");
-					AxisMode sign = nameToAxisMode(std::string(value), true);
-					printf("\n");
-					if (sign) {
-						settings->gyro_y_sign = static_cast<float>(sign);
-					}
-					else {
-						printf("Valid settings for GYRO_AXIS_Y are STANDARD or INVERTED\n");
-					}
-					return;
-				}
-				case JOYCON_GYRO_MASK:
-				{
-					if (processChordRemoval(chord, value, settings->joycon_gyro_mask))
-						return;
-					printf("Joycon gyro mask: ");
-					JoyconMask temp = nameToJoyconMask(std::string(value), true);
-					printf("\n");
-					if (temp != JoyconMask::invalid) {
-						settings->joycon_gyro_mask = temp;
-						printf("Joycon gyro mask set to %s\n", value);
-					}
-					else {
-						printf("Valid settings for JOYCON_GYRO_MASK are IGNORE_LEFT, IGNORE_RIGHT, IGNORE_BOTH, or USE_BOTH\n");
-					}
-					return;
-				}
-				case MOUSE_X_FROM_GYRO_AXIS:
-				{
-					if (processChordRemoval(chord, value, settings->mouse_x_from_gyro))
-						return;
-					printf("Mouse x reads gyro axis: ");
-					GyroAxisMask temp = nameToGyroAxisMask(std::string(value), true);
-					printf("\n");
-					if (temp != GyroAxisMask::invalid) {
-						settings->mouse_x_from_gyro = temp;
-						if (temp == GyroAxisMask::none) {
-							printf("Gyro not used for mouse x axis\no");
-						}
-						else {
-							printf("Mouse x axis set to gyro %s axis\n", value);
-						}
-					}
-					else {
-						printf("Valid settings for MOUSE_X_FROM_GYRO_AXIS are X, Y, Z, or NONE\n");
-					}
-					return;
-				}
-				case MOUSE_Y_FROM_GYRO_AXIS:
-				{
-					if (processChordRemoval(chord, value, settings->mouse_y_from_gyro))
-						return;
-					printf("Mouse y reads gyro axis: ");
-					GyroAxisMask temp = nameToGyroAxisMask(std::string(value), true);
-					printf("\n");
-					if (temp != GyroAxisMask::invalid) {
-						settings->mouse_y_from_gyro = temp;
-						if (temp == GyroAxisMask::none) {
-							printf("Gyro not used for mouse y axis\n");
-						}
-						else {
-							printf("Mouse y axis set to gyro %s axis\n", value);
-						}
-					}
-					else {
-						printf("Valid settings for MOUSE_Y_FROM_GYRO_AXIS are X, Y, Z, or NONE\n");
-					}
-					return;
-				}
-				case GYRO_OFF:
-				{
-					if (processChordRemoval(chord, value, settings->gyro_settings))
-						return;
-					std::string valueName = std::string(value);
-					int rhsMappingIndex = keyToMappingIndex(valueName);
-					if (rhsMappingIndex >= 0 && rhsMappingIndex < MAPPING_SIZE)
-					{
-						settings->gyro_settings = { false, rhsMappingIndex, GyroIgnoreMode::button };
-						printf("Disable gyro with %s\n", value);
-					}
-					else if (rhsMappingIndex == MAPPING_NONE)
-					{
-						settings->gyro_settings = { false, MAPPING_NONE, GyroIgnoreMode::button };
-						printf("No button disables gyro\n");
-					}
-					else if (valueName.compare("LEFT_STICK") == 0)
-					{
-						settings->gyro_settings = { false, 0, GyroIgnoreMode::left };
-						printf("Disable gyro when left stick is used\n");
-					}
-					else if (valueName.compare("RIGHT_STICK") == 0)
-					{
-						settings->gyro_settings = { false, 0, GyroIgnoreMode::right };
-						printf("Disable gyro when right stick is used\n");
-					}
-					else {
-						printf("Can't map GYRO_OFF to \"%s\". Gyro button can be unmapped with \"NO_GYRO_BUTTON\"\n", value);
-					}
-					return;
-				}
-				case GYRO_ON:
-				{
-					if (processChordRemoval(chord, value, settings->gyro_settings))
-						return;
-					std::string valueName = std::string(value);
-					int rhsMappingIndex = keyToMappingIndex(valueName);
-					if (rhsMappingIndex >= 0 && rhsMappingIndex < MAPPING_SIZE)
-					{
-						settings->gyro_settings = { true, rhsMappingIndex, GyroIgnoreMode::button };
-						printf("Enable gyro with %s\n", value);
-					}
-					else if (rhsMappingIndex == MAPPING_NONE)
-					{
-						settings->gyro_settings = { true, MAPPING_NONE, GyroIgnoreMode::button };
-						printf("No button enables gyro\n");
-					}
-					else if (valueName.compare("LEFT_STICK") == 0)
-					{
-						settings->gyro_settings = { true, 0, GyroIgnoreMode::left };
-						printf("Enable gyro when left stick is used\n");
-					}
-					else if (valueName.compare("RIGHT_STICK") == 0)
-					{
-						settings->gyro_settings = { true, 0, GyroIgnoreMode::right };
-						printf("Enable gyro when right stick is used\n");
-					}
-					else {
-						printf("Can't map GYRO_ON to \"%s\". Gyro button can be unmapped with \"NO_GYRO_BUTTON\"\n", value);
-					}
-					return;
-				}
-				case GYRO_SENS:
-					if (processChordRemoval(chord, value, settings->max_gyro_sens_x) ||
-						processChordRemoval(chord, value, settings->max_gyro_sens_y) || 
-						processChordRemoval(chord, value, settings->min_gyro_sens_x) || 
-						processChordRemoval(chord, value, settings->min_gyro_sens_y) )
-						return;
-					sens = getFloat(value, &pos); // Get sensitivity value
-					if (sens)
-					{
-						settings->min_gyro_sens_x = settings->min_gyro_sens_y = settings->max_gyro_sens_x = settings->max_gyro_sens_y = *sens;
-						sens = getFloat(&value[pos]); // Is there a specific vertical value?
-						if (sens) {
-							settings->min_gyro_sens_y = settings->max_gyro_sens_y = *sens;
-							value[pos] = 0;
-							printf("Gyro sensitivity set to X:%sx Y:%sx\n", value, &value[pos + 1]);
-						}
-						else {
-							printf("Gyro sensitivity set to %sx\n", value);
-						}
-					}
-					else {
-						printf("Can't convert \"%s\" to one or two numbers\n", value);
-					}
-					return;
-				case FLICK_TIME:
-				{
-					if (processChordRemoval(chord, value, settings->flick_time))
-						return;
-					try {
-						float val = std::stof(value);
-						if (val < 0.0001f) {
-							val = 0.0001f; // prevent it being actually zero
-						}
-						settings->flick_time = val;
-						printf("Flick time set to %ss\n", value);
-					}
-					catch (std::invalid_argument ia) {
-						printf("Can't convert \"%s\" to a number\n", value);
-					}
-					return;
-				}
-				case GYRO_SMOOTH_THRESHOLD:
-				{
-					if (processChordRemoval(chord, value, settings->gyro_smooth_threshold))
-						return;
-					try {
-						settings->gyro_smooth_threshold = std::stof(value);
-						printf("Gyro smoothing ignored at and above %sdps\n", value);
-					}
-					catch (std::invalid_argument ia) {
-						printf("Can't convert \"%s\" to a number\n", value);
-					}
-					return;
-				}
-				case GYRO_SMOOTH_TIME:
-				{
-					if (processChordRemoval(chord, value, settings->gyro_smooth_time))
-						return;
-					try {
-						settings->gyro_smooth_time = std::stof(value);
-						printf("GYRO_SMOOTH_TIME set to %ss\n", value);
-					}
-					catch (std::invalid_argument ia) {
-						printf("Can't convert \"%s\" to a number\n", value);
-					}
-					return;
-				}
-				case GYRO_CUTOFF_SPEED:
-				{
-					if (processChordRemoval(chord, value, settings->gyro_cutoff_speed))
-						return;
-					try {
-						settings->gyro_cutoff_speed = std::stof(value);
-						printf("Ignoring gyro speed below %sdps\n", value);
-					}
-					catch (std::invalid_argument ia) {
-						printf("Can't convert \"%s\" to a number\n", value);
-					}
-					return;
-				}
-				case GYRO_CUTOFF_RECOVERY:
-				{
-					if (processChordRemoval(chord, value, settings->gyro_cutoff_recovery))
-						return;
-					try {
-						settings->gyro_cutoff_recovery = std::stof(value);
-						printf("Gyro cutoff recovery set to %sdps\n", value);
-					}
-					catch (std::invalid_argument ia) {
-						printf("Can't convert \"%s\" to a number\n", value);
-					}
-					return;
-				}
-				case STICK_ACCELERATION_RATE:
-				{
-					if (processChordRemoval(chord, value, settings->stick_acceleration_rate))
-						return;
-					try {
-						settings->stick_acceleration_rate = max(0.0f, std::stof(value));
-						printf("Stick speed when fully pressed increases by a factor of %s per second\n", value);
-					}
-					catch (std::invalid_argument ia) {
-						printf("Can't convert \"%s\" to a number\n", value);
-					}
-					return;
-				}
-				case STICK_ACCELERATION_CAP:
-				{
-					if (processChordRemoval(chord, value, settings->stick_acceleration_cap))
-						return;
-					try {
-						settings->stick_acceleration_cap = max(1.0f, std::stof(value));
-						printf("Stick acceleration factor capped at %s\n", value);
-					}
-					catch (std::invalid_argument ia) {
-						printf("Can't convert \"%s\" to a number\n", value);
-					}
-					return;
-				}
-				case STICK_DEADZONE_INNER:
-				{
-					if (processChordRemoval(chord, value, settings->stick_deadzone_inner))
-						return;
-					try {
-						settings->stick_deadzone_inner = max(0.0f, min(1.0f, std::stof(value)));
-						printf("Stick treats any value within %s of the centre as the centre\n", value);
-					}
-					catch (std::invalid_argument ia) {
-						printf("Can't convert \"%s\" to a number\n", value);
-					}
-					return;
-				}
-				case STICK_DEADZONE_OUTER:
-				{
-					if (processChordRemoval(chord, value, settings->stick_deadzone_outer))
-						return;
-					try {
-						settings->stick_deadzone_outer = max(0.0f, min(1.0f, std::stof(value)));
-						printf("Stick treats any value within %s of the edge as the edge\n", value);
-					}
-					catch (std::invalid_argument ia) {
-						printf("Can't convert \"%s\" to a number\n", value);
-					}
-					return;
-				}
-				case ZR_DUAL_STAGE_MODE:
-				{
-					if (processChordRemoval(chord, value, settings->zrMode))
-						return;
-					printf("Right trigger: ");
-					TriggerMode temp = nameToTriggerMode(std::string(value), true);
-					printf("\n");
-					if (temp != TriggerMode::invalid) {
-						settings->zrMode = temp;
-						for (auto js : handle_to_joyshock)
-						{
-							if (JslGetControllerType(js.first) != JS_TYPE_DS4)
-							{
-								printf("WARNING: Dual Stage Triggers are only valid on analog triggers. Full pull bindings will be ignored on non DS4 controllers.\n");
-								break;
-							}
-						}
-					}
-					else {
-						printf("Valid settings for ZR_MODE are NO_FULL, NO_SKIP, MAY_SKIP, MAY_SKIP_R, MUST_SKIP and MUST_SKIP_R\n");
-					}
-					return;
-				}
-				case ZL_DUAL_STAGE_MODE:
-				{
-					if (processChordRemoval(chord, value, settings->zlMode))
-						return;
-					printf("Left trigger: ");
-					TriggerMode temp = nameToTriggerMode(std::string(value), true);
-					printf("\n");
-					if (temp != TriggerMode::invalid) {
-						settings->zlMode = temp;
-						for (auto js : handle_to_joyshock)
-						{
-							if (JslGetControllerType(js.first) != JS_TYPE_DS4)
-							{
-								printf("WARNING: Dual Stage Triggers are only valid on analog triggers. Full pull bindings will be ignored on non DS4 controllers.\n");
-								break;
-							}
-						}
-					}
-					else {
-						printf("Valid settings for ZR_MODE are NO_FULL, NO_SKIP, MAY_SKIP, MAY_SKIP_R, MUST_SKIP and MUST_SKIP_R\n");
-					}
-					return;
-				}
-				case AUTOLOAD:
-				{
-					if (!autoLoadThread)
-					{
-						printf("AutoLoad is unavailable\n");
-						return;
-					}
-					std::string valueName(value);
-					if (valueName.compare("ON") == 0)
-					{
-						autoLoadThread->Start();
-						printf("AutoLoad is now running.\n");
-					}
-					else if (valueName.compare("OFF") == 0)
-					{
-						autoLoadThread->Stop();
-						printf("AutoLoad is stopped\n");
-					}
-					else {
-						printf("%s is an invalid option\nAUTOLOAD can only be assigned ON or OFF\n", value);
-					}
-					return;
-				}
-				default:
-					printf("Error: Input %s somehow mapped to value out of mapping range\n", key);
-				}
-			}
-			else if (index < 0)
-			{
-				// Try Parsing a simultaneous Press
-				std::string keystr(key);
-				index = keyToMappingIndex(keystr.substr(0, keystr.find_first_of('+')));
-				index2 = keyToMappingIndex(keystr.substr(keystr.find_first_of('+') + 1, keystr.size()));
-				if (index >= 0 && index < MAPPING_SIZE && index2 >= 0 && index2 < MAPPING_SIZE)
-				{
-					auto existingBinding = std::find_if(mappings[index].sim_mappings.begin(), mappings[index].sim_mappings.end(),
-						[index2] (const auto& mapping) {
-							return mapping.btn == index2;
-						});
-					if (existingBinding != mappings[index].sim_mappings.end())
-					{
-						// Remove any existing mapping
-						mappings[index].sim_mappings.erase(existingBinding);
-						// Is it fair to assume the opposing pair exists?
-						existingBinding = std::find_if(mappings[index2].sim_mappings.begin(), mappings[index2].sim_mappings.end(),
-							[index] (const auto& mapping) {
-								return mapping.btn == index;
-							});
-						mappings[index2].sim_mappings.erase(existingBinding);
-					}
-					mappings[index].sim_mappings.push_back({ keystr, index2, 0, 0 });
-					simMap = &mappings[index].sim_mappings.back();
-				}
-			}
-			else if(chord != MAPPING_ERROR)
-			{
-				// Chord is already parsed to handle modehsifts. Check values.
-				if (chord >= 0 && chord < MAPPING_SIZE && index >= 0)
-				{
-					if (index < MAPPING_SIZE)
-					{
-						auto existingBinding = std::find_if(mappings[index].chord_mappings.cbegin(), mappings[index].chord_mappings.cend(),
-							[chord](const auto &chordMap) {
-								return chordMap.btn == chord;
-							});
-						if (existingBinding != mappings[index].chord_mappings.end())
-						{
-							// Remove any existing mapping
-							mappings[index].chord_mappings.erase(existingBinding);
-						}
-						mappings[index].chord_mappings.push_back({ std::string(key), chord, 0, 0 });
-						chordMap = &mappings[index].chord_mappings.back(); // point to vector item
-					}
-				}
-			}
-
-			if (index < 0)
-			{
-				// Parsing failed
-				printf("Command \"%s\" not recognized\nEnter HELP to open online documentation\n", key);
-				return;
-			}
-			// we have a valid single button input, so clear old hold_mapping for this input
-			if(index >= 0 && !simMap && !chordMap) mappings[index].holdBind = 0;
-			WORD output = nameToKey(std::string(value));
-			if (output == NO_HOLD_MAPPED) {
-				output = 0;
-				printf("%s mapped to no input\n", key);
-			}
-			else if (output == 0x00) {
-				// try splitting -- it might be a tap and hold
-				char* subValue = value;
-				while (*subValue && *++subValue != ' '); // find a space
-				if (*subValue) {
-					// we haven't reached the end, we're good to go
-					*subValue = 0; // null terminating. now we maybe have two strings
-					subValue++;
-				}
-				// Else we have reached the end. Keep pointing at the 0
-				output = nameToKey(std::string(value));
-				WORD holdOutput = nameToKey(std::string(subValue));
-				if (output == 0x00) {
-					// tap and hold requires the tap to be a regular input. Hold can be none, if only taps should register input
-					printf("Tap output %s for %s not recognized\n", value, key);
-				}
-				else {
-					printf("Tap %s mapped to %s\n", key, value);
-				}
-				if (strlen(subValue) > 0)
-				{
-					if (holdOutput == 0x00 ) {
-						printf("Hold output %s for input %s not recognized\n", subValue, key);
-					}
-					else
-					{
-						simMap ? simMap->holdBind = holdOutput :
-							chordMap ? chordMap->holdBind = holdOutput :
-							mappings[index].holdBind = holdOutput;
-						printf("Hold %s mapped to %s\n", key, subValue);
-					}
-				}
-
-				// translate a "NONE" to 0 -- only keep it as a NO_HOLD_MAPPING for hold_mappings
-				if (output == NO_HOLD_MAPPED) {
-					output = 0;
-				}
-			}
-			else {
-				printf("%s mapped to %s\n", key, value);
-			}
-			simMap ? simMap->pressBind = output :
-				chordMap ? chordMap->pressBind = output :
-				mappings[index].pressBind = output;
-			if (output == 0) // Setting a sim press or chord to NONE erases the bindings
-			{
-				if (simMap)
-				{
-					mappings[index].sim_mappings.pop_back();
-				}
-				else if (chordMap)
-				{
-					mappings[index].chord_mappings.pop_back();
-				}
-			}
-			else if(simMap) // and output not NONE
-			{
-				// Sim Press commands are added as twins
-				mappings[simMap->btn].sim_mappings.push_back({ simMap->name, index, simMap->pressBind, simMap->holdBind });
-			}
-		}
-		else {
-			printf("Command \"%s\" not recognized\nEnter HELP to open online documentation\n", line.c_str());
-		}
 	}
 }
 
@@ -3064,6 +1414,197 @@ JoyShock* getJoyShockFromHandle(int handle) {
 	return nullptr;
 }
 
+bool do_NO_GYRO_BUTTON() {
+	// TODO: handle chords
+	baseSettings.gyro_settings = GyroSettings{ false, ButtonID::NONE, GyroIgnoreMode::button };
+	return true;
+}
+
+bool do_RESET_MAPPINGS() {
+	printf("Resetting all mappings to defaults\n");
+	resetAllMappings();
+	return true;
+}
+
+bool do_RECONNECT_CONTROLLERS() {
+	printf("Reconnecting controllers\n");
+	JslDisconnectAndDisposeAll();
+	connectDevices();
+	JslSetCallback(&joyShockPollCallback);
+	return true;
+}
+
+bool do_COUNTER_OS_MOUSE_SPEED() {
+	printf("Countering OS mouse speed setting\n");
+	os_mouse_speed = getMouseSpeed();
+	return true;
+}
+
+bool do_IGNORE_OS_MOUSE_SPEED() {
+	printf("Ignoring OS mouse speed setting\n");
+	os_mouse_speed = 1.0;
+	return true;
+}
+
+bool do_GYRO_SENS(in_string argument)
+{
+	stringstream ss(argument);
+	// Ignore whitespaces until the '=' is found
+	char c;
+	for (c = ss.peek(); ss.good() && c == ' '; ss >> c);
+	if (!ss.good())
+	{
+		//No assignment? Display current assignment
+		cout << "MIN_GYRO_SENS = " << baseSettings.min_gyro_sens.get() << endl << "MAX_GYRO_SENS = " << baseSettings.max_gyro_sens.get() << endl;
+	}
+	if (c == '=')
+	{
+		size_t pos;
+		string value;
+		ss >> value;
+		auto sens = getFloat(value, &pos);
+		if (sens)
+		{
+			FloatXY newSens{ *sens, *sens };
+			sens = getFloat(&value[pos]);
+			if (sens) {
+				newSens.second = *sens;
+				value[pos] = 0;
+				cout << "Gyro sensitivity set to X:" << value << "x Y:" << &value[pos + 1] << "x" << endl;
+			}
+			else {
+				cout << "Gyro sensitivity set to " << value << "x" << endl;
+			}
+			baseSettings.min_gyro_sens = newSens;
+			return true;
+		}
+		else {
+			cout << "Can't convert \"" << value << "\" to one or two numbers" << endl;
+		}
+	}
+	// Not an equal sign? The command is entered wrong!
+	return false;
+}
+
+bool do_AUTOLOAD(in_string argument)
+{
+	if (!autoLoadThread)
+	{
+		cout << "AutoLoad is unavailable" << endl;
+		return true; // No need to display help
+	}
+	stringstream ss(argument);
+	// Ignore whitespaces until the '=' is found
+	char c;
+	for (c = ss.peek(); ss.good() && c == ' '; ss >> c);
+	if (!ss.good())
+	{
+		//No assignment? Display current assignment
+		cout << "AUTOLOAD = " << (autoLoadThread->isRunning() ? "ON " : "OFF") << endl;
+	}
+	if (c == '=')
+	{
+		string valueName;
+		ss >> valueName;
+		if (valueName.compare("ON") == 0)
+		{
+			autoLoadThread->Start();
+			cout << "AutoLoad is now running" << endl;
+		}
+		else if (valueName.compare("OFF") == 0)
+		{
+			autoLoadThread->Stop();
+			cout << "AutoLoad is stopped" << endl;;
+		}
+		else {
+			cout << valueName << " is an invalid option" << endl << "AUTOLOAD can only be assigned ON or OFF" << endl;
+		}
+	}
+	// Not an equal sign? The command is entered wrong!
+	return false;
+}
+
+bool do_CALCULATE_REAL_WORLD_CALIBRATION(in_string argument) {
+	// first, check for a parameter
+	string keyAsString = string(argument);
+	string crwcArgument = keyAsString.substr(string("CALCULATE_REAL_WORLD_CALIBRATION").length(), 64); // no argument bigger than 64, I assume
+	float numRotations = 1.0;
+	if (crwcArgument.length() > 0) {
+		try {
+			numRotations = stof(crwcArgument);
+		}
+		catch (invalid_argument ia) {
+			printf("Can't convert \"%s\" to a number\n", crwcArgument.c_str());
+			return false;
+		}
+	}
+	if (numRotations == 0) {
+		printf("Can't calculate calibration from zero rotations\n");
+	}
+	else if (last_flick_and_rotation == 0) {
+		printf("Need to use the flick stick at least once before calculating an appropriate calibration value\n");
+	}
+	else {
+		printf("Recommendation: REAL_WORLD_CALIBRATION = %.5g\n", *baseSettings.real_world_calibration.get() * last_flick_and_rotation / numRotations);
+	}
+	return true;
+}
+
+bool do_FINISH_GYRO_CALIBRATION() {
+	printf("Finishing continuous calibration for all devices\n");
+	for (unordered_map<int, JoyShock*>::iterator iter = handle_to_joyshock.begin(); iter != handle_to_joyshock.end(); ++iter) {
+		JoyShock* jc = iter->second;
+		JslPauseContinuousCalibration(jc->intHandle);
+	}
+	devicesCalibrating = false;
+	return true;
+}
+
+bool do_RESTART_GYRO_CALIBRATION() {
+	printf("Restarting continuous calibration for all devices\n");
+	for (unordered_map<int, JoyShock*>::iterator iter = handle_to_joyshock.begin(); iter != handle_to_joyshock.end(); ++iter) {
+		JoyShock* jc = iter->second;
+		JslResetContinuousCalibration(jc->intHandle);
+		JslStartContinuousCalibration(jc->intHandle);
+	}
+	devicesCalibrating = true;
+	return true;
+}
+
+bool do_HELP() {
+	printf("Opening online help in your browser\n");
+	if (auto err = ShowOnlineHelp() != 0)
+	{
+		printf("Could not open online help. Error #%d\n", err);
+	}
+	return true;
+}
+
+bool do_WHITELIST_SHOW() {
+	printf("Launching HIDCerberus in your browser. Your PID is %lu\n", GetCurrentProcessId()); // WinAPI call!
+	Whitelister::ShowHIDCerberus();
+	return true;
+}
+
+bool do_WHITELIST_ADD() {
+	whitelister.Add();
+	if (whitelister)
+	{
+		printf("JoyShockMapper was successfully whitelisted\n");
+	}
+	else
+	{
+		printf("Whitelisting failed!\n");
+	}
+	return true;
+}
+
+bool do_WHITELIST_REMOVE() {
+	whitelister.Remove();
+	printf("JoyShockMapper removed from whitelist\n");
+	return true;
+}
+
 static float handleFlickStick(float calX, float calY, float lastCalX, float lastCalY, float stickLength, bool& isFlicking, JoyShock* jc, float mouseCalibrationFactor, bool flickOnly, bool rotateOnly) {
 	float camSpeedX = 0.0f;
 	// let's centre this
@@ -3071,10 +1612,10 @@ static float handleFlickStick(float calX, float calY, float lastCalX, float last
 	float offsetY = calY;
 	float lastOffsetX = lastCalX;
 	float lastOffsetY = lastCalY;
-	float flickStickThreshold = 1.0f - jc->getSetting(STICK_DEADZONE_OUTER);
+	float flickStickThreshold = 1.0f - jc->getSetting(SettingID::STICK_DEADZONE_OUTER);
 	if (isFlicking)
 	{
-		flickStickThreshold *= 0.9;
+		flickStickThreshold *= 0.9f;
 	}
 	if (stickLength >= flickStickThreshold) {
 		float stickAngle = atan2(-offsetX, offsetY);
@@ -3084,7 +1625,7 @@ static float handleFlickStick(float calX, float calY, float lastCalX, float last
 			isFlicking = true;
 			if (!rotateOnly)
 			{
-				auto flick_snap_mode = jc->getSetting<FlickSnapMode>(FLICK_SNAP_MODE);
+				auto flick_snap_mode = jc->getSetting<FlickSnapMode>(SettingID::FLICK_SNAP_MODE);
 				if (flick_snap_mode != FlickSnapMode::none) {
 					// handle snapping
 					float snapInterval;
@@ -3096,11 +1637,11 @@ static float handleFlickStick(float calX, float calY, float lastCalX, float last
 					}
 					float snappedAngle = round(stickAngle / snapInterval) * snapInterval;
 					// lerp by snap strength
-					auto flick_snap_strength = jc->getSetting(FLICK_SNAP_STRENGTH);
+					auto flick_snap_strength = jc->getSetting(SettingID::FLICK_SNAP_STRENGTH);
 					stickAngle = stickAngle * (1.0f - flick_snap_strength) + snappedAngle * flick_snap_strength;
 				}
 
-				jc->started_flick = std::chrono::steady_clock::now();
+				jc->started_flick = chrono::steady_clock::now();
 				jc->delta_flick = stickAngle;
 				jc->flick_percent_done = 0.0f;
 				jc->ResetSmoothSample();
@@ -3121,12 +1662,12 @@ static float handleFlickStick(float calX, float calY, float lastCalX, float last
 					angleChange += 2.0f * PI;
 				angleChange -= PI;
 				jc->flick_rotation_counter += angleChange; // track all rotation for this flick
-				float flickSpeedConstant = jc->getSetting(REAL_WORLD_CALIBRATION) * mouseCalibrationFactor / jc->getSetting(IN_GAME_SENS);
+				float flickSpeedConstant = jc->getSetting(SettingID::REAL_WORLD_CALIBRATION) * mouseCalibrationFactor / jc->getSetting(SettingID::IN_GAME_SENS);
 				float flickSpeed = -(angleChange * flickSpeedConstant);
 				int maxSmoothingSamples = min(jc->NumSamples, (int)(64.0f * (jc->poll_rate / 1000.0f))); // target a max smoothing window size of 64ms
 				float stepSize = jc->stick_step_size; // and we only want full on smoothing when the stick change each time we poll it is approximately the minimum stick resolution
 													  // the fact that we're using radians makes this really easy
-				auto rotate_smooth_override = jc->getSetting(ROTATE_SMOOTH_OVERRIDE);
+				auto rotate_smooth_override = jc->getSetting(SettingID::ROTATE_SMOOTH_OVERRIDE);
 				if (rotate_smooth_override < 0.0f)
 				{
 					camSpeedX = jc->GetSmoothedStickRotation(flickSpeed, flickSpeedConstant * stepSize * 8.0f, flickSpeedConstant * stepSize * 16.0f, maxSmoothingSamples);
@@ -3146,8 +1687,8 @@ static float handleFlickStick(float calX, float calY, float lastCalX, float last
 		isFlicking = false;
 	}
 	// do the flicking
-	float secondsSinceFlick = ((float)std::chrono::duration_cast<std::chrono::microseconds>(jc->time_now - jc->started_flick).count()) / 1000000.0f;
-	float newPercent = secondsSinceFlick / jc->getSetting(FLICK_TIME);
+	float secondsSinceFlick = ((float)chrono::duration_cast<chrono::microseconds>(jc->time_now - jc->started_flick).count()) / 1000000.0f;
+	float newPercent = secondsSinceFlick / jc->getSetting(SettingID::FLICK_TIME);
 	if (newPercent > 1.0f) newPercent = 1.0f;
 	// warping towards 1.0
 	float oldShapedPercent = 1.0f - jc->flick_percent_done;
@@ -3158,7 +1699,7 @@ static float handleFlickStick(float calX, float calY, float lastCalX, float last
 	newPercent = 1.0f - newPercent;
 	newPercent *= newPercent;
 	newPercent = 1.0f - newPercent;
-	float camSpeedChange = (newPercent - oldShapedPercent) * jc->delta_flick * jc->getSetting(REAL_WORLD_CALIBRATION) * -mouseCalibrationFactor / jc->getSetting(IN_GAME_SENS);
+	float camSpeedChange = (newPercent - oldShapedPercent) * jc->delta_flick * jc->getSetting(SettingID::REAL_WORLD_CALIBRATION) * -mouseCalibrationFactor / jc->getSetting(SettingID::IN_GAME_SENS);
 	camSpeedX += camSpeedChange;
 
 	return camSpeedX;
@@ -3176,7 +1717,7 @@ void joyShockPollCallback(int jcHandle, JOY_SHOCK_STATE state, JOY_SHOCK_STATE l
 	//printf("Found a match for %d\n", jcHandle);
 	float gyroX = 0.0;
 	float gyroY = 0.0;
-	int mouse_x_flag = (int)jc->getSetting<GyroAxisMask>(MOUSE_X_FROM_GYRO_AXIS);
+	int mouse_x_flag = (int)jc->getSetting<GyroAxisMask>(SettingID::MOUSE_X_FROM_GYRO_AXIS);
 	if ((mouse_x_flag & (int)GyroAxisMask::x) > 0) {
 		gyroX -= imuState.gyroX; // x axis is negative because that's what worked before, don't want to mess with definitions of "inverted"
 	}
@@ -3186,7 +1727,7 @@ void joyShockPollCallback(int jcHandle, JOY_SHOCK_STATE state, JOY_SHOCK_STATE l
 	if ((mouse_x_flag & (int)GyroAxisMask::z) > 0) {
 		gyroX -= imuState.gyroZ; // x axis is negative because that's what worked before, don't want to mess with definitions of "inverted"
 	}
-	int mouse_y_flag = (int)jc->getSetting<GyroAxisMask>(MOUSE_Y_FROM_GYRO_AXIS);
+	int mouse_y_flag = (int)jc->getSetting<GyroAxisMask>(SettingID::MOUSE_Y_FROM_GYRO_AXIS);
 	if ((mouse_y_flag & (int)GyroAxisMask::x) > 0) {
 		gyroY += imuState.gyroX;
 	}
@@ -3199,16 +1740,16 @@ void joyShockPollCallback(int jcHandle, JOY_SHOCK_STATE state, JOY_SHOCK_STATE l
 	float gyroLength = sqrt(gyroX * gyroX + gyroY * gyroY);
 	// do gyro smoothing
 	// convert gyro smooth time to number of samples
-	int numGyroSamples = jc->poll_rate * jc->getSetting(GYRO_SMOOTH_TIME); // samples per second * seconds = samples
+	int numGyroSamples = jc->poll_rate * jc->getSetting(SettingID::GYRO_SMOOTH_TIME); // samples per second * seconds = samples
 	if (numGyroSamples < 1) numGyroSamples = 1; // need at least 1 sample
-	auto threshold = jc->getSetting(GYRO_SMOOTH_THRESHOLD);
+	auto threshold = jc->getSetting(SettingID::GYRO_SMOOTH_THRESHOLD);
 	jc->GetSmoothedGyro(gyroX, gyroY, gyroLength, threshold / 2.0f, threshold, numGyroSamples, gyroX, gyroY);
 	//printf("%d Samples for threshold: %0.4f\n", numGyroSamples, gyro_smooth_threshold * maxSmoothingSamples);
 
 	// now, honour gyro_cutoff_speed
 	gyroLength = sqrt(gyroX * gyroX + gyroY * gyroY);
-	auto speed = jc->getSetting(GYRO_CUTOFF_SPEED);
-	auto recovery = jc->getSetting(GYRO_CUTOFF_RECOVERY);
+	auto speed = jc->getSetting(SettingID::GYRO_CUTOFF_SPEED);
+	auto recovery = jc->getSetting(SettingID::GYRO_CUTOFF_RECOVERY);
 	if (recovery > speed) {
 		// we can use gyro_cutoff_speed
 		float gyroIgnoreFactor = (gyroLength - speed) / (recovery - speed);
@@ -3228,7 +1769,7 @@ void joyShockPollCallback(int jcHandle, JOY_SHOCK_STATE state, JOY_SHOCK_STATE l
 		gyroX = gyroY = gyroLength = 0.0f;
 	}
 
-	jc->time_now = std::chrono::steady_clock::now();
+	jc->time_now = chrono::steady_clock::now();
 
 	// sticks!
 	float camSpeedX = 0.0f;
@@ -3248,22 +1789,22 @@ void joyShockPollCallback(int jcHandle, JOY_SHOCK_STATE state, JOY_SHOCK_STATE l
 	bool down = calY < -0.5f * absX;
 	bool up = calY > 0.5f * absX;
 	float stickLength = sqrt(calX * calX + calY * calY);
-	bool ring = jc->getSetting<RingMode>(LEFT_RING_MODE) == RingMode::inner && stickLength > 0.0f && stickLength < 0.7f ||
-		jc->getSetting<RingMode>(LEFT_RING_MODE) == RingMode::outer && stickLength > 0.7f;
-	jc->handleButtonChange(MAPPING_LRING, ring);
+	bool ring = jc->getSetting<RingMode>(SettingID::LEFT_RING_MODE) == RingMode::inner && stickLength > 0.0f && stickLength < 0.7f ||
+		jc->getSetting<RingMode>(SettingID::LEFT_RING_MODE) == RingMode::outer && stickLength > 0.7f;
+	jc->handleButtonChange(ButtonID::LRING, ring);
 
-	bool rotateOnly = jc->getSetting<StickMode>(LEFT_STICK_MODE) == StickMode::rotateOnly;
-	bool flickOnly = jc->getSetting<StickMode>(LEFT_STICK_MODE) == StickMode::flickOnly;
-	if (jc->ignore_left_stick_mode && jc->getSetting<StickMode>(LEFT_STICK_MODE) == StickMode::invalid && calX == 0 && calY == 0)
+	bool rotateOnly = jc->getSetting<StickMode>(SettingID::LEFT_STICK_MODE) == StickMode::rotateOnly;
+	bool flickOnly = jc->getSetting<StickMode>(SettingID::LEFT_STICK_MODE) == StickMode::flickOnly;
+	if (jc->ignore_left_stick_mode && jc->getSetting<StickMode>(SettingID::LEFT_STICK_MODE) == StickMode::invalid && calX == 0 && calY == 0)
 	{
 		// clear ignore flag when stick is back at neutral
 		jc->ignore_left_stick_mode = false;
 	}
-	else if (jc->getSetting<StickMode>(LEFT_STICK_MODE) == StickMode::flick || flickOnly || rotateOnly) {
+	else if (jc->getSetting<StickMode>(SettingID::LEFT_STICK_MODE) == StickMode::flick || flickOnly || rotateOnly) {
 		camSpeedX += handleFlickStick(calX, calY, lastCalX, lastCalY, stickLength, jc->is_flicking_left, jc, mouseCalibrationFactor, flickOnly, rotateOnly);
 		leftAny = leftPegged;
 	}
-	else if (jc->getSetting<StickMode>(LEFT_STICK_MODE) == StickMode::aim) {
+	else if (jc->getSetting<StickMode>(SettingID::LEFT_STICK_MODE) == StickMode::aim) {
 		// camera movement
 		if (!leftPegged) {
 			jc->left_acceleration = 1.0f; // reset
@@ -3271,22 +1812,22 @@ void joyShockPollCallback(int jcHandle, JOY_SHOCK_STATE state, JOY_SHOCK_STATE l
 		float stickLength = sqrt(calX * calX + calY * calY);
 		if (stickLength != 0.0f) {
 			leftAny = true;
-			float warpedStickLength = pow(stickLength, jc->getSetting(STICK_POWER));
-			warpedStickLength *= jc->getSetting(STICK_SENS) * jc->getSetting(REAL_WORLD_CALIBRATION) / os_mouse_speed / jc->getSetting(IN_GAME_SENS);
+			float warpedStickLength = pow(stickLength, jc->getSetting(SettingID::STICK_POWER));
+			warpedStickLength *= jc->getSetting(SettingID::STICK_SENS) * jc->getSetting(SettingID::REAL_WORLD_CALIBRATION) / os_mouse_speed / jc->getSetting(SettingID::IN_GAME_SENS);
 			camSpeedX += calX / stickLength * warpedStickLength * jc->left_acceleration * deltaTime;
 			camSpeedY += calY / stickLength * warpedStickLength * jc->left_acceleration * deltaTime;
 			if (leftPegged) {
-				jc->left_acceleration += jc->getSetting(STICK_ACCELERATION_RATE) * deltaTime;
-				auto cap = jc->getSetting(STICK_ACCELERATION_CAP);
+				jc->left_acceleration += jc->getSetting(SettingID::STICK_ACCELERATION_RATE) * deltaTime;
+				auto cap = jc->getSetting(SettingID::STICK_ACCELERATION_CAP);
 				if (jc->left_acceleration > cap) {
 					jc->left_acceleration = cap;
 				}
 			}
 		}
 	}
-	else if (jc->getSetting<StickMode>(LEFT_STICK_MODE) == StickMode::mouseArea) {
+	else if (jc->getSetting<StickMode>(SettingID::LEFT_STICK_MODE) == StickMode::mouseArea) {
 
-		auto mouse_ring_radius = jc->getSetting(MOUSE_RING_RADIUS);
+		auto mouse_ring_radius = jc->getSetting(SettingID::MOUSE_RING_RADIUS);
 		if (calX != 0.0f || calY != 0.0f) {
 			// use difference with last cal values
 			float mouseX = (calX - jc->left_last_cal.x()) * mouse_ring_radius;
@@ -3302,32 +1843,32 @@ void joyShockPollCallback(int jcHandle, JOY_SHOCK_STATE state, JOY_SHOCK_STATE l
 			jc->left_last_cal = { 0, 0 };
 		}
 	}
-	else if (jc->getSetting<StickMode>(LEFT_STICK_MODE) == StickMode::mouseRing) {
+	else if (jc->getSetting<StickMode>(SettingID::LEFT_STICK_MODE) == StickMode::mouseRing) {
 		if (calX != 0.0f || calY != 0.0f) {
-			auto mouse_ring_radius = jc->getSetting(MOUSE_RING_RADIUS);
+			auto mouse_ring_radius = jc->getSetting(SettingID::MOUSE_RING_RADIUS);
 			float stickLength = sqrt(calX * calX + calY * calY);
 			float normX = calX / stickLength;
 			float normY = calY / stickLength;
 			// use screen resolution
-			float mouseX = (float)jc->getSetting(SCREEN_RESOLUTION_X) * 0.5f + 0.5f + normX * mouse_ring_radius;
-			float mouseY = (float)jc->getSetting(SCREEN_RESOLUTION_Y) * 0.5f + 0.5f - normY * mouse_ring_radius;
+			float mouseX = jc->getSetting(SettingID::SCREEN_RESOLUTION_X) * 0.5f + 0.5f + normX * mouse_ring_radius;
+			float mouseY = jc->getSetting(SettingID::SCREEN_RESOLUTION_Y) * 0.5f + 0.5f - normY * mouse_ring_radius;
 			// normalize
-			mouseX = mouseX / jc->getSetting(SCREEN_RESOLUTION_X);
-			mouseY = mouseY / jc->getSetting(SCREEN_RESOLUTION_Y);
+			mouseX = mouseX / jc->getSetting(SettingID::SCREEN_RESOLUTION_X);
+			mouseY = mouseY / jc->getSetting(SettingID::SCREEN_RESOLUTION_Y);
 			// do it!
 			setMouseNorm(mouseX, mouseY);
 			lockMouse = true;
 		}
 	}
-	else if (jc->getSetting<StickMode>(LEFT_STICK_MODE) == StickMode::none) { // Do not do if invalid
+	else if (jc->getSetting<StickMode>(SettingID::LEFT_STICK_MODE) == StickMode::none) { // Do not do if invalid
 		// left!
-		jc->handleButtonChange(MAPPING_LLEFT, left);
+		jc->handleButtonChange(ButtonID::LLEFT, left);
 		// right!
-		jc->handleButtonChange(MAPPING_LRIGHT, right);
+		jc->handleButtonChange(ButtonID::LRIGHT, right);
 		// up!
-		jc->handleButtonChange(MAPPING_LUP, up);
+		jc->handleButtonChange(ButtonID::LUP, up);
 		// down!
-		jc->handleButtonChange(MAPPING_LDOWN, down);
+		jc->handleButtonChange(ButtonID::LDOWN, down);
 
 		leftAny = left | right | up | down; // ring doesn't count
 	}
@@ -3343,22 +1884,22 @@ void joyShockPollCallback(int jcHandle, JOY_SHOCK_STATE state, JOY_SHOCK_STATE l
 	down = calY < -0.5f * absX;
 	up = calY > 0.5f * absX;
 	stickLength = sqrt(calX * calX + calY * calY);
-	ring = jc->getSetting<RingMode>(RIGHT_RING_MODE) == RingMode::inner && stickLength > 0.0f && stickLength < 0.7f ||
-		jc->getSetting<RingMode>(RIGHT_RING_MODE) == RingMode::outer && stickLength > 0.7f;
-	jc->handleButtonChange(MAPPING_RRING, ring);
+	ring = jc->getSetting<RingMode>(SettingID::RIGHT_RING_MODE) == RingMode::inner && stickLength > 0.0f && stickLength < 0.7f ||
+		jc->getSetting<RingMode>(SettingID::RIGHT_RING_MODE) == RingMode::outer && stickLength > 0.7f;
+	jc->handleButtonChange(ButtonID::RRING, ring);
 
-	rotateOnly = jc->getSetting<StickMode>(RIGHT_STICK_MODE) == StickMode::rotateOnly;
-	flickOnly = jc->getSetting<StickMode>(RIGHT_STICK_MODE) == StickMode::flickOnly;
-	if (jc->ignore_right_stick_mode && jc->getSetting<StickMode>(RIGHT_STICK_MODE) == StickMode::invalid && calX == 0 && calY == 0)
+	rotateOnly = jc->getSetting<StickMode>(SettingID::RIGHT_STICK_MODE) == StickMode::rotateOnly;
+	flickOnly = jc->getSetting<StickMode>(SettingID::RIGHT_STICK_MODE) == StickMode::flickOnly;
+	if (jc->ignore_right_stick_mode && jc->getSetting<StickMode>(SettingID::RIGHT_STICK_MODE) == StickMode::invalid && calX == 0 && calY == 0)
 	{
 		// clear ignore flag when stick is back at neutral
 		jc->ignore_right_stick_mode = false;
 	}
-	else if (jc->getSetting<StickMode>(RIGHT_STICK_MODE) == StickMode::flick || rotateOnly || flickOnly) {
+	else if (jc->getSetting<StickMode>(SettingID::RIGHT_STICK_MODE) == StickMode::flick || rotateOnly || flickOnly) {
 		camSpeedX += handleFlickStick(calX, calY, lastCalX, lastCalY, stickLength, jc->is_flicking_right, jc, mouseCalibrationFactor, flickOnly, rotateOnly);
 		rightAny = rightPegged;
 	}
-	else if (jc->getSetting<StickMode>(RIGHT_STICK_MODE) == StickMode::aim) {
+	else if (jc->getSetting<StickMode>(SettingID::RIGHT_STICK_MODE) == StickMode::aim) {
 		// camera movement
 		if (!rightPegged) {
 			jc->right_acceleration = 1.0f; // reset
@@ -3366,21 +1907,21 @@ void joyShockPollCallback(int jcHandle, JOY_SHOCK_STATE state, JOY_SHOCK_STATE l
 		float stickLength = sqrt(calX * calX + calY * calY);
 		if (stickLength > 0.0f) {
 			rightAny = true;
-			float warpedStickLength = pow(stickLength, jc->getSetting(STICK_POWER));
-			warpedStickLength *= jc->getSetting(STICK_SENS) * jc->getSetting(REAL_WORLD_CALIBRATION) / os_mouse_speed / jc->getSetting(IN_GAME_SENS);
+			float warpedStickLength = pow(stickLength, jc->getSetting(SettingID::STICK_POWER));
+			warpedStickLength *= jc->getSetting(SettingID::STICK_SENS) * jc->getSetting(SettingID::REAL_WORLD_CALIBRATION) / os_mouse_speed / jc->getSetting(SettingID::IN_GAME_SENS);
 			camSpeedX += calX / stickLength * warpedStickLength * jc->right_acceleration * deltaTime;
 			camSpeedY += calY / stickLength * warpedStickLength * jc->right_acceleration * deltaTime;
 			if (rightPegged) {
-				jc->right_acceleration += jc->getSetting(STICK_ACCELERATION_RATE) * deltaTime;
-				auto cap = jc->getSetting(STICK_ACCELERATION_CAP);
+				jc->right_acceleration += jc->getSetting(SettingID::STICK_ACCELERATION_RATE) * deltaTime;
+				auto cap = jc->getSetting(SettingID::STICK_ACCELERATION_CAP);
 				if (jc->right_acceleration > cap) {
 					jc->right_acceleration = cap;
 				}
 			}
 		}
 	}
-	else if (jc->getSetting<StickMode>(RIGHT_STICK_MODE) == StickMode::mouseArea) {
-		auto mouse_ring_radius = jc->getSetting(MOUSE_RING_RADIUS);
+	else if (jc->getSetting<StickMode>(SettingID::RIGHT_STICK_MODE) == StickMode::mouseArea) {
+		auto mouse_ring_radius = jc->getSetting(SettingID::MOUSE_RING_RADIUS);
 		if (calX != 0.0f || calY != 0.0f) {
 			// use difference with last cal values
 			float mouseX = (calX - jc->right_last_cal.x()) * mouse_ring_radius;
@@ -3396,60 +1937,60 @@ void joyShockPollCallback(int jcHandle, JOY_SHOCK_STATE state, JOY_SHOCK_STATE l
 			jc->right_last_cal = { 0, 0 };
 		}
 	}
-	else if (jc->getSetting<StickMode>(RIGHT_STICK_MODE) == StickMode::mouseRing) {
+	else if (jc->getSetting<StickMode>(SettingID::RIGHT_STICK_MODE) == StickMode::mouseRing) {
 		if (calX != 0.0f || calY != 0.0f) {
-			auto mouse_ring_radius = jc->getSetting(MOUSE_RING_RADIUS);
+			auto mouse_ring_radius = jc->getSetting(SettingID::MOUSE_RING_RADIUS);
 			float stickLength = sqrt(calX * calX + calY * calY);
 			float normX = calX / stickLength;
 			float normY = calY / stickLength;
 			// use screen resolution
-			float mouseX = (float)jc->getSetting(SCREEN_RESOLUTION_X) * 0.5f + 0.5f + normX * mouse_ring_radius;
-			float mouseY = (float)jc->getSetting(SCREEN_RESOLUTION_Y) * 0.5f + 0.5f - normY * mouse_ring_radius;
+			float mouseX = jc->getSetting(SettingID::SCREEN_RESOLUTION_X) * 0.5f + 0.5f + normX * mouse_ring_radius;
+			float mouseY = jc->getSetting(SettingID::SCREEN_RESOLUTION_Y) * 0.5f + 0.5f - normY * mouse_ring_radius;
 			// normalize
-			mouseX = mouseX / jc->getSetting(SCREEN_RESOLUTION_X);
-			mouseY = mouseY / jc->getSetting(SCREEN_RESOLUTION_Y);
+			mouseX = mouseX / jc->getSetting(SettingID::SCREEN_RESOLUTION_X);
+			mouseY = mouseY / jc->getSetting(SettingID::SCREEN_RESOLUTION_Y);
 			// do it!
 			setMouseNorm(mouseX, mouseY);
 			lockMouse = true;
 		}
 	}
-	else if (jc->getSetting<StickMode>(RIGHT_STICK_MODE) == StickMode::none) { // Do not do if invalid
+	else if (jc->getSetting<StickMode>(SettingID::RIGHT_STICK_MODE) == StickMode::none) { // Do not do if invalid
 		// left!
-		jc->handleButtonChange(MAPPING_RLEFT, left);
+		jc->handleButtonChange(ButtonID::RLEFT, left);
 		// right!
-		jc->handleButtonChange(MAPPING_RRIGHT, right);
+		jc->handleButtonChange(ButtonID::RRIGHT, right);
 		// up!
-		jc->handleButtonChange(MAPPING_RUP, up);
+		jc->handleButtonChange(ButtonID::RUP, up);
 		// down!
-		jc->handleButtonChange(MAPPING_RDOWN, down);
+		jc->handleButtonChange(ButtonID::RDOWN, down);
 
 		rightAny = left | right | up | down; // ring doesn't count
 	}
 
 	// button mappings
-	jc->handleButtonChange(MAPPING_UP, (state.buttons & JSMASK_UP) > 0);
-	jc->handleButtonChange(MAPPING_DOWN, (state.buttons & JSMASK_DOWN) > 0);
-	jc->handleButtonChange(MAPPING_LEFT, (state.buttons & JSMASK_LEFT) > 0);
-	jc->handleButtonChange(MAPPING_RIGHT, (state.buttons & JSMASK_RIGHT) > 0);
-	jc->handleButtonChange(MAPPING_L, (state.buttons & JSMASK_L) > 0);
-	jc->handleTriggerChange(MAPPING_ZL, MAPPING_ZLF, jc->getSetting<TriggerMode>(ZL_DUAL_STAGE_MODE), state.lTrigger);
-	jc->handleButtonChange(MAPPING_MINUS, (state.buttons & JSMASK_MINUS) > 0);
-	jc->handleButtonChange(MAPPING_CAPTURE, (state.buttons & JSMASK_CAPTURE) > 0);
-	jc->handleButtonChange(MAPPING_E, (state.buttons & JSMASK_E) > 0);
-	jc->handleButtonChange(MAPPING_S, (state.buttons & JSMASK_S) > 0);
-	jc->handleButtonChange(MAPPING_N, (state.buttons & JSMASK_N) > 0);
-	jc->handleButtonChange(MAPPING_W, (state.buttons & JSMASK_W) > 0);
-	jc->handleButtonChange(MAPPING_R, (state.buttons & JSMASK_R) > 0);
-	jc->handleTriggerChange(MAPPING_ZR, MAPPING_ZRF, jc->getSetting<TriggerMode>(ZR_DUAL_STAGE_MODE), state.rTrigger);
-	jc->handleButtonChange(MAPPING_PLUS, (state.buttons & JSMASK_PLUS) > 0);
-	jc->handleButtonChange(MAPPING_HOME, (state.buttons & JSMASK_HOME) > 0);
-	jc->handleButtonChange(MAPPING_SL, (state.buttons & JSMASK_SL) > 0);
-	jc->handleButtonChange(MAPPING_SR, (state.buttons & JSMASK_SR) > 0);
-	jc->handleButtonChange(MAPPING_L3, (state.buttons & JSMASK_LCLICK) > 0);
-	jc->handleButtonChange(MAPPING_R3, (state.buttons & JSMASK_RCLICK) > 0);
+	jc->handleButtonChange(ButtonID::UP, (state.buttons & JSMASK_UP) > 0);
+	jc->handleButtonChange(ButtonID::DOWN, (state.buttons & JSMASK_DOWN) > 0);
+	jc->handleButtonChange(ButtonID::LEFT, (state.buttons & JSMASK_LEFT) > 0);
+	jc->handleButtonChange(ButtonID::RIGHT, (state.buttons & JSMASK_RIGHT) > 0);
+	jc->handleButtonChange(ButtonID::L, (state.buttons & JSMASK_L) > 0);
+	jc->handleTriggerChange(ButtonID::ZL, ButtonID::ZLF, jc->getSetting<TriggerMode>(SettingID::ZL_DUAL_STAGE_MODE), state.lTrigger);
+	jc->handleButtonChange(ButtonID::MINUS, (state.buttons & JSMASK_MINUS) > 0);
+	jc->handleButtonChange(ButtonID::CAPTURE, (state.buttons & JSMASK_CAPTURE) > 0);
+	jc->handleButtonChange(ButtonID::E, (state.buttons & JSMASK_E) > 0);
+	jc->handleButtonChange(ButtonID::S, (state.buttons & JSMASK_S) > 0);
+	jc->handleButtonChange(ButtonID::N, (state.buttons & JSMASK_N) > 0);
+	jc->handleButtonChange(ButtonID::W, (state.buttons & JSMASK_W) > 0);
+	jc->handleButtonChange(ButtonID::R, (state.buttons & JSMASK_R) > 0);
+	jc->handleTriggerChange(ButtonID::ZR, ButtonID::ZRF, jc->getSetting<TriggerMode>(SettingID::ZR_DUAL_STAGE_MODE), state.rTrigger);
+	jc->handleButtonChange(ButtonID::PLUS, (state.buttons & JSMASK_PLUS) > 0);
+	jc->handleButtonChange(ButtonID::HOME, (state.buttons & JSMASK_HOME) > 0);
+	jc->handleButtonChange(ButtonID::SL, (state.buttons & JSMASK_SL) > 0);
+	jc->handleButtonChange(ButtonID::SR, (state.buttons & JSMASK_SR) > 0);
+	jc->handleButtonChange(ButtonID::L3, (state.buttons & JSMASK_LCLICK) > 0);
+	jc->handleButtonChange(ButtonID::R3, (state.buttons & JSMASK_RCLICK) > 0);
 
 	// Handle buttons before GYRO because some of them may affect the value of blockGyro
-	auto gyro = jc->getSetting<GyroSettings>(GYRO_ON); // same result as getting GYRO_OFF
+	auto gyro = jc->getSetting<GyroSettings>(SettingID::GYRO_ON); // same result as getting GYRO_OFF
 	switch (gyro.ignore_mode) {
 	case GyroIgnoreMode::button:
 		blockGyro = gyro.always_off ^ jc->IsPressed(state, gyro.button); // Use jc->IsActive(gyro_button) to consider button state
@@ -3461,8 +2002,8 @@ void joyShockPollCallback(int jcHandle, JOY_SHOCK_STATE state, JOY_SHOCK_STATE l
 		blockGyro = (gyro.always_off ^ rightAny);
 		break;
 	}
-	float gyro_x_sign_to_use = jc->getSetting(GYRO_AXIS_X);
-	float gyro_y_sign_to_use = jc->getSetting(GYRO_AXIS_Y);
+	float gyro_x_sign_to_use = jc->getSetting(SettingID::GYRO_AXIS_X);
+	float gyro_y_sign_to_use = jc->getSetting(SettingID::GYRO_AXIS_Y);
 
 	// Apply gyro modifiers in the queue from oldest to newest (thus giving priority to most recent)
 	for (auto pair : jc->btnCommon.gyroActionQueue)
@@ -3486,13 +2027,13 @@ void joyShockPollCallback(int jcHandle, JOY_SHOCK_STATE state, JOY_SHOCK_STATE l
 	// optionally ignore the gyro of one of the joycons
 	if (!lockMouse &&
 		(jc->controller_type == JS_SPLIT_TYPE_FULL ||
-		(jc->controller_type & (int)jc->getSetting<JoyconMask>(JOYCON_GYRO_MASK)) == 0))
+		(jc->controller_type & (int)jc->getSetting<JoyconMask>(SettingID::JOYCON_GYRO_MASK)) == 0))
 	{
 		//printf("GX: %0.4f GY: %0.4f GZ: %0.4f\n", imuState.gyroX, imuState.gyroY, imuState.gyroZ);
-		float mouseCalibration = jc->getSetting(REAL_WORLD_CALIBRATION) / os_mouse_speed / jc->getSetting(IN_GAME_SENS);
-		shapedSensitivityMoveMouse(gyroX * gyro_x_sign_to_use, gyroY * gyro_y_sign_to_use, jc->getSetting<FloatXY>(MIN_GYRO_SENS), jc->getSetting<FloatXY>(MAX_GYRO_SENS),
-			jc->getSetting(MIN_GYRO_THRESHOLD), jc->getSetting(MAX_GYRO_THRESHOLD), deltaTime, 
-			camSpeedX * jc->getSetting(STICK_AXIS_X), -camSpeedY * jc->getSetting(STICK_AXIS_Y), mouseCalibration);
+		float mouseCalibration = jc->getSetting(SettingID::REAL_WORLD_CALIBRATION) / os_mouse_speed / jc->getSetting(SettingID::IN_GAME_SENS);
+		shapedSensitivityMoveMouse(gyroX * gyro_x_sign_to_use, gyroY * gyro_y_sign_to_use, jc->getSetting<FloatXY>(SettingID::MIN_GYRO_SENS), jc->getSetting<FloatXY>(SettingID::MAX_GYRO_SENS),
+			jc->getSetting(SettingID::MIN_GYRO_THRESHOLD), jc->getSetting(SettingID::MAX_GYRO_THRESHOLD), deltaTime, 
+			camSpeedX * jc->getSetting(SettingID::STICK_AXIS_X), -camSpeedY * jc->getSetting(SettingID::STICK_AXIS_Y), mouseCalibration);
 	}
 }
 
@@ -3515,19 +2056,19 @@ void connectDevices() {
 		//JslStartContinuousCalibration(deviceHandles[i]);
 	}
 
-	std::string msg;
+	string msg;
 	if (numConnected == 1) {
 		msg = "1 device connected\n";
 	}
 	else {
-		std::stringstream ss;
-		ss << numConnected << " devices connected" << std::endl;
+		stringstream ss;
+		ss << numConnected << " devices connected" << endl;
 		msg = ss.str();
 	}
 	printf(msg.c_str());
 	//if (!IsVisible())
 	//{
-	//	tray->SendToast(std::wstring(msg.begin(), msg.end()));
+	//	tray->SendToast(wstring(msg.begin(), msg.end()));
 	//}
 
 	//if (numConnected != 0) {
@@ -3545,15 +2086,26 @@ static void removeNewLine(char* string) {
 	}
 }
 
+// https://stackoverflow.com/a/4119881/1130520 gives us case insensitive equality
+static bool iequals(const string& a, const string& b)
+{
+	return equal(a.begin(), a.end(),
+		b.begin(), b.end(),
+		[](char a, char b) {
+			return tolower(a) == tolower(b);
+		});
+}
+
+
 bool AutoLoadPoll(void *param)
 {
-	static std::string lastModuleName;
-	std::string windowTitle, windowModule;
-	std::tie(windowModule, windowTitle) = GetActiveWindowName();
+	static string lastModuleName;
+	string windowTitle, windowModule;
+	tie(windowModule, windowTitle) = GetActiveWindowName();
 	if (!windowModule.empty() && windowModule != lastModuleName && windowModule.compare("JoyShockMapper.exe") != 0)
 	{
 		lastModuleName = windowModule;
-		std::string cwd(GetCWD());
+		string cwd(GetCWD());
 		if (!cwd.empty())
 		{
 			cwd.append("\\AutoLoad\\");
@@ -3605,7 +2157,7 @@ void beforeShowTrayMenu()
 				isChecked ? 
 					autoLoadThread->Start() : 
 					autoLoadThread->Stop();
-			}, std::bind(&PollingThread::isRunning, autoLoadThread.get()));
+			}, bind(&PollingThread::isRunning, autoLoadThread.get()));
 
 		if (Whitelister::IsHIDCerberusRunning())
 		{
@@ -3614,7 +2166,7 @@ void beforeShowTrayMenu()
 					isChecked ?
 						whitelister.Add() :
 						whitelister.Remove();
-				}, std::bind(&Whitelister::operator bool, &whitelister));
+				}, bind(&Whitelister::operator bool, &whitelister));
 		}
 		tray->AddMenuItem(L"Calibrate all devices", [](bool isChecked)
 		{
@@ -3626,26 +2178,26 @@ void beforeShowTrayMenu()
 			return devicesCalibrating;
 		});
 
-		//std::string cwd(GetCWD());
-		std::string autoloadFolder = "AutoLoad\\";
+		//string cwd(GetCWD());
+		string autoloadFolder = "AutoLoad\\";
 		for (auto file : ListDirectory(autoloadFolder.c_str()))
 		{
-			std::string fullPathName = autoloadFolder + file;
+			string fullPathName = autoloadFolder + file;
 			auto noext = file.substr(0, file.find_last_of('.'));
-			tray->AddMenuItem(L"AutoLoad folder", std::wstring(noext.begin(), noext.end()), [fullPathName]
+			tray->AddMenuItem(L"AutoLoad folder", wstring(noext.begin(), noext.end()), [fullPathName]
 			{
-				WriteToConsole(std::string(fullPathName.begin(), fullPathName.end()));
+				WriteToConsole(string(fullPathName.begin(), fullPathName.end()));
 				autoLoadThread->Stop();
 			});
 		}
-		std::string gyroConfigsFolder = "GyroConfigs\\";
+		string gyroConfigsFolder = "GyroConfigs\\";
 		for (auto file : ListDirectory(gyroConfigsFolder.c_str()))
 		{
-			std::string fullPathName = gyroConfigsFolder + file;
+			string fullPathName = gyroConfigsFolder + file;
 			auto noext = file.substr(0, file.find_last_of('.'));
-			tray->AddMenuItem(L"GyroConfigs folder", std::wstring(noext.begin(), noext.end()), [fullPathName]
+			tray->AddMenuItem(L"GyroConfigs folder", wstring(noext.begin(), noext.end()), [fullPathName]
 			{
-				WriteToConsole(std::string(fullPathName.begin(), fullPathName.end()));
+				WriteToConsole(string(fullPathName.begin(), fullPathName.end()));
 				autoLoadThread->Stop();
 			});
 		}
@@ -3671,8 +2223,155 @@ void CleanUp()
 }
 
 
+// If I need a complicated command, I can create my own derivative and put all the 
+// logic in it
+class HelpCmd : public JSMMacro
+{
+private:
+	// HELP runs the macro for each argument given to it.
+	string arg; // parsed argument
+
+	bool Parser(in_string arguments)
+	{
+		stringstream ss(arguments);
+		ss >> arg;
+		do { // Run at least once with an empty arg string if there's no argument.
+			_macro(this, arguments);
+			ss >> arg;
+		} while (!ss.fail());
+		return true;
+	}
+
+	// The run function is nothing like the delegate. See how I use the bind function
+	// below to hard-code the pointer parameter and the instance pointer 'this'.
+	void RunHelp(CmdRegistry *registry)
+	{
+		if (arg.empty())
+		{
+			// Show all commands
+			cout << "Here's the list of all commands." << endl;
+			vector<string> list;
+			registry->GetCommandList(list);
+			for (auto cmd : list)
+			{
+				cout << "    " << cmd << endl;
+			}
+			cout << "Enter HELP [cmd1] [cmd2] ... for details on a specific commands." << endl;
+		}
+		else
+		{
+			auto help = registry->GetHelp(arg);
+			if (!help.empty())
+			{
+				cout << arg << " :" << endl <<
+					"    " << help << endl;
+			}
+			else
+			{
+				cout << arg << " is not a recognized command" << endl;
+			}
+		}
+	}
+public:
+	HelpCmd(CmdRegistry &reg)
+		: JSMMacro("HELP")
+	{
+		// Bind allows me to use instance function by hardcoding the invisible "this" parameter, and the registry pointer
+		SetMacro(bind(&HelpCmd::RunHelp, this, &reg));
+
+		// The placeholder parameter says to pass 2nd parameter of call to _parse to the 1st argument of the call to HelpCmd::Parser.
+		// The first parameter is the command pointer which is not required because Parser is an instance function rather than a static one.
+		SetParser(bind(&HelpCmd::Parser, this, ::placeholders::_2));
+	}
+};
+
+float filterClamp01(float current, float next)
+{
+	return max(0.0f, min(1.0f, next));
+}
+
+float filterPositive(float current, float next)
+{
+	return max(0.0f, next);
+}
+
+template <typename E, E invalid>
+E filterInvalidValue(E current, E next)
+{
+	return next != invalid ? next : current;
+}
+
+
+TriggerMode triggerModeNotification(TriggerMode current, TriggerMode next)
+{
+	for (auto js : handle_to_joyshock)
+	{
+		if (JslGetControllerType(js.first) != JS_TYPE_DS4)
+		{
+			printf("WARNING: Dual Stage Triggers are only valid on analog triggers. Full pull bindings will be ignored on non DS4 controllers.\n");
+			break;
+		}
+	}
+	return next;
+}
+
+class GyroAssignment : public JSMAssignment<GyroSettings>
+{
+private:
+	const bool _always_off;
+
+	bool GyroParser(in_string data)
+	{
+		stringstream ss(data);
+		// Ignore whitespaces until the '=' is found
+		char c;
+		for (c = ss.peek(); ss.good() && c == ' '; ss >> c);
+		if (!ss.good())
+		{
+			//No assignment? Display current assignment
+			DisplayGyroSettingValue(_var);
+		}
+		if (c == '=')
+		{
+			// Read the value
+			GyroSettings value;
+			value.always_off = _always_off; // Added line from DefaultParser
+			ss >> value;
+			if (!ss.fail())
+			{
+				_var = value;
+				return true; // Command processed successfully
+			}
+			// Couldn't read the value
+		}
+		// Not an equal sign? The command is entered wrong!
+		return false;
+	}
+
+	void DisplayGyroSettingValue(GyroSettings value)
+	{
+		cout << (value.always_off ? string("GYRO_ON") : string("GYRO_OFF")) << " = " << value << endl;;
+	}
+public:
+	GyroAssignment(in_string name, bool always_off)
+		: JSMAssignment(name, baseSettings.gyro_settings)
+		, _always_off(always_off)
+	{
+		SetParser(bind(&GyroAssignment::GyroParser, this, placeholders::_2));
+		_var.RemoveOnChangeListener(_listenerId);
+	}
+
+	GyroAssignment *SetListener()
+	{
+		_listenerId = _var.AddOnChangeListener(bind(&GyroAssignment::DisplayGyroSettingValue, this, placeholders::_1));
+		return this;
+	}
+
+	virtual ~GyroAssignment() = default;
+};
+
 //int main(int argc, char *argv[]) {
-int wWinMain(HINSTANCE hInstance, HINSTANCE prevInstance, LPWSTR cmdLine, int cmdShow) {
+int __stdcall wWinMain(HINSTANCE hInstance, HINSTANCE prevInstance, LPWSTR cmdLine, int cmdShow) {
 	tray.reset(new TrayIcon(hInstance, prevInstance, cmdLine, cmdShow, &beforeShowTrayMenu));
 	// console
 	initConsole(&CleanUp);
@@ -3686,21 +2385,122 @@ int wWinMain(HINSTANCE hInstance, HINSTANCE prevInstance, LPWSTR cmdLine, int cm
 	if (autoLoadThread && *autoLoadThread) printf("AutoLoad is enabled. Configurations in \"AutoLoad\" folder will get loaded when matching application is in focus.\n");
 	else printf("[AUTOLOAD] AutoLoad is unavailable\n");
 	tray->Show();
-	// poll joycons:
-	while (true) {
-		char tempConfigName[128];
-		fgets(tempConfigName, 128, stdin);
-		removeNewLine(tempConfigName);
-		if (strcmp(tempConfigName, "QUIT") == 0) {
-			break;
-		}
-		else {
-			loading_lock.lock();
-			parseCommand(tempConfigName);
-			loading_lock.unlock();
-		}
-		//pollLoop();
-	}
+
+	CmdRegistry commandRegistry;
+
+	// Irregular commands are encapsulated in its own object.
+	commandRegistry.Add((new HelpCmd(commandRegistry))
+		->SetHelp("Displays the help message of all commands")
+	);
+
+	baseSettings.in_game_sens.SetFilter( [] (float current, float next)
+		{
+			if (next <= 0)
+			{
+				printf("Can't set IN_GAME_SENS to zero or less. Reverting to previous setting (%0.4f)\n", current);
+				return current;
+			}
+			return next;
+		});
+
+	baseSettings.rotate_smooth_override.SetFilter(&filterClamp01);
+
+
+	baseSettings.flick_snap_strength.SetFilter(&filterClamp01);
+
+	baseSettings.stick_acceleration_rate.SetFilter(&filterPositive);
+	baseSettings.stick_acceleration_cap.SetFilter(bind(&fmaxf, 1.0f, ::placeholders::_2));
+	baseSettings.stick_deadzone_inner.SetFilter(&filterClamp01);
+	baseSettings.flick_time.SetFilter(bind(&fmaxf, 0.0001f, ::placeholders::_2));
+	baseSettings.zlMode.SetFilter(&triggerModeNotification);
+	baseSettings.zrMode.SetFilter(&triggerModeNotification);
+	baseSettings.flick_snap_mode.SetFilter(&filterInvalidValue<FlickSnapMode, FlickSnapMode::invalid>);
+
+	commandRegistry.Add((new JSMAssignment<FloatXY>("MIN_GYRO_SENS", baseSettings.min_gyro_sens)));
+	commandRegistry.Add((new JSMAssignment<FloatXY>("MAX_GYRO_SENS", baseSettings.max_gyro_sens)));
+	commandRegistry.Add((new JSMAssignment<float>("MIN_GYRO_THRESHOLD", baseSettings.min_gyro_threshold)));
+	commandRegistry.Add((new JSMAssignment<float>("MAX_GYRO_THRESHOLD", baseSettings.max_gyro_threshold)));
+	commandRegistry.Add((new JSMAssignment<float>("STICK_POWER", baseSettings.stick_power)));
+	commandRegistry.Add((new JSMAssignment<float>("STICK_SENS", baseSettings.stick_sens)));
+	commandRegistry.Add((new JSMAssignment<float>("REAL_WORLD_CALIBRATION", baseSettings.real_world_calibration)));
+	commandRegistry.Add((new JSMAssignment<float>("IN_GAME_SENS", baseSettings.in_game_sens)));
+	commandRegistry.Add((new JSMAssignment<float>("TRIGGER_THRESHOLD", baseSettings.trigger_threshold)));
+	commandRegistry.Add((new JSMMacro("RESET_MAPPINGS"))->SetMacro(bind(&do_RESET_MAPPINGS)));
+	commandRegistry.Add((new JSMMacro("NO_GYRO_BUTTON"))->SetMacro(bind(&do_NO_GYRO_BUTTON)));
+	commandRegistry.Add((new JSMAssignment<StickMode>("LEFT_STICK_MODE", baseSettings.left_stick_mode)));
+	commandRegistry.Add((new JSMAssignment<StickMode>("RIGHT_STICK_MODE", baseSettings.right_stick_mode)));
+	commandRegistry.Add((new GyroAssignment("GYRO_OFF", false)));
+	commandRegistry.Add((new GyroAssignment("GYRO_ON", true))->SetListener()); // Set only one listener
+	commandRegistry.Add((new JSMAssignment<float>("STICK_AXIS_X", baseSettings.aim_x_sign))); // custom parser
+	commandRegistry.Add((new JSMAssignment<float>("STICK_AXIS_Y", baseSettings.aim_y_sign)));
+	commandRegistry.Add((new JSMAssignment<float>("GYRO_AXIS_X", baseSettings.gyro_x_sign)));
+	commandRegistry.Add((new JSMAssignment<float>("GYRO_AXIS_Y", baseSettings.gyro_y_sign)));
+	commandRegistry.Add((new JSMMacro("RECONNECT_CONTROLLERS"))->SetMacro(bind(&do_RECONNECT_CONTROLLERS)));
+	commandRegistry.Add((new JSMMacro("COUNTER_OS_MOUSE_SPEED"))->SetMacro(bind(do_COUNTER_OS_MOUSE_SPEED)));
+	commandRegistry.Add((new JSMMacro("IGNORE_OS_MOUSE_SPEED"))->SetMacro(bind(do_IGNORE_OS_MOUSE_SPEED)));
+	commandRegistry.Add((new JSMAssignment<JoyconMask>("JOYCON_GYRO_MASK", baseSettings.joycon_gyro_mask)));
+	commandRegistry.Add((new JSMMacro("GYRO_SENS"))->SetMacro(bind(&do_GYRO_SENS, placeholders::_2)));
+	commandRegistry.Add((new JSMAssignment<float>("FLICK_TIME", baseSettings.flick_time)));
+	commandRegistry.Add((new JSMAssignment<float>("GYRO_SMOOTH_THRESHOLD", baseSettings.gyro_smooth_threshold)));
+	commandRegistry.Add((new JSMAssignment<float>("GYRO_SMOOTH_TIME", baseSettings.gyro_smooth_time)));
+	commandRegistry.Add((new JSMAssignment<float>("GYRO_CUTOFF_SPEED", baseSettings.gyro_cutoff_speed)));
+	commandRegistry.Add((new JSMAssignment<float>("GYRO_CUTOFF_RECOVERY", baseSettings.gyro_cutoff_recovery)));
+	commandRegistry.Add((new JSMAssignment<float>("STICK_ACCELERATION_RATE", baseSettings.stick_acceleration_rate)));
+	commandRegistry.Add((new JSMAssignment<float>("STICK_ACCELERATION_CAP", baseSettings.stick_acceleration_cap)));
+	commandRegistry.Add((new JSMAssignment<float>("STICK_DEADZONE_INNER", baseSettings.stick_deadzone_inner)));
+	commandRegistry.Add((new JSMAssignment<float>("STICK_DEADZONE_OUTER", baseSettings.stick_deadzone_outer)));
+	commandRegistry.Add((new JSMMacro("CALCULATE_REAL_WORLD_CALIBRATION"))->SetMacro(bind(&do_CALCULATE_REAL_WORLD_CALIBRATION, placeholders::_2)));
+	commandRegistry.Add((new JSMMacro("FINISH_GYRO_CALIBRATION"))->SetMacro(bind(&do_FINISH_GYRO_CALIBRATION)));
+	commandRegistry.Add((new JSMMacro("RESTART_GYRO_CALIBRATION"))->SetMacro(bind(&do_RESTART_GYRO_CALIBRATION)));
+	commandRegistry.Add((new JSMAssignment<GyroAxisMask>("MOUSE_X_FROM_GYRO_AXIS", baseSettings.mouse_x_from_gyro)));
+	commandRegistry.Add((new JSMAssignment<GyroAxisMask>("MOUSE_Y_FROM_GYRO_AXIS", baseSettings.mouse_y_from_gyro)));
+	commandRegistry.Add((new JSMAssignment<TriggerMode>("ZR_DUAL_STAGE_MODE", baseSettings.zlMode)));
+	commandRegistry.Add((new JSMAssignment<TriggerMode>("ZL_DUAL_STAGE_MODE", baseSettings.zrMode)));
+	commandRegistry.Add((new JSMMacro("AUTOLOAD"))->SetParser(bind(&do_AUTOLOAD, placeholders::_2)));
+	commandRegistry.Add((new JSMMacro("HELP"))->SetMacro(bind(&do_HELP)));
+	commandRegistry.Add((new JSMMacro("WHITELIST_SHOW"))->SetMacro(bind(&do_WHITELIST_SHOW)));
+	commandRegistry.Add((new JSMMacro("WHITELIST_ADD"))->SetMacro(bind(&do_WHITELIST_ADD)));
+	commandRegistry.Add((new JSMMacro("WHITELIST_REMOVE"))->SetMacro(bind(&do_WHITELIST_REMOVE)));
+	commandRegistry.Add((new JSMAssignment<RingMode>("LEFT_RING_MODE", baseSettings.left_ring_mode)));
+	commandRegistry.Add((new JSMAssignment<RingMode>("RIGHT_RING_MODE", baseSettings.right_ring_mode)));
+	commandRegistry.Add((new JSMAssignment<float>("MOUSE_RING_RADIUS", baseSettings.mouse_ring_radius)));
+	commandRegistry.Add((new JSMAssignment<float>("SCREEN_RESOLUTION_X", baseSettings.screen_resolution_x)));
+	commandRegistry.Add((new JSMAssignment<float>("SCREEN_RESOLUTION_Y", baseSettings.screen_resolution_y)));
+	commandRegistry.Add((new JSMAssignment<float>("ROTATE_SMOOTH_OVERRIDE", baseSettings.rotate_smooth_override)));
+	commandRegistry.Add((new JSMAssignment<FlickSnapMode>("FLICK_SNAP_MODE", baseSettings.flick_snap_mode)));
+	commandRegistry.Add((new JSMAssignment<float>("FLICK_SNAP_STRENGTH", baseSettings.flick_snap_strength)));
+
+	bool quit = false;
+	commandRegistry.Add((new JSMMacro("QUIT"))
+		->SetMacro( [&quit] (JSMMacro *, in_string)
+			{
+				quit = true;
+			})
+		->SetHelp("Close the application.")
+	);
+
+	// The main loop is simple and reads like pseudocode
+	string enteredCommand;
+	while (!quit)
+	{
+		getline(cin, enteredCommand);
+		loading_lock.lock();
+		commandRegistry.processLine(enteredCommand);
+		loading_lock.unlock();
+	} 
+	//// poll joycons:
+	//while (true) {
+	//	char tempConfigName[128];
+	//	fgets(tempConfigName, 128, stdin);
+	//	removeNewLine(tempConfigName);
+	//	if (strcmp(tempConfigName, "QUIT") == 0) {
+	//		break;
+	//	}
+	//	else {
+	//		parseCommand(tempConfigName);
+	//	}
+	//	//pollLoop();
+	//}
 	// Exit JSM
 	CleanUp();
 	return 0;

@@ -19,11 +19,14 @@
     </ProjectConfiguration>
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="include\inputHelpers.h" />
+    <ClInclude Include="include\JoyShockMapper.h" />
+    <ClInclude Include="include\JSMCommand.h" />
+    <ClInclude Include="include\JSMVariable.h" />
     <ClInclude Include="include\resource.h" />
     <ClInclude Include="include\TrayIcon.h" />
     <ClInclude Include="include\Whitelister.h" />
     <ClInclude Include="include\JoyShockLibrary.h" />
-    <ClInclude Include="include\inputHelpers.cpp" />
     <ClInclude Include="three\common.hpp" />
     <ClInclude Include="three\config.hpp" />
     <ClInclude Include="three\console.hpp" />
@@ -35,7 +38,9 @@
     <ClInclude Include="three\visitor.hpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="src\inputHelpers.cpp" />
     <ClCompile Include="src\main.cpp" />
+    <ClCompile Include="src\operators.cpp" />
     <ClCompile Include="src\TrayIcon.cpp" />
     <ClCompile Include="src\Whitelister.cpp" />
   </ItemGroup>

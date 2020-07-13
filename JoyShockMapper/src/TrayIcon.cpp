@@ -26,18 +26,18 @@
 
 struct MenuItem
 {
-	std::wstring label;
+	wstring label;
 	virtual ~MenuItem() {}
 };
 
 struct MenuItemButton : public MenuItem
 {
-	std::function<void()> onClick;
+	function<void()> onClick;
 };
 
 struct MenuItemMenu : public MenuItem
 {
-	std::vector<MenuItemButton*> list;
+	vector<MenuItemButton*> list;
 	~MenuItemMenu()
 	{
 		for (auto p : list)
@@ -50,8 +50,8 @@ struct MenuItemMenu : public MenuItem
 
 struct MenuItemToggle : public MenuItem
 {
-	std::function<void(bool)> onClick;
-	std::function<bool()> getState;
+	function<void(bool)> onClick;
+	function<bool()> getState;
 	void onClickWrapper()
 	{
 		onClick(!getState());
@@ -62,7 +62,7 @@ static int TRAYICONID = 1; // ID number for the Notify Icon
 constexpr unsigned short SWM_TRAYMSG = WM_APP; // the message ID sent to our window
 constexpr UINT_PTR SWM_CUSTOM = WM_APP + 1; //	show the window
 
-std::vector<TrayIcon *> registry;
+vector<TrayIcon *> registry;
 
 static bool toastReady = false;
 
@@ -78,7 +78,7 @@ public:
 	//void toastFailed() const override { }
 };
 
-TrayIcon::TrayIcon(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPTSTR lpCmdLine, int nCmdShow, std::function<void()> beforeShow)
+TrayIcon::TrayIcon(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPTSTR lpCmdLine, int nCmdShow, function<void()> beforeShow)
 	: _hInst(0)
 	, _niData({0})
 	, _menuMap()
@@ -116,7 +116,7 @@ TrayIcon::~TrayIcon()
 		_niData.hIcon = NULL;
 
 	CloseHandle(_thread);
-	auto entry = std::find(registry.begin(), registry.end(), this);
+	auto entry = find(registry.begin(), registry.end(), this);
 	if( entry != registry.end() )
 		registry.erase(entry);
 }
@@ -151,7 +151,7 @@ DWORD WINAPI TrayIcon::MessageHandlerLoop(LPVOID param)
 	return 1;
 }
 
-/*bool TrayIcon::SendToast(std::wstring message)
+/*bool TrayIcon::SendToast(wstring message)
 {
 	WinToastTemplate templ = WinToastTemplate(WinToastTemplate::ImageAndText02);
 	templ.setTextField(L"JoyShockMapper", WinToastTemplate::FirstLine);
@@ -164,14 +164,14 @@ DWORD WINAPI TrayIcon::MessageHandlerLoop(LPVOID param)
 		printf("WinToast could not initialize\n");
 		return false;
 	}
-	else if(WinToast::instance()->showToast(templ, std::make_unique<JSMToasts>(), &err) == -1 || err != WinToast::NoError) {
+	else if(WinToast::instance()->showToast(templ, make_unique<JSMToasts>(), &err) == -1 || err != WinToast::NoError) {
 		printf("WinToast Error: %S\n", WinToast::strerror(err).c_str());
 		return false;
 	}
 	return true;
 }/**/
 
-void TrayIcon::AddMenuItem(const std::wstring & label, std::function<void()> onClick)
+void TrayIcon::AddMenuItem(const wstring & label, function<void()> onClick)
 {
 	auto btn = new MenuItemButton;
 	btn->label = label;
@@ -179,7 +179,7 @@ void TrayIcon::AddMenuItem(const std::wstring & label, std::function<void()> onC
 	_menuMap.push_back( btn );
 }
 
-void TrayIcon::AddMenuItem(const std::wstring & label, std::function<void(bool)> onClick, std::function<bool()> getState)
+void TrayIcon::AddMenuItem(const wstring & label, function<void(bool)> onClick, function<bool()> getState)
 {
 	auto tgl = new MenuItemToggle;
 	tgl->label = label;
@@ -188,9 +188,9 @@ void TrayIcon::AddMenuItem(const std::wstring & label, std::function<void(bool)>
 	_menuMap.push_back(tgl);
 }
 
-void TrayIcon::AddMenuItem(const std::wstring & label, const std::wstring & sublabel, std::function<void()> onClick)
+void TrayIcon::AddMenuItem(const wstring & label, const wstring & sublabel, function<void()> onClick)
 {
-	auto menuiter = std::find_if(_menuMap.begin(), _menuMap.end(),
+	auto menuiter = find_if(_menuMap.begin(), _menuMap.end(),
 		[label] (auto item) {
 			return label == item->label; 
 		}
@@ -287,7 +287,7 @@ void TrayIcon::ShowContextMenu(HWND hWnd)
 			{
 				bool state = tgl->getState();
 				InsertMenu(hMenu, -1, MF_BYPOSITION | MF_STRING | (state ? MF_CHECKED : MF_UNCHECKED), SWM_CUSTOM + id, tgl->label.c_str());
-				_clickMap[SWM_CUSTOM + id] = std::bind(&MenuItemToggle::onClickWrapper, tgl);
+				_clickMap[SWM_CUSTOM + id] = bind(&MenuItemToggle::onClickWrapper, tgl);
 			}
 			auto *menu = dynamic_cast<MenuItemMenu*>(menuItem);
 			if (menu)
@@ -346,7 +346,7 @@ INT_PTR CALLBACK TrayIcon::DlgProc(HWND hWnd, UINT message, WPARAM wParam, LPARA
 {
 	UINT_PTR wmId, wmEvent;
 
-	auto entry = std::find_if(registry.begin(), registry.end(), 
+	auto entry = find_if(registry.begin(), registry.end(), 
 		[hWnd] (auto entry)
 		{ 
 			return *entry == hWnd; 
@@ -373,7 +373,7 @@ INT_PTR CALLBACK TrayIcon::DlgProc(HWND hWnd, UINT message, WPARAM wParam, LPARA
 				auto *tgl = dynamic_cast<MenuItemToggle*>(tray->_menuMap[0]);
 				if (tgl)
 				{
-					tray->_clickMap[SWM_CUSTOM] = std::bind(&MenuItemToggle::onClickWrapper, tgl);
+					tray->_clickMap[SWM_CUSTOM] = bind(&MenuItemToggle::onClickWrapper, tgl);
 				}
 			}
 			tray->_clickMap[SWM_CUSTOM](); // 0 is default

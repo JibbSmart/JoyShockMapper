@@ -1,4 +1,6 @@
 #pragma once
+using namespace std;
+
 #include <windows.h>
 #include <functional>
 #include <vector>
@@ -9,17 +11,17 @@ struct MenuItem;
 class TrayIcon {
 	HINSTANCE		_hInst;	// current instance
 	NOTIFYICONDATA	_niData;	// notify icon data
-	std::vector<MenuItem*> _menuMap;
-	std::map<UINT_PTR, std::function<void()>> _clickMap;
+	vector<MenuItem*> _menuMap;
+	map<UINT_PTR, function<void()>> _clickMap;
 	HANDLE _thread;
-	std::function<void()> _beforeShow;
+	function<void()> _beforeShow;
 
 public:
 	TrayIcon(HINSTANCE hInstance,
 		HINSTANCE hPrevInstance,
 		LPTSTR    lpCmdLine,
 		int       nCmdShow,
-		std::function<void()> beforeShow);
+		function<void()> beforeShow);
 
 	~TrayIcon();
 
@@ -44,13 +46,13 @@ public:
 		return Shell_NotifyIcon(NIM_DELETE, &_niData) != FALSE;
 	}
 
-	bool SendToast(std::wstring message);
+	bool SendToast(wstring message);
 
-	void AddMenuItem(const std::wstring &label, std::function<void()> onClick);
+	void AddMenuItem(const wstring &label, function<void()> onClick);
 
-	void AddMenuItem(const std::wstring &label, std::function<void(bool)> onClick, std::function<bool()> getState);
+	void AddMenuItem(const wstring &label, function<void(bool)> onClick, function<bool()> getState);
 
-	void AddMenuItem(const std::wstring &label, const std::wstring &sublabel, std::function<void()> onClick);
+	void AddMenuItem(const wstring &label, const wstring &sublabel, function<void()> onClick);
 
 	void ClearMenuMap();
 

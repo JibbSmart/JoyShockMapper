@@ -9,7 +9,7 @@
 constexpr uint16_t HID_GUARDIAN_PORT = 26762;
 
 // Keep windows types outside of h file
-static SOCKET connectToServer(const std::string & szServerName, WORD portNum)
+static SOCKET connectToServer(const string & szServerName, WORD portNum)
 {
 	struct hostent *hp;
 	unsigned int addr;
@@ -93,12 +93,12 @@ bool Whitelister::ShowHIDCerberus()
 	return false;
 }
 
-bool Whitelister::Add(std::string *optErrMsg)
+bool Whitelister::Add(string *optErrMsg)
 {
 	if (!_whitelisted && IsHIDCerberusRunning())
 	{
 		UINT64 pid = GetCurrentProcessId();
-		std::stringstream ss;
+		stringstream ss;
 		ss << R"(http://localhost/api/v1/hidguardian/whitelist/add/)" << pid;
 		auto result = SendToHIDGuardian(ss.str());
 
@@ -114,12 +114,12 @@ bool Whitelister::Add(std::string *optErrMsg)
 	return false;
 }
 
-bool Whitelister::Remove(std::string *optErrMsg)
+bool Whitelister::Remove(string *optErrMsg)
 {
 	if (_whitelisted && IsHIDCerberusRunning())
 	{
 		UINT64 pid = GetCurrentProcessId();
-		std::stringstream ss;
+		stringstream ss;
 		ss << R"(http://localhost/api/v1/hidguardian/whitelist/remove/)" << pid;
 		auto result = SendToHIDGuardian(ss.str());
 		if (result.compare(R"(["OK"])") == 0)
@@ -134,11 +134,11 @@ bool Whitelister::Remove(std::string *optErrMsg)
 	return false;
 }
 
-std::string Whitelister::SendToHIDGuardian(std::string command)
+string Whitelister::SendToHIDGuardian(string command)
 {
 	long fileSize = -1;
 	WSADATA wsaData;
-	std::string memBuffer, headerBuffer;
+	string memBuffer, headerBuffer;
 	
 	if (WSAStartup(0x101, &wsaData) == 0)
 	{
@@ -149,15 +149,15 @@ std::string Whitelister::SendToHIDGuardian(std::string command)
 	return memBuffer;
 }
 
-std::string Whitelister::readUrl2(std::string &szUrl, long &bytesReturnedOut, std::string *headerOut)
+string Whitelister::readUrl2(string &szUrl, long &bytesReturnedOut, string *headerOut)
 {
 	constexpr size_t bufSize = 512;
-	std::string readBuffer(bufSize, '\0');
-	std::string sendBuffer(bufSize, '\0');
-	std::stringstream tmpBuffer;
-	std::string result;
+	string readBuffer(bufSize, '\0');
+	string sendBuffer(bufSize, '\0');
+	stringstream tmpBuffer;
+	string result;
 	SOCKET conn;
-	std::string server, filepath, filename;
+	string server, filepath, filename;
 	long totalBytesRead, thisReadSize, headerLen;
 
 	mParseUrl(szUrl, server, filepath, filename);
@@ -197,9 +197,9 @@ std::string Whitelister::readUrl2(std::string &szUrl, long &bytesReturnedOut, st
 	return result;
 }
 
-void Whitelister::mParseUrl(std::string url, std::string &serverName, std::string &filepath, std::string &filename)
+void Whitelister::mParseUrl(string url, string &serverName, string &filepath, string &filename)
 {
-	std::string::size_type n;
+	string::size_type n;
 
 	if (url.substr(0, 7) == "http://")
 		url.erase(0, 7);
@@ -209,7 +209,7 @@ void Whitelister::mParseUrl(std::string url, std::string &serverName, std::strin
 
 	n = url.find('/');
 
-	if (n != std::string::npos)
+	if (n != string::npos)
 	{
 		serverName = url.substr(0, n);
 		filepath = url.substr(n);
