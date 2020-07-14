@@ -219,16 +219,13 @@ struct Mapping
 {
 	WORD pressBind = 0; // Press or tap binding
 	WORD holdBind = 0; // Hold binding if any.
-	//vector<ComboMap> sim_mappings;
-	//vector<ComboMap> chord_mappings; // Binds a chord button to one or many remappings
-
-	//void reset()
-	//{
-	//	pressBind = 0;
-	//	holdBind = 0;
-	//	sim_mappings.clear();
-	//	chord_mappings.clear();
-	//}
+	
+	Mapping(WORD press = 0, WORD hold = 0)
+		: pressBind(press)
+		, holdBind(hold)
+	{}
+	// This constructor is required to make use of the default value of JSMVariable's constructor
+	Mapping(int dummy) : Mapping() {}
 };
 
 
@@ -253,12 +250,22 @@ public:
 		return valid;
 	}
 
-	inline T operator *() const
+	inline T &operator *()
+	{
+		return value;
+	}
+
+	inline const T &operator *() const
 	{
 		return value;
 	}
 
 	inline T *operator ->()
+	{
+		return &value;
+	}
+
+	inline const T *operator ->() const
 	{
 		return &value;
 	}
@@ -301,3 +308,6 @@ ostream &operator <<(ostream &out, JoyconMask joyconMask);
 
 istream &operator >>(istream &in, GyroSettings &gyro_settings);
 ostream &operator <<(ostream &out, GyroSettings gyro_settings);
+
+istream &operator >>(istream &in, Mapping &mapping);
+ostream &operator <<(ostream &out, Mapping mapping);

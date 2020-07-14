@@ -1,4 +1,5 @@
 #include "JoyShockMapper.h"
+#include "inputHelpers.h"
 #include <sstream>
 
 // Should we decide to run C++17, this entire file could be replaced by magic_enum header
@@ -189,6 +190,9 @@ ostream &operator <<(ostream &out, ButtonID button) {
 	case ButtonID::LRIGHT:
 		out << "LRIGHT";
 		break;
+	case ButtonID::LRING:
+		out << "LRING";
+		break;
 	case ButtonID::RUP:
 		out << "RUP";
 		break;
@@ -201,14 +205,14 @@ ostream &operator <<(ostream &out, ButtonID button) {
 	case ButtonID::RRIGHT:
 		out << "RRIGHT";
 		break;
-	case ButtonID::ZRF:
-		out << "ZRF";
-		break;
+	case ButtonID::RRING:
+		out << "LRING";
+		break; 
 	case ButtonID::ZLF:
 		out << "ZLF";
 		break;
-	case ButtonID::LRING:
-		out << "LRING";
+	case ButtonID::ZRF:
+		out << "ZRF";
 		break;
 	default:
 		out << "ERROR";
@@ -925,5 +929,26 @@ ostream &operator <<(ostream &out, GyroSettings gyro_settings)
 		out << "INVALID";
 		break;
 	}
+	return out;
+}
+
+istream &operator >>(istream &in, Mapping &mapping)
+{
+	string valueName(128, '\0');
+	in.getline(&valueName[0], valueName.size());
+	valueName.resize(strlen(valueName.c_str()));
+	stringstream ss(valueName);
+	valueName.clear();
+	ss >> valueName;
+	mapping.pressBind = nameToKey(valueName);
+	valueName.clear();
+	ss >> valueName;
+	mapping.holdBind = nameToKey(valueName);
+	return in;
+}
+
+ostream &operator <<(ostream &out, Mapping mapping)
+{
+	out << "Yikes, this might take a bit of work :(" << endl;
 	return out;
 }

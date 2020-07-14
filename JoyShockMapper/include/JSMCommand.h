@@ -32,7 +32,7 @@ public:
 	// The constructor should only have mandatory arguments. Optional arguments are assigned using setters.
 	JSMCommand(in_string name)
 		: _name(name)
-		, _help()
+		, _help("Error in entering the command. See README for help.")
 		, _parse()
 	{}
 
@@ -104,7 +104,7 @@ public:
 	bool Add(JSMCommand *newCommand)
 	{
 		// Check that the pointer is valid, that the name is valid.
-		if (newCommand && regex_match(newCommand->_name, regex(R"(^\w+$)")) )
+		if (newCommand && regex_match(newCommand->_name, regex(R"(^(\+|-|\w+)$)")) )
 		{
 			// Unique pointers automatically delete the pointer on object destruction
 			_registry.emplace(newCommand->_name, unique_ptr<JSMCommand>(newCommand));
@@ -285,7 +285,7 @@ protected:
 
 	void DisplayNewValue(T newValue)
 	{
-		cout << _name << " has been set to " << _var << endl;
+		cout << _name << " has been set to " << newValue << endl;
 	}
 
 	virtual unique_ptr<JSMCommand> GetModifiedCmd(char op, in_string chord) override
@@ -343,3 +343,16 @@ public:
 	//}
 };
 
+template<>
+void JSMAssignment<Mapping>::DisplayNewValue(Mapping newValue)
+{
+	if (newValue.holdBind)
+	{
+		cout << "Tap " << _name << " mapped to " << char(newValue.pressBind) << endl
+			<< "Hold " << _name << " mapped to " << char(newValue.holdBind) << endl;
+	}
+	else
+	{
+		cout << _name << " mapped to " << char(newValue.pressBind) << endl;
+	}
+}

@@ -21,52 +21,49 @@
 class JoyShock;
 
 // Contains all settings that can be modeshifted. They should be accessed only via Joyshock::getSetting
-struct JSMSettings {
-	JSMSetting<StickMode> left_stick_mode = JSMSetting<StickMode>(SettingID::LEFT_STICK_MODE, StickMode::none);
-	JSMSetting<StickMode> right_stick_mode = JSMSetting<StickMode>(SettingID::RIGHT_STICK_MODE, StickMode::none);
-	JSMSetting<RingMode> left_ring_mode = JSMSetting<RingMode>(SettingID::LEFT_RING_MODE, RingMode::outer);
-	JSMSetting<RingMode> right_ring_mode = JSMSetting<RingMode>(SettingID::LEFT_RING_MODE, RingMode::outer);
-	JSMSetting<GyroAxisMask> mouse_x_from_gyro = JSMSetting<GyroAxisMask>(SettingID::MOUSE_X_FROM_GYRO_AXIS, GyroAxisMask::none);
-	JSMSetting<GyroAxisMask> mouse_y_from_gyro = JSMSetting<GyroAxisMask>(SettingID::MOUSE_Y_FROM_GYRO_AXIS, GyroAxisMask::none);
-	JSMSetting<GyroSettings> gyro_settings = JSMSetting<GyroSettings>(SettingID::GYRO_ON, GyroSettings()); // Ignore mode none means no GYRO_OFF button
-	JSMSetting<JoyconMask> joycon_gyro_mask = JSMSetting<JoyconMask>(SettingID::JOYCON_GYRO_MASK, JoyconMask::ignoreLeft);
-	JSMSetting<TriggerMode> zlMode = JSMSetting<TriggerMode>(SettingID::ZL_DUAL_STAGE_MODE, TriggerMode::noFull);
-	JSMSetting<TriggerMode> zrMode = JSMSetting<TriggerMode>(SettingID::ZR_DUAL_STAGE_MODE, TriggerMode::noFull);;
-	JSMSetting<FlickSnapMode> flick_snap_mode = JSMSetting<FlickSnapMode>(SettingID::FLICK_SNAP_MODE, FlickSnapMode::none);
-	JSMSetting<FloatXY> min_gyro_sens = JSMSetting<FloatXY>(SettingID::MIN_GYRO_SENS, { 0.0f, 0.0f });
-	JSMSetting<FloatXY> max_gyro_sens = JSMSetting<FloatXY>(SettingID::MAX_GYRO_SENS, { 0.0f, 0.0f });
-	JSMSetting<float> min_gyro_threshold = JSMSetting<float>(SettingID::MIN_GYRO_THRESHOLD, 0.0f);
-	JSMSetting<float> max_gyro_threshold = JSMSetting<float>(SettingID::MAX_GYRO_THRESHOLD, 0.0f);
-	JSMSetting<float> stick_power = JSMSetting<float>(SettingID::STICK_POWER, 1.0f);
-	JSMSetting<float> stick_sens = JSMSetting<float>(SettingID::STICK_SENS, 360.0f);
-	// There's an argument that RWC has no interest in being modeshifted and thus could be outside this structure.
-	JSMSetting<float> real_world_calibration = JSMSetting<float>(SettingID::REAL_WORLD_CALIBRATION, 40.0f);
-	JSMSetting<float> in_game_sens = JSMSetting<float>(SettingID::IN_GAME_SENS, 1.0f);
-	JSMSetting<float> trigger_threshold = JSMSetting<float>(SettingID::TRIGGER_THRESHOLD, 0.0f);
-	JSMSetting<float> aim_y_sign = JSMSetting<float>(SettingID::STICK_AXIS_Y, 1.0f);
-	JSMSetting<float> aim_x_sign = JSMSetting<float>(SettingID::STICK_AXIS_X, 1.0f);
-	JSMSetting<float> gyro_y_sign = JSMSetting<float>(SettingID::GYRO_AXIS_Y, 1.0f);
-	JSMSetting<float> gyro_x_sign = JSMSetting<float>(SettingID::GYRO_AXIS_X, 1.0f);
-	JSMSetting<float> flick_time = JSMSetting<float>(SettingID::FLICK_TIME, 0.1f);
-	JSMSetting<float> gyro_smooth_time = JSMSetting<float>(SettingID::GYRO_SMOOTH_TIME, 0.125f);
-	JSMSetting<float> gyro_smooth_threshold = JSMSetting<float>(SettingID::GYRO_SMOOTH_THRESHOLD, 0.0f);
-	JSMSetting<float> gyro_cutoff_speed = JSMSetting<float>(SettingID::GYRO_CUTOFF_SPEED, 0.0f);
-	JSMSetting<float> gyro_cutoff_recovery = JSMSetting<float>(SettingID::GYRO_CUTOFF_RECOVERY, 0.0f);
-	JSMSetting<float> stick_acceleration_rate = JSMSetting<float>(SettingID::STICK_ACCELERATION_RATE, 0.0f);
-	JSMSetting<float> stick_acceleration_cap = JSMSetting<float>(SettingID::STICK_ACCELERATION_CAP, 1000000.0f);
-	JSMSetting<float> stick_deadzone_inner = JSMSetting<float>(SettingID::STICK_DEADZONE_INNER, 0.15f);
-	JSMSetting<float> stick_deadzone_outer = JSMSetting<float>(SettingID::STICK_DEADZONE_OUTER, 0.1f);
-	JSMSetting<float> mouse_ring_radius = JSMSetting<float>(SettingID::MOUSE_RING_RADIUS, 128.0f);
-	JSMSetting<float> screen_resolution_x = JSMSetting<float>(SettingID::SCREEN_RESOLUTION_X, 1920.0f);
-	JSMSetting<float> screen_resolution_y = JSMSetting<float>(SettingID::SCREEN_RESOLUTION_Y, 1080.0f);
-	JSMSetting<float> rotate_smooth_override = JSMSetting<float>(SettingID::ROTATE_SMOOTH_OVERRIDE, -1.0f);
-	JSMSetting<float> flick_snap_strength = JSMSetting<float>(SettingID::FLICK_SNAP_STRENGTH, 01.0f);
-};
+JSMSetting<StickMode> left_stick_mode = JSMSetting<StickMode>(SettingID::LEFT_STICK_MODE, StickMode::none);
+JSMSetting<StickMode> right_stick_mode = JSMSetting<StickMode>(SettingID::RIGHT_STICK_MODE, StickMode::none);
+JSMSetting<RingMode> left_ring_mode = JSMSetting<RingMode>(SettingID::LEFT_RING_MODE, RingMode::outer);
+JSMSetting<RingMode> right_ring_mode = JSMSetting<RingMode>(SettingID::LEFT_RING_MODE, RingMode::outer);
+JSMSetting<GyroAxisMask> mouse_x_from_gyro = JSMSetting<GyroAxisMask>(SettingID::MOUSE_X_FROM_GYRO_AXIS, GyroAxisMask::none);
+JSMSetting<GyroAxisMask> mouse_y_from_gyro = JSMSetting<GyroAxisMask>(SettingID::MOUSE_Y_FROM_GYRO_AXIS, GyroAxisMask::none);
+JSMSetting<GyroSettings> gyro_settings = JSMSetting<GyroSettings>(SettingID::GYRO_ON, GyroSettings()); // Ignore mode none means no GYRO_OFF button
+JSMSetting<JoyconMask> joycon_gyro_mask = JSMSetting<JoyconMask>(SettingID::JOYCON_GYRO_MASK, JoyconMask::ignoreLeft);
+JSMSetting<TriggerMode> zlMode = JSMSetting<TriggerMode>(SettingID::ZL_DUAL_STAGE_MODE, TriggerMode::noFull);
+JSMSetting<TriggerMode> zrMode = JSMSetting<TriggerMode>(SettingID::ZR_DUAL_STAGE_MODE, TriggerMode::noFull);;
+JSMSetting<FlickSnapMode> flick_snap_mode = JSMSetting<FlickSnapMode>(SettingID::FLICK_SNAP_MODE, FlickSnapMode::none);
+JSMSetting<FloatXY> min_gyro_sens = JSMSetting<FloatXY>(SettingID::MIN_GYRO_SENS, { 0.0f, 0.0f });
+JSMSetting<FloatXY> max_gyro_sens = JSMSetting<FloatXY>(SettingID::MAX_GYRO_SENS, { 0.0f, 0.0f });
+JSMSetting<float> min_gyro_threshold = JSMSetting<float>(SettingID::MIN_GYRO_THRESHOLD, 0.0f);
+JSMSetting<float> max_gyro_threshold = JSMSetting<float>(SettingID::MAX_GYRO_THRESHOLD, 0.0f);
+JSMSetting<float> stick_power = JSMSetting<float>(SettingID::STICK_POWER, 1.0f);
+JSMSetting<float> stick_sens = JSMSetting<float>(SettingID::STICK_SENS, 360.0f);
+// There's an argument that RWC has no interest in being modeshifted and thus could be outside this structure.
+JSMSetting<float> real_world_calibration = JSMSetting<float>(SettingID::REAL_WORLD_CALIBRATION, 40.0f);
+JSMSetting<float> in_game_sens = JSMSetting<float>(SettingID::IN_GAME_SENS, 1.0f);
+JSMSetting<float> trigger_threshold = JSMSetting<float>(SettingID::TRIGGER_THRESHOLD, 0.0f);
+JSMSetting<float> aim_y_sign = JSMSetting<float>(SettingID::STICK_AXIS_Y, 1.0f);
+JSMSetting<float> aim_x_sign = JSMSetting<float>(SettingID::STICK_AXIS_X, 1.0f);
+JSMSetting<float> gyro_y_sign = JSMSetting<float>(SettingID::GYRO_AXIS_Y, 1.0f);
+JSMSetting<float> gyro_x_sign = JSMSetting<float>(SettingID::GYRO_AXIS_X, 1.0f);
+JSMSetting<float> flick_time = JSMSetting<float>(SettingID::FLICK_TIME, 0.1f);
+JSMSetting<float> gyro_smooth_time = JSMSetting<float>(SettingID::GYRO_SMOOTH_TIME, 0.125f);
+JSMSetting<float> gyro_smooth_threshold = JSMSetting<float>(SettingID::GYRO_SMOOTH_THRESHOLD, 0.0f);
+JSMSetting<float> gyro_cutoff_speed = JSMSetting<float>(SettingID::GYRO_CUTOFF_SPEED, 0.0f);
+JSMSetting<float> gyro_cutoff_recovery = JSMSetting<float>(SettingID::GYRO_CUTOFF_RECOVERY, 0.0f);
+JSMSetting<float> stick_acceleration_rate = JSMSetting<float>(SettingID::STICK_ACCELERATION_RATE, 0.0f);
+JSMSetting<float> stick_acceleration_cap = JSMSetting<float>(SettingID::STICK_ACCELERATION_CAP, 1000000.0f);
+JSMSetting<float> stick_deadzone_inner = JSMSetting<float>(SettingID::STICK_DEADZONE_INNER, 0.15f);
+JSMSetting<float> stick_deadzone_outer = JSMSetting<float>(SettingID::STICK_DEADZONE_OUTER, 0.1f);
+JSMSetting<float> mouse_ring_radius = JSMSetting<float>(SettingID::MOUSE_RING_RADIUS, 128.0f);
+JSMSetting<float> screen_resolution_x = JSMSetting<float>(SettingID::SCREEN_RESOLUTION_X, 1920.0f);
+JSMSetting<float> screen_resolution_y = JSMSetting<float>(SettingID::SCREEN_RESOLUTION_Y, 1080.0f);
+JSMSetting<float> rotate_smooth_override = JSMSetting<float>(SettingID::ROTATE_SMOOTH_OVERRIDE, -1.0f);
+JSMSetting<float> flick_snap_strength = JSMSetting<float>(SettingID::FLICK_SNAP_STRENGTH, 01.0f);
+vector<JSMMapping> mappings; // array enables use of for each loop and other i/f
 
 mutex loading_lock;
 
-vector<JSMMapping> mappings; // array enables use of for each loop and other i/f
-JSMSettings baseSettings;
 
 float os_mouse_speed = 1.0;
 float last_flick_and_rotation = 0.0;
@@ -174,17 +171,14 @@ public:
 
 	inline bool HasDblPressMapping()
 	{
-		return GetDblPressMapping() != nullptr;
+		return GetDblPressMapping();
 	}
 
-	const ComboMap *GetDblPressMapping()
+	const Optional<ComboMap> GetDblPressMapping()
 	{
-		auto maps = find_if(_mapping.chord_mappings.begin(), _mapping.chord_mappings.end(),
-			[this](ComboMap map)
-			{
-				return map.btn == _id;
-			});
-		return maps != _mapping.chord_mappings.end() ? &*maps : nullptr;
+		auto dblPress = _mapping.get(_id);
+		return dblPress ? Optional<ComboMap>({(stringstream(_name) << ',' << _name).str(), _id, dblPress->pressBind, dblPress->holdBind}) 
+			: Optional<ComboMap>();
 	}
 
 	WORD GetHoldMapping()
@@ -192,19 +186,17 @@ public:
 		// Look at active chord mappings starting with the latest activates chord
 		for (auto activeChord = _common.chordStack.begin(); activeChord != _common.chordStack.end(); activeChord++)
 		{
-			for (auto &chordPress : _mapping.chord_mappings)
+			auto binding = _mapping.get(*activeChord);
+			if (binding)
 			{
-				if (chordPress.btn == *activeChord && chordPress.btn != _id)
-				{
-					_keyToRelease = chordPress.holdBind;
-					_nameToRelease = chordPress.name.c_str();
-					return chordPress.holdBind;
-				}
+				_keyToRelease = binding->holdBind;
+				_nameToRelease = _mapping.getName(*activeChord);
+				return binding->holdBind;
 			}
 		}
-		_keyToRelease = _mapping.holdBind;
-		_nameToRelease = _name.c_str();
-		return _mapping.holdBind;
+		_keyToRelease = _mapping.get()->holdBind;
+		_nameToRelease = _name;
+		return _mapping.get()->holdBind;
 	}
 
 	void ApplyBtnPress(bool tap = false)
@@ -225,7 +217,7 @@ public:
 		}
 		else
 		{
-			printf("%s: %s\n", _nameToRelease, tap ? "tapped" : "true");
+			printf("%s: %s\n", _nameToRelease.c_str(), tap ? "tapped" : "true");
 			pressKey(key, true);
 		}
 		_keyToRelease = key;
@@ -250,7 +242,7 @@ public:
 		}
 		else if (key != NO_HOLD_MAPPED)
 		{
-			printf("%s: held\n", _nameToRelease);
+			printf("%s: held\n", _nameToRelease.c_str());
 			pressKey(key, true);
 		}
 		_keyToRelease = key;
@@ -281,7 +273,7 @@ public:
 		}
 		else if (_keyToRelease != NO_HOLD_MAPPED)
 		{
-			printf(tap ? "" : "%s: false\n", _nameToRelease); // Is this good coding? [Insert meme]
+			printf(tap ? "" : "%s: false\n", _nameToRelease.c_str()); // Is this good coding? [Insert meme]
 			pressKey(_keyToRelease, false);
 		}
 		//auto foundChord = find(_common.chordStack.begin(), _common.chordStack.end(), _id);
@@ -314,7 +306,7 @@ public:
 			pressKey(map.pressBind, true);
 		}
 		_keyToRelease = map.pressBind;
-		_nameToRelease = map.name.c_str();
+		_nameToRelease = map.name;
 	}
 
 	void ApplyBtnHold(const ComboMap &map)
@@ -336,7 +328,7 @@ public:
 			pressKey(map.holdBind, true);
 		}
 		_keyToRelease = map.holdBind;
-		_nameToRelease = map.name.c_str();
+		_nameToRelease = map.name;
 	}
 
 	void ApplyBtnRelease(const ComboMap &map, bool tap = false)
@@ -365,7 +357,7 @@ public:
 		}
 		else if (_keyToRelease != NO_HOLD_MAPPED)
 		{
-			printf(tap ? "" : "%s: false\n", _nameToRelease);
+			printf(tap ? "" : "%s: false\n", _nameToRelease.c_str());
 			pressKey(_keyToRelease, false);
 		}
 		auto foundChord = find(_common.chordStack.begin(), _common.chordStack.end(), _id);
@@ -379,7 +371,7 @@ public:
 	void SyncSimPress(const ComboMap &map)
 	{
 		_keyToRelease = map.pressBind;
-		_nameToRelease = map.name.c_str();
+		_nameToRelease = map.name;
 		if (map.holdBind >= GYRO_INV_X && map.holdBind <= GYRO_ON_BIND)
 		{
 			_common.gyroActionQueue.push_back({ _id, map.holdBind });
@@ -389,7 +381,7 @@ public:
 	void SyncSimHold(const ComboMap &map)
 	{
 		_keyToRelease = map.holdBind;
-		_nameToRelease = map.name.c_str();
+		_nameToRelease = map.name;
 		if (map.holdBind >= GYRO_INV_X && map.holdBind <= GYRO_ON_BIND)
 		{
 			// I know I don't handle multiple inversion. Otherwise GYRO_INV_X on sim press would do nothing
@@ -534,35 +526,42 @@ public:
 			Optional<E> opt;
 			switch (index) {
 			case SettingID::MOUSE_X_FROM_GYRO_AXIS:
-				opt = GetOptionalSetting<E>(baseSettings.mouse_x_from_gyro, *activeChord);
+				opt = GetOptionalSetting<E>(mouse_x_from_gyro, *activeChord);
 				break;
 			case SettingID::MOUSE_Y_FROM_GYRO_AXIS:
-				opt = GetOptionalSetting<E>(baseSettings.mouse_y_from_gyro, *activeChord);
+				opt = GetOptionalSetting<E>(mouse_y_from_gyro, *activeChord);
 				break;
 			case SettingID::LEFT_STICK_MODE:
-				opt = GetOptionalSetting<E>(baseSettings.left_stick_mode, *activeChord);
+				opt = GetOptionalSetting<E>(left_stick_mode, *activeChord);
+				if (ignore_left_stick_mode && *activeChord == ButtonID::NONE)
+					opt = Optional<E>(static_cast<E>(StickMode::invalid));
+				else
+					ignore_left_stick_mode |= (opt && *activeChord != ButtonID::NONE);
 				break;
 			case SettingID::RIGHT_STICK_MODE:
-				//ignore_right_stick_mode |= !topLevel; // Enable the ignore flag when a chord stick mode enables
-				opt = GetOptionalSetting<E>(baseSettings.right_stick_mode, *activeChord);
+				opt = GetOptionalSetting<E>(right_stick_mode, *activeChord);
+				if (ignore_right_stick_mode && *activeChord == ButtonID::NONE)
+					opt = Optional<E>(static_cast<E>(StickMode::invalid));
+				else
+					ignore_right_stick_mode |= (opt && *activeChord != ButtonID::NONE);
 				break;
 			case SettingID::LEFT_RING_MODE:
-				opt = GetOptionalSetting<E>(baseSettings.left_ring_mode, *activeChord);
+				opt = GetOptionalSetting<E>(left_ring_mode, *activeChord);
 				break;
 			case SettingID::RIGHT_RING_MODE:
-				opt = GetOptionalSetting<E>(baseSettings.right_ring_mode, *activeChord);
+				opt = GetOptionalSetting<E>(right_ring_mode, *activeChord);
 				break;
 			case SettingID::JOYCON_GYRO_MASK:
-				opt = GetOptionalSetting<E>(baseSettings.joycon_gyro_mask, *activeChord);
+				opt = GetOptionalSetting<E>(joycon_gyro_mask, *activeChord);
 				break;
 			case SettingID::ZR_DUAL_STAGE_MODE:
-				opt = GetOptionalSetting<E>(baseSettings.zrMode, *activeChord);
+				opt = GetOptionalSetting<E>(zrMode, *activeChord);
 				break;
 			case SettingID::ZL_DUAL_STAGE_MODE:
-				opt = GetOptionalSetting<E>(baseSettings.zlMode, *activeChord);
+				opt = GetOptionalSetting<E>(zlMode, *activeChord);
 				break;
 			case SettingID::FLICK_SNAP_MODE:
-				opt = GetOptionalSetting<E>(baseSettings.flick_snap_mode, *activeChord);
+				opt = GetOptionalSetting<E>(flick_snap_mode, *activeChord);
 				break;
 			}
 			if (opt) return *opt;
@@ -579,79 +578,79 @@ public:
 			switch (index)
 			{
 			case SettingID::MIN_GYRO_THRESHOLD:
-				opt = baseSettings.min_gyro_threshold.get(*activeChord);
+				opt = min_gyro_threshold.get(*activeChord);
 				break;
 			case SettingID::MAX_GYRO_THRESHOLD:
-				opt = baseSettings.max_gyro_threshold.get(*activeChord);
+				opt = max_gyro_threshold.get(*activeChord);
 				break;
 			case SettingID::STICK_POWER:
-				opt = baseSettings.stick_power.get(*activeChord);
+				opt = stick_power.get(*activeChord);
 				break;
 			case SettingID::STICK_SENS:
-				opt = baseSettings.stick_sens.get(*activeChord);
+				opt = stick_sens.get(*activeChord);
 				break;
 			case SettingID::REAL_WORLD_CALIBRATION:
-				opt = baseSettings.real_world_calibration.get(*activeChord);
+				opt = real_world_calibration.get(*activeChord);
 				break;
 			case SettingID::IN_GAME_SENS:
-				opt = baseSettings.in_game_sens.get(*activeChord);
+				opt = in_game_sens.get(*activeChord);
 				break;
 			case SettingID::TRIGGER_THRESHOLD:
-				opt = baseSettings.trigger_threshold.get(*activeChord);
+				opt = trigger_threshold.get(*activeChord);
 				break;
 			case SettingID::STICK_AXIS_X:
-				opt = baseSettings.aim_x_sign.get(*activeChord);
+				opt = aim_x_sign.get(*activeChord);
 				break;
 			case SettingID::STICK_AXIS_Y:
-				opt = baseSettings.aim_y_sign.get(*activeChord);
+				opt = aim_y_sign.get(*activeChord);
 				break;
 			case SettingID::GYRO_AXIS_X:
-				opt = baseSettings.gyro_x_sign.get(*activeChord);
+				opt = gyro_x_sign.get(*activeChord);
 				break;
 			case SettingID::GYRO_AXIS_Y:
-				opt = baseSettings.gyro_y_sign.get(*activeChord);
+				opt = gyro_y_sign.get(*activeChord);
 				break;
 			case SettingID::FLICK_TIME:
-				opt = baseSettings.flick_time.get(*activeChord);
+				opt = flick_time.get(*activeChord);
 				break;
 			case SettingID::GYRO_SMOOTH_THRESHOLD:
-				opt = baseSettings.gyro_smooth_threshold.get(*activeChord);
+				opt = gyro_smooth_threshold.get(*activeChord);
 				break;
 			case SettingID::GYRO_SMOOTH_TIME:
-				opt = baseSettings.gyro_smooth_time.get(*activeChord);
+				opt = gyro_smooth_time.get(*activeChord);
 				break;
 			case SettingID::GYRO_CUTOFF_SPEED:
-				opt = baseSettings.gyro_cutoff_speed.get(*activeChord);
+				opt = gyro_cutoff_speed.get(*activeChord);
 				break;
 			case SettingID::GYRO_CUTOFF_RECOVERY:
-				opt = baseSettings.gyro_cutoff_recovery.get(*activeChord);
+				opt = gyro_cutoff_recovery.get(*activeChord);
 				break;
 			case SettingID::STICK_ACCELERATION_RATE:
-				opt = baseSettings.stick_acceleration_rate.get(*activeChord);
+				opt = stick_acceleration_rate.get(*activeChord);
 				break;
 			case SettingID::STICK_ACCELERATION_CAP:
-				opt = baseSettings.stick_acceleration_cap.get(*activeChord);
+				opt = stick_acceleration_cap.get(*activeChord);
 				break;
 			case SettingID::STICK_DEADZONE_INNER:
-				opt = baseSettings.stick_deadzone_inner.get(*activeChord);
+				opt = stick_deadzone_inner.get(*activeChord);
 				break;
 			case SettingID::STICK_DEADZONE_OUTER:
-				opt = baseSettings.stick_deadzone_outer.get(*activeChord);
+				opt = stick_deadzone_outer.get(*activeChord);
 				break;
 			case SettingID::MOUSE_RING_RADIUS:
-				opt = baseSettings.mouse_ring_radius.get(*activeChord);
+				opt = mouse_ring_radius.get(*activeChord);
 				break;
 			case SettingID::SCREEN_RESOLUTION_X:
-				opt = baseSettings.screen_resolution_x.get(*activeChord);
+				opt = screen_resolution_x.get(*activeChord);
 				break;
 			case SettingID::SCREEN_RESOLUTION_Y:
-				opt = baseSettings.screen_resolution_y.get(*activeChord);
+				opt = screen_resolution_y.get(*activeChord);
 				break;
 			case SettingID::ROTATE_SMOOTH_OVERRIDE:
-				opt = baseSettings.rotate_smooth_override.get(*activeChord);
+				opt = rotate_smooth_override.get(*activeChord);
 				break;
 			case SettingID::FLICK_SNAP_STRENGTH:
-				opt = baseSettings.flick_snap_strength.get(*activeChord);
+				opt = flick_snap_strength.get(*activeChord);
 				break;
 			}
 			if (opt) return *opt;
@@ -670,10 +669,10 @@ public:
 			switch (index)
 			{
 			case SettingID::MIN_GYRO_SENS:
-				opt = baseSettings.min_gyro_sens.get(*activeChord);
+				opt = min_gyro_sens.get(*activeChord);
 				break;
 			case SettingID::MAX_GYRO_SENS:
-				opt = baseSettings.max_gyro_sens.get(*activeChord);
+				opt = max_gyro_sens.get(*activeChord);
 				break;
 			}
 			if (opt) return *opt;
@@ -690,7 +689,7 @@ public:
 			// Look at active chord mappings starting with the latest activates chord
 			for (auto activeChord = btnCommon.chordStack.begin(); activeChord != btnCommon.chordStack.end(); activeChord++)
 			{
-				auto opt = baseSettings.gyro_settings.get(*activeChord);
+				auto opt = gyro_settings.get(*activeChord);
 				if (opt) return *opt;
 			}
 		}
@@ -699,19 +698,22 @@ public:
 
 public:
 
-	const ComboMap* GetMatchingSimMap(const array<Mapping, MAPPING_SIZE> &mappings, ButtonID index)
+	const ComboMap* GetMatchingSimMap(ButtonID index)
 	{
 		// Call the recursive variant
 		// Find the simMapping where the other btn is in the same state as this btn.
 		// POTENTIAL FLAW: The mapping you find may not necessarily be the one that got you in a 
 		// Simultaneous state in the first place if there is a second SimPress going on where one
 		// of the buttons has a third SimMap with this one. I don't know if it's worth solving though...
-		auto match = find_if(mappings[int(index)].sim_mappings.cbegin(), mappings[int(index)].sim_mappings.cend(),
-			[this, index](const ComboMap& simMap)
+		for (int id = 0; id < MAPPING_SIZE; ++id)
+		{
+			auto simMap = mappings[int(index)].getSimMap(ButtonID(id));
+			if (simMap && index != simMap->btn && buttons[int(simMap->btn)]._btnState == buttons[int(index)]._btnState)
 			{
-				return buttons[int(simMap.btn)]._btnState == buttons[int(index)]._btnState && index != simMap.btn;
-			});
-		return match == mappings[int(index)].sim_mappings.cend() ? nullptr : &*match;
+				return simMap;
+			}
+		}
+		return nullptr;
 	}
 
 	void ResetSmoothSample() {
@@ -853,7 +855,7 @@ public:
 			else
 			{
 				// Is there a sim mapping on this button where the other button is in WaitSim state too?
-				auto simMap = GetMatchingSimMap(mappings, index);
+				auto simMap = GetMatchingSimMap(index);
 				if (simMap)
 				{
 					// We have a simultaneous press!
@@ -917,7 +919,7 @@ public:
 		case BtnState::SimPress:
 		{
 			// Which is the sim mapping where the other button is in SimPress state too?
-			auto simMap = GetMatchingSimMap(mappings, index);
+			auto simMap = GetMatchingSimMap(index);
 			if (!simMap)
 			{
 				// Should never happen but added for robustness.
@@ -943,7 +945,7 @@ public:
 		case BtnState::WaitSimHold:
 		{
 			// Which is the sim mapping where the other button is in WaitSimHold state too?
-			auto simMap = GetMatchingSimMap(mappings, index);
+			auto simMap = GetMatchingSimMap(index);
 			if (!simMap)
 			{
 				// Should never happen but added for robustness.
@@ -972,7 +974,7 @@ public:
 		case BtnState::SimHold:
 		{
 			// Which is the sim mapping where the other button is in SimHold state too?
-			auto simMap = GetMatchingSimMap(mappings, index);
+			auto simMap = GetMatchingSimMap(index);
 			if (!simMap)
 			{
 				// Should never happen but added for robustness.
@@ -996,7 +998,7 @@ public:
 		case BtnState::SimTapRelease:
 		{
 			// Which is the sim mapping where the other button is in SimTapRelease state too?
-			auto simMap = GetMatchingSimMap(mappings, index);
+			auto simMap = GetMatchingSimMap(index);
 			if (!simMap)
 			{
 				// Should never happen but added for robustness.
@@ -1327,47 +1329,48 @@ static void strtrim(char* str) {
 }
 
 static void resetAllMappings() {
-	for_each(mappings.begin(), mappings.end(), [] (auto &map) { map.reset(); });
+	for_each(mappings.begin(), mappings.end(), [] (auto &map) { map.Reset(); });
 	// Question: Why is this a default mapping? Shouldn't it be empty? It's always possible to calibrate with RESET_GYRO_CALIBRATION
-	mappings[int(ButtonID::HOME)].pressBind = mappings[int(ButtonID::CAPTURE)].pressBind = mappings[int(ButtonID::HOME)].holdBind = mappings[int(ButtonID::CAPTURE)].holdBind = CALIBRATE;
-	baseSettings.min_gyro_sens.Reset();
-	baseSettings.max_gyro_sens.Reset();
-	baseSettings.min_gyro_threshold.Reset();
-	baseSettings.max_gyro_threshold.Reset();
-	baseSettings.stick_power.Reset();
-	baseSettings.stick_sens.Reset();
-	baseSettings.real_world_calibration.Reset();
-	baseSettings.in_game_sens.Reset();
-	baseSettings.left_stick_mode.Reset();
-	baseSettings.right_stick_mode.Reset();
-	baseSettings.left_ring_mode.Reset();
-	baseSettings.right_ring_mode.Reset();
-	baseSettings.mouse_x_from_gyro.Reset();
-	baseSettings.mouse_y_from_gyro.Reset();
-	baseSettings.joycon_gyro_mask.Reset();
-	baseSettings.zlMode.Reset();
-	baseSettings.zrMode.Reset();
-	baseSettings.trigger_threshold.Reset();
-	baseSettings.gyro_settings.Reset();
-	baseSettings.aim_y_sign.Reset();
-	baseSettings.aim_x_sign.Reset();
-	baseSettings.gyro_y_sign.Reset();
-	baseSettings.gyro_x_sign.Reset();
-	baseSettings.flick_time.Reset();
-	baseSettings.gyro_smooth_time.Reset();
-	baseSettings.gyro_smooth_threshold.Reset();
-	baseSettings.gyro_cutoff_speed.Reset();
-	baseSettings.gyro_cutoff_recovery.Reset();
-	baseSettings.stick_acceleration_rate.Reset();
-	baseSettings.stick_acceleration_cap.Reset();
-	baseSettings.stick_deadzone_inner.Reset();
-	baseSettings.stick_deadzone_outer.Reset();
-	baseSettings.screen_resolution_x.Reset();
-	baseSettings.screen_resolution_y.Reset();
-	baseSettings.mouse_ring_radius.Reset();
-	baseSettings.rotate_smooth_override.Reset();
-	baseSettings.flick_snap_strength.Reset();
-	baseSettings.flick_snap_mode.Reset();
+	mappings[int(ButtonID::HOME)] = { CALIBRATE, CALIBRATE };
+	mappings[int(ButtonID::CAPTURE)] = { CALIBRATE, CALIBRATE };
+	min_gyro_sens.Reset();
+	max_gyro_sens.Reset();
+	min_gyro_threshold.Reset();
+	max_gyro_threshold.Reset();
+	stick_power.Reset();
+	stick_sens.Reset();
+	real_world_calibration.Reset();
+	in_game_sens.Reset();
+	left_stick_mode.Reset();
+	right_stick_mode.Reset();
+	left_ring_mode.Reset();
+	right_ring_mode.Reset();
+	mouse_x_from_gyro.Reset();
+	mouse_y_from_gyro.Reset();
+	joycon_gyro_mask.Reset();
+	zlMode.Reset();
+	zrMode.Reset();
+	trigger_threshold.Reset();
+	gyro_settings.Reset();
+	aim_y_sign.Reset();
+	aim_x_sign.Reset();
+	gyro_y_sign.Reset();
+	gyro_x_sign.Reset();
+	flick_time.Reset();
+	gyro_smooth_time.Reset();
+	gyro_smooth_threshold.Reset();
+	gyro_cutoff_speed.Reset();
+	gyro_cutoff_recovery.Reset();
+	stick_acceleration_rate.Reset();
+	stick_acceleration_cap.Reset();
+	stick_deadzone_inner.Reset();
+	stick_deadzone_outer.Reset();
+	screen_resolution_x.Reset();
+	screen_resolution_y.Reset();
+	mouse_ring_radius.Reset();
+	rotate_smooth_override.Reset();
+	flick_snap_strength.Reset();
+	flick_snap_mode.Reset();
 	
 	os_mouse_speed = 1.0f;
 	last_flick_and_rotation = 0.0f;
@@ -1412,7 +1415,7 @@ JoyShock* getJoyShockFromHandle(int handle) {
 
 bool do_NO_GYRO_BUTTON() {
 	// TODO: handle chords
-	baseSettings.gyro_settings = GyroSettings();
+	gyro_settings = GyroSettings();
 	return true;
 }
 
@@ -1451,7 +1454,7 @@ bool do_GYRO_SENS(in_string argument)
 	if (!ss.good())
 	{
 		//No assignment? Display current assignment
-		cout << "MIN_GYRO_SENS = " << baseSettings.min_gyro_sens.get() << endl << "MAX_GYRO_SENS = " << baseSettings.max_gyro_sens.get() << endl;
+		cout << "MIN_GYRO_SENS = " << min_gyro_sens.get() << endl << "MAX_GYRO_SENS = " << max_gyro_sens.get() << endl;
 	}
 	if (c == '=')
 	{
@@ -1471,7 +1474,7 @@ bool do_GYRO_SENS(in_string argument)
 			else {
 				cout << "Gyro sensitivity set to " << value << "x" << endl;
 			}
-			baseSettings.min_gyro_sens = newSens;
+			min_gyro_sens = newSens;
 			return true;
 		}
 		else {
@@ -1482,7 +1485,7 @@ bool do_GYRO_SENS(in_string argument)
 	return false;
 }
 
-bool do_AUTOLOAD(in_string argument)
+bool do_AUTOLOAD(JSMCommand *cmd, in_string argument)
 {
 	if (!autoLoadThread)
 	{
@@ -1541,7 +1544,7 @@ bool do_CALCULATE_REAL_WORLD_CALIBRATION(in_string argument) {
 		printf("Need to use the flick stick at least once before calculating an appropriate calibration value\n");
 	}
 	else {
-		printf("Recommendation: REAL_WORLD_CALIBRATION = %.5g\n", *baseSettings.real_world_calibration.get() * last_flick_and_rotation / numRotations);
+		printf("Recommendation: REAL_WORLD_CALIBRATION = %.5g\n", *real_world_calibration.get() * last_flick_and_rotation / numRotations);
 	}
 	return true;
 }
@@ -2350,7 +2353,7 @@ private:
 	}
 public:
 	GyroAssignment(in_string name, bool always_off)
-		: JSMAssignment(name, baseSettings.gyro_settings)
+		: JSMAssignment(name, gyro_settings)
 		, _always_off(always_off)
 	{
 		SetParser(bind(&GyroAssignment::GyroParser, this, placeholders::_2));
@@ -2368,6 +2371,12 @@ public:
 
 //int main(int argc, char *argv[]) {
 int __stdcall wWinMain(HINSTANCE hInstance, HINSTANCE prevInstance, LPWSTR cmdLine, int cmdShow) {
+	mappings.reserve(MAPPING_SIZE);
+	for (int id = 0; id < MAPPING_SIZE; ++id)
+	{
+		mappings.push_back(JSMMapping(ButtonID(id)));
+	}
+
 	tray.reset(new TrayIcon(hInstance, prevInstance, cmdLine, cmdShow, &beforeShowTrayMenu));
 	// console
 	initConsole(&CleanUp);
@@ -2382,20 +2391,7 @@ int __stdcall wWinMain(HINSTANCE hInstance, HINSTANCE prevInstance, LPWSTR cmdLi
 	else printf("[AUTOLOAD] AutoLoad is unavailable\n");
 	tray->Show();
 
-	mappings.reserve(MAPPING_SIZE);
-	for (int id = 0; id < MAPPING_SIZE; ++id)
-	{
-		mappings.push_back(JSMMapping(ButtonID(id)));
-	}
-
-	CmdRegistry commandRegistry;
-
-	// Irregular commands are encapsulated in its own object.
-	commandRegistry.Add((new HelpCmd(commandRegistry))
-		->SetHelp("Displays the help message of all commands")
-	);
-
-	baseSettings.in_game_sens.SetFilter( [] (float current, float next)
+	in_game_sens.SetFilter( [] (float current, float next)
 		{
 			if (next <= 0)
 			{
@@ -2405,72 +2401,78 @@ int __stdcall wWinMain(HINSTANCE hInstance, HINSTANCE prevInstance, LPWSTR cmdLi
 			return next;
 		});
 
-	baseSettings.rotate_smooth_override.SetFilter(&filterClamp01);
-
-
-	baseSettings.flick_snap_strength.SetFilter(&filterClamp01);
-
-	baseSettings.stick_acceleration_rate.SetFilter(&filterPositive);
-	baseSettings.stick_acceleration_cap.SetFilter(bind(&fmaxf, 1.0f, ::placeholders::_2));
-	baseSettings.stick_deadzone_inner.SetFilter(&filterClamp01);
-	baseSettings.flick_time.SetFilter(bind(&fmaxf, 0.0001f, ::placeholders::_2));
-	baseSettings.zlMode.SetFilter(&triggerModeNotification);
-	baseSettings.zrMode.SetFilter(&triggerModeNotification);
-	baseSettings.flick_snap_mode.SetFilter(&filterInvalidValue<FlickSnapMode, FlickSnapMode::invalid>);
-
-	commandRegistry.Add((new JSMAssignment<FloatXY>("MIN_GYRO_SENS", baseSettings.min_gyro_sens)));
-	commandRegistry.Add((new JSMAssignment<FloatXY>("MAX_GYRO_SENS", baseSettings.max_gyro_sens)));
-	commandRegistry.Add((new JSMAssignment<float>("MIN_GYRO_THRESHOLD", baseSettings.min_gyro_threshold)));
-	commandRegistry.Add((new JSMAssignment<float>("MAX_GYRO_THRESHOLD", baseSettings.max_gyro_threshold)));
-	commandRegistry.Add((new JSMAssignment<float>("STICK_POWER", baseSettings.stick_power)));
-	commandRegistry.Add((new JSMAssignment<float>("STICK_SENS", baseSettings.stick_sens)));
-	commandRegistry.Add((new JSMAssignment<float>("REAL_WORLD_CALIBRATION", baseSettings.real_world_calibration)));
-	commandRegistry.Add((new JSMAssignment<float>("IN_GAME_SENS", baseSettings.in_game_sens)));
-	commandRegistry.Add((new JSMAssignment<float>("TRIGGER_THRESHOLD", baseSettings.trigger_threshold)));
+	rotate_smooth_override.SetFilter(&filterClamp01);
+	flick_snap_strength.SetFilter(&filterClamp01);
+	stick_acceleration_rate.SetFilter(&filterPositive);
+	stick_acceleration_cap.SetFilter(bind(&fmaxf, 1.0f, ::placeholders::_2));
+	stick_deadzone_inner.SetFilter(&filterClamp01);
+	flick_time.SetFilter(bind(&fmaxf, 0.0001f, ::placeholders::_2));
+	zlMode.SetFilter(&triggerModeNotification);
+	zrMode.SetFilter(&triggerModeNotification);
+	flick_snap_mode.SetFilter(&filterInvalidValue<FlickSnapMode, FlickSnapMode::invalid>);
+	
+	CmdRegistry commandRegistry;
+	for (auto &mapping : mappings)
+	{
+		commandRegistry.Add(new JSMAssignment<Mapping>(mapping.getName(), mapping));
+	}
+	// Irregular commands are encapsulated in its own object.
+	commandRegistry.Add((new HelpCmd(commandRegistry))
+		->SetHelp("Displays the help message of all commands")
+	);
+	commandRegistry.Add((new JSMAssignment<FloatXY>("MIN_GYRO_SENS", min_gyro_sens)));
+	commandRegistry.Add((new JSMAssignment<FloatXY>("MAX_GYRO_SENS", max_gyro_sens)));
+	commandRegistry.Add((new JSMAssignment<float>("MIN_GYRO_THRESHOLD", min_gyro_threshold)));
+	commandRegistry.Add((new JSMAssignment<float>("MAX_GYRO_THRESHOLD", max_gyro_threshold)));
+	commandRegistry.Add((new JSMAssignment<float>("STICK_POWER", stick_power)));
+	commandRegistry.Add((new JSMAssignment<float>("STICK_SENS", stick_sens)));
+	commandRegistry.Add((new JSMAssignment<float>("REAL_WORLD_CALIBRATION", real_world_calibration)));
+	commandRegistry.Add((new JSMAssignment<float>("IN_GAME_SENS", in_game_sens)));
+	commandRegistry.Add((new JSMAssignment<float>("TRIGGER_THRESHOLD", trigger_threshold)));
 	commandRegistry.Add((new JSMMacro("RESET_MAPPINGS"))->SetMacro(bind(&do_RESET_MAPPINGS)));
 	commandRegistry.Add((new JSMMacro("NO_GYRO_BUTTON"))->SetMacro(bind(&do_NO_GYRO_BUTTON)));
-	commandRegistry.Add((new JSMAssignment<StickMode>("LEFT_STICK_MODE", baseSettings.left_stick_mode)));
-	commandRegistry.Add((new JSMAssignment<StickMode>("RIGHT_STICK_MODE", baseSettings.right_stick_mode)));
+	commandRegistry.Add((new JSMAssignment<StickMode>("LEFT_STICK_MODE", left_stick_mode)));
+	commandRegistry.Add((new JSMAssignment<StickMode>("RIGHT_STICK_MODE", right_stick_mode)));
 	commandRegistry.Add((new GyroAssignment("GYRO_OFF", false)));
 	commandRegistry.Add((new GyroAssignment("GYRO_ON", true))->SetListener()); // Set only one listener
-	commandRegistry.Add((new JSMAssignment<float>("STICK_AXIS_X", baseSettings.aim_x_sign))); // custom parser
-	commandRegistry.Add((new JSMAssignment<float>("STICK_AXIS_Y", baseSettings.aim_y_sign)));
-	commandRegistry.Add((new JSMAssignment<float>("GYRO_AXIS_X", baseSettings.gyro_x_sign)));
-	commandRegistry.Add((new JSMAssignment<float>("GYRO_AXIS_Y", baseSettings.gyro_y_sign)));
+	commandRegistry.Add((new JSMAssignment<float>("STICK_AXIS_X", aim_x_sign))); // custom parser
+	commandRegistry.Add((new JSMAssignment<float>("STICK_AXIS_Y", aim_y_sign)));
+	commandRegistry.Add((new JSMAssignment<float>("GYRO_AXIS_X", gyro_x_sign)));
+	commandRegistry.Add((new JSMAssignment<float>("GYRO_AXIS_Y", gyro_y_sign)));
 	commandRegistry.Add((new JSMMacro("RECONNECT_CONTROLLERS"))->SetMacro(bind(&do_RECONNECT_CONTROLLERS)));
 	commandRegistry.Add((new JSMMacro("COUNTER_OS_MOUSE_SPEED"))->SetMacro(bind(do_COUNTER_OS_MOUSE_SPEED)));
 	commandRegistry.Add((new JSMMacro("IGNORE_OS_MOUSE_SPEED"))->SetMacro(bind(do_IGNORE_OS_MOUSE_SPEED)));
-	commandRegistry.Add((new JSMAssignment<JoyconMask>("JOYCON_GYRO_MASK", baseSettings.joycon_gyro_mask)));
+	commandRegistry.Add((new JSMAssignment<JoyconMask>("JOYCON_GYRO_MASK", joycon_gyro_mask)));
 	commandRegistry.Add((new JSMMacro("GYRO_SENS"))->SetMacro(bind(&do_GYRO_SENS, placeholders::_2)));
-	commandRegistry.Add((new JSMAssignment<float>("FLICK_TIME", baseSettings.flick_time)));
-	commandRegistry.Add((new JSMAssignment<float>("GYRO_SMOOTH_THRESHOLD", baseSettings.gyro_smooth_threshold)));
-	commandRegistry.Add((new JSMAssignment<float>("GYRO_SMOOTH_TIME", baseSettings.gyro_smooth_time)));
-	commandRegistry.Add((new JSMAssignment<float>("GYRO_CUTOFF_SPEED", baseSettings.gyro_cutoff_speed)));
-	commandRegistry.Add((new JSMAssignment<float>("GYRO_CUTOFF_RECOVERY", baseSettings.gyro_cutoff_recovery)));
-	commandRegistry.Add((new JSMAssignment<float>("STICK_ACCELERATION_RATE", baseSettings.stick_acceleration_rate)));
-	commandRegistry.Add((new JSMAssignment<float>("STICK_ACCELERATION_CAP", baseSettings.stick_acceleration_cap)));
-	commandRegistry.Add((new JSMAssignment<float>("STICK_DEADZONE_INNER", baseSettings.stick_deadzone_inner)));
-	commandRegistry.Add((new JSMAssignment<float>("STICK_DEADZONE_OUTER", baseSettings.stick_deadzone_outer)));
+	commandRegistry.Add((new JSMAssignment<float>("FLICK_TIME", flick_time)));
+	commandRegistry.Add((new JSMAssignment<float>("GYRO_SMOOTH_THRESHOLD", gyro_smooth_threshold)));
+	commandRegistry.Add((new JSMAssignment<float>("GYRO_SMOOTH_TIME", gyro_smooth_time)));
+	commandRegistry.Add((new JSMAssignment<float>("GYRO_CUTOFF_SPEED", gyro_cutoff_speed)));
+	commandRegistry.Add((new JSMAssignment<float>("GYRO_CUTOFF_RECOVERY", gyro_cutoff_recovery)));
+	commandRegistry.Add((new JSMAssignment<float>("STICK_ACCELERATION_RATE", stick_acceleration_rate)));
+	commandRegistry.Add((new JSMAssignment<float>("STICK_ACCELERATION_CAP", stick_acceleration_cap)));
+	commandRegistry.Add((new JSMAssignment<float>("STICK_DEADZONE_INNER", stick_deadzone_inner)));
+	commandRegistry.Add((new JSMAssignment<float>("STICK_DEADZONE_OUTER", stick_deadzone_outer)));
 	commandRegistry.Add((new JSMMacro("CALCULATE_REAL_WORLD_CALIBRATION"))->SetMacro(bind(&do_CALCULATE_REAL_WORLD_CALIBRATION, placeholders::_2)));
 	commandRegistry.Add((new JSMMacro("FINISH_GYRO_CALIBRATION"))->SetMacro(bind(&do_FINISH_GYRO_CALIBRATION)));
 	commandRegistry.Add((new JSMMacro("RESTART_GYRO_CALIBRATION"))->SetMacro(bind(&do_RESTART_GYRO_CALIBRATION)));
-	commandRegistry.Add((new JSMAssignment<GyroAxisMask>("MOUSE_X_FROM_GYRO_AXIS", baseSettings.mouse_x_from_gyro)));
-	commandRegistry.Add((new JSMAssignment<GyroAxisMask>("MOUSE_Y_FROM_GYRO_AXIS", baseSettings.mouse_y_from_gyro)));
-	commandRegistry.Add((new JSMAssignment<TriggerMode>("ZR_DUAL_STAGE_MODE", baseSettings.zlMode)));
-	commandRegistry.Add((new JSMAssignment<TriggerMode>("ZL_DUAL_STAGE_MODE", baseSettings.zrMode)));
-	commandRegistry.Add((new JSMMacro("AUTOLOAD"))->SetParser(bind(&do_AUTOLOAD, placeholders::_2)));
+	commandRegistry.Add((new JSMAssignment<GyroAxisMask>("MOUSE_X_FROM_GYRO_AXIS", mouse_x_from_gyro)));
+	commandRegistry.Add((new JSMAssignment<GyroAxisMask>("MOUSE_Y_FROM_GYRO_AXIS", mouse_y_from_gyro)));
+	commandRegistry.Add((new JSMAssignment<TriggerMode>("ZR_DUAL_STAGE_MODE", zlMode)));
+	commandRegistry.Add((new JSMAssignment<TriggerMode>("ZL_DUAL_STAGE_MODE", zrMode)));
+	commandRegistry.Add((new JSMMacro("AUTOLOAD"))->SetParser(&do_AUTOLOAD));
 	commandRegistry.Add((new JSMMacro("HELP"))->SetMacro(bind(&do_HELP)));
 	commandRegistry.Add((new JSMMacro("WHITELIST_SHOW"))->SetMacro(bind(&do_WHITELIST_SHOW)));
 	commandRegistry.Add((new JSMMacro("WHITELIST_ADD"))->SetMacro(bind(&do_WHITELIST_ADD)));
 	commandRegistry.Add((new JSMMacro("WHITELIST_REMOVE"))->SetMacro(bind(&do_WHITELIST_REMOVE)));
-	commandRegistry.Add((new JSMAssignment<RingMode>("LEFT_RING_MODE", baseSettings.left_ring_mode)));
-	commandRegistry.Add((new JSMAssignment<RingMode>("RIGHT_RING_MODE", baseSettings.right_ring_mode)));
-	commandRegistry.Add((new JSMAssignment<float>("MOUSE_RING_RADIUS", baseSettings.mouse_ring_radius)));
-	commandRegistry.Add((new JSMAssignment<float>("SCREEN_RESOLUTION_X", baseSettings.screen_resolution_x)));
-	commandRegistry.Add((new JSMAssignment<float>("SCREEN_RESOLUTION_Y", baseSettings.screen_resolution_y)));
-	commandRegistry.Add((new JSMAssignment<float>("ROTATE_SMOOTH_OVERRIDE", baseSettings.rotate_smooth_override)));
-	commandRegistry.Add((new JSMAssignment<FlickSnapMode>("FLICK_SNAP_MODE", baseSettings.flick_snap_mode)));
-	commandRegistry.Add((new JSMAssignment<float>("FLICK_SNAP_STRENGTH", baseSettings.flick_snap_strength)));
+	commandRegistry.Add((new JSMAssignment<RingMode>("LEFT_RING_MODE", left_ring_mode)));
+	commandRegistry.Add((new JSMAssignment<RingMode>("RIGHT_RING_MODE", right_ring_mode)));
+	commandRegistry.Add((new JSMAssignment<float>("MOUSE_RING_RADIUS", mouse_ring_radius)));
+	commandRegistry.Add((new JSMAssignment<float>("SCREEN_RESOLUTION_X", screen_resolution_x)));
+	commandRegistry.Add((new JSMAssignment<float>("SCREEN_RESOLUTION_Y", screen_resolution_y)));
+	commandRegistry.Add((new JSMAssignment<float>("ROTATE_SMOOTH_OVERRIDE", rotate_smooth_override)));
+	commandRegistry.Add((new JSMAssignment<FlickSnapMode>("FLICK_SNAP_MODE", flick_snap_mode)));
+	commandRegistry.Add((new JSMAssignment<float>("FLICK_SNAP_STRENGTH", flick_snap_strength)));
 
 	bool quit = false;
 	commandRegistry.Add((new JSMMacro("QUIT"))

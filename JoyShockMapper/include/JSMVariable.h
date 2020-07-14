@@ -3,6 +3,8 @@
 #include "JoyShockMapper.h"
 #include <functional>
 #include <map>
+#include <sstream>
+#include <algorithm>
 
 using namespace std;
 
@@ -126,22 +128,22 @@ template<typename T>
 class ChordedVariable : public JSMVariable<T>
 {
 protected:
-	map<ButtonID, JSMVariable<T>> chorded;
+	map<ButtonID, JSMVariable<T>> _chorded;
 
 public:
 	ChordedVariable(T defval)
 		: JSMVariable(defval)
-		, chorded()
+		, _chorded()
 	{}
 	
 	JSMVariable<T> &CreateChord(ButtonID chord)
 	{
-		auto existingChord = chorded.find(chord);
-		if (existingChord == chorded.end())
+		auto existingChord = _chorded.find(chord);
+		if (existingChord == _chorded.end())
 		{
-			chorded.emplace( chord, JSMVariable<T>(*this, _defVal) );
+			_chorded.emplace( chord, JSMVariable<T>(*this, _defVal) );
 		}
-		return chorded[chord];
+		return _chorded[chord];
 	}
 
 	//JSMVariable<T> &operator =(T baseValue)
@@ -153,8 +155,8 @@ public:
 
 	const JSMVariable<T> *operator [](ButtonID chord) const
 	{
-		auto existingChord = chorded.find(chord);
-		if (existingChord == chorded.end())
+		auto existingChord = _chorded.find(chord);
+		if (existingChord == _chorded.end())
 		{
 			return nullptr;
 		}
@@ -163,8 +165,8 @@ public:
 
 	JSMVariable<T> *operator [](ButtonID chord)
 	{
-		auto existingChord = chorded.find(chord);
-		if (existingChord == chorded.end())
+		auto existingChord = _chorded.find(chord);
+		if (existingChord == _chorded.end())
 		{
 			return nullptr;
 		}
@@ -174,11 +176,9 @@ public:
 	virtual ChordedVariable<T> *Reset() override
 	{
 		JSMVariable<T>::Reset();
-		chorded.clear();
+		_chorded.clear();
 		return this;
 	}
-
-
 };
 
 
@@ -227,14 +227,14 @@ protected:
 
 	vector<ComboMap> _simMappings;
 
-	bool isSimMapWith(ButtonID simBtn, ComboMap &simMap)
+	static bool isSimMapWith(ButtonID simBtn, const ComboMap &simMap)
 	{
 		return simMap.btn == simBtn;
 	}
 
 public:
 	JSMMapping(ButtonID id)
-		: ChordedVariable( {0, 0} )
+		: ChordedVariable(Mapping())
 		, _id(id)
 	{}
 
@@ -251,14 +251,14 @@ public:
 		}
 	}
 
-	Optional<ComboMap> getSimPress(ButtonID simBtn) const
+	const ComboMap *getSimMap(ButtonID simBtn)
 	{
 		if (simBtn > ButtonID::NONE)
 		{
-			auto existingSim = find_if(_simMappings.begin(), _simMappings.end(), bind(&JSMMapping::isSimMapWith, simBtn, placeholders::_1));
-			return existingSim != _simMappings.end() ? Optional<ComboMap>(*existingSim) : Optional<ComboMap>();
+			auto existingSim = find_if(_simMappings.cbegin(), _simMappings.cend(), bind(&JSMMapping::isSimMapWith, simBtn, placeholders::_1));
+			return existingSim != _simMappings.cend() ? &*existingSim : nullptr;
 		}
-		return Optional<ComboMap>();
+		return nullptr;
 	}
 
 	void AddSimPress(ButtonID simBtn, WORD press, WORD hold)
@@ -286,5 +286,12 @@ public:
 		{
 			return (stringstream() << chord << ',' << _id).str();
 		}
+	}
+
+	virtual JSMMapping *Reset() override
+	{
+		ChordedVariable<Mapping>::Reset();
+		_simMappings.clear();
+		return this;
 	}
 };
