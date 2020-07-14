@@ -64,7 +64,7 @@ bool StatusNotifierItem::SendNotification(const std::string &message)
 
 void StatusNotifierItem::AddMenuItem(const std::string &label, ClickCallbackType &&onClick)
 {
-	menuItems_.emplace_back(label);
+	menuItems_.emplace_back(label.c_str());
 
 	auto &menuItem = menuItems_.back();
 	menuItem.signal_activate().connect(onClick);
@@ -75,7 +75,7 @@ void StatusNotifierItem::AddMenuItem(const std::string &label, ClickCallbackType
 
 void StatusNotifierItem::AddMenuItem(const std::string &label, ClickCallbackTypeChecked &&onClick, StateCallbackType &&getState)
 {
-	menuItems_.push_back(Gtk::CheckMenuItem(label));
+	menuItems_.push_back(Gtk::CheckMenuItem(label.c_str()));
 
 	auto &menuItem = menuItems_.back();
 	menuItem.signal_activate().connect([=] {
@@ -86,8 +86,11 @@ void StatusNotifierItem::AddMenuItem(const std::string &label, ClickCallbackType
 	menuItem.show_all();
 }
 
-void StatusNotifierItem::AddMenuItem(const std::string &label, const std::string &subLabel, ClickCallbackType &&onClick)
+void StatusNotifierItem::AddMenuItem(const std::string &l, const std::string &sl, ClickCallbackType &&onClick)
 {
+	const auto *label = l.c_str();
+	const auto *subLabel = sl.c_str();
+	
 	const auto it = std::find_if(menuItems_.begin(), menuItems_.end(), [&label](const Gtk::MenuItem &item){
 		return label == item.get_label();
 	});
