@@ -1,10 +1,9 @@
-#pragma once
+#include "InputHelpers.h"
 
-#include "inputHelpers.h"
-#include <Windows.h>
-#include <math.h>
-#include <Winuser.h>
 #include <unordered_map>
+
+static float accumulatedX = 0;
+static float accumulatedY = 0;
 
 // Windows' mouse speed settings translate non-linearly to speed.
 // Thankfully, the mappings are available here: https://liquipedia.net/counterstrike/Mouse_settings#Windows_Sensitivity
@@ -33,6 +32,9 @@ static float windowsSensitivityMappings[] =
 	3.5
 };
 
+// Cleanup actions to perform on quit
+static std::function<void()> cleanupFunction;
+
 // get the user's mouse sensitivity multiplier from the user. In Windows it's an int, but who cares? it's well within range for float to represent it exactly
 // also, if this is ported to other platforms, we might want non-integer sensitivities
 float getMouseSpeed() {
@@ -43,208 +45,11 @@ float getMouseSpeed() {
 	return 1.0;
 }
 
-/// Valid inputs:
-/// 0-9, N0-N9, F1-F29, A-Z, (L, R, )CONTROL, (L, R, )ALT, (L, R, )SHIFT, TAB, ENTER
-/// (L, M, R)MOUSE, SCROLL(UP, DOWN)
-/// NONE
-/// And characters: ; ' , . / \ [ ] + - `
-/// Yes, this looks slow. But it's only there to help set up faster mappings
-WORD nameToKey(string& name) {
-	// https://msdn.microsoft.com/en-us/library/dd375731%28v=vs.85%29.aspx?f=255&MSPPError=-2147217396
-	int length = name.length();
-	if (length == 1) {
-		// direct mapping to a number or character key
-		char character = name.at(0);
-		if (character >= '0' && character <= '9') {
-			return character - '0' + 0x30;
-		}
-		if (character >= 'A' && character <= 'Z') {
-			return character - 'A' + 0x41;
-		}
-		if (character == '+') {
-			return VK_OEM_PLUS;
-		}
-		if (character == '-') {
-			return VK_OEM_MINUS;
-		}
-		if (character == ',') {
-			return VK_OEM_COMMA;
-		}
-		if (character == '.') {
-			return VK_OEM_PERIOD;
-		}
-		if (character == ';') {
-			return VK_OEM_1;
-		}
-		if (character == '/') {
-			return VK_OEM_2;
-		}
-		if (character == '`') {
-			return VK_OEM_3;
-		}
-		if (character == '[') {
-			return VK_OEM_4;
-		}
-		if (character == '\\') {
-			return VK_OEM_5;
-		}
-		if (character == ']') {
-			return VK_OEM_6;
-		}
-		if (character == '\'') {
-			return VK_OEM_7;
-		}
-	}
-	if (length == 2) {
-		// function key?
-		char character = name.at(0);
-		char character2 = name.at(1);
-		if (character == 'F') {
-			if (character2 >= '1' && character2 <= '9') {
-				return character2 - '1' + VK_F1;
-			}
-		}
-		else if (character == 'N') {
-			if (character2 >= '0' && character2 <= '9') {
-				return character2 - '0' + VK_NUMPAD0;
-			}
-		}
-	}
-	if (length == 3) {
-		// could be function keys still
-		char character = name.at(0);
-		char character2 = name.at(1);
-		char character3 = name.at(2);
-		if (character == 'F') {
-			if (character2 == '1' || character2 <= '2') {
-				if (character3 >= '0' && character3 <= '9') {
-					return (character2 - '1') * 10 + VK_F10 + (character3 - '0');
-				}
-			}
-		}
-	}
-	if (name.compare("LEFT") == 0) {
-		return VK_LEFT;
-	}
-	if (name.compare("RIGHT") == 0) {
-		return VK_RIGHT;
-	}
-	if (name.compare("UP") == 0) {
-		return VK_UP;
-	}
-	if (name.compare("DOWN") == 0) {
-		return VK_DOWN;
-	}
-	if (name.compare("SPACE") == 0) {
-		return VK_SPACE;
-	}
-	if (name.compare("CONTROL") == 0) {
-		return VK_CONTROL;
-	}
-	if (name.compare("LCONTROL") == 0) {
-		return VK_LCONTROL;
-	}
-	if (name.compare("RCONTROL") == 0) {
-		return VK_RCONTROL;
-	}
-	if (name.compare("SHIFT") == 0) {
-		return VK_SHIFT;
-	}
-	if (name.compare("LSHIFT") == 0) {
-		return VK_LSHIFT;
-	}
-	if (name.compare("RSHIFT") == 0) {
-		return VK_RSHIFT;
-	}
-	if (name.compare("ALT") == 0) {
-		return VK_MENU;
-	}
-	if (name.compare("LALT") == 0) {
-		return VK_LMENU;
-	}
-	if (name.compare("RALT") == 0) {
-		return VK_RMENU;
-	}
-	if (name.compare("TAB") == 0) {
-		return VK_TAB;
-	}
-	if (name.compare("ENTER") == 0) {
-		return VK_RETURN;
-	}
-	if (name.compare("ESC") == 0) {
-		return VK_ESCAPE;
-	}
-	if (name.compare("PAGEUP") == 0) {
-		return VK_PRIOR;
-	}
-	if (name.compare("PAGEDOWN") == 0) {
-		return VK_NEXT;
-	}
-	if (name.compare("HOME") == 0) {
-		return VK_HOME;
-	}
-	if (name.compare("END") == 0) {
-		return VK_END;
-	}
-	if (name.compare("INSERT") == 0) {
-		return VK_INSERT;
-	}
-	if (name.compare("DELETE") == 0) {
-		return VK_DELETE;
-	}
-	if (name.compare("LMOUSE") == 0) {
-		return VK_LBUTTON;
-	}
-	if (name.compare("RMOUSE") == 0) {
-		return VK_RBUTTON;
-	}
-	if (name.compare("MMOUSE") == 0) {
-		return VK_MBUTTON;
-	}
-	if (name.compare("BMOUSE") == 0) {
-		return VK_XBUTTON1;
-	}
-	if (name.compare("FMOUSE") == 0) {
-		return VK_XBUTTON2;
-	}
-	if (name.compare("SCROLLDOWN") == 0) {
-		return V_WHEEL_DOWN;
-	}
-	if (name.compare("SCROLLUP") == 0) {
-		return V_WHEEL_UP;
-	}
-	if (name.compare("BACKSPACE") == 0) {
-		return VK_BACK;
-	}
-	if (name.compare("NONE") == 0) {
-		return NO_HOLD_MAPPED;
-	}
-	if (name.compare("CALIBRATE") == 0) {
-		return CALIBRATE;
-	}
-	if (name.compare("GYRO_INV_X") == 0) {
-		return GYRO_INV_X;
-	}
-	if (name.compare("GYRO_INV_Y") == 0) {
-		return GYRO_INV_Y;
-	}
-	if (name.compare("GYRO_INVERT") == 0) {
-		return GYRO_INVERT;
-	}
-	if (name.compare("GYRO_ON") == 0) {
-		return GYRO_ON_BIND;
-	}
-	if (name.compare("GYRO_OFF") == 0) {
-		return GYRO_OFF_BIND;
-	}
-	return 0x00;
-}
-
 // send mouse button
 int pressMouse(WORD vkKey, bool isPressed) {
 	// https://docs.microsoft.com/en-us/windows/win32/api/winuser/ns-winuser-mouseinput
 	// Map a VK id to mouse event id press (0) or release (1) and mouseData (2) complementary info
-	static unordered_map<WORD, tuple<DWORD, DWORD, DWORD>> mouseMaps = { 
+	static std::unordered_map<WORD, std::tuple<DWORD, DWORD, DWORD>> mouseMaps = {
 		{ VK_LBUTTON, {MOUSEEVENTF_LEFTDOWN, MOUSEEVENTF_LEFTUP, 0} },
 		{ VK_RBUTTON, {MOUSEEVENTF_RIGHTDOWN, MOUSEEVENTF_RIGHTUP, 0} },
 		{ VK_MBUTTON, {MOUSEEVENTF_MIDDLEDOWN, MOUSEEVENTF_MIDDLEUP, 0} },
@@ -259,8 +64,8 @@ int pressMouse(WORD vkKey, bool isPressed) {
 	input.mi.time = 0;
 	input.mi.dx = 0;
 	input.mi.dy = 0;
-	input.mi.dwFlags = isPressed ? get<0>(mouseMaps[vkKey]) : get<1>(mouseMaps[vkKey]);
-	input.mi.mouseData = get<2>(mouseMaps[vkKey]);
+	input.mi.dwFlags = isPressed ? std::get<0>(mouseMaps[vkKey]) : std::get<1>(mouseMaps[vkKey]);
+	input.mi.mouseData = std::get<2>(mouseMaps[vkKey]);
 	if (input.mi.dwFlags) { // Ignore if there's no event ID (ex: "wheel release")
 		return SendInput(1, &input, sizeof(input));
 	}
@@ -286,9 +91,6 @@ int pressKey(WORD vkKey, bool pressed) {
 	input.ki.wScan = MapVirtualKey(vkKey, MAPVK_VK_TO_VSC);
 	return SendInput(1, &input, sizeof(input));
 }
-
-float accumulatedX = 0;
-float accumulatedY = 0;
 
 void moveMouse(float x, float y) {
 	accumulatedX += x;
@@ -322,43 +124,14 @@ void setMouseNorm(float x, float y) {
 	SendInput(1, &input, sizeof(input));
 }
 
-// delta time will apply to shaped movement, but the extra (velocity parameters after deltaTime) is applied as given
-void shapedSensitivityMoveMouse(float x, float y, pair<float, float> lowSensXY, pair<float, float> hiSensXY, float minThreshold, 
-	float maxThreshold, float deltaTime, float extraVelocityX, float extraVelocityY, float calibration)
-{
-	// apply calibration factor
-	// get input velocity
-	float magnitude = sqrt(x * x + y * y);
-	//printf("Gyro mag: %.4f\n", magnitude);
-	// calculate position on minThreshold to maxThreshold scale
-	magnitude -= minThreshold;
-	if (magnitude < 0.0f) magnitude = 0.0f;
-	float denom = maxThreshold - minThreshold;
-	float newSensitivity;
-	if (denom <= 0.0f) {
-		newSensitivity = magnitude > 0.0f ? 1.0f : 0.0f; // if min threshold overlaps max threshold, pop up to max lowSens as soon as we're above min threshold
-	}
-	else {
-		newSensitivity = magnitude / denom;
-	}
-	if (newSensitivity > 1.0f) newSensitivity = 1.0f;
-		
-	// interpolate between low sensitivity and high sensitivity
-	float newSensitivityX = lowSensXY.first * calibration * (1.0f - newSensitivity) + (hiSensXY.first * calibration)* newSensitivity;
-	float newSensitivityY = lowSensXY.second* calibration * (1.0f - newSensitivity) + (hiSensXY.second* calibration)* newSensitivity;
-
-	// apply all values
-	moveMouse((x * newSensitivityX) * deltaTime + extraVelocityX, (y * newSensitivityY) * deltaTime + extraVelocityY);
-}
-
-bool WriteToConsole(const string &command)
+BOOL WriteToConsole(const std::string& command)
 {
 	static const INPUT_RECORD ESC_DOWN = { KEY_EVENT, {TRUE,  1, VK_ESCAPE, MapVirtualKey(VK_ESCAPE, MAPVK_VK_TO_VSC), VK_ESCAPE, 0} };
 	static const INPUT_RECORD ESC_UP = { KEY_EVENT, {FALSE, 1, VK_ESCAPE, MapVirtualKey(VK_ESCAPE, MAPVK_VK_TO_VSC), VK_ESCAPE, 0} };
 	static const INPUT_RECORD RET_DOWN = { KEY_EVENT, {TRUE,  1, VK_RETURN, MapVirtualKey(VK_RETURN, MAPVK_VK_TO_VSC), VK_RETURN, 0} };
 	static const INPUT_RECORD RET_UP = { KEY_EVENT, {FALSE, 1, VK_RETURN, MapVirtualKey(VK_RETURN, MAPVK_VK_TO_VSC), VK_RETURN, 0} };
 
-	vector<INPUT_RECORD> inputs(0);
+	std::vector<INPUT_RECORD> inputs(0);
 	inputs.reserve(command.size() + 4);
 	inputs.push_back(ESC_DOWN);
 	inputs.push_back(ESC_UP);
@@ -369,7 +142,7 @@ bool WriteToConsole(const string &command)
 		ir.EventType = KEY_EVENT;
 		ir.Event.KeyEvent.bKeyDown = TRUE;
 		ir.Event.KeyEvent.wRepeatCount = 1;
-		auto vkc = nameToKey(string() + (char)(toupper(c)));
+		auto vkc = nameToKey(std::string() + (char)(toupper(c)));
 		ir.Event.KeyEvent.wVirtualKeyCode = vkc;
 		ir.Event.KeyEvent.wVirtualScanCode = MapVirtualKey(vkc, MAPVK_VK_TO_VSC);
 		ir.Event.KeyEvent.uChar.UnicodeChar = c;
@@ -389,9 +162,6 @@ bool WriteToConsole(const string &command)
 	return written == inputs.size();
 }
 
-// Cleanup actions to perform on quit
-static function<void()> cleanupFunction;
-
 BOOL WINAPI ConsoleCtrlHandler(DWORD dwCtrlType)
 {
 	// https://docs.microsoft.com/en-us/windows/console/handlerroutine
@@ -409,7 +179,7 @@ BOOL WINAPI ConsoleCtrlHandler(DWORD dwCtrlType)
 };
 
 // just setting up the console with standard stuff
-void initConsole(function<void()> todoOnQuit) {
+void initConsole(std::function<void()> todoOnQuit) {
 	cleanupFunction = todoOnQuit; //Assign cleanup function
 	AllocConsole();
 	SetConsoleTitle(L"JoyShockMapper");
@@ -420,11 +190,11 @@ void initConsole(function<void()> todoOnQuit) {
 	SetConsoleCtrlHandler(&ConsoleCtrlHandler, TRUE);
 }
 
-tuple<string, string> GetActiveWindowName() {
+std::tuple<std::string, std::string> GetActiveWindowName() {
 	HWND activeWindow = GetForegroundWindow();
 	if (activeWindow) {
-		string module(256, '\0');
-		string title(256, '\0');
+		std::string module(256, '\0');
+		std::string title(256, '\0');
 		GetWindowTextA(activeWindow, &title[0], title.size()); //note: C++11 only
 		title.resize(strlen(title.c_str()));
 		DWORD pid;
@@ -452,9 +222,9 @@ tuple<string, string> GetActiveWindowName() {
 	return { "", "" };
 }
 
-vector<string> ListDirectory(string directory)
+std::vector<std::string> ListDirectory(std::string directory)
 {
-	vector<string> fileListing;
+	std::vector<std::string> fileListing;
 
 	// Prepare string for use with FindFile functions.  First, copy the
 	// string to a buffer, then append '\*' to the directory name.
@@ -496,23 +266,12 @@ vector<string> ListDirectory(string directory)
 	return fileListing;
 }
 
-string GetCWD()
+std::string GetCWD()
 {
-	string cwd(MAX_PATH, '\0');
+	std::string cwd(MAX_PATH, '\0');
 	GetCurrentDirectoryA(cwd.size(), &cwd[0]);
 	cwd.resize(strlen(cwd.c_str()));
 	return cwd;
-}
-
-PollingThread::PollingThread(function<bool(void*)> loopContent, void* funcParam, DWORD pollPeriodMs, bool startNow)
-	: _thread(nullptr)
-	, _loopContent(loopContent)
-	, _sleepTimeMs(pollPeriodMs)
-	, _tid(0)
-	, _funcParam(funcParam)
-	, _continue(false)
-{
-	if (startNow) Start();
 }
 
 PollingThread::~PollingThread()
@@ -544,12 +303,12 @@ bool PollingThread::Start() {
 	return isRunning();
 }
 
-DWORD WINAPI PollingThread::pollFunction(LPVOID param)
+DWORD WINAPI PollingThread::pollFunction(void *param)
 {
 	auto workerThread = reinterpret_cast<PollingThread*>(param);
 	if (workerThread)
 	{
-		while (workerThread->_continue && 
+		while (workerThread->_continue &&
 			workerThread->_loopContent(workerThread->_funcParam)) {
 			Sleep(workerThread->_sleepTimeMs);
 		}
@@ -585,6 +344,11 @@ void ShowConsole()
 {
 	ShowWindow(GetConsoleWindow(), SW_SHOWDEFAULT);
 	SetForegroundWindow(GetConsoleWindow());
+}
+
+void ReleaseConsole()
+{
+	::FreeConsole();
 }
 
 bool IsVisible()

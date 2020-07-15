@@ -1,7 +1,8 @@
 // Source: https://stackoverflow.com/questions/1011339/how-do-you-make-a-http-request-with-c
 #include "Whitelister.h"
 
-#include <windows.h>
+#include <Windows.h>
+#include <WinSock2.h>
 #include <sstream>
 
 #pragma comment(lib,"ws2_32.lib")

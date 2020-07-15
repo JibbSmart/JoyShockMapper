@@ -8,7 +8,7 @@ My goal with JoyShockMapper is to enable you to play PC games with DS4, JoyCons,
 
 For developers, this is also a reference implementation for using [JoyShockLibrary](https://github.com/jibbsmart/JoyShockLibrary) to read inputs from DualShock 4, JoyCons, and Pro Controller in your games. It's also a reference implementation for many of the best practices described on [GyroWiki](http://gyrowiki.jibbsmart.com).
 
-JoyShockMapper works on Windows and uses JoyShockLibrary to read inputs from controllers, which is only compiled for Windows. But JoyShockLibrary uses no Windows-specific features, and JoyShockMapper only uses Windows-specific code to create keyboard and mouse events, and isolates Windows-specific code to inputHelpers.cpp, so my hope is that other developers would be able to get both JoyShockLibrary and JoyShockMapper working on other platforms (such as Linux or Mac) without too much trouble.
+JoyShockMapper works on Windows and uses JoyShockLibrary to read inputs from controllers, which is only compiled for Windows. But JoyShockLibrary uses minimal Windows-specific features, and JoyShockMapper only uses Windows-specific code to create keyboard and mouse events, and isolates Windows-specific code to inputHelpersWin.cpp, so my hope is that other developers would be able to get both JoyShockLibrary and JoyShockMapper working on other platforms (such as Linux or Mac) without too much trouble. The header inputHelpers.h contains the platform agnostic declaration and all platform dependent implementation is contained in the appropriate cpp.
 
 ## Contents
 * **[Installation for Devs](#installation-for-devs)**
@@ -38,8 +38,16 @@ JoyShockMapper was written in C++ in Visual Studio 2017 and includes a Visual St
 
 Since it's not a big project, in order to keep things simple to adapt to other build environments, there are only three important files:
 1. ```main.cpp``` - This does just about all the main logic of the application. It's perhaps a little big, but I've opted to keep the file structure simpler at the cost of having a big main file.
-2. ```inputHelpers.cpp``` - All the Windows-specific stuff happens in here. This is where Windows keyboard and mouse events are created. Anyone interested porting JoyShockMapper to other platforms, this is where you'll need to make changes, as well as porting JoyShockLibrary (below).
-3. ```JoyShockLibrary.dll``` - [JoyShockLibrary](https://github.com/jibbsmart/JoyShockLibrary) is how JoyShockMapper reads from controllers. The included DLL is compiled for x86, and so JoyShockMapper needs to be built for x86. JoyShockLibrary can be compiled for x64, but it hasn't been included in this project. I'm not aware of any reasons JoyShockLibrary can't be compiled for other platforms, but I haven't done it myself.
+2. ```inputHelpers.h``` - This is platform agnostic declaration of wrappers for OS function calls and features.
+3. ```inputHelpers.cpp``` - All the Windows-specific implementation happens in here. This is where Windows keyboard and mouse events are created. Anyone interested porting JoyShockMapper to other platforms, this is where you'll need to
+ make changes, as well as porting JoyShockLibrary (below).
+4. ```JoyShockLibrary.dll``` - [JoyShockLibrary](https://github.com/jibbsmart/JoyShockLibrary) is how JoyShockMapper reads from controllers. The included DLL is compiled for x86, and so JoyShockMapper needs to be built for x86. JoyShockLibrary can be compiled for x64, but it hasn't been included in this project. I'm not aware of any reasons JoyShockLibrary can't be compiled for other platforms, but I haven't done it myself.
+5. ```TrayIcon.h/cpp``` - This is a self contained module used to display in Windows an icon in the system tray with a contextual menu.
+6. ```Whitelister.h/cpp``` - This is another self contained Windows specific module that uses a socket to communicate with HIDCerberus and whitelist JSM.
+
+Generate the project by runnning the following in a command prompt at the project root:
+* To create a Visual Studio x86 configuration: ```cmake -G "Visual Studio 16 2019" -A Win32 .```
+* To create a Visual Studio x64 configuration: ```cmake -G "Visual Studio 16 2019" -A x64 .```
 
 ## Installation for Players
 The latest version of JoyShockMapper can always be found [here](https://github.com/JibbSmart/JoyShockMapper/releases). All you have to do is run JoyShockMapper.exe.
@@ -578,9 +586,10 @@ Bluetooth support for the DualShock 4 is new in JoyShockMapper, and isn't workin
 
 ## Credits
 I'm Julian "Jibb" Smart, and I made JoyShockMapper. As of version 1.3, JoyShockMapper has benefited from substantial community contributions. Huge thanks to the following contributors:
-* Nicolas
-* Bryan Rumsey
-* Al. Lopez
+* Nicolas (code)
+* Bryan Rumsey (icon art)
+* Al. Lopez (icon art)
+* Sunny Ye (translation)
 
 Have a look at the CHANGELOG for a better idea of who contributed what. Nicolas, in particular, regularly contributes a lot of work. He is responsible for a lot of the cool quality-of-life and advanced mapping features.
 

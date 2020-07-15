@@ -1,0 +1,23 @@
+# Steam Controller udev write access
+KERNEL=="uinput", SUBSYSTEM=="misc", TAG+="uaccess", GROUP="input", OPTIONS+="static_node=uinput"
+
+# DualShock 4 over USB hidraw
+KERNEL=="hidraw*", ATTRS{idVendor}=="054c", ATTRS{idProduct}=="05c4", GROUP="input", MODE="0660", TAG+="uaccess"
+
+# DualShock 4 wireless adapter over USB hidraw
+KERNEL=="hidraw*", ATTRS{idVendor}=="054c", ATTRS{idProduct}=="0ba0", GROUP="input", MODE="0660", TAG+="uaccess"
+
+# DualShock 4 Slim over USB hidraw
+KERNEL=="hidraw*", ATTRS{idVendor}=="054c", ATTRS{idProduct}=="09cc", GROUP="input", MODE="0660", TAG+="uaccess"
+
+# DualShock 4 over bluetooth hidraw
+KERNEL=="hidraw*", KERNELS=="*054C:05C4*", GROUP="input", MODE="0660", TAG+="uaccess"
+
+# DualShock 4 Slim over bluetooth hidraw
+KERNEL=="hidraw*", KERNELS=="*054C:09CC*", GROUP="input", MODE="0660", TAG+="uaccess"
+
+# Nintendo Switch Pro Controller over USB hidraw
+KERNEL=="hidraw*", ATTRS{idVendor}=="057e", ATTRS{idProduct}=="2009", GROUP="input", MODE="0660", TAG+="uaccess"
+
+# Nintendo Switch Pro Controller over bluetooth hidraw
+KERNEL=="hidraw*", KERNELS=="*057E:2009*", GROUP="input", MODE="0660", TAG+="uaccess"

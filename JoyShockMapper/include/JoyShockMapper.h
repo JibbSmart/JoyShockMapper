@@ -1,8 +1,6 @@
 #pragma once
 
-#include <vector>
 #include <string>
-#include <map>
 
 // versions will be in the format A.B.C
 // C increases when all that's happened is some bugs have been fixed.
@@ -72,10 +70,6 @@ enum class ButtonID
 	SIZE = 32,
 };
 
-// constexpr > #define
-constexpr int MAPPING_SIZE = int(ButtonID::SIZE);
-constexpr int NUM_ANALOG_TRIGGERS = int(ButtonID::LAST_ANALOG_TRIGGER) - int(ButtonID::FIRST_ANALOG_TRIGGER) + 1;
-
 enum class SettingID
 {
 	ERR = -2, // Represents an error in user input
@@ -134,12 +128,15 @@ enum class SettingID
 	FLICK_SNAP_STRENGTH = 85,
 };
 
-#define MAGIC_DST_DELAY 150.0f // in milliseconds
-#define MAGIC_TAP_DURATION 40.0f // in milliseconds
-#define MAGIC_GYRO_TAP_DURATION 500.0f // in milliseconds
-#define MAGIC_HOLD_TIME 150.0f // in milliseconds
-#define MAGIC_SIM_DELAY 50.0f // in milliseconds
-#define MAGIC_DBL_PRESS_WINDOW 200.0f // in milliseconds
+// constexpr > #define
+constexpr int MAPPING_SIZE = int(ButtonID::SIZE);
+constexpr int NUM_ANALOG_TRIGGERS = int(ButtonID::LAST_ANALOG_TRIGGER) - int(ButtonID::FIRST_ANALOG_TRIGGER) + 1;
+constexpr float MAGIC_DST_DELAY = 150.0f; // in milliseconds
+constexpr float MAGIC_TAP_DURATION = 40.0f; // in milliseconds
+constexpr float MAGIC_GYRO_TAP_DURATION = 500.0f; // in milliseconds
+constexpr float MAGIC_HOLD_TIME = 150.0f; // in milliseconds
+constexpr float MAGIC_SIM_DELAY = 50.0f; // in milliseconds
+constexpr float MAGIC_DBL_PRESS_WINDOW = 200.0f; // in milliseconds
 static_assert(MAGIC_SIM_DELAY < MAGIC_HOLD_TIME, "Simultaneous press delay has to be smaller than hold delay!");
 static_assert(MAGIC_HOLD_TIME < MAGIC_DBL_PRESS_WINDOW, "Hold delay has to be smaller than double press window!");
 

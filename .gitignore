@@ -301,3 +301,16 @@ __pycache__/
 *.btm.cs
 *.odx.cs
 *.xsd.cs
+
+# CMake
+*vcxproj*
+*.sln
+*.cmake
+CMakeLists.txt.user
+CMakeCache.txt
+CMakeFiles
+CPM_modules
+Makefile
+install_manifest.txt
+compile_commands.json
+_deps

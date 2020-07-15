@@ -1,18 +1,14 @@
 #include "JoyShockMapper.h"
 #include "JoyShockLibrary.h"
 #include "Whitelister.h"
-#include "inputHelpers.h"
+#include "InputHelpers.h"
 #include "TrayIcon.h"
 #include "JSMVariable.h"
 #include "JSMCommand.h"
 
-#include <algorithm>
-#include <iostream>
-#include <fstream>
 #include <unordered_map>
 #include <mutex>
-#include <math.h>
-#include <array>
+#include <deque>
 
 #pragma warning(disable:4996)
 
@@ -72,17 +68,6 @@ unique_ptr<TrayIcon> tray;
 bool devicesCalibrating = false;
 Whitelister whitelister(false);
 unordered_map<int, JoyShock*> handle_to_joyshock;
-
-#pragma once
-
-#include "JoyShockMapper.h"
-#include <deque>
-#include <chrono>
-#include <array>
-#include <sstream>
-
-//Forward Declaration
-struct JOY_SHOCK_STATE;
 
 // This class holds all the logic related to a single digital button. It does not hold the mapping but only a reference
 // to it. It also contains it's various states, flags and data.
@@ -402,7 +387,7 @@ public:
 	}
 };
 
-// Aninstance of this class represents a single controller device that JSM is listening to.
+// An instance of this class represents a single controller device that JSM is listening to.
 class JoyShock {
 private:
 	float _weightsRemaining[64];
@@ -693,7 +678,7 @@ public:
 				if (opt) return *opt;
 			}
 		}
-		throw exception((stringstream() << "Index " << index << " is not a valid GyroSetting").str().c_str());
+		throw std::exception((std::stringstream() << "Index " << index << " is not a valid GyroSetting").str().c_str());
 	}
 
 public:
@@ -1300,7 +1285,6 @@ public:
 	}
 };
 
-
 Optional<float> getFloat(const std::string &str, size_t *newpos = nullptr)
 {
 	try
@@ -1313,7 +1297,7 @@ Optional<float> getFloat(const std::string &str, size_t *newpos = nullptr)
 		return Optional<float>();
 	}
 }
-
+	
 // https://stackoverflow.com/questions/25345598/c-implementation-to-trim-char-array-of-leading-trailing-white-space-not-workin
 static void strtrim(char* str) {
 	int start = 0; // number of leading spaces
@@ -1331,8 +1315,8 @@ static void strtrim(char* str) {
 static void resetAllMappings() {
 	for_each(mappings.begin(), mappings.end(), [] (auto &map) { map.Reset(); });
 	// Question: Why is this a default mapping? Shouldn't it be empty? It's always possible to calibrate with RESET_GYRO_CALIBRATION
-	mappings[int(ButtonID::HOME)] = { CALIBRATE, CALIBRATE };
-	mappings[int(ButtonID::CAPTURE)] = { CALIBRATE, CALIBRATE };
+	mappings[int(ButtonID::HOME)] = Mapping{ CALIBRATE, CALIBRATE };
+	mappings[int(ButtonID::CAPTURE)] = Mapping{ CALIBRATE, CALIBRATE };
 	min_gyro_sens.Reset();
 	max_gyro_sens.Reset();
 	min_gyro_threshold.Reset();
@@ -1378,40 +1362,6 @@ static void resetAllMappings() {
 
 void joyShockPollCallback(int jcHandle, JOY_SHOCK_STATE state, JOY_SHOCK_STATE lastState, IMU_STATE imuState, IMU_STATE lastImuState, float deltaTime);
 void connectDevices();
-static void parseCommand(string line)
-{
-
-}
-
-static bool loadMappings(string fileName) {
-	// https://stackoverflow.com/questions/2602013/read-whole-ascii-file-into-c-stdstring
-	ifstream t(fileName);
-	if (t)
-	{
-		printf("Loading commands from file %s\n", fileName.c_str());
-		// https://stackoverflow.com/questions/6892754/creating-a-simple-configuration-file-and-parser-in-c
-		string line;
-		while (getline(t, line)) {
-			parseCommand(line);
-		}
-		t.close();
-		return true;
-	}
-	else {
-		return false;
-	}
-}
-
-// https://stackoverflow.com/questions/25144887/map-unordered-map-prefer-find-and-then-at-or-try-at-catch-out-of-range
-JoyShock* getJoyShockFromHandle(int handle) {
-	auto iter = handle_to_joyshock.find(handle);
-
-	if (iter != handle_to_joyshock.end()) {
-		return iter->second;
-		// iter is item pair in the map. The value will be accessible as `iter->second`.
-	}
-	return nullptr;
-}
 
 bool do_NO_GYRO_BUTTON() {
 	// TODO: handle chords
@@ -1681,7 +1631,7 @@ static float handleFlickStick(float calX, float calY, float lastCalX, float last
 		// was a flick! how much was the flick and rotation?
 		if (!flickOnly && !rotateOnly)
 		{
-			last_flick_and_rotation = abs(jc->flick_rotation_counter) / (2.0 * PI);
+			last_flick_and_rotation = abs(jc->flick_rotation_counter) / (2.0f * PI);
 		}
 		isFlicking = false;
 	}
@@ -1702,6 +1652,36 @@ static float handleFlickStick(float calX, float calY, float lastCalX, float last
 	camSpeedX += camSpeedChange;
 
 	return camSpeedX;
+}
+
+//static bool loadMappings(std::string fileName) {
+//	// https://stackoverflow.com/questions/2602013/read-whole-ascii-file-into-c-stdstring
+//	std::ifstream t(fileName);
+//	if (t)
+//	{
+//		printf("Loading commands from file %s\n", fileName.c_str());
+//		// https://stackoverflow.com/questions/6892754/creating-a-simple-configuration-file-and-parser-in-c
+//		std::string line;
+//		while (getline(t, line)) {
+//			parseCommand(line);
+//		}
+//		t.close();
+//		return true;
+//	}
+//	else {
+//		return false;
+//	}
+//}
+
+// https://stackoverflow.com/questions/25144887/map-unordered-map-prefer-find-and-then-at-or-try-at-catch-out-of-range
+JoyShock* getJoyShockFromHandle(int handle) {
+	auto iter = handle_to_joyshock.find(handle);
+
+	if (iter != handle_to_joyshock.end()) {
+		return iter->second;
+		// iter is item pair in the map. The value will be accessible as `iter->second`.
+	}
+	return nullptr;
 }
 
 void joyShockPollCallback(int jcHandle, JOY_SHOCK_STATE state, JOY_SHOCK_STATE lastState, IMU_STATE imuState, IMU_STATE lastImuState, float deltaTime) {
@@ -1739,7 +1719,7 @@ void joyShockPollCallback(int jcHandle, JOY_SHOCK_STATE state, JOY_SHOCK_STATE l
 	float gyroLength = sqrt(gyroX * gyroX + gyroY * gyroY);
 	// do gyro smoothing
 	// convert gyro smooth time to number of samples
-	int numGyroSamples = jc->poll_rate * jc->getSetting(SettingID::GYRO_SMOOTH_TIME); // samples per second * seconds = samples
+	int numGyroSamples = int(jc->poll_rate * jc->getSetting(SettingID::GYRO_SMOOTH_TIME)); // samples per second * seconds = samples
 	if (numGyroSamples < 1) numGyroSamples = 1; // need at least 1 sample
 	auto threshold = jc->getSetting(SettingID::GYRO_SMOOTH_THRESHOLD);
 	jc->GetSmoothedGyro(gyroX, gyroY, gyroLength, threshold / 2.0f, threshold, numGyroSamples, gyroX, gyroY);
@@ -1768,7 +1748,7 @@ void joyShockPollCallback(int jcHandle, JOY_SHOCK_STATE state, JOY_SHOCK_STATE l
 		gyroX = gyroY = gyroLength = 0.0f;
 	}
 
-	jc->time_now = chrono::steady_clock::now();
+	jc->time_now = std::chrono::steady_clock::now();
 
 	// sticks!
 	float camSpeedX = 0.0f;
@@ -1827,116 +1807,6 @@ void joyShockPollCallback(int jcHandle, JOY_SHOCK_STATE state, JOY_SHOCK_STATE l
 	else if (jc->getSetting<StickMode>(SettingID::LEFT_STICK_MODE) == StickMode::mouseArea) {
 
 		auto mouse_ring_radius = jc->getSetting(SettingID::MOUSE_RING_RADIUS);
-		if (calX != 0.0f || calY != 0.0f) {
-			// use difference with last cal values
-			float mouseX = (calX - jc->left_last_cal.x()) * mouse_ring_radius;
-			float mouseY = (calY - jc->left_last_cal.y()) * -1 * mouse_ring_radius;
-			// do it!
-			moveMouse(mouseX, mouseY);
-			jc->left_last_cal = { calX, calY };
-		}
-		else
-		{
-			// Return to center
-			moveMouse(jc->left_last_cal.x() * -1 * mouse_ring_radius, jc->left_last_cal.y() * mouse_ring_radius);
-			jc->left_last_cal = { 0, 0 };
-		}
-	}
-	else if (jc->getSetting<StickMode>(SettingID::LEFT_STICK_MODE) == StickMode::mouseRing) {
-		if (calX != 0.0f || calY != 0.0f) {
-			auto mouse_ring_radius = jc->getSetting(SettingID::MOUSE_RING_RADIUS);
-			float stickLength = sqrt(calX * calX + calY * calY);
-			float normX = calX / stickLength;
-			float normY = calY / stickLength;
-			// use screen resolution
-			float mouseX = jc->getSetting(SettingID::SCREEN_RESOLUTION_X) * 0.5f + 0.5f + normX * mouse_ring_radius;
-			float mouseY = jc->getSetting(SettingID::SCREEN_RESOLUTION_Y) * 0.5f + 0.5f - normY * mouse_ring_radius;
-			// normalize
-			mouseX = mouseX / jc->getSetting(SettingID::SCREEN_RESOLUTION_X);
-			mouseY = mouseY / jc->getSetting(SettingID::SCREEN_RESOLUTION_Y);
-			// do it!
-			setMouseNorm(mouseX, mouseY);
-			lockMouse = true;
-		}
-	}
-	else if (jc->getSetting<StickMode>(SettingID::LEFT_STICK_MODE) == StickMode::none) { // Do not do if invalid
-		// left!
-		jc->handleButtonChange(ButtonID::LLEFT, left);
-		// right!
-		jc->handleButtonChange(ButtonID::LRIGHT, right);
-		// up!
-		jc->handleButtonChange(ButtonID::LUP, up);
-		// down!
-		jc->handleButtonChange(ButtonID::LDOWN, down);
-
-		leftAny = left | right | up | down; // ring doesn't count
-	}
-	lastCalX = lastState.stickRX;
-	lastCalY = lastState.stickRY;
-	calX = state.stickRX;
-	calY = state.stickRY;
-	bool rightPegged = jc->processDeadZones(calX, calY);
-	absX = abs(calX);
-	absY = abs(calY);
-	left = calX < -0.5f * absY;
-	right = calX > 0.5f * absY;
-	down = calY < -0.5f * absX;
-	up = calY > 0.5f * absX;
-	stickLength = sqrt(calX * calX + calY * calY);
-	ring = jc->getSetting<RingMode>(SettingID::RIGHT_RING_MODE) == RingMode::inner && stickLength > 0.0f && stickLength < 0.7f ||
-		jc->getSetting<RingMode>(SettingID::RIGHT_RING_MODE) == RingMode::outer && stickLength > 0.7f;
-	jc->handleButtonChange(ButtonID::RRING, ring);
-
-	rotateOnly = jc->getSetting<StickMode>(SettingID::RIGHT_STICK_MODE) == StickMode::rotateOnly;
-	flickOnly = jc->getSetting<StickMode>(SettingID::RIGHT_STICK_MODE) == StickMode::flickOnly;
-	if (jc->ignore_right_stick_mode && jc->getSetting<StickMode>(SettingID::RIGHT_STICK_MODE) == StickMode::invalid && calX == 0 && calY == 0)
-	{
-		// clear ignore flag when stick is back at neutral
-		jc->ignore_right_stick_mode = false;
-	}
-	else if (jc->getSetting<StickMode>(SettingID::RIGHT_STICK_MODE) == StickMode::flick || rotateOnly || flickOnly) {
-		camSpeedX += handleFlickStick(calX, calY, lastCalX, lastCalY, stickLength, jc->is_flicking_right, jc, mouseCalibrationFactor, flickOnly, rotateOnly);
-		rightAny = rightPegged;
-	}
-	else if (jc->getSetting<StickMode>(SettingID::RIGHT_STICK_MODE) == StickMode::aim) {
-		// camera movement
-		if (!rightPegged) {
-			jc->right_acceleration = 1.0f; // reset
-		}
-		float stickLength = sqrt(calX * calX + calY * calY);
-		if (stickLength > 0.0f) {
-			rightAny = true;
-			float warpedStickLength = pow(stickLength, jc->getSetting(SettingID::STICK_POWER));
-			warpedStickLength *= jc->getSetting(SettingID::STICK_SENS) * jc->getSetting(SettingID::REAL_WORLD_CALIBRATION) / os_mouse_speed / jc->getSetting(SettingID::IN_GAME_SENS);
-			camSpeedX += calX / stickLength * warpedStickLength * jc->right_acceleration * deltaTime;
-			camSpeedY += calY / stickLength * warpedStickLength * jc->right_acceleration * deltaTime;
-			if (rightPegged) {
-				jc->right_acceleration += jc->getSetting(SettingID::STICK_ACCELERATION_RATE) * deltaTime;
-				auto cap = jc->getSetting(SettingID::STICK_ACCELERATION_CAP);
-				if (jc->right_acceleration > cap) {
-					jc->right_acceleration = cap;
-				}
-			}
-		}
-	}
-	else if (jc->getSetting<StickMode>(SettingID::RIGHT_STICK_MODE) == StickMode::mouseArea) {
-		auto mouse_ring_radius = jc->getSetting(SettingID::MOUSE_RING_RADIUS);
-		if (calX != 0.0f || calY != 0.0f) {
-			// use difference with last cal values
-			float mouseX = (calX - jc->right_last_cal.x()) * mouse_ring_radius;
-			float mouseY = (calY - jc->right_last_cal.y()) * -1 * mouse_ring_radius;
-			// do it!
-			moveMouse(mouseX, mouseY);
-			jc->right_last_cal = { calX, calY };
-		}
-		else
-		{
-			// return to center
-			moveMouse(jc->right_last_cal.x() * -1 * mouse_ring_radius, jc->right_last_cal.y() * mouse_ring_radius);
-			jc->right_last_cal = { 0, 0 };
-		}
-	}
-	else if (jc->getSetting<StickMode>(SettingID::RIGHT_STICK_MODE) == StickMode::mouseRing) {
 		if (calX != 0.0f || calY != 0.0f) {
 			auto mouse_ring_radius = jc->getSetting(SettingID::MOUSE_RING_RADIUS);
 			float stickLength = sqrt(calX * calX + calY * calY);
@@ -2064,7 +1934,7 @@ void connectDevices() {
 		ss << numConnected << " devices connected" << endl;
 		msg = ss.str();
 	}
-	printf(msg.c_str());
+	printf("%s\n", msg.c_str());
 	//if (!IsVisible())
 	//{
 	//	tray->SendToast(wstring(msg.begin(), msg.end()));
@@ -2095,7 +1965,6 @@ static bool iequals(const string& a, const string& b)
 		});
 }
 
-
 bool AutoLoadPoll(void *param)
 {
 	static string lastModuleName;
@@ -2119,7 +1988,7 @@ bool AutoLoadPoll(void *param)
 				{
 					printf("loading \"AutoLoad\\%s.txt\".\n", noextconfig.c_str());
 					loading_lock.lock();
-					parseCommand(cwd + file);
+					//parseCommand(cwd + file);
 					loading_lock.unlock();
 					printf("[AUTOLOAD] Loading completed\n");
 					success = true;
@@ -2146,12 +2015,12 @@ void beforeShowTrayMenu()
 	else
 	{
 		tray->ClearMenuMap();
-		tray->AddMenuItem(L"Show Console", &ShowConsole);
-		tray->AddMenuItem(L"Reconnect controllers", []()
+		tray->AddMenuItem(U("Show Console"), &ShowConsole);
+		tray->AddMenuItem(U("Reconnect controllers"), []()
 		{
 			WriteToConsole("RECONNECT_CONTROLLERS");
 		});
-		tray->AddMenuItem(L"AutoLoad", [](bool isChecked)
+		tray->AddMenuItem(U("AutoLoad"), [](bool isChecked)
 			{
 				isChecked ? 
 					autoLoadThread->Start() : 
@@ -2160,14 +2029,14 @@ void beforeShowTrayMenu()
 
 		if (Whitelister::IsHIDCerberusRunning())
 		{
-			tray->AddMenuItem(L"Whitelist", [](bool isChecked)
+			tray->AddMenuItem(U("Whitelist"), [](bool isChecked)
 				{
 					isChecked ?
 						whitelister.Add() :
 						whitelister.Remove();
 				}, bind(&Whitelister::operator bool, &whitelister));
 		}
-		tray->AddMenuItem(L"Calibrate all devices", [](bool isChecked)
+		tray->AddMenuItem(U("Calibrate all devices"), [](bool isChecked)
 		{
 			isChecked ?
 				WriteToConsole("RESTART_GYRO_CALIBRATION") :
@@ -2177,35 +2046,35 @@ void beforeShowTrayMenu()
 			return devicesCalibrating;
 		});
 
-		//string cwd(GetCWD());
-		string autoloadFolder = "AutoLoad\\";
+		//std::string cwd(GetCWD());
+		std::string autoloadFolder = "AutoLoad\\";
 		for (auto file : ListDirectory(autoloadFolder.c_str()))
 		{
 			string fullPathName = autoloadFolder + file;
 			auto noext = file.substr(0, file.find_last_of('.'));
-			tray->AddMenuItem(L"AutoLoad folder", wstring(noext.begin(), noext.end()), [fullPathName]
+			tray->AddMenuItem(L"AutoLoad folder", std::wstring(noext.begin(), noext.end()), [fullPathName]
 			{
 				WriteToConsole(string(fullPathName.begin(), fullPathName.end()));
 				autoLoadThread->Stop();
 			});
 		}
-		string gyroConfigsFolder = "GyroConfigs\\";
+		std::string gyroConfigsFolder = "GyroConfigs\\";
 		for (auto file : ListDirectory(gyroConfigsFolder.c_str()))
 		{
 			string fullPathName = gyroConfigsFolder + file;
 			auto noext = file.substr(0, file.find_last_of('.'));
-			tray->AddMenuItem(L"GyroConfigs folder", wstring(noext.begin(), noext.end()), [fullPathName]
+			tray->AddMenuItem(L"GyroConfigs folder", std::wstring(noext.begin(), noext.end()), [fullPathName]
 			{
 				WriteToConsole(string(fullPathName.begin(), fullPathName.end()));
 				autoLoadThread->Stop();
 			});
 		}
-		tray->AddMenuItem(L"Calculate RWC", []()
+		tray->AddMenuItem(U("Calculate RWC"), []()
 		{
 			WriteToConsole("CALCULATE_REAL_WORLD_CALIBRATION");
 			ShowConsole();
 		});
-		tray->AddMenuItem(L"Quit", []()
+		tray->AddMenuItem(U("Quit"), []()
 		{
 			WriteToConsole("QUIT");
 		});
@@ -2217,72 +2086,9 @@ void CleanUp()
 {
 	tray->Hide();
 	JslDisconnectAndDisposeAll();
-	FreeConsole();
+	ReleaseConsole();
 	whitelister.Remove();
 }
-
-
-// If I need a complicated command, I can create my own derivative and put all the 
-// logic in it
-class HelpCmd : public JSMMacro
-{
-private:
-	// HELP runs the macro for each argument given to it.
-	string arg; // parsed argument
-
-	bool Parser(in_string arguments)
-	{
-		stringstream ss(arguments);
-		ss >> arg;
-		do { // Run at least once with an empty arg string if there's no argument.
-			_macro(this, arguments);
-			ss >> arg;
-		} while (!ss.fail());
-		return true;
-	}
-
-	// The run function is nothing like the delegate. See how I use the bind function
-	// below to hard-code the pointer parameter and the instance pointer 'this'.
-	void RunHelp(CmdRegistry *registry)
-	{
-		if (arg.empty())
-		{
-			// Show all commands
-			cout << "Here's the list of all commands." << endl;
-			vector<string> list;
-			registry->GetCommandList(list);
-			for (auto cmd : list)
-			{
-				cout << "    " << cmd << endl;
-			}
-			cout << "Enter HELP [cmd1] [cmd2] ... for details on a specific commands." << endl;
-		}
-		else
-		{
-			auto help = registry->GetHelp(arg);
-			if (!help.empty())
-			{
-				cout << arg << " :" << endl <<
-					"    " << help << endl;
-			}
-			else
-			{
-				cout << arg << " is not a recognized command" << endl;
-			}
-		}
-	}
-public:
-	HelpCmd(CmdRegistry &reg)
-		: JSMMacro("HELP")
-	{
-		// Bind allows me to use instance function by hardcoding the invisible "this" parameter, and the registry pointer
-		SetMacro(bind(&HelpCmd::RunHelp, this, &reg));
-
-		// The placeholder parameter says to pass 2nd parameter of call to _parse to the 1st argument of the call to HelpCmd::Parser.
-		// The first parameter is the command pointer which is not required because Parser is an instance function rather than a static one.
-		SetParser(bind(&HelpCmd::Parser, this, ::placeholders::_2));
-	}
-};
 
 float filterClamp01(float current, float next)
 {
@@ -2299,7 +2105,6 @@ E filterInvalidValue(E current, E next)
 {
 	return next != invalid ? next : current;
 }
-
 
 TriggerMode triggerModeNotification(TriggerMode current, TriggerMode next)
 {
@@ -2370,14 +2175,21 @@ public:
 };
 
 //int main(int argc, char *argv[]) {
+#ifdef _WIN32
 int __stdcall wWinMain(HINSTANCE hInstance, HINSTANCE prevInstance, LPWSTR cmdLine, int cmdShow) {
+	auto trayIconData = hInstance;
+#else
+int main(int argc, char *argv[]) {
+	static_cast<void>(argc);
+	static_cast<void>(argv);
+	void *trayIconData = nullptr;
+#endif // _WIN32
 	mappings.reserve(MAPPING_SIZE);
 	for (int id = 0; id < MAPPING_SIZE; ++id)
 	{
 		mappings.push_back(JSMMapping(ButtonID(id)));
 	}
-
-	tray.reset(new TrayIcon(hInstance, prevInstance, cmdLine, cmdShow, &beforeShowTrayMenu));
+	tray.reset(new TrayIcon(trayIconData, std::function<void()>{ &beforeShowTrayMenu }));
 	// console
 	initConsole(&CleanUp);
 	printf("Welcome to JoyShockMapper version %s!\n", version);
@@ -2387,7 +2199,10 @@ int __stdcall wWinMain(HINSTANCE hInstance, HINSTANCE prevInstance, LPWSTR cmdLi
 	connectDevices();
 	JslSetCallback(&joyShockPollCallback);
 	autoLoadThread.reset(new PollingThread(&AutoLoadPoll, nullptr, 1000, true)); // Start by default
-	if (autoLoadThread && *autoLoadThread) printf("AutoLoad is enabled. Configurations in \"AutoLoad\" folder will get loaded when matching application is in focus.\n");
+	if (autoLoadThread && *autoLoadThread)
+	{
+		printf("AutoLoad is enabled. Configurations in \"%s\" folder will get loaded when matching application is in focus.\n", AUTOLOAD_FOLDER);
+	}
 	else printf("[AUTOLOAD] AutoLoad is unavailable\n");
 	tray->Show();
 
@@ -2417,9 +2232,6 @@ int __stdcall wWinMain(HINSTANCE hInstance, HINSTANCE prevInstance, LPWSTR cmdLi
 		commandRegistry.Add(new JSMAssignment<Mapping>(mapping.getName(), mapping));
 	}
 	// Irregular commands are encapsulated in its own object.
-	commandRegistry.Add((new HelpCmd(commandRegistry))
-		->SetHelp("Displays the help message of all commands")
-	);
 	commandRegistry.Add((new JSMAssignment<FloatXY>("MIN_GYRO_SENS", min_gyro_sens)));
 	commandRegistry.Add((new JSMAssignment<FloatXY>("MAX_GYRO_SENS", max_gyro_sens)));
 	commandRegistry.Add((new JSMAssignment<float>("MIN_GYRO_THRESHOLD", min_gyro_threshold)));

@@ -1,0 +1,9 @@
+[Desktop Entry]
+Name=JoyShockMapper
+Comment=Play PC games with Sony PlayStation DualShock 4, Nintendo Switch JoyCons or Nintendo Switch Pro Controller using gyroscopic controls
+Categories=Game;Utility;
+Exec=JoyShockMapper
+Icon=JoyShockMapper
+Terminal=true
+Type=Application
+Keywords=JoyShockMapper;Gyro;Gyroscopic;

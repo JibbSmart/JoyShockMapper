@@ -3,9 +3,9 @@
 
 // https://www.codeproject.com/Articles/4768/Basic-use-of-Shell-NotifyIcon-in-Win32
 
-// Windows Header Files:
-#include "TrayIcon.h"
+#include "win32/WindowsTrayIcon.h"
 
+// Windows Header Files:
 #include <Windowsx.h>
 #include <commctrl.h>
 #include <Shellapi.h>
@@ -18,7 +18,7 @@
 #include <tchar.h>
 #include <algorithm>
 
-#include "resource.h"
+#include "win32/resource.h"
 //#include "wintoastlib.h"
 
 //using WinToastLib::WinToastTemplate;
@@ -26,18 +26,18 @@
 
 struct MenuItem
 {
-	wstring label;
+	std::wstring label;
 	virtual ~MenuItem() {}
 };
 
 struct MenuItemButton : public MenuItem
 {
-	function<void()> onClick;
+	std::function<void()> onClick;
 };
 
 struct MenuItemMenu : public MenuItem
 {
-	vector<MenuItemButton*> list;
+	std::vector<MenuItemButton*> list;
 	~MenuItemMenu()
 	{
 		for (auto p : list)
@@ -50,8 +50,8 @@ struct MenuItemMenu : public MenuItem
 
 struct MenuItemToggle : public MenuItem
 {
-	function<void(bool)> onClick;
-	function<bool()> getState;
+	std::function<void(bool)> onClick;
+	std::function<bool()> getState;
 	void onClickWrapper()
 	{
 		onClick(!getState());
@@ -62,7 +62,7 @@ static int TRAYICONID = 1; // ID number for the Notify Icon
 constexpr unsigned short SWM_TRAYMSG = WM_APP; // the message ID sent to our window
 constexpr UINT_PTR SWM_CUSTOM = WM_APP + 1; //	show the window
 
-vector<TrayIcon *> registry;
+std::vector<WindowsTrayIcon *> registry;
 
 static bool toastReady = false;
 
@@ -78,7 +78,7 @@ public:
 	//void toastFailed() const override { }
 };
 
-TrayIcon::TrayIcon(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPTSTR lpCmdLine, int nCmdShow, function<void()> beforeShow)
+WindowsTrayIcon::WindowsTrayIcon(HINSTANCE hInstance, std::function<void()> beforeShow)
 	: _hInst(0)
 	, _niData({0})
 	, _menuMap()
@@ -107,7 +107,7 @@ TrayIcon::TrayIcon(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPTSTR lpCmdLin
 		nullptr);			   // returns the thread identifier 
 }
 
-TrayIcon::~TrayIcon()
+WindowsTrayIcon::~WindowsTrayIcon()
 {
 	ClearMenuMap();
 	Hide();
@@ -116,18 +116,18 @@ TrayIcon::~TrayIcon()
 		_niData.hIcon = NULL;
 
 	CloseHandle(_thread);
-	auto entry = find(registry.begin(), registry.end(), this);
+	auto entry = std::find(registry.begin(), registry.end(), this);
 	if( entry != registry.end() )
 		registry.erase(entry);
 }
 
 
-DWORD WINAPI TrayIcon::MessageHandlerLoop(LPVOID param)
+DWORD WINAPI WindowsTrayIcon::MessageHandlerLoop(LPVOID param)
 {
 	MSG msg;
 	HACCEL hAccelTable;
 	
-	TrayIcon *tray = static_cast<TrayIcon*>(param);
+	WindowsTrayIcon *tray = static_cast<WindowsTrayIcon*>(param);
 	// Perform application initialization:
 	if (!tray->InitInstance())
 	{
@@ -135,7 +135,7 @@ DWORD WINAPI TrayIcon::MessageHandlerLoop(LPVOID param)
 	}
 	else
 	{
-		hAccelTable = LoadAccelerators(static_cast<TrayIcon*>(param)->_hInst, (LPCTSTR)IDC_STEALTHDIALOG);
+		hAccelTable = LoadAccelerators(static_cast<WindowsTrayIcon*>(param)->_hInst, (LPCTSTR)IDC_STEALTHDIALOG);
 		// Main message loop:
 		while (GetMessage(&msg, NULL, 0, 0))
 		{
@@ -151,7 +151,7 @@ DWORD WINAPI TrayIcon::MessageHandlerLoop(LPVOID param)
 	return 1;
 }
 
-/*bool TrayIcon::SendToast(wstring message)
+/*bool WindowsTrayIcon::SendToast(std::wstring message)
 {
 	WinToastTemplate templ = WinToastTemplate(WinToastTemplate::ImageAndText02);
 	templ.setTextField(L"JoyShockMapper", WinToastTemplate::FirstLine);
@@ -164,14 +164,14 @@ DWORD WINAPI TrayIcon::MessageHandlerLoop(LPVOID param)
 		printf("WinToast could not initialize\n");
 		return false;
 	}
-	else if(WinToast::instance()->showToast(templ, make_unique<JSMToasts>(), &err) == -1 || err != WinToast::NoError) {
+	else if(WinToast::instance()->showToast(templ, std::make_unique<JSMToasts>(), &err) == -1 || err != WinToast::NoError) {
 		printf("WinToast Error: %S\n", WinToast::strerror(err).c_str());
 		return false;
 	}
 	return true;
 }/**/
 
-void TrayIcon::AddMenuItem(const wstring & label, function<void()> onClick)
+void WindowsTrayIcon::AddMenuItem(const std::wstring & label, std::function<void()> onClick)
 {
 	auto btn = new MenuItemButton;
 	btn->label = label;
@@ -179,7 +179,7 @@ void TrayIcon::AddMenuItem(const wstring & label, function<void()> onClick)
 	_menuMap.push_back( btn );
 }
 
-void TrayIcon::AddMenuItem(const wstring & label, function<void(bool)> onClick, function<bool()> getState)
+void WindowsTrayIcon::AddMenuItem(const std::wstring & label, std::function<void(bool)> onClick, std::function<bool()> getState)
 {
 	auto tgl = new MenuItemToggle;
 	tgl->label = label;
@@ -188,9 +188,9 @@ void TrayIcon::AddMenuItem(const wstring & label, function<void(bool)> onClick, 
 	_menuMap.push_back(tgl);
 }
 
-void TrayIcon::AddMenuItem(const wstring & label, const wstring & sublabel, function<void()> onClick)
+void WindowsTrayIcon::AddMenuItem(const std::wstring & label, const std::wstring & sublabel, std::function<void()> onClick)
 {
-	auto menuiter = find_if(_menuMap.begin(), _menuMap.end(),
+	auto menuiter = std::find_if(_menuMap.begin(), _menuMap.end(),
 		[label] (auto item) {
 			return label == item->label; 
 		}
@@ -209,7 +209,7 @@ void TrayIcon::AddMenuItem(const wstring & label, const wstring & sublabel, func
 }
 
 //	Initialize the window and tray icon
-BOOL TrayIcon::InitInstance()
+BOOL WindowsTrayIcon::InitInstance()
 {
 	// prepare for XP style controls
 	InitCommonControls();
@@ -264,7 +264,7 @@ BOOL TrayIcon::InitInstance()
 }
 
 // Name says it all
-void TrayIcon::ShowContextMenu(HWND hWnd)
+void WindowsTrayIcon::ShowContextMenu(HWND hWnd)
 {
 	if (_beforeShow) _beforeShow();
 	if (!_clickMap.empty()) _clickMap.clear();
@@ -287,7 +287,7 @@ void TrayIcon::ShowContextMenu(HWND hWnd)
 			{
 				bool state = tgl->getState();
 				InsertMenu(hMenu, -1, MF_BYPOSITION | MF_STRING | (state ? MF_CHECKED : MF_UNCHECKED), SWM_CUSTOM + id, tgl->label.c_str());
-				_clickMap[SWM_CUSTOM + id] = bind(&MenuItemToggle::onClickWrapper, tgl);
+				_clickMap[SWM_CUSTOM + id] = std::bind(&MenuItemToggle::onClickWrapper, tgl);
 			}
 			auto *menu = dynamic_cast<MenuItemMenu*>(menuItem);
 			if (menu)
@@ -317,7 +317,7 @@ void TrayIcon::ShowContextMenu(HWND hWnd)
 }
 
 // Get dll version number
-ULONGLONG TrayIcon::GetDllVersion(LPCTSTR lpszDllName)
+ULONGLONG WindowsTrayIcon::GetDllVersion(LPCTSTR lpszDllName)
 {
     ULONGLONG ullVersion = 0;
 	HINSTANCE hinstDll;
@@ -342,16 +342,16 @@ ULONGLONG TrayIcon::GetDllVersion(LPCTSTR lpszDllName)
 }
 
 // Message handler for the app
-INT_PTR CALLBACK TrayIcon::DlgProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
+INT_PTR CALLBACK WindowsTrayIcon::DlgProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 {
 	UINT_PTR wmId, wmEvent;
 
-	auto entry = find_if(registry.begin(), registry.end(), 
+	auto entry = std::find_if(registry.begin(), registry.end(), 
 		[hWnd] (auto entry)
 		{ 
 			return *entry == hWnd; 
 		});
-	TrayIcon *tray = entry != registry.end() ? *entry : nullptr;
+	WindowsTrayIcon *tray = entry != registry.end() ? *entry : nullptr;
 
 	switch (message) 
 	{
@@ -373,7 +373,7 @@ INT_PTR CALLBACK TrayIcon::DlgProc(HWND hWnd, UINT message, WPARAM wParam, LPARA
 				auto *tgl = dynamic_cast<MenuItemToggle*>(tray->_menuMap[0]);
 				if (tgl)
 				{
-					tray->_clickMap[SWM_CUSTOM] = bind(&MenuItemToggle::onClickWrapper, tgl);
+					tray->_clickMap[SWM_CUSTOM] = std::bind(&MenuItemToggle::onClickWrapper, tgl);
 				}
 			}
 			tray->_clickMap[SWM_CUSTOM](); // 0 is default
@@ -416,7 +416,7 @@ INT_PTR CALLBACK TrayIcon::DlgProc(HWND hWnd, UINT message, WPARAM wParam, LPARA
 	return TRUE;
 }
 
-void TrayIcon::ClearMenuMap()
+void WindowsTrayIcon::ClearMenuMap()
 {
 	for (auto ptr : _menuMap)
 	{
