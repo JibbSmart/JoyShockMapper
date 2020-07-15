@@ -45,6 +45,10 @@ Since it's not a big project, in order to keep things simple to adapt to other b
 5. ```TrayIcon.h/cpp``` - This is a self contained module used to display in Windows an icon in the system tray with a contextual menu.
 6. ```Whitelister.h/cpp``` - This is another self contained Windows specific module that uses a socket to communicate with HIDCerberus and whitelist JSM.
 
+Generate the project by runnning the following in a command prompt at the project root:
+* To create a Visual Studio x86 configuration: ```cmake -G "Visual Studio 16 2019" -A Win32 .```
+* To create a Visual Studio x64 configuration: ```cmake -G "Visual Studio 16 2019" -A x64 .```
+
 ## Installation for Players
 The latest version of JoyShockMapper can always be found [here](https://github.com/JibbSmart/JoyShockMapper/releases). All you have to do is run JoyShockMapper.exe.
 
