@@ -1,0 +1,34 @@
+# Example configuration for a 3D game (mouse turns the camera) with flick stick
+# (Any line that starts with # is ignored by JoyShockMapper)
+# First, reset to defaults so we don't have to set values we don't care about
+RESET_MAPPINGS
+
+# Calibrate. Flick stick relies on good calibration; gyro and stick sens make more sense with it, too
+REAL_WORLD_CALIBRATION = 40.0
+IN_GAME_SENS = 1
+# Please set IN_GAME_SENS to your in game mouse speed setting whenever you change it :)
+# Most modern shooters use raw input so they're unaffected by Windows' mouse settings. But if this game doesn't, use the following line (delete the "#") to counter the effects of Windows' settings so the configuration will work the same on different computers
+#COUNTER_OS_MOUSE_SPEED
+
+# Button mappings
+LLEFT = A
+LRIGHT = D
+LUP = W
+LDOWN = S
+GYRO_OFF = ZR
+# You can have the GYRO_OFF or GYRO_ON button used by something else at the same time, but we don't in this example
+ZL = LSHIFT
+R = LMOUSE
+L = RMOUSE
+N = Q
+# Assigning two keys to one button like the following makes the first key get triggered by taps and the second by holds
+W = R E
+E = C
+S = SPACE
+L3 = LCONTROL
+R3 = V
++ = ESC
+- = TAB
+
+# Mouse
+GyroConfigs/_3Dmouse.txt

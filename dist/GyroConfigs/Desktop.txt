@@ -1,0 +1,24 @@
+# Windows interaction using gyro
+# Clear previous settings
+RESET_MAPPINGS
+
+# Calibration
+REAL_WORLD_CALIBRATION = 5.3333
+IN_GAME_SENS = 1
+COUNTER_OS_MOUSE_SPEED
+
+# Button mappings
+GYRO_OFF = E
+LLEFT = LEFT
+LRIGHT = RIGHT
+LUP = UP
+LDOWN = DOWN
+R = LMOUSE
+L = RMOUSE
++ = ESC
+ZL = LSHIFT
+S = SPACE
+N = ESC
+
+# Include mouse settings
+GyroConfigs/_2Dmouse.txt
