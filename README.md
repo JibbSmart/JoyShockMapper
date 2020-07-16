@@ -56,7 +56,7 @@ The Linux implementation can be found in the following files:
 2. ```src/linux/PlatformDefinitions.cpp```
 3. ```src/linux/Whitelister.cpp.cpp```
 4. ```include/linux/StatusNotifierItem.h```
-5. ```src/win32/StatusNotifierItem.cpp```
+5. ```src/linux/StatusNotifierItem.cpp```
 
 Generate the project by runnning the following in a command prompt at the project root:
 - Windows:
@@ -68,8 +68,8 @@ Generate the project by runnning the following in a command prompt at the projec
   * ```cmake .. -DCMAKE_CXX_COMPILER=clang++ && cmake --build .```
 
 ### Linux specific notes
-In order to build on Linux, the following dependencies must be met:
-- gtkmm
+In order to build on Linux, the following dependencies must be met, with their respective development packages:
+- gtk+3
 - libappindicator3
 - libevdev
 

@@ -2,14 +2,16 @@
 
 #include "PlatformDefinitions.h"
 
+#include <algorithm>
 #include <functional>
 #include <string>
 #include <thread>
 #include <vector>
 #include <memory>
 #include <unordered_map>
+#include <list>
 
-#include <gtkmm.h>
+#include <gtk/gtk.h>
 #include <libappindicator/app-indicator.h>
 
 class StatusNotifierItem
@@ -41,12 +43,15 @@ public:
 	operator bool();
 
 private:
-	Glib::RefPtr<Gtk::Application> mainLoop_{nullptr};
+	static void OnActivate(GtkMenuItem *item, void *data) noexcept;
 
+private:
 	AppIndicator *indicator_{ nullptr };
-	std::unique_ptr<Gtk::Menu> menu_{nullptr};
-	std::vector<Gtk::MenuItem> menuItems_{};
-	std::unordered_map<Gtk::MenuItem *, std::pair<Gtk::Menu, std::vector<Gtk::MenuItem>>> subMenus_;
+	std::unique_ptr<GtkMenu, decltype(&::g_object_unref)> menu_{ nullptr, nullptr };
+	std::vector<GtkMenuItem *> menuItems_{};
+	std::unordered_map<GtkMenuItem *, std::pair<GtkMenu *, std::vector<GtkMenuItem *>>> subMenus_;
+
+	std::list<ClickCallbackType> callbacks_;
 
 	std::thread thread_;
 };
