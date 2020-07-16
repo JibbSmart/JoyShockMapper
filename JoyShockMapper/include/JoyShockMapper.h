@@ -308,3 +308,22 @@ ostream &operator <<(ostream &out, GyroSettings gyro_settings);
 
 istream &operator >>(istream &in, Mapping &mapping);
 ostream &operator <<(ostream &out, Mapping mapping);
+
+bool operator ==(const GyroSettings &lhs, const GyroSettings &rhs);
+inline bool operator !=(const GyroSettings &lhs, const GyroSettings &rhs)
+{
+	return !(lhs == rhs);
+}
+
+
+bool operator ==(const Mapping &lhs, const Mapping &rhs);
+inline bool operator !=(const Mapping &lhs, const Mapping &rhs)
+{
+	return !(lhs == rhs);
+}
+
+bool operator ==(const FloatXY &lhs, const FloatXY &rhs);
+inline bool operator !=(const FloatXY &lhs, const FloatXY &rhs)
+{
+	return !(lhs == rhs);
+}

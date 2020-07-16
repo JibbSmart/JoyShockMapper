@@ -274,8 +274,11 @@ protected:
 			ss >> value;
 			if (!ss.fail())
 			{
+				T oldVal = inst->_var;
 				inst->_var = value;
-				return true; // Command processed successfully
+				// Command succeeded if the value requested was the current one
+				// or if the new value is different from the old.
+				return value == oldVal || inst->_var != oldVal; // Command processed successfully
 			}
 			// Couldn't read the value
 		}

@@ -952,3 +952,22 @@ ostream &operator <<(ostream &out, Mapping mapping)
 	out << "Yikes, this might take a bit of work :(" << endl;
 	return out;
 }
+
+bool operator ==(const GyroSettings &lhs, const GyroSettings &rhs)
+{
+	return lhs.always_off == rhs.always_off && 
+		   lhs.button == rhs.button && 
+		   lhs.ignore_mode == rhs.ignore_mode;
+}
+
+bool operator ==(const Mapping &lhs, const Mapping &rhs)
+{
+	return lhs.pressBind == rhs.pressBind &&
+		   lhs.holdBind == rhs.holdBind;
+}
+
+bool operator ==(const FloatXY &lhs, const FloatXY &rhs)
+{
+	return lhs.first == rhs.first &&
+		   lhs.second == rhs.second;
+}

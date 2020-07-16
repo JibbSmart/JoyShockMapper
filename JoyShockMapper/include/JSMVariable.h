@@ -116,9 +116,14 @@ public:
 	// for changing the member _value
 	virtual T operator =(T newValue)
 	{
-		_value = _filter(_value, newValue); // Pass new value through filtering
-		for (auto listener : _onChangeListeners)
-			listener.second(_value); // Notify listeners of the change
+		T oldValue = _value;
+		_value = _filter(oldValue, newValue); // Pass new value through filtering
+		if (_value != oldValue)
+		{
+			// Notify listeners of the change
+			for (auto listener : _onChangeListeners)
+				listener.second(_value);
+		}
 		return _value; // Return actual value assign. Can be different from newValue because of filtering.
 	}
 };

@@ -1400,7 +1400,9 @@ bool do_GYRO_SENS(in_string argument)
 	stringstream ss(argument);
 	// Ignore whitespaces until the '=' is found
 	char c;
-	for (c = ss.peek(); ss.good() && c == ' '; ss >> c);
+	do {
+		ss >> c;
+	} while (ss.good() && c != '=');
 	if (!ss.good())
 	{
 		//No assignment? Display current assignment
@@ -1419,12 +1421,13 @@ bool do_GYRO_SENS(in_string argument)
 			if (sens) {
 				newSens.second = *sens;
 				value[pos] = 0;
-				cout << "Gyro sensitivity set to X:" << value << "x Y:" << &value[pos + 1] << "x" << endl;
+				//cout << "Gyro sensitivity set to X:" << value << "x Y:" << &value[pos + 1] << "x" << endl;
 			}
 			else {
-				cout << "Gyro sensitivity set to " << value << "x" << endl;
+				//cout << "Gyro sensitivity set to " << value << "x" << endl;
 			}
 			min_gyro_sens = newSens;
+			max_gyro_sens = newSens;
 			return true;
 		}
 		else {
@@ -2100,10 +2103,29 @@ float filterPositive(float current, float next)
 	return max(0.0f, next);
 }
 
+float filterSign(float current, float next)
+{
+	return next == -1.0f || next == 0.0f || next == 1.0f ?
+		next : current;
+}
+
 template <typename E, E invalid>
 E filterInvalidValue(E current, E next)
 {
 	return next != invalid ? next : current;
+}
+
+float filterFloat(float current, float next)
+{
+	// Exclude Infinite, NaN and Subnormal
+	return fpclassify(next) == FP_NORMAL || fpclassify(next) == FP_ZERO ? next : current;
+}
+
+FloatXY filterFloatPair(FloatXY current, FloatXY next)
+{
+	return (fpclassify(next.x()) == FP_NORMAL || fpclassify(next.x()) == FP_ZERO) &&
+		   (fpclassify(next.y()) == FP_NORMAL || fpclassify(next.y()) == FP_ZERO) ?
+		next : current;
 }
 
 TriggerMode triggerModeNotification(TriggerMode current, TriggerMode next)
@@ -2129,7 +2151,9 @@ private:
 		stringstream ss(data);
 		// Ignore whitespaces until the '=' is found
 		char c;
-		for (c = ss.peek(); ss.good() && c == ' '; ss >> c);
+		do {
+			ss >> c;
+		} while (ss.good() && c != '=');
 		if (!ss.good())
 		{
 			//No assignment? Display current assignment
@@ -2143,8 +2167,11 @@ private:
 			ss >> value;
 			if (!ss.fail())
 			{
+				GyroSettings oldVal = _var;
 				_var = value;
-				return true; // Command processed successfully
+				// Command succeeded if the value requested was the current one
+				// or if the new value is different from the old.
+				return value == oldVal || _var != oldVal; // Command processed successfully
 			}
 			// Couldn't read the value
 		}
@@ -2195,7 +2222,6 @@ int main(int argc, char *argv[]) {
 	printf("Welcome to JoyShockMapper version %s!\n", version);
 	//if (whitelister) printf("JoyShockMapper was successfully whitelisted!\n");
 	// prepare for input
-	resetAllMappings();
 	connectDevices();
 	JslSetCallback(&joyShockPollCallback);
 	autoLoadThread.reset(new PollingThread(&AutoLoadPoll, nullptr, 1000, true)); // Start by default
@@ -2206,25 +2232,50 @@ int main(int argc, char *argv[]) {
 	else printf("[AUTOLOAD] AutoLoad is unavailable\n");
 	tray->Show();
 
-	in_game_sens.SetFilter( [] (float current, float next)
+	left_stick_mode.SetFilter(&filterInvalidValue<StickMode, StickMode::invalid>);
+	right_stick_mode.SetFilter(&filterInvalidValue<StickMode, StickMode::invalid>);
+	left_ring_mode.SetFilter(&filterInvalidValue<RingMode, RingMode::invalid>);
+	right_ring_mode.SetFilter(&filterInvalidValue<RingMode, RingMode::invalid>);
+	mouse_x_from_gyro.SetFilter(&filterInvalidValue<GyroAxisMask, GyroAxisMask::invalid>);
+	mouse_y_from_gyro.SetFilter(&filterInvalidValue<GyroAxisMask, GyroAxisMask::invalid>);
+	gyro_settings.SetFilter( [] (GyroSettings current, GyroSettings next)
 		{
-			if (next <= 0)
-			{
-				printf("Can't set IN_GAME_SENS to zero or less. Reverting to previous setting (%0.4f)\n", current);
-				return current;
-			}
-			return next;
+			return next.ignore_mode != GyroIgnoreMode::invalid ? next : current;
 		});
-
-	rotate_smooth_override.SetFilter(&filterClamp01);
-	flick_snap_strength.SetFilter(&filterClamp01);
-	stick_acceleration_rate.SetFilter(&filterPositive);
-	stick_acceleration_cap.SetFilter(bind(&fmaxf, 1.0f, ::placeholders::_2));
-	stick_deadzone_inner.SetFilter(&filterClamp01);
-	flick_time.SetFilter(bind(&fmaxf, 0.0001f, ::placeholders::_2));
+	joycon_gyro_mask.SetFilter(&filterInvalidValue<JoyconMask, JoyconMask::invalid>);
+	zlMode.SetFilter(&filterInvalidValue<TriggerMode, TriggerMode::invalid>);
+	zrMode.SetFilter(&filterInvalidValue<TriggerMode, TriggerMode::invalid>);
 	zlMode.SetFilter(&triggerModeNotification);
 	zrMode.SetFilter(&triggerModeNotification);
 	flick_snap_mode.SetFilter(&filterInvalidValue<FlickSnapMode, FlickSnapMode::invalid>);
+	min_gyro_sens.SetFilter(&filterFloatPair);
+	max_gyro_sens.SetFilter(&filterFloatPair);
+	min_gyro_threshold.SetFilter(&filterFloat);
+	max_gyro_threshold.SetFilter(&filterFloat);
+	stick_power.SetFilter(&filterFloat);
+	real_world_calibration.SetFilter(&filterFloat);
+	in_game_sens.SetFilter(bind(&fmaxf, 0.0001f, ::placeholders::_2));
+	trigger_threshold.SetFilter(&filterClamp01);
+	aim_x_sign.SetFilter(&filterSign);
+	aim_y_sign.SetFilter(&filterSign);
+	gyro_x_sign.SetFilter(&filterSign);
+	gyro_y_sign.SetFilter(&filterSign);
+	flick_time.SetFilter(bind(&fmaxf, 0.0001f, ::placeholders::_2));
+	gyro_smooth_time.SetFilter(bind(&fmaxf, 0.0001f, ::placeholders::_2));
+	gyro_smooth_threshold.SetFilter(&filterPositive);
+	gyro_cutoff_speed.SetFilter(&filterPositive);
+	gyro_cutoff_recovery.SetFilter(&filterPositive);
+	stick_acceleration_rate.SetFilter(&filterPositive);
+	stick_acceleration_cap.SetFilter(bind(&fmaxf, 1.0f, ::placeholders::_2));
+	stick_deadzone_inner.SetFilter(&filterClamp01);
+	stick_deadzone_outer.SetFilter(&filterClamp01);
+	mouse_ring_radius.SetFilter([](float c, float n) { return n <= screen_resolution_y ? floorf(n) : c; });
+	screen_resolution_x.SetFilter(&filterPositive);
+	screen_resolution_y.SetFilter(&filterPositive);
+	rotate_smooth_override.SetFilter(&filterClamp01);
+	flick_snap_strength.SetFilter(&filterClamp01);
+	
+	resetAllMappings();
 	
 	CmdRegistry commandRegistry;
 	for (auto &mapping : mappings)
