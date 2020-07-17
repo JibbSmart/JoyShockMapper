@@ -31,7 +31,7 @@ typedef unsigned long       DWORD;
 
 enum class ButtonID
 {
-	ERR = -2, // Represents an error in user input
+	INVALID = -2, // Represents an error in user input
 	NONE = -1, // Represents no button when explicitely stated by the user. Not to be confused with NO_HOLD_MAPPED which is no action bound.
 	UP = 0,
 	DOWN = 1,
@@ -63,17 +63,15 @@ enum class ButtonID
 	RLEFT = 27,
 	RRIGHT = 28,
 	RRING = 29,
-	ZLF = 30, // FIRST
-	FIRST_ANALOG_TRIGGER = ZLF,
-	// insert more analo,g triggers here
-	ZRF = 31, // LAST
-	LAST_ANALOG_TRIGGER = ZRF,
+	ZLF = 30, // FIRST_ANALOG_TRIGGER
+	// insert more analog triggers here
+	ZRF = 31, // LAST_ANALOG_TRIGGER
 	SIZE = 32,
 };
 
 enum class SettingID
 {
-	ERR = -2, // Represents an error in user input
+	INVALID = -2, // Represents an error in user input
 	MIN_GYRO_SENS = int(ButtonID::SIZE) + 1,
 	MAX_GYRO_SENS = 34,
 	MIN_GYRO_THRESHOLD = 35,
@@ -131,7 +129,9 @@ enum class SettingID
 
 // constexpr > #define
 constexpr int MAPPING_SIZE = int(ButtonID::SIZE);
-constexpr int NUM_ANALOG_TRIGGERS = int(ButtonID::LAST_ANALOG_TRIGGER) - int(ButtonID::FIRST_ANALOG_TRIGGER) + 1;
+constexpr int FIRST_ANALOG_TRIGGER = int(ButtonID::ZLF);
+constexpr int LAST_ANALOG_TRIGGER = int(ButtonID::ZRF);
+constexpr int NUM_ANALOG_TRIGGERS = int(LAST_ANALOG_TRIGGER) - int(FIRST_ANALOG_TRIGGER) + 1;
 constexpr float MAGIC_DST_DELAY = 150.0f; // in milliseconds
 constexpr float MAGIC_TAP_DURATION = 40.0f; // in milliseconds
 constexpr float MAGIC_GYRO_TAP_DURATION = 500.0f; // in milliseconds
@@ -142,7 +142,7 @@ static_assert(MAGIC_SIM_DELAY < MAGIC_HOLD_TIME, "Simultaneous press delay has t
 static_assert(MAGIC_HOLD_TIME < MAGIC_DBL_PRESS_WINDOW, "Hold delay has to be smaller than double press window!");
 
 enum class RingMode { OUTER, INNER, INVALID };
-enum class StickMode { NONE, AIM, FLICK, FLICK_ONLY, ROTATE_ONLY, MOUSE_RING, MOUSE_AREA, OUTER, INNER, INVALID };
+enum class StickMode { NO_MOUSE, AIM, FLICK, FLICK_ONLY, ROTATE_ONLY, MOUSE_RING, MOUSE_AREA, OUTER_RING, INNER_RING, INVALID };
 enum class FlickSnapMode { NONE, FOUR, EIGHT, INVALID };
 enum       AxisMode { STANDARD = 1, INVERTED = -1, INVALID = 0 }; // valid values are true!
 enum class TriggerMode { NO_FULL, NO_SKIP, MAY_SKIP, MUST_SKIP, MAY_SKIP_R, MUST_SKIP_R, INVALID };
@@ -236,7 +236,6 @@ istream &operator >>(istream &in, E &rhv)
 	return in;
 }
 
-
 template <class E, class = std::enable_if_t < std::is_enum<E>{} >>
 ostream &operator <<(ostream &out, E rhv)
 {
@@ -244,14 +243,11 @@ ostream &operator <<(ostream &out, E rhv)
 	return out;
 }
 
-template <ButtonID>
-istream & operator >>(istream &in, ButtonID &rhv);
-template<ButtonID>
-ostream &operator <<(ostream &out, ButtonID rhv);
+istream & operator >> (istream &in, ButtonID &rhv);
+ostream &operator << (ostream &out, ButtonID rhv);
 
-template<FlickSnapMode>
+
 istream &operator >>(istream &in, FlickSnapMode &fsm);
-template<FlickSnapMode>
 ostream &operator <<(ostream &out, FlickSnapMode fsm);
 
 istream &operator >>(istream &in, GyroSettings &gyro_settings);
@@ -265,7 +261,6 @@ inline bool operator !=(const GyroSettings &lhs, const GyroSettings &rhs)
 {
 	return !(lhs == rhs);
 }
-
 
 bool operator ==(const Mapping &lhs, const Mapping &rhs);
 inline bool operator !=(const Mapping &lhs, const Mapping &rhs)

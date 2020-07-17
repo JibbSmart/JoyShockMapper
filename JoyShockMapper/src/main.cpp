@@ -17,8 +17,8 @@
 class JoyShock;
 
 // Contains all settings that can be modeshifted. They should be accessed only via Joyshock::getSetting
-JSMSetting<StickMode> left_stick_mode = JSMSetting<StickMode>(SettingID::LEFT_STICK_MODE, StickMode::NONE);
-JSMSetting<StickMode> right_stick_mode = JSMSetting<StickMode>(SettingID::RIGHT_STICK_MODE, StickMode::NONE);
+JSMSetting<StickMode> left_stick_mode = JSMSetting<StickMode>(SettingID::LEFT_STICK_MODE, StickMode::NO_MOUSE);
+JSMSetting<StickMode> right_stick_mode = JSMSetting<StickMode>(SettingID::RIGHT_STICK_MODE, StickMode::NO_MOUSE);
 JSMSetting<RingMode> left_ring_mode = JSMSetting<RingMode>(SettingID::LEFT_RING_MODE, RingMode::OUTER);
 JSMSetting<RingMode> right_ring_mode = JSMSetting<RingMode>(SettingID::LEFT_RING_MODE, RingMode::OUTER);
 JSMSetting<GyroAxisMask> mouse_x_from_gyro = JSMSetting<GyroAxisMask>(SettingID::MOUSE_X_FROM_GYRO_AXIS, GyroAxisMask::NONE);
@@ -91,7 +91,7 @@ public:
 	DigitalButton(DigitalButton::Common &btnCommon, ButtonID id)
 		: _common(btnCommon)
 		, _id(id)
-		, _name((stringstream() << id).str())
+		, _name(magic_enum::enum_name(id))
 		, _mapping(mappings[int(_id)])
 		, _press_times()
 		, _btnState(BtnState::NoPress)
@@ -1088,7 +1088,7 @@ public:
 			mode = TriggerMode::NO_FULL;
 		}
 
-		auto idxState = int(fullIndex) - int(ButtonID::FIRST_ANALOG_TRIGGER); // Get analog trigger index
+		auto idxState = int(fullIndex) - FIRST_ANALOG_TRIGGER; // Get analog trigger index
 		if (idxState < 0 || idxState >= (int)triggerState.size())
 		{
 			printf("Error: Trigger %s does not exist in state map. Dual Stage Trigger not possible.\n", buttons[int(fullIndex)]._name.c_str());
@@ -1828,7 +1828,7 @@ void joyShockPollCallback(int jcHandle, JOY_SHOCK_STATE state, JOY_SHOCK_STATE l
 			lockMouse = true;
 		}
 	}
-	else if (jc->getSetting<StickMode>(SettingID::RIGHT_STICK_MODE) == StickMode::NONE) { // Do not do if invalid
+	else if (jc->getSetting<StickMode>(SettingID::RIGHT_STICK_MODE) == StickMode::NO_MOUSE) { // Do not do if invalid
 		// left!
 		jc->handleButtonChange(ButtonID::RLEFT, left);
 		// right!
@@ -2159,8 +2159,9 @@ private:
 		} while (ss.good() && c != '=');
 		if (!ss.good())
 		{
+			GyroSettings value(_var);
 			//No assignment? Display current assignment
-			DisplayGyroSettingValue(_var);
+			cout << (value.always_off ? string("GYRO_ON") : string("GYRO_OFF")) << " = " << value << endl;;
 		}
 		if (c == '=')
 		{
@@ -2184,7 +2185,7 @@ private:
 
 	void DisplayGyroSettingValue(GyroSettings value)
 	{
-		cout << (value.always_off ? string("GYRO_ON") : string("GYRO_OFF")) << " = " << value << endl;;
+		cout << (value.always_off ? string("GYRO_ON") : string("GYRO_OFF")) << " is set to " << value << endl;;
 	}
 public:
 	GyroAssignment(in_string name, bool always_off)

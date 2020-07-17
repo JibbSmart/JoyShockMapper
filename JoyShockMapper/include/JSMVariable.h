@@ -268,7 +268,9 @@ public:
 
 	void AddSimPress(ButtonID simBtn, WORD press, WORD hold)
 	{
-		_simMappings.push_back({ (stringstream() << simBtn << '+' << _id).str(), simBtn, press, hold });
+		stringstream ss;
+		ss << simBtn << '+' << _id;
+		_simMappings.push_back( {ss.str(), simBtn, press, hold });
 	}
 
 	inline bool HasSimMappings() const
@@ -285,11 +287,13 @@ public:
 	{
 		if (chord == ButtonID::NONE)
 		{
-			return (stringstream() << _id).str();
+			return string(magic_enum::enum_name(_id));
 		}
 		else
 		{
-			return (stringstream() << chord << ',' << _id).str();
+			stringstream ss;
+			ss << chord << ',' << _id;
+			return ss.str();
 		}
 	}
 
