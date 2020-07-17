@@ -580,6 +580,8 @@ JoyCons和Pro控制器只能通过蓝牙连接。即使通过USB连接，它们�
 * Nicolas
 * Bryan Rumsey
 * Al. Lopez
+* Sunny Ye
+* Romeo Calota
 
 看一下更新日志，更好地了解谁贡献了什么。特别是Nicolas，他经常贡献很多工作。他负责很多很酷的生活质量和高级的映射功能。
 JoyShockMapper非常依赖于用于读取控制器输入的[JoyShockLibrary](https://github.com/jibbsmart/JoyShockLibrary)。请查看该项目，看看之前的工作是如何使JoyShockLibrary成为可能的。
