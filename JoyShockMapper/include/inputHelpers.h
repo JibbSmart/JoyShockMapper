@@ -1,11 +1,25 @@
 #pragma once
 
 #include "PlatformDefinitions.h"
-#include "JoyShockMapper.h"
 
 #include <functional>
+#include <string>
+#include <cmath>
+#include <utility>
 #include <vector>
 #include <atomic>
+
+// https://docs.microsoft.com/en-us/windows/win32/inputdev/virtual-key-codes
+// Only use undefined keys from the above list for JSM custom commands
+#define V_WHEEL_UP 0x03 // Here I intentionally overwride VK_CANCEL because breaking a process with a keybind is not something we want to do
+#define V_WHEEL_DOWN 0x07 // I want all mouse bindings to be contiguous IDs for ease to distinguish
+#define NO_HOLD_MAPPED 0x0A
+#define CALIBRATE 0x0B
+#define GYRO_INV_X 0x88
+#define GYRO_INV_Y 0x89
+#define GYRO_INVERT 0x8A
+#define GYRO_OFF_BIND 0x8B // Not to be confused with settings GYRO_ON and GYRO_OFF
+#define GYRO_ON_BIND 0x8C  // Those here are bindings
 
 // get the user's mouse sensitivity multiplier from the user. In Windows it's an int, but who cares? it's well within range for float to represent it exactly
 // also, if this is ported to other platforms, we might want non-integer sensitivities
@@ -20,7 +34,7 @@ float getMouseSpeed();
 inline WORD nameToKey(const std::string &name)
 {
 	// https://msdn.microsoft.com/en-us/library/dd375731%28v=vs.85%29.aspx?f=255&MSPPError=-2147217396
-	auto length = name.length();
+	int length = name.length();
 	if (length == 1)
 	{
 		// direct mapping to a number or character key

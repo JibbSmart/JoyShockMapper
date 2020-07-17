@@ -75,6 +75,13 @@ CPMAddPackage (
     GIT_TAG master
 )
 
+CPMAddPackage (
+    NAME MagicEnum
+    GITHUB_REPOSITORY Neargye/magic_enum
+    VERSION v0.6.6
+    GIT_TAG master
+)
+
 target_link_libraries (
     ${BINARY_NAME} PRIVATE
     Platform::Dependencies
