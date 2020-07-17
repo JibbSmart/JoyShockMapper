@@ -1,0 +1,14 @@
+# Useful settings for calculating a real world calibration for 3D (mouse moves the camera) games
+# (Any line that starts with # is ignored by JoyShockMapper)
+# When calibrating 3D games, the goal is for one complete rotation of the flick stick to turn the character around 360 degrees, ending facing the same direction they started.
+# At these default settings, you'll likely have to rotate the stick a few times to complete that rotation. But this gives JoyShockMapper enough information after one or several in-game rotations to calculate an accurate REAL_WORLD_CALIBRATION value.
+# First, reset to defaults so we don't have to set values we don't care about
+RESET_MAPPINGS
+# Use flick stick 
+RIGHT_STICK_MODE = FLICK
+REAL_WORLD_CALIBRATION = 5
+# Some games where the mouse moves the camera use raw mouse input to ignore Windows' mouse settings. COUNTER_OS_MOUSE_SPEED counteracts Windows' mouse settings for consistency between different computers with different settings, but if the game you're playing uses raw mouse input, COUNTER_OS_MOUSE_SPEED is causing problems, not fixing them.
+# So, for games with raw input, remove the following line, or just put a '#' at the beginning of the line so JoyShockMapper ignores it for now.
+COUNTER_OS_MOUSE_SPEED
+# Change this to whatever mouse sensitivity you have in the game you're playing
+IN_GAME_SENS = 1

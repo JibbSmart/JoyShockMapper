@@ -65,9 +65,8 @@ target_include_directories (
 
 CPMAddPackage (
     NAME JoyShockLibrary
-    GITHUB_REPOSITORY kicsyromy/JoyShockLibrary
-    VERSION 0
-    GIT_TAG master
+    GITHUB_REPOSITORY JibbSmart/JoyShockLibrary
+    VERSION 1.2.1
 )
 
 target_link_libraries (

@@ -34,20 +34,52 @@ JoyShockMapper works on Windows and uses JoyShockLibrary to read inputs from con
 * **[License](#license)**
 
 ## Installation for Devs
-JoyShockMapper was written in C++ in Visual Studio 2017 and includes a Visual Studio 2017 solution.
+JoyShockMapper was written in C++ and is built using CMake.
 
-Since it's not a big project, in order to keep things simple to adapt to other build environments, there are only three important files:
-1. ```main.cpp``` - This does just about all the main logic of the application. It's perhaps a little big, but I've opted to keep the file structure simpler at the cost of having a big main file.
-2. ```inputHelpers.h``` - This is platform agnostic declaration of wrappers for OS function calls and features.
-3. ```inputHelpers.cpp``` - All the Windows-specific implementation happens in here. This is where Windows keyboard and mouse events are created. Anyone interested porting JoyShockMapper to other platforms, this is where you'll need to
- make changes, as well as porting JoyShockLibrary (below).
-4. ```JoyShockLibrary.dll``` - [JoyShockLibrary](https://github.com/jibbsmart/JoyShockLibrary) is how JoyShockMapper reads from controllers. The included DLL is compiled for x86, and so JoyShockMapper needs to be built for x86. JoyShockLibrary can be compiled for x64, but it hasn't been included in this project. I'm not aware of any reasons JoyShockLibrary can't be compiled for other platforms, but I haven't done it myself.
-5. ```TrayIcon.h/cpp``` - This is a self contained module used to display in Windows an icon in the system tray with a contextual menu.
-6. ```Whitelister.h/cpp``` - This is another self contained Windows specific module that uses a socket to communicate with HIDCerberus and whitelist JSM.
+The project is structured into a set of platform-agnostic headers, while platform-specific source files can be found in their respective subdirectories.
+The following files are platform-agnostic:
+1. ```include/InputHelpers.h``` - This is platform agnostic declaration of wrappers for OS function calls and features.
+2. ```include/PlatformDefinitions.h``` - This is a set of declarations that create a common ground when dealing with platform-specific types and definitions.
+3. ```include/TrayIcon.h``` - This is a self contained module used to display in Windows an icon in the system tray with a contextual menu.
+4. ```include/Whitelister.h``` - This is another self contained Windows specific module that uses a socket to communicate with HIDCerberus and whitelist JSM, the Linux implementation, currently, is a stub.
+5. ```main.cpp``` - This does just about all the main logic of the application. It's perhaps a little big, but I've opted to keep the file structure simpler at the cost of having a big main file.
+
+The Windows implementation can be found in the following files:
+1. ```src/win32/InputHelpers.cpp```
+2. ```src/win32/PlatformDefinitions.cpp```
+3. ```src/win32/Whitelister.cpp.cpp```
+4. ```include/win32/WindowsTrayIcon.h```
+5. ```src/win32/WindowsTrayIcon.cpp```
+
+The Linux implementation can be found in the following files:
+1. ```src/linux/InputHelpers.cpp```
+2. ```src/linux/PlatformDefinitions.cpp```
+3. ```src/linux/Whitelister.cpp.cpp```
+4. ```include/linux/StatusNotifierItem.h```
+5. ```src/win32/StatusNotifierItem.cpp```
 
 Generate the project by runnning the following in a command prompt at the project root:
-* To create a Visual Studio x86 configuration: ```cmake -G "Visual Studio 16 2019" -A Win32 .```
-* To create a Visual Studio x64 configuration: ```cmake -G "Visual Studio 16 2019" -A x64 .```
+- Windows:
+  * ```mkdir build && cd build```
+  * To create a Visual Studio x86 configuration: ```cmake .. -G "Visual Studio 16 2019" -A Win32 .```
+  * To create a Visual Studio x64 configuration: ```cmake .. -G "Visual Studio 16 2019" -A x64 .```
+- Linux:
+  * ```mkdir build && cd build```
+  * ```cmake .. -DCMAKE_CXX_COMPILER=clang++ && cmake --build .```
+
+### Linux specific notes
+In order to build on Linux, the following dependencies must be met:
+- gtkmm
+- libappindicator3
+- libevdev
+
+Due to a [bug](https://stackoverflow.com/questions/49707184/explicit-specialization-in-non-namespace-scope-does-not-compile-in-gcc) in GCC, the project in it's current form will only build with Clang.
+
+JoyShockMapper was initially developed for Windows, this has the side-effect of some types used throught the code-base are Windows specific, these have been redefined on Linux. This was done to keep changes to the core logic of the application to a minimum, and lower the chance of causing regressions for existing users.
+
+The application requires ```rw``` access to ```/dev/uinput```, and ```/dev/hidraw[0-n]``` (the actual device depends on the node allocated by the OS). This can be achieved by ```chown```-ing the required device nodes to the user running the application, or by applying the udev rules found in ```dist/linux/50-joyshockmapper.rules```, adding your user to the input group, and restarting the computer for the changes to take effect. More info on udev rules can be found at https://wiki.archlinux.org/index.php/Udev#About_udev_rules.
+
+The application will work on both X11 and Wayland, though focused window detection only works on X11.
 
 ## Installation for Players
 The latest version of JoyShockMapper can always be found [here](https://github.com/JibbSmart/JoyShockMapper/releases). All you have to do is run JoyShockMapper.exe.
