@@ -193,6 +193,7 @@ LCONTROL, RCONTROL, CONTROL: left Ctrl, right Ctrl, generic Ctrl, respectively
 LALT, RALT, ALT: left Alt, right Alt, generic Alt, respectively
 LSHIFT, RSHIFT, SHIFT: left Shift, right Shift, generic Shift, respectively
 TAB: Tab
+ESC: Escape
 ENTER: Enter
 LMOUSE, MMOUSE, RMOUSE: mouse left click, middle click and right click respectively
 BMOUSE, FMOUSE: mouse back (button 4) click and mouse forward (button 5) click respectively
