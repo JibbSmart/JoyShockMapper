@@ -29,7 +29,7 @@ public:
 	// I don't mind leaving this public since it can't be changed.
 	const string _name;
 
-	// The constructor should only have mandatory arguments. Optional arguments are assigned using setters.
+	// The constructor should only have mandatory arguments. optional arguments are assigned using setters.
 	JSMCommand(in_string name)
 		: _name(name)
 		, _help("Error in entering the command. See README for help.")

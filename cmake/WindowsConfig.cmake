@@ -41,4 +41,29 @@ if (WIN32)
     )
 
     add_library (Platform::Dependencies ALIAS platform_dependencies)
+
+    install (
+        DIRECTORY ${PROJECT_SOURCE_DIR}/dist/GyroConfigs
+        DESTINATION bin
+    )
+
+    install (
+        FILES ${PROJECT_SOURCE_DIR}/CHANGELOG.md
+        DESTINATION bin
+    )
+
+    install (
+        FILES ${PROJECT_SOURCE_DIR}/LICENSE.md
+        DESTINATION bin
+    )
+
+    install (
+        FILES ${PROJECT_SOURCE_DIR}/README.md
+        DESTINATION bin
+    )
+
+    install (
+        FILES ${PROJECT_SOURCE_DIR}/README_CN.md
+        DESTINATION bin
+    )
 endif ()

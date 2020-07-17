@@ -1,0 +1,25 @@
+# Example configuration for a 2D game (mouse is an on-screen cursor)
+# (Any line that starts with # is ignored by JoyShockMapper)
+# First, reset to defaults so we don't have to set values we don't care about
+RESET_MAPPINGS
+
+# Calibrate. Good calibration means people can easily change sensitivities and expect them to behave the same between games.
+# For 2D mouse games like this, the convention is to make it that a GYRO_SENS of 1 would mean the controller takes a full revolution to move the mouse from one side of a 1920x1080 screen to the other.
+REAL_WORLD_CALIBRATION = 5.3333
+# Please set IN_GAME_SENS to your in game mouse speed setting whenever you change it in game. This and COUNTER_OS_MOUSE_SPEED should cancel out the effects of different players having different mouse settings.
+IN_GAME_SENS = 1
+# Remove COUNTER_OS_MOUSE_SPEED or add IGNORE_OS_MOUSE_SPEED for games that use raw input and aren't affected by Windows' settings
+COUNTER_OS_MOUSE_SPEED
+
+# Button mappings
+GYRO_OFF = E
+R = LMOUSE
+L = RMOUSE
+ZL = LSHIFT
+ZR = LCONTROL
+S = SPACE
++ = ESC
+- = TAB
+
+# Mouse
+GyroConfigs/_2Dmouse.txt

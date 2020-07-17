@@ -70,16 +70,8 @@ target_include_directories (
 
 CPMAddPackage (
     NAME JoyShockLibrary
-    GITHUB_REPOSITORY kicsyromy/JoyShockLibrary
-    VERSION 0
-    GIT_TAG master
-)
-
-CPMAddPackage (
-    NAME MagicEnum
-    GITHUB_REPOSITORY Neargye/magic_enum
-    VERSION v0.6.6
-    GIT_TAG master
+    GITHUB_REPOSITORY JibbSmart/JoyShockLibrary
+    VERSION 1.2.1
 )
 
 target_link_libraries (
@@ -90,4 +82,20 @@ target_link_libraries (
 
 install (
     TARGETS ${BINARY_NAME} JoyShockLibrary
+)
+
+CPMAddPackage (
+    NAME magic_enum
+    GITHUB_REPOSITORY Neargye/magic_enum
+    GIT_TAG v0.6.6
+)
+
+target_link_libraries (
+    ${BINARY_NAME} PRIVATE
+    Platform::Dependencies
+    magic_enum
+)
+
+install (
+    TARGETS ${BINARY_NAME} magic_enum
 )

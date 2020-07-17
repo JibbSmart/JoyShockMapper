@@ -3,19 +3,28 @@
 Most recent updates will appear first.
 This is a summary of new features and bugfixes. Read the README to learn how to use the features mentioned here.
 
+## 1.6.1
+Lots of internal changes for developers. JSM can now be built for Linux, thanks to Romeo Calota. Since this is only developer-facing for now, this is still just a bug-fix update rather than a feature update. But if you're up for it, check out the Linux instructions in the README!
+
+Regarding bugs, Nicolas fixed some bugs with disabling gyro and stick behaviour during mode shifts. Jibb added support for wired Switch Pro Controller (technically a new feature but the lack of support was a stumbling block for many new users) and made some changes to the DualShock 4 Bluetooth support that will hopefully fix issues some users have been having.
+
+### Bugfixes
+* Improved support for DualShock 4 and Switch Pro Controller.
+* Fixed an issue with stick behaviour and mode shift.
+* Fixed d-pad up always acting as a gyro off button even when it wasn't assigned.
+
 ## 1.6.0
 Nicolas added modeshifts to JSM and all setting variables are now encapsulated in a structure. Therefore, to use any setting you need to query it through the accessor in Joyshock. All settings are now "optional" but should always be set in the base structure by the reset() function. Instances that are part of the modeshift map can have nullopt to indicate no alternate value for the setting when that modeshift is active. Nicolas also added MOUSE_AREA for a stick mode, which is useful for using mouse wheels in game where the wheel is not centered on the screen (in which case MOUSE_RING would work). See README for details.
 
 ### Features
 * Added the ability to chord any setting (except autoload, and including NO_GYRO_BUTTON).
-* Modeshifts are removed by assigning NONE
-* Added MOUSE_AREA as a stick mode
+* Modeshifts are removed by assigning NONE.
+* Added MOUSE_AREA as a stick mode.
 
 ## 1.5.1
 Nicolas changed the tray icon to always be displayed. 
 
-### Bugfixe
-
+### Bugfixes
 * The one second pause when exiting JSM was not necessary.
 
 ## 1.5.0

@@ -1,5 +1,6 @@
 #pragma once
 
+#include "magic_enum.hpp"
 #include <string>
 
 // versions will be in the format A.B.C
@@ -111,8 +112,8 @@ enum class SettingID
 	RESTART_GYRO_CALIBRATION = 68,
 	MOUSE_X_FROM_GYRO_AXIS = 69,
 	MOUSE_Y_FROM_GYRO_AXIS = 70,
-	ZR_DUAL_STAGE_MODE = 71,
-	ZL_DUAL_STAGE_MODE = 72,
+	ZR_MODE = 71,
+	ZL_MODE = 72,
 	AUTOLOAD = 73,
 	HELP = 74,
 	WHITELIST_SHOW = 75,
@@ -140,19 +141,19 @@ constexpr float MAGIC_DBL_PRESS_WINDOW = 200.0f; // in milliseconds
 static_assert(MAGIC_SIM_DELAY < MAGIC_HOLD_TIME, "Simultaneous press delay has to be smaller than hold delay!");
 static_assert(MAGIC_HOLD_TIME < MAGIC_DBL_PRESS_WINDOW, "Hold delay has to be smaller than double press window!");
 
-enum class RingMode { outer, inner, invalid };
-enum class StickMode { none, aim, flick, flickOnly, rotateOnly, mouseRing, mouseArea, outer, inner, invalid };
-enum class FlickSnapMode { none, four, eight, invalid };
-enum       AxisMode { standard = 1, inverted = -1, invalid = 0 }; // valid values are true!
-enum class TriggerMode { noFull, noSkip, maySkip, mustSkip, maySkipResp, mustSkipResp, invalid };
-enum class GyroAxisMask { none = 0, x = 1, y = 2, z = 4, invalid = 8 };
-enum class JoyconMask { useBoth = 0, ignoreLeft = 1, ignoreRight = 2, ignoreBoth = 3, invalid = 4 };
-enum class GyroIgnoreMode { button, left, right, invalid };
-enum class DstState { NoPress = 0, PressStart, QuickSoftTap, QuickFullPress, QuickFullRelease, SoftPress, DelayFullPress, PressStartResp, invalid };
+enum class RingMode { OUTER, INNER, INVALID };
+enum class StickMode { NONE, AIM, FLICK, FLICK_ONLY, ROTATE_ONLY, MOUSE_RING, MOUSE_AREA, OUTER, INNER, INVALID };
+enum class FlickSnapMode { NONE, FOUR, EIGHT, INVALID };
+enum       AxisMode { STANDARD = 1, INVERTED = -1, INVALID = 0 }; // valid values are true!
+enum class TriggerMode { NO_FULL, NO_SKIP, MAY_SKIP, MUST_SKIP, MAY_SKIP_R, MUST_SKIP_R, INVALID };
+enum class GyroAxisMask { NONE = 0, X = 1, Y = 2, Z = 4, INVALID = 8 };
+enum class JoyconMask { USE_BOTH = 0, IGNORE_LEFT = 1, IGNORE_RIGHT = 2, IGNORE_BOTH = 3, INVALID = 4 };
+enum class GyroIgnoreMode { BUTTON, LEFT_STICK, RIGHT_STICK, INVALID };
+enum class DstState { NoPress = 0, PressStart, QuickSoftTap, QuickFullPress, QuickFullRelease, SoftPress, DelayFullPress, PressStartResp, INVALID };
 enum class BtnState {
 	NoPress = 0, BtnPress, WaitHold, HoldPress, TapRelease,
 	WaitSim, SimPress, WaitSimHold, SimHold, SimTapRelease, SimRelease,
-	DblPressStart, DblPressNoPress, DblPressPress, DblPressWaitHold, DblPressHold, invalid
+	DblPressStart, DblPressNoPress, DblPressPress, DblPressWaitHold, DblPressHold, INVALID
 };
 
 // Used for XY pair values such as sensitivity or GyroSample
@@ -189,7 +190,7 @@ static istream &operator >> (istream &in, FloatXY fxy)
 struct GyroSettings {
 	bool always_off = false;
 	ButtonID button = ButtonID::NONE;
-	GyroIgnoreMode ignore_mode = GyroIgnoreMode::button;
+	GyroIgnoreMode ignore_mode = GyroIgnoreMode::BUTTON;
 
 	GyroSettings() = default;
 
@@ -225,83 +226,33 @@ struct Mapping
 	Mapping(int dummy) : Mapping() {}
 };
 
-
-// Custom Optional
-template<typename T>
-class Optional
+template <class E, class = std::enable_if_t < std::is_enum<E>{} >>
+istream &operator >>(istream &in, E &rhv)
 {
-private:
-	bool valid = false;
-	T value;
+	string s;
+	in >> s;
+	auto opt = magic_enum::enum_cast<E>(s);
+	rhv = opt ? *opt : *magic_enum::enum_cast<E>("INVALID");
+	return in;
+}
 
-public:
-	Optional() {} // nullopt
 
-	Optional(T val)
-		: value(val)
-		, valid(true)
-	{}
+template <class E, class = std::enable_if_t < std::is_enum<E>{} >>
+ostream &operator <<(ostream &out, E rhv)
+{
+	out << magic_enum::enum_name(rhv);
+	return out;
+}
 
-	inline operator bool() const
-	{
-		return valid;
-	}
+template <ButtonID>
+istream & operator >>(istream &in, ButtonID &rhv);
+template<ButtonID>
+ostream &operator <<(ostream &out, ButtonID rhv);
 
-	inline T &operator *()
-	{
-		return value;
-	}
-
-	inline const T &operator *() const
-	{
-		return value;
-	}
-
-	inline T *operator ->()
-	{
-		return &value;
-	}
-
-	inline const T *operator ->() const
-	{
-		return &value;
-	}
-
-	inline T operator =(T newVal)
-	{
-		valid = true;
-		value = newVal;
-		return value;
-	}
-
-};
-
-istream &operator >>(istream &in, ButtonID &button);
-ostream &operator <<(ostream &out, ButtonID button);
-
-istream &operator >>(istream &in, SettingID &setting);
-ostream &operator <<(ostream &out, SettingID setting);
-
-istream &operator >>(istream &in, StickMode &stickMode);
-ostream &operator <<(ostream &out, StickMode stickMode);
-
-istream &operator >>(istream &in, RingMode &ringMode);
-ostream &operator <<(ostream &out, RingMode ringMode);
-
+template<FlickSnapMode>
 istream &operator >>(istream &in, FlickSnapMode &fsm);
+template<FlickSnapMode>
 ostream &operator <<(ostream &out, FlickSnapMode fsm);
-
-istream &operator >>(istream &in, AxisMode &axisMode);
-ostream &operator <<(ostream &out, AxisMode axisMode);
-
-istream &operator >>(istream &in, TriggerMode &triggerMode);
-ostream &operator <<(ostream &out, TriggerMode triggerMode);
-
-istream &operator >>(istream &in, GyroAxisMask &gyroMask);
-ostream &operator <<(ostream &out, GyroAxisMask gyroMask);
-
-istream &operator >>(istream &in, JoyconMask &joyconMask);
-ostream &operator <<(ostream &out, JoyconMask joyconMask);
 
 istream &operator >>(istream &in, GyroSettings &gyro_settings);
 ostream &operator <<(ostream &out, GyroSettings gyro_settings);

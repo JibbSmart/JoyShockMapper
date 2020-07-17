@@ -205,7 +205,7 @@ public:
 		, _id(id)
 	{}
 
-	Optional<T> get(ButtonID chord = ButtonID::NONE) const
+	optional<T> get(ButtonID chord = ButtonID::NONE) const
 	{
 		if (chord == ButtonID::NONE)
 		{
@@ -214,7 +214,7 @@ public:
 		else
 		{
 			auto existingChord = ChordedVariable<T>::operator [](chord);
-			return existingChord ? Optional<T>(T(*existingChord)) : Optional<T>();
+			return existingChord ? optional<T>(T(*existingChord)) : nullopt;
 		}
 	}
 
@@ -243,7 +243,7 @@ public:
 		, _id(id)
 	{}
 
-	Optional<Mapping> get(ButtonID chord = ButtonID::NONE) const
+	optional<Mapping> get(ButtonID chord = ButtonID::NONE) const
 	{
 		if (chord == ButtonID::NONE)
 		{
@@ -252,7 +252,7 @@ public:
 		else
 		{
 			auto existingChord = ChordedVariable<Mapping>::operator [](chord);
-			return existingChord ? Optional<Mapping>(Mapping(*existingChord)) : Optional<Mapping>();
+			return existingChord ? optional<Mapping>(Mapping(*existingChord)) : nullopt;
 		}
 	}
 

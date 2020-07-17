@@ -8,7 +8,7 @@ My goal with JoyShockMapper is to enable you to play PC games with DS4, JoyCons,
 
 For developers, this is also a reference implementation for using [JoyShockLibrary](https://github.com/jibbsmart/JoyShockLibrary) to read inputs from DualShock 4, JoyCons, and Pro Controller in your games. It's also a reference implementation for many of the best practices described on [GyroWiki](http://gyrowiki.jibbsmart.com).
 
-JoyShockMapper works on Windows and uses JoyShockLibrary to read inputs from controllers, which is only compiled for Windows. But JoyShockLibrary uses minimal Windows-specific features, and JoyShockMapper only uses Windows-specific code to create keyboard and mouse events, and isolates Windows-specific code to inputHelpersWin.cpp, so my hope is that other developers would be able to get both JoyShockLibrary and JoyShockMapper working on other platforms (such as Linux or Mac) without too much trouble. The header inputHelpers.h contains the platform agnostic declaration and all platform dependent implementation is contained in the appropriate cpp.
+JoyShockMapper works on Windows and uses JoyShockLibrary to read inputs from controllers. JoyShockMapper should now be able to be built on and for Linux. See the instructions for that below. Please let us know if you have any trouble with this.
 
 ## Contents
 * **[Installation for Devs](#installation-for-devs)**
@@ -34,20 +34,52 @@ JoyShockMapper works on Windows and uses JoyShockLibrary to read inputs from con
 * **[License](#license)**
 
 ## Installation for Devs
-JoyShockMapper was written in C++ in Visual Studio 2017 and includes a Visual Studio 2017 solution.
+JoyShockMapper was written in C++ and is built using CMake.
 
-Since it's not a big project, in order to keep things simple to adapt to other build environments, there are only three important files:
-1. ```main.cpp``` - This does just about all the main logic of the application. It's perhaps a little big, but I've opted to keep the file structure simpler at the cost of having a big main file.
-2. ```inputHelpers.h``` - This is platform agnostic declaration of wrappers for OS function calls and features.
-3. ```inputHelpers.cpp``` - All the Windows-specific implementation happens in here. This is where Windows keyboard and mouse events are created. Anyone interested porting JoyShockMapper to other platforms, this is where you'll need to
- make changes, as well as porting JoyShockLibrary (below).
-4. ```JoyShockLibrary.dll``` - [JoyShockLibrary](https://github.com/jibbsmart/JoyShockLibrary) is how JoyShockMapper reads from controllers. The included DLL is compiled for x86, and so JoyShockMapper needs to be built for x86. JoyShockLibrary can be compiled for x64, but it hasn't been included in this project. I'm not aware of any reasons JoyShockLibrary can't be compiled for other platforms, but I haven't done it myself.
-5. ```TrayIcon.h/cpp``` - This is a self contained module used to display in Windows an icon in the system tray with a contextual menu.
-6. ```Whitelister.h/cpp``` - This is another self contained Windows specific module that uses a socket to communicate with HIDCerberus and whitelist JSM.
+The project is structured into a set of platform-agnostic headers, while platform-specific source files can be found in their respective subdirectories.
+The following files are platform-agnostic:
+1. ```include/InputHelpers.h``` - This is platform agnostic declaration of wrappers for OS function calls and features.
+2. ```include/PlatformDefinitions.h``` - This is a set of declarations that create a common ground when dealing with platform-specific types and definitions.
+3. ```include/TrayIcon.h``` - This is a self contained module used to display in Windows an icon in the system tray with a contextual menu.
+4. ```include/Whitelister.h``` - This is another self contained Windows specific module that uses a socket to communicate with HIDCerberus and whitelist JSM, the Linux implementation, currently, is a stub.
+5. ```main.cpp``` - This does just about all the main logic of the application. It's perhaps a little big, but I've opted to keep the file structure simpler at the cost of having a big main file.
+
+The Windows implementation can be found in the following files:
+1. ```src/win32/InputHelpers.cpp```
+2. ```src/win32/PlatformDefinitions.cpp```
+3. ```src/win32/Whitelister.cpp.cpp```
+4. ```include/win32/WindowsTrayIcon.h```
+5. ```src/win32/WindowsTrayIcon.cpp```
+
+The Linux implementation can be found in the following files:
+1. ```src/linux/InputHelpers.cpp```
+2. ```src/linux/PlatformDefinitions.cpp```
+3. ```src/linux/Whitelister.cpp.cpp```
+4. ```include/linux/StatusNotifierItem.h```
+5. ```src/win32/StatusNotifierItem.cpp```
 
 Generate the project by runnning the following in a command prompt at the project root:
-* To create a Visual Studio x86 configuration: ```cmake -G "Visual Studio 16 2019" -A Win32 .```
-* To create a Visual Studio x64 configuration: ```cmake -G "Visual Studio 16 2019" -A x64 .```
+- Windows:
+  * ```mkdir build && cd build```
+  * To create a Visual Studio x86 configuration: ```cmake .. -G "Visual Studio 16 2019" -A Win32 .```
+  * To create a Visual Studio x64 configuration: ```cmake .. -G "Visual Studio 16 2019" -A x64 .```
+- Linux:
+  * ```mkdir build && cd build```
+  * ```cmake .. -DCMAKE_CXX_COMPILER=clang++ && cmake --build .```
+
+### Linux specific notes
+In order to build on Linux, the following dependencies must be met:
+- gtkmm
+- libappindicator3
+- libevdev
+
+Due to a [bug](https://stackoverflow.com/questions/49707184/explicit-specialization-in-non-namespace-scope-does-not-compile-in-gcc) in GCC, the project in its current form will only build with Clang.
+
+JoyShockMapper was initially developed for Windows, this has the side-effect of some types used through the code-base are Windows specific. These have been redefined on Linux. This was done to keep changes to the core logic of the application to a minimum, and lower the chance of causing regressions for existing users.
+
+The application requires ```rw``` access to ```/dev/uinput```, and ```/dev/hidraw[0-n]``` (the actual device depends on the node allocated by the OS). This can be achieved by ```chown```-ing the required device nodes to the user running the application, or by applying the udev rules found in ```dist/linux/50-joyshockmapper.rules```, adding your user to the input group, and restarting the computer for the changes to take effect. More info on udev rules can be found at https://wiki.archlinux.org/index.php/Udev#About_udev_rules.
+
+The application will work on both X11 and Wayland, though focused window detection only works on X11.
 
 ## Installation for Players
 The latest version of JoyShockMapper can always be found [here](https://github.com/JibbSmart/JoyShockMapper/releases). All you have to do is run JoyShockMapper.exe.
@@ -55,7 +87,7 @@ The latest version of JoyShockMapper can always be found [here](https://github.c
 Included is a folder called GyroConfigs. This includes templates for creating new configurations for 2D and 3D games, and configuration files that include the settings used for simple [Real World Calibration](#4-real-world-calibration).
 
 ## Quick Start
-1. Connect your DualShock 4 by USB or Bluetooth, or your JoyCons or Pro Controller by Bluetooth.
+1. Connect your DualShock 4, JoyCons, or Pro Controller. Bluetooth support for the DualShock 4 is experimental for now, as is USB support for Switch controllers.
 
 2. Run the JoyShockMapper executable, and you should see a console window welcoming you to JoyShockMapper.
     * If you want to connect your controller after starting JoyShockMapper, you can use the command RECONNECT\_CONTROLLERS to connect these controllers.
@@ -63,6 +95,7 @@ Included is a folder called GyroConfigs. This includes templates for creating ne
 3. Drag in a configuration file and hit enter to load all the settings in that file.
     * Configuration files are just text files. Every command in a text file is a command you can type directly into the console window yourself. See "Commands" below for a comprehensive guide to JoyShockMapper's commands.
     * Example configuration files are included in the GyroConfigs folder.
+    * If the file path is very, very long, or contains unusual characters, **this may not work**. In that case, type in the relative path (eg: GyroConfigs/config.txt) and hit enter.
 
 4. If you're using a configuration that utilises gyro controls, the gyro will need to be calibrated (to be told what "not moving" is). See "Gyro Mouse Inputs" under "Commands" below for more info on that, but here's the short version:
 	* Put all controllers down on a still surface;
@@ -160,6 +193,7 @@ LCONTROL, RCONTROL, CONTROL: left Ctrl, right Ctrl, generic Ctrl, respectively
 LALT, RALT, ALT: left Alt, right Alt, generic Alt, respectively
 LSHIFT, RSHIFT, SHIFT: left Shift, right Shift, generic Shift, respectively
 TAB: Tab
+ESC: Escape
 ENTER: Enter
 LMOUSE, MMOUSE, RMOUSE: mouse left click, middle click and right click respectively
 BMOUSE, FMOUSE: mouse back (button 4) click and mouse forward (button 5) click respectively
@@ -580,7 +614,7 @@ Some users have found stick inputs to be unresponsive in one or more directions.
 New mouse and keyboard events are only sent when JoyShockMapper gets a new message from the controller. This means if your game's and display's refresh rates are higher than the controller's poll rate, sometimes the game and display will update without moving the mouse, even if you'd normally expect the mouse to move. The DualShock 4 sends 250 messages a second, which is plenty for even extremely high refresh rate displays. But JoyCons and Pro Controllers send 66.67 messages a second, which means you might encounter stuttering movements when playing (and displaying) above 66.67 frames per second. A future version of JoyShockMapper may work around this problem by repeating messages up to a desired refresh rate.
 
 ### Bluetooth connectivity
-JoyCons and Pro Controllers can only be connected by Bluetooth. Even when connected by USB, they currently still only communicate by Bluetooth. Some Bluetooth adapters can't keep up with these devices, resulting in **laggy input**. This is especially common when more than one device is connected (such as when using a pair of JoyCons). There is nothing JoyShockMapper or JoyShockLibrary can do about this.
+JoyCons and Pro Controllers normally only communicate by Bluetooth. Some Bluetooth adapters can't keep up with these devices, resulting in **laggy input**. This is especially common when more than one device is connected (such as when using a pair of JoyCons). There is nothing JoyShockMapper or JoyShockLibrary can do about this. JoyShockMapper experimentally supports connecting Switch controllers by USB.
 
 Bluetooth support for the DualShock 4 is new in JoyShockMapper, and isn't working for everyone. Please let me know if you encounter any issues with it.
 
@@ -590,6 +624,7 @@ I'm Julian "Jibb" Smart, and I made JoyShockMapper. As of version 1.3, JoyShockM
 * Bryan Rumsey (icon art)
 * Al. Lopez (icon art)
 * Sunny Ye (translation)
+* Romeo Calota (linux and general portability)
 
 Have a look at the CHANGELOG for a better idea of who contributed what. Nicolas, in particular, regularly contributes a lot of work. He is responsible for a lot of the cool quality-of-life and advanced mapping features.
 
