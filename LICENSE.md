@@ -13,6 +13,7 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
 This software links to (and includes compiled binaries of) my JoyShockLibrary (Copyright 2018-2019, Julian Smart), which is also covered by the same MIT license, with the same permissions and disclaimers. JoyShockLibrary incorporates some work from the following projects and their copyright holders, all also covered by the same MIT license, with the same permissions and disclaimers:
 * mfosse's JoyCon-Driver (JoyCon driver), Copyright 2018 Matthew Fosse: https://github.com/mfosse/JoyCon-Driver
 * chrippa's ds4drv (DualShock 4 driver), Copyright 2013-2014 Christopher Rosell: https://github.com/chrippa/ds4drv
+* Ryochan7 and Jay2Kings' DS4Windows (DualShock 4 input mapper), Copyright 2019 Travis Nickles: https://github.com/Ryochan7/DS4Windows
 
 JoyShockLibrary also utilises signal11's HIDAPI, which has its own permissive license: https://github.com/signal11/hidapi
 

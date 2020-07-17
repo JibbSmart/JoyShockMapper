@@ -734,12 +734,12 @@ private:
 		case MOUSE_Y_FROM_GYRO_AXIS:
 			return  settings.mouse_y_from_gyro ? Optional<E>(static_cast<E>(*settings.mouse_y_from_gyro)) :  Optional<E>();
 		case LEFT_STICK_MODE:
-			ignore_left_stick_mode |= !topLevel; // Enable the ignore flag when a chord stick mode enables
+			ignore_left_stick_mode |= !topLevel && settings.left_stick_mode; // Enable the ignore flag when a chord stick mode enables
 			return settings.left_stick_mode ? 
 				Optional<E>(static_cast<E>(topLevel && ignore_left_stick_mode ? StickMode::invalid : *settings.left_stick_mode)) : 
 				 Optional<E>();
 		case RIGHT_STICK_MODE:
-			ignore_right_stick_mode |= !topLevel; // Enable the ignore flag when a chord stick mode enables
+			ignore_right_stick_mode |= !topLevel && settings.right_stick_mode; // Enable the ignore flag when a chord stick mode enables
 			return settings.right_stick_mode ? 
 				Optional<E>(static_cast<E>(topLevel && ignore_right_stick_mode ? StickMode::invalid : *settings.right_stick_mode)) : 
 				 Optional<E>();

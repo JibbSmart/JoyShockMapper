@@ -8,7 +8,7 @@ My goal with JoyShockMapper is to enable you to play PC games with DS4, JoyCons,
 
 For developers, this is also a reference implementation for using [JoyShockLibrary](https://github.com/jibbsmart/JoyShockLibrary) to read inputs from DualShock 4, JoyCons, and Pro Controller in your games. It's also a reference implementation for many of the best practices described on [GyroWiki](http://gyrowiki.jibbsmart.com).
 
-JoyShockMapper works on Windows and uses JoyShockLibrary to read inputs from controllers, which is only compiled for Windows. But JoyShockLibrary uses minimal Windows-specific features, and JoyShockMapper only uses Windows-specific code to create keyboard and mouse events, and isolates Windows-specific code to inputHelpersWin.cpp, so my hope is that other developers would be able to get both JoyShockLibrary and JoyShockMapper working on other platforms (such as Linux or Mac) without too much trouble. The header inputHelpers.h contains the platform agnostic declaration and all platform dependent implementation is contained in the appropriate cpp.
+JoyShockMapper works on Windows and uses JoyShockLibrary to read inputs from controllers. JoyShockMapper should now be able to be built on and for Linux. See the instructions for that below. Please let us know if you have any trouble with this.
 
 ## Contents
 * **[Installation for Devs](#installation-for-devs)**
@@ -73,9 +73,9 @@ In order to build on Linux, the following dependencies must be met:
 - libappindicator3
 - libevdev
 
-Due to a [bug](https://stackoverflow.com/questions/49707184/explicit-specialization-in-non-namespace-scope-does-not-compile-in-gcc) in GCC, the project in it's current form will only build with Clang.
+Due to a [bug](https://stackoverflow.com/questions/49707184/explicit-specialization-in-non-namespace-scope-does-not-compile-in-gcc) in GCC, the project in its current form will only build with Clang.
 
-JoyShockMapper was initially developed for Windows, this has the side-effect of some types used throught the code-base are Windows specific, these have been redefined on Linux. This was done to keep changes to the core logic of the application to a minimum, and lower the chance of causing regressions for existing users.
+JoyShockMapper was initially developed for Windows, this has the side-effect of some types used through the code-base are Windows specific. These have been redefined on Linux. This was done to keep changes to the core logic of the application to a minimum, and lower the chance of causing regressions for existing users.
 
 The application requires ```rw``` access to ```/dev/uinput```, and ```/dev/hidraw[0-n]``` (the actual device depends on the node allocated by the OS). This can be achieved by ```chown```-ing the required device nodes to the user running the application, or by applying the udev rules found in ```dist/linux/50-joyshockmapper.rules```, adding your user to the input group, and restarting the computer for the changes to take effect. More info on udev rules can be found at https://wiki.archlinux.org/index.php/Udev#About_udev_rules.
 
@@ -87,7 +87,7 @@ The latest version of JoyShockMapper can always be found [here](https://github.c
 Included is a folder called GyroConfigs. This includes templates for creating new configurations for 2D and 3D games, and configuration files that include the settings used for simple [Real World Calibration](#4-real-world-calibration).
 
 ## Quick Start
-1. Connect your DualShock 4 by USB or Bluetooth, or your JoyCons or Pro Controller by Bluetooth.
+1. Connect your DualShock 4, JoyCons, or Pro Controller. Bluetooth support for the DualShock 4 is experimental for now, as is USB support for Switch controllers.
 
 2. Run the JoyShockMapper executable, and you should see a console window welcoming you to JoyShockMapper.
     * If you want to connect your controller after starting JoyShockMapper, you can use the command RECONNECT\_CONTROLLERS to connect these controllers.
@@ -95,6 +95,7 @@ Included is a folder called GyroConfigs. This includes templates for creating ne
 3. Drag in a configuration file and hit enter to load all the settings in that file.
     * Configuration files are just text files. Every command in a text file is a command you can type directly into the console window yourself. See "Commands" below for a comprehensive guide to JoyShockMapper's commands.
     * Example configuration files are included in the GyroConfigs folder.
+    * If the file path is very, very long, or contains unusual characters, **this may not work**. In that case, type in the relative path (eg: GyroConfigs/config.txt) and hit enter.
 
 4. If you're using a configuration that utilises gyro controls, the gyro will need to be calibrated (to be told what "not moving" is). See "Gyro Mouse Inputs" under "Commands" below for more info on that, but here's the short version:
 	* Put all controllers down on a still surface;
@@ -622,6 +623,7 @@ I'm Julian "Jibb" Smart, and I made JoyShockMapper. As of version 1.3, JoyShockM
 * Bryan Rumsey (icon art)
 * Al. Lopez (icon art)
 * Sunny Ye (translation)
+* Romeo Calota (linux and general portability)
 
 Have a look at the CHANGELOG for a better idea of who contributed what. Nicolas, in particular, regularly contributes a lot of work. He is responsible for a lot of the cool quality-of-life and advanced mapping features.
 
