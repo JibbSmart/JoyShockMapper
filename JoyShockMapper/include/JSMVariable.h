@@ -78,7 +78,7 @@ public:
 	}
 
 	// Remember to call this listener when the value changes.
-	virtual unsigned int AddOnChangeListener(const OnChangeDelegate &listener)
+	virtual unsigned int AddOnChangeListener(OnChangeDelegate listener)
 	{
 		_onChangeListeners[_delegateID] = listener;
 		return _delegateID++;
@@ -207,15 +207,12 @@ public:
 
 	optional<T> get(ButtonID chord = ButtonID::NONE) const
 	{
-		if (chord == ButtonID::NONE)
-		{
-			return _value;
-		}
-		else
+		if (chord > ButtonID::NONE)
 		{
 			auto existingChord = ChordedVariable<T>::operator [](chord);
 			return existingChord ? optional<T>(T(*existingChord)) : nullopt;
 		}
+		return chord != ButtonID::INVALID ? optional(_value) : nullopt;
 	}
 
 	virtual T operator =(T baseValue) override
@@ -224,54 +221,65 @@ public:
 	}
 };
 
-class JSMMapping : public ChordedVariable<Mapping>
+typedef pair<ButtonID, JSMVariable<Mapping>> ComboMap;
+
+//inline istream &operator >>(istream &in, ComboMap &mapping)
+//{
+//	return in >> Mapping(mapping.second);
+//}
+//inline ostream &operator <<(ostream &out, ComboMap mapping)
+//{
+//	return out << Mapping(mapping.second);
+//}
+
+class JSMButton : public ChordedVariable<Mapping>
 {
 protected:
 	// Identifier of the variable. Cannot be changed after construction.
 	const ButtonID _id;
 
-	vector<ComboMap> _simMappings;
-
+	map<ButtonID, JSMVariable<Mapping>> _simMappings;
+	
 	static bool isSimMapWith(ButtonID simBtn, const ComboMap &simMap)
 	{
-		return simMap.btn == simBtn;
+		return simMap.first == simBtn;
 	}
 
 public:
-	JSMMapping(ButtonID id)
+	JSMButton(ButtonID id)
 		: ChordedVariable(Mapping())
 		, _id(id)
 	{}
 
-	optional<Mapping> get(ButtonID chord = ButtonID::NONE) const
-	{
-		if (chord == ButtonID::NONE)
-		{
-			return _value;
-		}
-		else
-		{
-			auto existingChord = ChordedVariable<Mapping>::operator [](chord);
-			return existingChord ? optional<Mapping>(Mapping(*existingChord)) : nullopt;
-		}
-	}
+	//const JSMVariable<Mapping> *get(ButtonID chord = ButtonID::NONE) const
+	//{
+	//	if (chord <= ButtonID::NONE)
+	//	{
+	//		return this;
+	//	}
+	//	else
+	//	{
+	//		return ChordedVariable<Mapping>::operator [](chord);
+	//	}
+	//}
 
-	const ComboMap *getSimMap(ButtonID simBtn)
+	optional<ComboMap> getSimMap(ButtonID simBtn)
 	{
 		if (simBtn > ButtonID::NONE)
 		{
-			auto existingSim = find_if(_simMappings.cbegin(), _simMappings.cend(), bind(&JSMMapping::isSimMapWith, simBtn, placeholders::_1));
-			return existingSim != _simMappings.cend() ? &*existingSim : nullptr;
+			auto existingSim = _simMappings.find(simBtn);
+			return existingSim != _simMappings.end() ? optional(*existingSim) : nullopt;
 		}
-		return nullptr;
+		return nullopt;
 	}
 
-	void AddSimPress(ButtonID simBtn, WORD press, WORD hold)
-	{
-		stringstream ss;
-		ss << simBtn << '+' << _id;
-		_simMappings.push_back( {ss.str(), simBtn, press, hold });
-	}
+	//void AddSimPress(ButtonID simBtn, WORD press, WORD hold)
+	//{
+	//	stringstream ss;
+	//	ss << simBtn << '+' << _id;
+	//	ComboMap defval(press, hold, ss.str(), simBtn);
+	//	_simMappings.push_back( JSMVariable<ComboMap>(*dynamic_cast<JSMVariable*>(this), defval) );
+	//}
 
 	inline bool HasSimMappings() const
 	{
@@ -285,22 +293,44 @@ public:
 
 	string getName(ButtonID chord = ButtonID::NONE) const 
 	{
-		if (chord == ButtonID::NONE)
-		{
-			return string(magic_enum::enum_name(_id));
-		}
-		else
+		if (chord > ButtonID::NONE)
 		{
 			stringstream ss;
 			ss << chord << ',' << _id;
 			return ss.str();
 		}
+		else if (chord != ButtonID::INVALID)
+			return string(magic_enum::enum_name(_id));
+		else
+			return string();
 	}
 
-	virtual JSMMapping *Reset() override
+	string getSimPressName(ButtonID simBtn) const
+	{
+		if (simBtn > ButtonID::NONE)
+		{
+			stringstream ss;
+			ss << simBtn << '+' << _id;
+			return ss.str();
+		}
+		return string();
+	}
+
+	virtual JSMButton *Reset() override
 	{
 		ChordedVariable<Mapping>::Reset();
 		_simMappings.clear();
 		return this;
+	}
+
+	JSMVariable<Mapping> &CreateSim(ButtonID chord)
+	{
+		auto existingSim = getSimMap(chord);
+		if (!existingSim)
+		{
+			JSMVariable<Mapping> var(*this, Mapping());
+			_simMappings.emplace( chord, var );
+		}
+		return _simMappings[chord];
 	}
 };

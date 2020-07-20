@@ -293,19 +293,32 @@ protected:
 
 	virtual unique_ptr<JSMCommand> GetModifiedCmd(char op, in_string chord) override
 	{
+		ButtonID btn;
+		stringstream(chord) >> btn;
 		if (op == ',')
 		{
-			ButtonID btn;
-			stringstream(chord) >> btn;
 			auto chordedVar = dynamic_cast<ChordedVariable<T>*>(&_var);
 			if (chordedVar && int(btn) >= 0)
 			{
-				string name = chord + "," + _name;
+				string name = chord + op + _name;
 				unique_ptr<JSMCommand> chordAssignment(new JSMAssignment<T>(name, chordedVar->CreateChord(btn)));
 				chordAssignment->SetHelp(_help)->SetParser(_parse);
 				// BE ADVISED! If a custom parser was set using bind(), the very same bound vars will
 				// be passed along.
 				return chordAssignment;
+			}
+		}
+		else if (op == '+')
+		{
+			auto mappingVar = dynamic_cast<JSMButton*>(&_var);
+			if (mappingVar && int(btn) >= 0)
+			{
+				string name = chord + op + _name;
+				unique_ptr<JSMCommand> simAssignment(new JSMAssignment<Mapping>(name, mappingVar->CreateSim(btn)));
+				simAssignment->SetHelp(_help)->SetParser(_parse);
+				// BE ADVISED! If a custom parser was set using bind(), the very same bound vars will
+				// be passed along.
+				return simAssignment;
 			}
 		}
 		return JSMCommand::GetModifiedCmd(op, chord);

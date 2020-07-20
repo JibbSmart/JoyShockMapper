@@ -200,17 +200,6 @@ struct GyroSettings {
 	GyroSettings(int dummy) : GyroSettings() {}
 };
 
-// Structure representing any kind of combination action, such as chords and modeshifts
-// The location of this element in the overarching data structure identifies to what button
-// or setting the binding is bound.
-struct ComboMap
-{
-	string name; // Display name of the command
-	ButtonID btn;           // ID of the key this commands is combined with
-	WORD pressBind = 0;
-	WORD holdBind = 0;
-};
-
 // This structure holds information about a simple button binding that can possibly be held.
 // It also contains all alternate values it can provide via button combination.
 // The location of this element in the overarching data structure identifies to what button
