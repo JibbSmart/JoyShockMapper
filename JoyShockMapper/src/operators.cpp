@@ -119,16 +119,16 @@ istream &operator >>(istream &in, Mapping &mapping)
 	stringstream ss(valueName);
 	valueName.clear();
 	ss >> valueName;
-	mapping.pressBind = nameToKey(valueName);
+	mapping.pressBind = KeyCode(valueName);
 	valueName.clear();
 	ss >> valueName;
-	mapping.holdBind = nameToKey(valueName);
+	mapping.holdBind.code = KeyCode(valueName);
 	return in;
 }
 
 ostream &operator <<(ostream &out, Mapping mapping)
 {
-	out << "Yikes, this might take a bit of work :(" << endl;
+	out << mapping.pressBind.name << " " << mapping.holdBind.name << endl;
 	return out;
 }
 
@@ -141,8 +141,8 @@ bool operator ==(const GyroSettings &lhs, const GyroSettings &rhs)
 
 bool operator ==(const Mapping &lhs, const Mapping &rhs)
 {
-	return lhs.pressBind == rhs.pressBind &&
-		   lhs.holdBind == rhs.holdBind;
+	return lhs.pressBind.code == rhs.pressBind.code &&
+		   lhs.holdBind.code == rhs.holdBind.code;
 }
 
 bool operator ==(const FloatXY &lhs, const FloatXY &rhs)

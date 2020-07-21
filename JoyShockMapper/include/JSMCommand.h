@@ -364,11 +364,11 @@ void JSMAssignment<Mapping>::DisplayNewValue(Mapping newValue)
 {
 	if (newValue.holdBind)
 	{
-		cout << "Tap " << _name << " mapped to " << char(newValue.pressBind) << endl
-			<< "Hold " << _name << " mapped to " << char(newValue.holdBind) << endl;
+		cout << "Tap " << _name << " mapped to " << newValue.pressBind.name << endl
+			<< "Hold " << _name << " mapped to " << newValue.holdBind.name << endl;
 	}
 	else
 	{
-		cout << _name << " mapped to " << char(newValue.pressBind) << endl;
+		cout << _name << " mapped to " << newValue.pressBind.name << endl;
 	}
 }

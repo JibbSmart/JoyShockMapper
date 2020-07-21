@@ -251,18 +251,6 @@ public:
 		, _id(id)
 	{}
 
-	//const JSMVariable<Mapping> *get(ButtonID chord = ButtonID::NONE) const
-	//{
-	//	if (chord <= ButtonID::NONE)
-	//	{
-	//		return this;
-	//	}
-	//	else
-	//	{
-	//		return ChordedVariable<Mapping>::operator [](chord);
-	//	}
-	//}
-
 	optional<ComboMap> getSimMap(ButtonID simBtn)
 	{
 		if (simBtn > ButtonID::NONE)
@@ -272,14 +260,6 @@ public:
 		}
 		return nullopt;
 	}
-
-	//void AddSimPress(ButtonID simBtn, WORD press, WORD hold)
-	//{
-	//	stringstream ss;
-	//	ss << simBtn << '+' << _id;
-	//	ComboMap defval(press, hold, ss.str(), simBtn);
-	//	_simMappings.push_back( JSMVariable<ComboMap>(*dynamic_cast<JSMVariable*>(this), defval) );
-	//}
 
 	inline bool HasSimMappings() const
 	{

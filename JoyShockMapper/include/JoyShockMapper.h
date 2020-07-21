@@ -1,5 +1,6 @@
 #pragma once
 
+#include "PlatformDefinitions.h"
 #include "magic_enum.hpp"
 #include <string>
 
@@ -16,6 +17,8 @@ typedef const string &in_string; // input string parameters should be const refe
 // Reused OS typedefs
 typedef unsigned short      WORD;
 typedef unsigned long       DWORD;
+
+struct KeyCode; // Declared in PlatformDefinitions.h
 
 // https://docs.microsoft.com/en-us/windows/win32/inputdev/virtual-key-codes
 // Only use undefined keys from the above list for JSM custom commands
@@ -206,10 +209,10 @@ struct GyroSettings {
 // the binding is bound.
 struct Mapping
 {
-	WORD pressBind = 0; // Press or tap binding
-	WORD holdBind = 0; // Hold binding if any.
+	KeyCode pressBind; // Press or tap binding
+	KeyCode holdBind; // Hold binding if any.
 	
-	Mapping(WORD press = 0, WORD hold = 0)
+	Mapping(KeyCode press = KeyCode::EMPTY, KeyCode hold = KeyCode::EMPTY)
 		: pressBind(press)
 		, holdBind(hold)
 	{}
@@ -236,7 +239,6 @@ ostream &operator <<(ostream &out, E rhv)
 
 istream & operator >> (istream &in, ButtonID &rhv);
 ostream &operator << (ostream &out, ButtonID rhv);
-
 
 istream &operator >>(istream &in, FlickSnapMode &fsm);
 ostream &operator <<(ostream &out, FlickSnapMode fsm);

@@ -83,7 +83,7 @@ public:
 			chordStack.push_front(ButtonID::NONE); //Always hold mapping none at the end to handle modeshifts and chords
 		}
 		bool toggleContinuous = false;
-		deque<pair<ButtonID, WORD>> gyroActionQueue; // Queue of gyro control actions currently in effect
+		deque<pair<ButtonID, KeyCode>> gyroActionQueue; // Queue of gyro control actions currently in effect
 		deque<ButtonID> chordStack; // Represents the current active buttons in order from most recent to latest
 		int intHandle;
 	};
@@ -95,7 +95,7 @@ public:
 		, _mapping(mappings[int(_id)])
 		, _press_times()
 		, _btnState(BtnState::NoPress)
-		, _keyToRelease(0)
+		, _keyToRelease()
 		, _nameToRelease()
 	{
 
@@ -107,17 +107,17 @@ public:
 	const JSMButton &_mapping;
 	chrono::steady_clock::time_point _press_times;
 	BtnState _btnState = BtnState::NoPress;
-	WORD _keyToRelease = 0; // At key press, remember what to release
+	KeyCode _keyToRelease; // At key press, remember what to release
 	string _nameToRelease;
 
 	float GetTapDuration()
 	{
 		// for tap duration, we need to know if the key in question is a gyro-related mapping or not
-		WORD mapping = GetPressMapping(); //Consider chords
-		return (mapping >= GYRO_INV_X && mapping <= GYRO_ON_BIND) ? MAGIC_GYRO_TAP_DURATION : MAGIC_TAP_DURATION;
+		KeyCode mapping = GetPressMapping(); //Consider chords
+		return (mapping.code >= GYRO_INV_X && mapping.code <= GYRO_ON_BIND) ? MAGIC_GYRO_TAP_DURATION : MAGIC_TAP_DURATION;
 	}
 
-	WORD GetPressMapping()
+	KeyCode GetPressMapping()
 	{
 		// Look at active chord mappings starting with the latest activates chord
 		for (auto activeChord = _common.chordStack.begin(); activeChord != _common.chordStack.end(); activeChord++)
@@ -131,7 +131,7 @@ public:
 			}
 		}
 		// Chord stack should always include NONE which will provide a value in the loop above
-		return 0;
+		return KeyCode::EMPTY;
 	}
 
 	bool HasHoldMapping()
@@ -142,7 +142,7 @@ public:
 			auto binding = _mapping[*activeChord];
 			if(binding) 
 			{
-				return Mapping(*binding).holdBind != 0;
+				return Mapping(*binding).holdBind;
 			}
 		}
 		// Chord stack should always include NONE which will provide a value in the loop above
@@ -166,7 +166,7 @@ public:
 		return GetDblPressMapping().has_value();
 	}
 
-	WORD GetHoldMapping()
+	KeyCode GetHoldMapping()
 	{
 		// Look at active chord mappings starting with the latest activates chord
 		for (auto activeChord = _common.chordStack.begin(); activeChord != _common.chordStack.end(); activeChord++)
@@ -187,7 +187,7 @@ public:
 	void ApplyBtnPress(bool tap = false)
 	{
 		auto key = GetPressMapping();
-		if (key == CALIBRATE)
+		if (key.code == CALIBRATE)
 		{
 			_common.toggleContinuous ^= tap; //Toggle on tap
 			if (!tap || _common.toggleContinuous) {
@@ -196,7 +196,7 @@ public:
 				JslStartContinuousCalibration(_common.intHandle);
 			}
 		}
-		else if (key >= GYRO_INV_X && key <= GYRO_ON_BIND)
+		else if (key.code >= GYRO_INV_X && key.code <= GYRO_ON_BIND)
 		{
 			_common.gyroActionQueue.push_back({ _id, key });
 		}
@@ -215,17 +215,17 @@ public:
 	void ApplyBtnHold()
 	{
 		auto key = GetHoldMapping();
-		if (key == CALIBRATE)
+		if (key.code == CALIBRATE)
 		{
 			printf("Starting continuous calibration\n");
 			JslResetContinuousCalibration(_common.intHandle);
 			JslStartContinuousCalibration(_common.intHandle);
 		}
-		else if (key >= GYRO_INV_X && key <= GYRO_ON_BIND)
+		else if (key.code >= GYRO_INV_X && key.code <= GYRO_ON_BIND)
 		{
 			_common.gyroActionQueue.push_back({ _id, key });
 		}
-		else if (key != NO_HOLD_MAPPED)
+		else if (key.code != NO_HOLD_MAPPED)
 		{
 			printf("%s: held\n", _nameToRelease.c_str());
 			pressKey(key, true);
@@ -239,7 +239,7 @@ public:
 
 	void ApplyBtnRelease(bool tap = false)
 	{
-		if (_keyToRelease == CALIBRATE)
+		if (_keyToRelease.code == CALIBRATE)
 		{
 			if (!tap || !_common.toggleContinuous)
 			{
@@ -248,7 +248,7 @@ public:
 				printf("Gyro calibration set\n");
 			}
 		}
-		else if (_keyToRelease >= GYRO_INV_X && _keyToRelease <= GYRO_ON_BIND)
+		else if (_keyToRelease.code >= GYRO_INV_X && _keyToRelease.code <= GYRO_ON_BIND)
 		{
 			_common.gyroActionQueue.erase(find_if(_common.gyroActionQueue.begin(), _common.gyroActionQueue.end(),
 				[this](auto pair)
@@ -256,7 +256,7 @@ public:
 					return pair.first == _id;
 				}));
 		}
-		else if (_keyToRelease != NO_HOLD_MAPPED)
+		else if (_keyToRelease.code != NO_HOLD_MAPPED)
 		{
 			printf(tap ? "" : "%s: false\n", _nameToRelease.c_str()); // Is this good coding? [Insert meme]
 			pressKey(_keyToRelease, false);
@@ -273,7 +273,7 @@ public:
 	{
 		_keyToRelease = Mapping(map.second).pressBind;
 		_nameToRelease = _mapping.getSimPressName(map.first);
-		if (_keyToRelease == CALIBRATE)
+		if (_keyToRelease.code == CALIBRATE)
 		{
 			_common.toggleContinuous ^= tap; //Toggle on tap
 			if (!tap || _common.toggleContinuous) {
@@ -282,7 +282,7 @@ public:
 				JslStartContinuousCalibration(_common.intHandle);
 			}
 		}
-		else if (_keyToRelease >= GYRO_INV_X && _keyToRelease <= GYRO_ON_BIND)
+		else if (_keyToRelease.code >= GYRO_INV_X && _keyToRelease.code <= GYRO_ON_BIND)
 		{
 			// I know I don't handle multiple inversion. Otherwise GYRO_INV_X on sim press would do nothing
 			_common.gyroActionQueue.push_back({ _id, _keyToRelease });
@@ -298,18 +298,18 @@ public:
 	{
 		_keyToRelease = Mapping(map.second).holdBind;
 		_nameToRelease = _mapping.getSimPressName(map.first);
-		if (_keyToRelease == CALIBRATE)
+		if (_keyToRelease.code == CALIBRATE)
 		{
 			printf("Starting continuous calibration\n");
 			JslResetContinuousCalibration(_common.intHandle);
 			JslStartContinuousCalibration(_common.intHandle);
 		}
-		else if (_keyToRelease >= GYRO_INV_X && _keyToRelease <= GYRO_ON_BIND)
+		else if (_keyToRelease.code >= GYRO_INV_X && _keyToRelease.code <= GYRO_ON_BIND)
 		{
 			// I know I don't handle multiple inversion. Otherwise GYRO_INV_X on sim press would do nothing
 			_common.gyroActionQueue.push_back({ _id, _keyToRelease });
 		}
-		else if (_keyToRelease != NO_HOLD_MAPPED)
+		else if (_keyToRelease.code != NO_HOLD_MAPPED)
 		{
 			printf("%s: held\n", _nameToRelease.c_str());
 			pressKey(_keyToRelease, true);
@@ -318,7 +318,7 @@ public:
 
 	void ApplyBtnRelease(const ComboMap &map, bool tap = false)
 	{
-		if (_keyToRelease == CALIBRATE)
+		if (_keyToRelease.code == CALIBRATE)
 		{
 			if (!tap || !_common.toggleContinuous)
 			{
@@ -327,7 +327,7 @@ public:
 				printf("Gyro calibration set\n");
 			}
 		}
-		else if (_keyToRelease >= GYRO_INV_X && _keyToRelease <= GYRO_ON_BIND)
+		else if (_keyToRelease.code >= GYRO_INV_X && _keyToRelease.code <= GYRO_ON_BIND)
 		{
 			_common.gyroActionQueue.erase(find_if(_common.gyroActionQueue.begin(), _common.gyroActionQueue.end(),
 				[this](auto pair)
@@ -340,7 +340,7 @@ public:
 					return pair.first == map.first;
 				}));
 		}
-		else if (_keyToRelease != NO_HOLD_MAPPED)
+		else if (_keyToRelease.code != NO_HOLD_MAPPED)
 		{
 			printf(tap ? "" : "%s: false\n", _nameToRelease.c_str());
 			pressKey(_keyToRelease, false);
@@ -357,7 +357,7 @@ public:
 	{
 		_keyToRelease = Mapping(map.second).pressBind;
 		_nameToRelease = _mapping.getSimPressName(map.first);
-		if (_keyToRelease >= GYRO_INV_X && _keyToRelease <= GYRO_ON_BIND)
+		if (_keyToRelease.code >= GYRO_INV_X && _keyToRelease.code <= GYRO_ON_BIND)
 		{
 			_common.gyroActionQueue.push_back({ _id, _keyToRelease });
 		}
@@ -367,7 +367,7 @@ public:
 	{
 		_keyToRelease = Mapping(map.second).holdBind;
 		_nameToRelease = _mapping.getSimPressName(map.first);
-		if (_keyToRelease >= GYRO_INV_X && _keyToRelease <= GYRO_ON_BIND)
+		if (_keyToRelease.code >= GYRO_INV_X && _keyToRelease.code <= GYRO_ON_BIND)
 		{
 			// I know I don't handle multiple inversion. Otherwise GYRO_INV_X on sim press would do nothing
 			_common.gyroActionQueue.push_back({ _id, _keyToRelease });
@@ -553,7 +553,9 @@ public:
 			}
 			if (opt) return *opt;
 		}
-		throw exception((stringstream() << "Index " << index << " is not a valid enum setting").str().c_str());
+		stringstream ss;
+		ss << "Index " << index << " is not a valid enum setting";
+		throw exception(ss.str().c_str());
 	}
 
 	float getSetting(SettingID index)
@@ -643,7 +645,7 @@ public:
 			if (opt) return *opt;
 		}
 
-		std::stringstream message{};
+		std::stringstream message;
 		message << "Index " << index << " is not a valid float setting";
 		throw std::out_of_range(message.str().c_str());
 	}
@@ -667,7 +669,9 @@ public:
 			if (opt) return *opt;
 		}// Check next Chord
 
-		throw exception((stringstream() << "Index " << index << " is not a valid FloatXY setting").str().c_str());
+		stringstream ss;
+		ss << "Index " << index << " is not a valid FloatXY setting";
+		throw exception(ss.str().c_str());
 	}
 
 	template<>
@@ -682,7 +686,9 @@ public:
 				if (opt) return *opt;
 			}
 		}
-		throw std::exception((std::stringstream() << "Index " << index << " is not a valid GyroSetting").str().c_str());
+		stringstream ss;
+		ss << "Index " << index << " is not a valid GyroSetting";
+		throw std::exception( ss.str().c_str() );
 	}
 
 public:
@@ -1316,10 +1322,12 @@ static void strtrim(char* str) {
 }
 
 static void resetAllMappings() {
+	static const KeyCode CALIBRATE_KEY = KeyCode("CALIBRATE");
+
 	for_each(mappings.begin(), mappings.end(), [] (auto &map) { map.Reset(); });
 	// Question: Why is this a default mapping? Shouldn't it be empty? It's always possible to calibrate with RESET_GYRO_CALIBRATION
-	mappings[int(ButtonID::HOME)] = Mapping{ CALIBRATE, CALIBRATE };
-	mappings[int(ButtonID::CAPTURE)] = Mapping{ CALIBRATE, CALIBRATE };
+	mappings[int(ButtonID::HOME)] = Mapping{ CALIBRATE_KEY, CALIBRATE_KEY };
+	mappings[int(ButtonID::CAPTURE)] = Mapping{ CALIBRATE_KEY, CALIBRATE_KEY };
 	min_gyro_sens.Reset();
 	max_gyro_sens.Reset();
 	min_gyro_threshold.Reset();
@@ -1481,15 +1489,13 @@ bool do_AUTOLOAD(JSMCommand *cmd, in_string argument)
 
 bool do_CALCULATE_REAL_WORLD_CALIBRATION(in_string argument) {
 	// first, check for a parameter
-	string keyAsString = string(argument);
-	string crwcArgument = keyAsString.substr(string("CALCULATE_REAL_WORLD_CALIBRATION").length(), 64); // no argument bigger than 64, I assume
 	float numRotations = 1.0;
-	if (crwcArgument.length() > 0) {
+	if (argument.length() > 0) {
 		try {
-			numRotations = stof(crwcArgument);
+			numRotations = stof(argument);
 		}
 		catch (invalid_argument ia) {
-			printf("Can't convert \"%s\" to a number\n", crwcArgument.c_str());
+			printf("Can't convert \"%s\" to a number\n", argument.c_str());
 			return false;
 		}
 	}
@@ -1884,11 +1890,11 @@ void joyShockPollCallback(int jcHandle, JOY_SHOCK_STATE state, JOY_SHOCK_STATE l
 	for (auto pair : jc->btnCommon.gyroActionQueue)
 	{
 		// TODO: logic optimization
-		if (pair.second == GYRO_ON_BIND) blockGyro = false;
-		else if (pair.second == GYRO_OFF_BIND) blockGyro = true;
-		else if (pair.second == GYRO_INV_X) gyro_x_sign_to_use *= -1; // Intentionally don't support multiple inversions
-		else if (pair.second == GYRO_INV_Y) gyro_y_sign_to_use *= -1;
-		else if (pair.second == GYRO_INVERT)
+		if (pair.second.code == GYRO_ON_BIND) blockGyro = false;
+		else if (pair.second.code == GYRO_OFF_BIND) blockGyro = true;
+		else if (pair.second.code == GYRO_INV_X) gyro_x_sign_to_use *= -1; // Intentionally don't support multiple inversions
+		else if (pair.second.code == GYRO_INV_Y) gyro_y_sign_to_use *= -1;
+		else if (pair.second.code == GYRO_INVERT)
 		{
 			gyro_x_sign_to_use *= -1;
 			gyro_y_sign_to_use *= -1;
