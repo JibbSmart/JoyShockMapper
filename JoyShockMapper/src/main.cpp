@@ -122,7 +122,7 @@ public:
 		// Look at active chord mappings starting with the latest activates chord
 		for (auto activeChord = _common.chordStack.begin(); activeChord != _common.chordStack.end(); activeChord++)
 		{
-			auto binding = _mapping[*activeChord];
+			auto binding = _mapping.get(*activeChord);
 			if (binding)
 			{
 				_keyToRelease = Mapping(*binding).pressBind;
@@ -171,7 +171,7 @@ public:
 		// Look at active chord mappings starting with the latest activates chord
 		for (auto activeChord = _common.chordStack.begin(); activeChord != _common.chordStack.end(); activeChord++)
 		{
-			auto binding = _mapping[*activeChord];
+			auto binding = _mapping.get(*activeChord);
 			if (binding)
 			{
 				_keyToRelease = Mapping(*binding).holdBind;
@@ -1376,7 +1376,7 @@ void connectDevices();
 
 bool do_NO_GYRO_BUTTON() {
 	// TODO: handle chords
-	gyro_settings = GyroSettings();
+	gyro_settings.Reset();
 	return true;
 }
 
@@ -1437,8 +1437,8 @@ bool do_GYRO_SENS(in_string argument)
 			else {
 				//cout << "Gyro sensitivity set to " << value << "x" << endl;
 			}
-			min_gyro_sens = newSens;
-			max_gyro_sens = newSens;
+			min_gyro_sens.operator=(newSens);
+			max_gyro_sens.operator=(newSens);
 			return true;
 		}
 		else {
@@ -1731,7 +1731,7 @@ void joyShockPollCallback(int jcHandle, JOY_SHOCK_STATE state, JOY_SHOCK_STATE l
 	float gyroLength = sqrt(gyroX * gyroX + gyroY * gyroY);
 	// do gyro smoothing
 	// convert gyro smooth time to number of samples
-	int numGyroSamples = int(jc->poll_rate * jc->getSetting(SettingID::GYRO_SMOOTH_TIME)); // samples per second * seconds = samples
+	auto numGyroSamples = jc->poll_rate * jc->getSetting(SettingID::GYRO_SMOOTH_TIME); // samples per second * seconds = samples
 	if (numGyroSamples < 1) numGyroSamples = 1; // need at least 1 sample
 	auto threshold = jc->getSetting(SettingID::GYRO_SMOOTH_THRESHOLD);
 	jc->GetSmoothedGyro(gyroX, gyroY, gyroLength, threshold / 2.0f, threshold, numGyroSamples, gyroX, gyroY);
@@ -1784,15 +1784,15 @@ void joyShockPollCallback(int jcHandle, JOY_SHOCK_STATE state, JOY_SHOCK_STATE l
 		jc->getSetting<RingMode>(SettingID::LEFT_RING_MODE) == RingMode::OUTER && stickLength > 0.7f;
 	jc->handleButtonChange(ButtonID::LRING, ring);
 
-	bool ROTATE_ONLY = jc->getSetting<StickMode>(SettingID::LEFT_STICK_MODE) == StickMode::ROTATE_ONLY;
-	bool FLICK_ONLY = jc->getSetting<StickMode>(SettingID::LEFT_STICK_MODE) == StickMode::FLICK_ONLY;
+	bool rotateOnly = jc->getSetting<StickMode>(SettingID::LEFT_STICK_MODE) == StickMode::ROTATE_ONLY;
+	bool flickOnly = jc->getSetting<StickMode>(SettingID::LEFT_STICK_MODE) == StickMode::FLICK_ONLY;
 	if (jc->ignore_left_stick_mode && jc->getSetting<StickMode>(SettingID::LEFT_STICK_MODE) == StickMode::INVALID && calX == 0 && calY == 0)
 	{
 		// clear ignore flag when stick is back at neutral
 		jc->ignore_left_stick_mode = false;
 	}
-	else if (jc->getSetting<StickMode>(SettingID::LEFT_STICK_MODE) == StickMode::FLICK || FLICK_ONLY || ROTATE_ONLY) {
-		camSpeedX += handleFlickStick(calX, calY, lastCalX, lastCalY, stickLength, jc->is_flicking_left, jc, mouseCalibrationFactor, FLICK_ONLY, ROTATE_ONLY);
+	else if (jc->getSetting<StickMode>(SettingID::LEFT_STICK_MODE) == StickMode::FLICK || flickOnly || rotateOnly) {
+		camSpeedX += handleFlickStick(calX, calY, lastCalX, lastCalY, stickLength, jc->is_flicking_left, jc, mouseCalibrationFactor, flickOnly, rotateOnly);
 		leftAny = leftPegged;
 	}
 	else if (jc->getSetting<StickMode>(SettingID::LEFT_STICK_MODE) == StickMode::AIM) {
@@ -1820,13 +1820,123 @@ void joyShockPollCallback(int jcHandle, JOY_SHOCK_STATE state, JOY_SHOCK_STATE l
 
 		auto mouse_ring_radius = jc->getSetting(SettingID::MOUSE_RING_RADIUS);
 		if (calX != 0.0f || calY != 0.0f) {
+			// use difference with last cal values
+			float mouseX = (calX - jc->left_last_cal.x()) * mouse_ring_radius;
+			float mouseY = (calY - jc->left_last_cal.y()) * -1 * mouse_ring_radius;
+			// do it!
+			moveMouse(mouseX, mouseY);
+			jc->left_last_cal = { calX, calY };
+		}
+		else
+		{
+			// Return to center
+			moveMouse(jc->left_last_cal.x() * -1 * mouse_ring_radius, jc->left_last_cal.y() * mouse_ring_radius);
+			jc->left_last_cal = { 0, 0 };
+		}
+	}
+	else if (jc->getSetting<StickMode>(SettingID::LEFT_STICK_MODE) == StickMode::MOUSE_RING) {
+		if (calX != 0.0f || calY != 0.0f) {
 			auto mouse_ring_radius = jc->getSetting(SettingID::MOUSE_RING_RADIUS);
 			float stickLength = sqrt(calX * calX + calY * calY);
 			float normX = calX / stickLength;
 			float normY = calY / stickLength;
 			// use screen resolution
-			float mouseX = jc->getSetting(SettingID::SCREEN_RESOLUTION_X) * 0.5f + 0.5f + normX * mouse_ring_radius;
-			float mouseY = jc->getSetting(SettingID::SCREEN_RESOLUTION_Y) * 0.5f + 0.5f - normY * mouse_ring_radius;
+			float mouseX = (float)jc->getSetting(SettingID::SCREEN_RESOLUTION_X) * 0.5f + 0.5f + normX * mouse_ring_radius;
+			float mouseY = (float)jc->getSetting(SettingID::SCREEN_RESOLUTION_Y) * 0.5f + 0.5f - normY * mouse_ring_radius;
+			// normalize
+			mouseX = mouseX / jc->getSetting(SettingID::SCREEN_RESOLUTION_X);
+			mouseY = mouseY / jc->getSetting(SettingID::SCREEN_RESOLUTION_Y);
+			// do it!
+			setMouseNorm(mouseX, mouseY);
+			lockMouse = true;
+		}
+	}
+	else if (jc->getSetting<StickMode>(SettingID::LEFT_STICK_MODE) == StickMode::NO_MOUSE) { // Do not do if invalid
+		// left!
+		jc->handleButtonChange(ButtonID::LLEFT, left);
+		// right!
+		jc->handleButtonChange(ButtonID::LRIGHT, right);
+		// up!
+		jc->handleButtonChange(ButtonID::LUP, up);
+		// down!
+		jc->handleButtonChange(ButtonID::LDOWN, down);
+
+		leftAny = left | right | up | down; // ring doesn't count
+	}
+	lastCalX = lastState.stickRX;
+	lastCalY = lastState.stickRY;
+	calX = state.stickRX;
+	calY = state.stickRY;
+	bool rightPegged = jc->processDeadZones(calX, calY);
+	absX = abs(calX);
+	absY = abs(calY);
+	left = calX < -0.5f * absY;
+	right = calX > 0.5f * absY;
+	down = calY < -0.5f * absX;
+	up = calY > 0.5f * absX;
+	stickLength = sqrt(calX * calX + calY * calY);
+	ring = jc->getSetting<RingMode>(SettingID::RIGHT_RING_MODE) == RingMode::INNER && stickLength > 0.0f && stickLength < 0.7f ||
+		jc->getSetting<RingMode>(SettingID::RIGHT_RING_MODE) == RingMode::OUTER && stickLength > 0.7f;
+	jc->handleButtonChange(ButtonID::RRING, ring);
+
+	rotateOnly = jc->getSetting<StickMode>(SettingID::RIGHT_STICK_MODE) == StickMode::ROTATE_ONLY;
+	flickOnly = jc->getSetting<StickMode>(SettingID::RIGHT_STICK_MODE) == StickMode::FLICK_ONLY;
+	if (jc->ignore_right_stick_mode && jc->getSetting<StickMode>(SettingID::RIGHT_STICK_MODE) == StickMode::INVALID && calX == 0 && calY == 0)
+	{
+		// clear ignore flag when stick is back at neutral
+		jc->ignore_right_stick_mode = false;
+	}
+	else if (jc->getSetting<StickMode>(SettingID::RIGHT_STICK_MODE) == StickMode::FLICK || rotateOnly || flickOnly) {
+		camSpeedX += handleFlickStick(calX, calY, lastCalX, lastCalY, stickLength, jc->is_flicking_right, jc, mouseCalibrationFactor, flickOnly, rotateOnly);
+		rightAny = rightPegged;
+	}
+	else if (jc->getSetting<StickMode>(SettingID::RIGHT_STICK_MODE) == StickMode::AIM) {
+		// camera movement
+		if (!rightPegged) {
+			jc->right_acceleration = 1.0f; // reset
+		}
+		float stickLength = sqrt(calX * calX + calY * calY);
+		if (stickLength > 0.0f) {
+			rightAny = true;
+			float warpedStickLength = pow(stickLength, jc->getSetting(SettingID::STICK_POWER));
+			warpedStickLength *= jc->getSetting(SettingID::STICK_SENS) * jc->getSetting(SettingID::REAL_WORLD_CALIBRATION) / os_mouse_speed / jc->getSetting(SettingID::IN_GAME_SENS);
+			camSpeedX += calX / stickLength * warpedStickLength * jc->right_acceleration * deltaTime;
+			camSpeedY += calY / stickLength * warpedStickLength * jc->right_acceleration * deltaTime;
+			if (rightPegged) {
+				jc->right_acceleration += jc->getSetting(SettingID::STICK_ACCELERATION_RATE) * deltaTime;
+				auto cap = jc->getSetting(SettingID::STICK_ACCELERATION_CAP);
+				if (jc->right_acceleration > cap) {
+					jc->right_acceleration = cap;
+				}
+			}
+		}
+	}
+	else if (jc->getSetting<StickMode>(SettingID::RIGHT_STICK_MODE) == StickMode::MOUSE_AREA) {
+		auto mouse_ring_radius = jc->getSetting(SettingID::MOUSE_RING_RADIUS);
+		if (calX != 0.0f || calY != 0.0f) {
+			// use difference with last cal values
+			float mouseX = (calX - jc->right_last_cal.x()) * mouse_ring_radius;
+			float mouseY = (calY - jc->right_last_cal.y()) * -1 * mouse_ring_radius;
+			// do it!
+			moveMouse(mouseX, mouseY);
+			jc->right_last_cal = { calX, calY };
+		}
+		else
+		{
+			// return to center
+			moveMouse(jc->right_last_cal.x() * -1 * mouse_ring_radius, jc->right_last_cal.y() * mouse_ring_radius);
+			jc->right_last_cal = { 0, 0 };
+		}
+	}
+	else if (jc->getSetting<StickMode>(SettingID::RIGHT_STICK_MODE) == StickMode::MOUSE_RING) {
+		if (calX != 0.0f || calY != 0.0f) {
+			auto mouse_ring_radius = jc->getSetting(SettingID::MOUSE_RING_RADIUS);
+			float stickLength = sqrt(calX * calX + calY * calY);
+			float normX = calX / stickLength;
+			float normY = calY / stickLength;
+			// use screen resolution
+			float mouseX = (float)jc->getSetting(SettingID::SCREEN_RESOLUTION_X) * 0.5f + 0.5f + normX * mouse_ring_radius;
+			float mouseY = (float)jc->getSetting(SettingID::SCREEN_RESOLUTION_Y) * 0.5f + 0.5f - normY * mouse_ring_radius;
 			// normalize
 			mouseX = mouseX / jc->getSetting(SettingID::SCREEN_RESOLUTION_X);
 			mouseY = mouseY / jc->getSetting(SettingID::SCREEN_RESOLUTION_Y);
@@ -1913,7 +2023,7 @@ void joyShockPollCallback(int jcHandle, JOY_SHOCK_STATE state, JOY_SHOCK_STATE l
 		//printf("GX: %0.4f GY: %0.4f GZ: %0.4f\n", imuState.gyroX, imuState.gyroY, imuState.gyroZ);
 		float mouseCalibration = jc->getSetting(SettingID::REAL_WORLD_CALIBRATION) / os_mouse_speed / jc->getSetting(SettingID::IN_GAME_SENS);
 		shapedSensitivityMoveMouse(gyroX * gyro_x_sign_to_use, gyroY * gyro_y_sign_to_use, jc->getSetting<FloatXY>(SettingID::MIN_GYRO_SENS), jc->getSetting<FloatXY>(SettingID::MAX_GYRO_SENS),
-			jc->getSetting(SettingID::MIN_GYRO_THRESHOLD), jc->getSetting(SettingID::MAX_GYRO_THRESHOLD), deltaTime, 
+			jc->getSetting(SettingID::MIN_GYRO_THRESHOLD), jc->getSetting(SettingID::MAX_GYRO_THRESHOLD), deltaTime,
 			camSpeedX * jc->getSetting(SettingID::STICK_AXIS_X), -camSpeedY * jc->getSetting(SettingID::STICK_AXIS_Y), mouseCalibration);
 	}
 }
@@ -2151,15 +2261,15 @@ TriggerMode triggerModeNotification(TriggerMode current, TriggerMode next)
 	return next;
 }
 
-void UpdateRingModeFromStickMode(JSMVariable<RingMode> &stickRingMode, StickMode newValue)
+void UpdateRingModeFromStickMode(JSMVariable<RingMode> *stickRingMode, StickMode newValue)
 {
 	if (newValue == StickMode::INNER_RING)
 	{
-		stickRingMode = RingMode::INNER;
+		*stickRingMode = RingMode::INNER;
 	}
 	else if (newValue == StickMode::OUTER_RING)
 	{
-		stickRingMode = RingMode::OUTER;
+		*stickRingMode = RingMode::OUTER;
 	}
 }
 
@@ -2256,9 +2366,9 @@ int main(int argc, char *argv[]) {
 	tray->Show();
 
 	left_stick_mode.SetFilter(&filterInvalidValue<StickMode, StickMode::INVALID>)->
-		AddOnChangeListener(bind(&UpdateRingModeFromStickMode, left_ring_mode, ::placeholders::_1));
+		AddOnChangeListener(bind(&UpdateRingModeFromStickMode, &left_ring_mode, ::placeholders::_1));
 	right_stick_mode.SetFilter(&filterInvalidValue<StickMode, StickMode::INVALID>)->
-		AddOnChangeListener(bind(&UpdateRingModeFromStickMode, left_ring_mode, ::placeholders::_1));
+		AddOnChangeListener(bind(&UpdateRingModeFromStickMode, &right_ring_mode, ::placeholders::_1));
 	left_ring_mode.SetFilter(&filterInvalidValue<RingMode, RingMode::INVALID>);
 	right_ring_mode.SetFilter(&filterInvalidValue<RingMode, RingMode::INVALID>);
 	mouse_x_from_gyro.SetFilter(&filterInvalidValue<GyroAxisMask, GyroAxisMask::INVALID>);

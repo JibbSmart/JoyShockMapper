@@ -151,13 +151,6 @@ public:
 		return _chorded[chord];
 	}
 
-	//JSMVariable<T> &operator =(T baseValue)
-	//{
-	//	base = baseValue;
-	//	return base;
-	//}
-
-
 	const JSMVariable<T> *operator [](ButtonID chord) const
 	{
 		auto existingChord = _chorded.find(chord);
@@ -166,6 +159,16 @@ public:
 			return nullptr;
 		}
 		return &existingChord->second;
+	}
+
+	optional<T> get(ButtonID chord = ButtonID::NONE) const
+	{
+		if (chord > ButtonID::NONE)
+		{
+			auto existingChord = operator [](chord);
+			return existingChord ? optional<T>(T(*existingChord)) : nullopt;
+		}
+		return chord != ButtonID::INVALID ? optional(_value) : nullopt;
 	}
 
 	JSMVariable<T> *operator [](ButtonID chord)
@@ -194,26 +197,11 @@ protected:
 	// Identifier of the variable. Cannot be changed after construction.
 	const SettingID _id;
 
-	bool isModeshiftWithChord(ButtonID chord, pair<ButtonID, T> &modeshift)
-	{
-		return modeshift.first == chord;
-	}
-
 public:
 	JSMSetting(SettingID id, T defaultValue)
 		: ChordedVariable(defaultValue)
 		, _id(id)
 	{}
-
-	optional<T> get(ButtonID chord = ButtonID::NONE) const
-	{
-		if (chord > ButtonID::NONE)
-		{
-			auto existingChord = ChordedVariable<T>::operator [](chord);
-			return existingChord ? optional<T>(T(*existingChord)) : nullopt;
-		}
-		return chord != ButtonID::INVALID ? optional(_value) : nullopt;
-	}
 
 	virtual T operator =(T baseValue) override
 	{
@@ -223,15 +211,6 @@ public:
 
 typedef pair<ButtonID, JSMVariable<Mapping>> ComboMap;
 
-//inline istream &operator >>(istream &in, ComboMap &mapping)
-//{
-//	return in >> Mapping(mapping.second);
-//}
-//inline ostream &operator <<(ostream &out, ComboMap mapping)
-//{
-//	return out << Mapping(mapping.second);
-//}
-
 class JSMButton : public ChordedVariable<Mapping>
 {
 protected:
@@ -240,11 +219,6 @@ protected:
 
 	map<ButtonID, JSMVariable<Mapping>> _simMappings;
 	
-	static bool isSimMapWith(ButtonID simBtn, const ComboMap &simMap)
-	{
-		return simMap.first == simBtn;
-	}
-
 public:
 	JSMButton(ButtonID id)
 		: ChordedVariable(Mapping())
