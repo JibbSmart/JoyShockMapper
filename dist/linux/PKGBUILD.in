@@ -1,0 +1,31 @@
+pkgname='joyshockmapper'
+_pkgname='joyshockmapper'
+pkgver=@VERSION@
+pkgrel=@RELEASE@
+pkgdesc='Play PC games with Sony PlayStation DualShock 4, Nintendo Switch JoyCons or Nintendo Switch Pro Controller using gyroscopic controls'
+arch=('x86_64')
+url='http://gyrowiki.jibbsmart.com/'
+license=('MIT')
+makedepends=('cmake' 'clang')
+depends=('libevdev' 'hidapi' 'gtk3' 'libappindicator-gtk3')
+optdepends=('libx11: Autoload configuration based on focused window.')
+provides=("${_pkgname}")
+source=("@TARBALL@")
+sha256sums=('@SHA256@')
+
+build() {
+    cd ${srcdir}/
+    mkdir build && cd build
+	cmake .. \
+        -DCMAKE_CXX_COMPILER=clang++ \
+        -DCMAKE_BUILD_TYPE=Release \
+		-DCMAKE_INSTALL_PREFIX=/usr/ \
+        -DCPM_JoyShockLibrary_SOURCE=../../JoyShockLibrary
+    make
+}
+
+package() {
+	cd ${srcdir}/build
+    DESTDIR=${pkgdir} make install
+    rm ${pkgdir}/usr/lib/*.a
+}

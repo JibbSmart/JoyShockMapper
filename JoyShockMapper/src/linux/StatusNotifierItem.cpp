@@ -7,9 +7,23 @@ StatusNotifierItem::StatusNotifierItem(TrayIconData, std::function<void()> &&bef
 	  int argc = 0;
 	  gtk_init(&argc, nullptr);
 
+	  std::string iconPath{};
+	  const auto APPDIR = ::getenv("APPDIR");
+	  if (APPDIR != nullptr)
+	  {
+		  std::puts("\n\033[1;33mRunning as AppImage, make sure rw permissions are set for the current user for /dev/uinput and /dev/hidraw*\n\033[0m");
+		  iconPath = APPDIR;
+		  iconPath += "/usr/share/icons/hicolor/24x24/status/jsm-status-dark.svg";
+		  gtk_icon_theme_prepend_search_path(gtk_icon_theme_get_default(), iconPath.c_str());
+	  }
+	  else
+	  {
+		  iconPath = "jsm-status-dark";
+	  }
+
 	  menu_ = std::unique_ptr<GtkMenu, decltype(&::g_object_unref)>{ GTK_MENU(gtk_menu_new()), &g_object_unref };
 
-	  indicator_ = app_indicator_new(APPLICATION_RDN APPLICATION_NAME, "jsm-status-dark", APP_INDICATOR_CATEGORY_APPLICATION_STATUS);
+	  indicator_ = app_indicator_new(APPLICATION_RDN APPLICATION_NAME, iconPath.c_str(), APP_INDICATOR_CATEGORY_APPLICATION_STATUS);
 	  app_indicator_set_status(indicator_, APP_INDICATOR_STATUS_ACTIVE);
 	  app_indicator_set_menu(indicator_, menu_.get());
 
