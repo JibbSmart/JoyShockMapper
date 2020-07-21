@@ -441,6 +441,23 @@ public:
 		}
 	}
 
+	void mouse_scroll(std::int32_t amount) noexcept
+	{
+		auto error = libevdev_uinput_write_event(uinput_device_, EV_REL, REL_WHEEL, amount);
+		if (error != 0)
+		{
+			std::fprintf(stderr, "Failed to to simulate mouse scroll: %s\n", std::strerror(-error));
+			return;
+		}
+
+		error = libevdev_uinput_write_event(uinput_device_, EV_SYN, SYN_REPORT, 0);
+		if (error != 0)
+		{
+			std::fprintf(stderr, "Failed to to simulate mouse move: %s\n", std::strerror(-error));
+			return;
+		}
+	}
+
 private:
 	libevdev *device_;
 	libevdev_uinput *uinput_device_{ nullptr };
@@ -463,9 +480,15 @@ VirtualInputDevice keyboard{ VirtualInputDevice::Device::KEYBOARD };
 // send mouse button
 int pressMouse(WORD vkKey, bool isPressed)
 {
-	// TODO: Handle wheel events
-	if (vkKey == V_WHEEL_UP || vkKey == V_WHEEL_DOWN)
+	if (vkKey == V_WHEEL_UP)
 	{
+		mouse.mouse_scroll(1);
+		return 0;
+	}
+
+	if (vkKey == V_WHEEL_DOWN)
+	{
+		mouse.mouse_scroll(-1);
 		return 0;
 	}
 
