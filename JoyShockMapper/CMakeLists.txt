@@ -45,6 +45,7 @@ endif ()
 if (LINUX)
     target_sources (
         ${BINARY_NAME} PRIVATE
+        src/linux/Init.cpp
         src/linux/InputHelpers.cpp
         src/linux/PlatformDefinitions.cpp
         src/linux/StatusNotifierItem.cpp    include/linux/StatusNotifierItem.h

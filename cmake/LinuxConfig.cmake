@@ -77,4 +77,9 @@ if (UNIX AND NOT APPLE)
         FILES ${PROJECT_SOURCE_DIR}/dist/linux/jsm-status-dark.svg
         DESTINATION share/icons/hicolor/scalable/status
     )
+
+    install (
+        DIRECTORY ${PROJECT_SOURCE_DIR}/dist/GyroConfigs
+        DESTINATION ../etc/JoyShockMapper/
+    )
 endif ()
