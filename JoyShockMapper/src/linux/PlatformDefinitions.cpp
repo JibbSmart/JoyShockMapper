@@ -6,8 +6,11 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <unistd.h>
+#include <signal.h>
 
-const char *AUTOLOAD_FOLDER = []{
+#include "InputHelpers.h"
+
+const char *AUTOLOAD_FOLDER = [] {
 	std::string directory;
 
 	const auto XDG_CONFIG_HOME = getenv("XDG_CONFIG_HOME");
@@ -27,7 +30,7 @@ const char *AUTOLOAD_FOLDER = []{
 	return strdup(directory.c_str());
 }();
 
-const char *GYRO_CONFIGS_FOLDER = []{
+const char *GYRO_CONFIGS_FOLDER = [] {
 	std::string directory;
 
 	const auto XDG_CONFIG_HOME = getenv("XDG_CONFIG_HOME");
@@ -47,7 +50,7 @@ const char *GYRO_CONFIGS_FOLDER = []{
 	return strdup(directory.c_str());
 }();
 
-const char *BASE_JSM_CONFIG_FOLDER = []{
+const char *BASE_JSM_CONFIG_FOLDER = [] {
 	std::string directory;
 
 	const auto XDG_CONFIG_HOME = getenv("XDG_CONFIG_HOME");
@@ -67,5 +70,22 @@ const char *BASE_JSM_CONFIG_FOLDER = []{
 
 unsigned long GetCurrentProcessId()
 {
-    return ::getpid();
+	return ::getpid();
 }
+
+static void terminateHandler(int signo)
+{
+	if (signo != SIGTERM && signo != SIGINT)
+	{
+		std::fprintf(stderr, "Caught unexpected signal %d\n", signo);
+		return;
+	}
+
+	WriteToConsole("QUIT");
+}
+
+static const int registerSignalHandler = [] {
+	signal(SIGTERM, &terminateHandler);
+	signal(SIGINT, &terminateHandler);
+	return 0;
+}();

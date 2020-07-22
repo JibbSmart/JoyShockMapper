@@ -690,6 +690,7 @@ std::string GetCWD()
 
 DWORD ShowOnlineHelp()
 {
+	::system("xdg-open https://github.com/JibbSmart/JoyShockMapper/blob/master/README.md");
 	return 0;
 }
 

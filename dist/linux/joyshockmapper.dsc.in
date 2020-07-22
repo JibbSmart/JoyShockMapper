@@ -1,0 +1,16 @@
+DEBTRANSFORM-TAR: @TARBALL@
+Format: 3.0 (native)
+Source: joyshockmapper
+Binary: joyshockmapper
+Architecture: any
+Version: @VERSION@-@RELEASE@
+Maintainer: Romeo Calota <mail@romeocalota.me>
+Standards-Version: 0.0.1
+Build-Depends:  debhelper, git, build-essential, make, cmake, clang, libhidapi-dev, libevdev-dev, libgtk-3-dev, libappindicator3-dev
+Checksums-Sha1:
+ @SHA1@ @SIZE@ @TARBALL@
+Checksums-Sha256:
+ @SHA256@ @SIZE@ @TARBALL@
+Files:
+ @MD5@ @SIZE@ @TARBALL@
+ 
