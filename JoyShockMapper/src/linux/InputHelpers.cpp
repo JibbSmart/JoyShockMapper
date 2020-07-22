@@ -482,13 +482,21 @@ int pressMouse(WORD vkKey, bool isPressed)
 {
 	if (vkKey == V_WHEEL_UP)
 	{
-		mouse.mouse_scroll(1);
+		if (isPressed)
+		{
+			mouse.mouse_scroll(1);
+		}
+
 		return 0;
 	}
 
 	if (vkKey == V_WHEEL_DOWN)
 	{
-		mouse.mouse_scroll(-1);
+		if (isPressed)
+		{
+			mouse.mouse_scroll(-1);
+		}
+
 		return 0;
 	}
 
