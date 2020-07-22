@@ -7,6 +7,7 @@
 #include <map>
 #include <regex>
 #include <sstream>
+#include <fstream>
 
 
 // This is a base class for any Command line operation. It binds a command name to a parser function
@@ -93,6 +94,38 @@ private:
 	// multimap allows multiple entries with the same keys
 	CmdMap _registry;
 
+	bool loadMappings(in_string fileName) {
+		// https://stackoverflow.com/questions/2602013/read-whole-ascii-file-into-c-stdstring
+		ifstream file(fileName);
+		if (file)
+		{
+			printf("Loading commands from file %s\n", fileName.c_str());
+			// https://stackoverflow.com/questions/6892754/creating-a-simple-configuration-file-and-parser-in-c
+			string line;
+			while (getline(file, line)) {
+				processLine(line);
+			}
+			file.close();
+			return true;
+		}
+		return false;
+	}
+
+	// https://stackoverflow.com/questions/25345598/c-implementation-to-trim-char-array-of-leading-trailing-white-space-not-workin
+	static void strtrim(char* str) {
+		int start = 0; // number of leading spaces
+		char* buffer = str;
+		while (*str && *str++ == ' ') ++start;
+		while (*str++); // move to end of string
+		auto end = str - buffer - 1;
+		while (end > 0 && buffer[end - 1] == ' ') --end; // backup over trailing spaces
+		buffer[end] = 0; // remove trailing spaces
+		if (end <= start || start == 0) return; // exit if no leading spaces or string is now empty
+		str = buffer + start;
+		while ((*buffer++ = *str++));  // remove leading spaces: K&R
+	}
+
+
 public:
 	CmdRegistry()
 	{
@@ -120,9 +153,11 @@ public:
 	}
 
 	// Process a command entered by the user
-	void processLine(in_string line)
+	// intentionally dont't use const ref
+	void processLine(string &line)
 	{
-		if (!line.empty())
+		strtrim(&line[0]);
+		if (!line.empty() && line[0] != '#' && !loadMappings(line))
 		{
 			smatch results;
 			string combo, name, arguments, label;
@@ -168,7 +203,7 @@ public:
 
 			if (!hasProcessed)
 			{
-				cout << "Unrecognized command. Enter HELP to display all commands." << endl;
+				cout << "Unrecognized command: \"" << line << "\"\nEnter HELP to display all commands." << endl;
 			}
 		}
 		// else ignore empty lines

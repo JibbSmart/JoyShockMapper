@@ -1306,28 +1306,10 @@ optional<float> getFloat(const std::string &str, size_t *newpos = nullptr)
 		return nullopt;
 	}
 }
-	
-// https://stackoverflow.com/questions/25345598/c-implementation-to-trim-char-array-of-leading-trailing-white-space-not-workin
-static void strtrim(char* str) {
-	int start = 0; // number of leading spaces
-	char* buffer = str;
-	while (*str && *str++ == ' ') ++start;
-	while (*str++); // move to end of string
-	auto end = str - buffer - 1;
-	while (end > 0 && buffer[end - 1] == ' ') --end; // backup over trailing spaces
-	buffer[end] = 0; // remove trailing spaces
-	if (end <= start || start == 0) return; // exit if no leading spaces or string is now empty
-	str = buffer + start;
-	while ((*buffer++ = *str++));  // remove leading spaces: K&R
-}
 
 static void resetAllMappings() {
-	static const KeyCode CALIBRATE_KEY = KeyCode("CALIBRATE");
-
 	for_each(mappings.begin(), mappings.end(), [] (auto &map) { map.Reset(); });
 	// Question: Why is this a default mapping? Shouldn't it be empty? It's always possible to calibrate with RESET_GYRO_CALIBRATION
-	mappings[int(ButtonID::HOME)] = Mapping{ CALIBRATE_KEY, CALIBRATE_KEY };
-	mappings[int(ButtonID::CAPTURE)] = Mapping{ CALIBRATE_KEY, CALIBRATE_KEY };
 	min_gyro_sens.Reset();
 	max_gyro_sens.Reset();
 	min_gyro_threshold.Reset();
@@ -1665,25 +1647,6 @@ static float handleFlickStick(float calX, float calY, float lastCalX, float last
 
 	return camSpeedX;
 }
-
-//static bool loadMappings(std::string fileName) {
-//	// https://stackoverflow.com/questions/2602013/read-whole-ascii-file-into-c-stdstring
-//	std::ifstream t(fileName);
-//	if (t)
-//	{
-//		printf("Loading commands from file %s\n", fileName.c_str());
-//		// https://stackoverflow.com/questions/6892754/creating-a-simple-configuration-file-and-parser-in-c
-//		std::string line;
-//		while (getline(t, line)) {
-//			parseCommand(line);
-//		}
-//		t.close();
-//		return true;
-//	}
-//	else {
-//		return false;
-//	}
-//}
 
 // https://stackoverflow.com/questions/25144887/map-unordered-map-prefer-find-and-then-at-or-try-at-catch-out-of-range
 JoyShock* getJoyShockFromHandle(int handle) {
@@ -2090,6 +2053,7 @@ static bool iequals(const string& a, const string& b)
 
 bool AutoLoadPoll(void *param)
 {
+	auto registry = reinterpret_cast<CmdRegistry*>(param);
 	static string lastModuleName;
 	string windowTitle, windowModule;
 	tie(windowModule, windowTitle) = GetActiveWindowName();
@@ -2111,7 +2075,7 @@ bool AutoLoadPoll(void *param)
 				{
 					printf("loading \"AutoLoad\\%s.txt\".\n", noextconfig.c_str());
 					loading_lock.lock();
-					//parseCommand(cwd + file);
+					registry->processLine(cwd + file);
 					loading_lock.unlock();
 					printf("[AUTOLOAD] Loading completed\n");
 					success = true;
@@ -2345,11 +2309,14 @@ int main(int argc, char *argv[]) {
 	void *trayIconData = nullptr;
 #endif // _WIN32
 	mappings.reserve(MAPPING_SIZE);
+	static const KeyCode CALIBRATE_KEY = KeyCode("CALIBRATE");
+
 	for (int id = 0; id < MAPPING_SIZE; ++id)
 	{
-		mappings.push_back(JSMButton(ButtonID(id)));
+		Mapping def = (id == int(ButtonID::HOME) || id == int(ButtonID::CAPTURE)) ? Mapping(CALIBRATE_KEY, CALIBRATE_KEY) : Mapping();
+		mappings.push_back(JSMButton(ButtonID(id), def));
 	}
-	tray.reset(new TrayIcon(trayIconData, std::function<void()>{ &beforeShowTrayMenu }));
+	tray.reset(new TrayIcon(trayIconData, &beforeShowTrayMenu ));
 	// console
 	initConsole(&CleanUp);
 	printf("Welcome to JoyShockMapper version %s!\n", version);
@@ -2357,12 +2324,6 @@ int main(int argc, char *argv[]) {
 	// prepare for input
 	connectDevices();
 	JslSetCallback(&joyShockPollCallback);
-	autoLoadThread.reset(new PollingThread(&AutoLoadPoll, nullptr, 1000, true)); // Start by default
-	if (autoLoadThread && *autoLoadThread)
-	{
-		printf("AutoLoad is enabled. Configurations in \"%s\" folder will get loaded when matching application is in focus.\n", AUTOLOAD_FOLDER);
-	}
-	else printf("[AUTOLOAD] AutoLoad is unavailable\n");
 	tray->Show();
 
 	left_stick_mode.SetFilter(&filterInvalidValue<StickMode, StickMode::INVALID>)->
@@ -2480,6 +2441,14 @@ int main(int argc, char *argv[]) {
 			})
 		->SetHelp("Close the application.")
 	);
+
+	autoLoadThread.reset(new PollingThread(&AutoLoadPoll, &commandRegistry, 1000, true)); // Start by default
+	if (autoLoadThread && *autoLoadThread)
+	{
+		printf("AutoLoad is enabled. Configurations in \"%s\" folder will get loaded when matching application is in focus.\n", AUTOLOAD_FOLDER);
+	}
+	else printf("[AUTOLOAD] AutoLoad is unavailable\n");
+
 
 	// The main loop is simple and reads like pseudocode
 	string enteredCommand;

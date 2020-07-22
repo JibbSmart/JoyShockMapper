@@ -220,8 +220,8 @@ protected:
 	map<ButtonID, JSMVariable<Mapping>> _simMappings;
 	
 public:
-	JSMButton(ButtonID id)
-		: ChordedVariable(Mapping())
+	JSMButton(ButtonID id, Mapping defaultValue)
+		: ChordedVariable(defaultValue)
 		, _id(id)
 	{}
 
