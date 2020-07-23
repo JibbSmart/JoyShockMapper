@@ -1,5 +1,7 @@
 set (BINARY_NAME ${PROJECT_NAME})
 
+configure_file(include/JSMVersion.h.in include/JSMVersion.h)
+
 add_executable (
     ${BINARY_NAME}
     src/main.cpp
@@ -66,6 +68,7 @@ target_compile_definitions (
 target_include_directories (
     ${BINARY_NAME} PUBLIC
     "${CMAKE_CURRENT_SOURCE_DIR}/include"
+	"${PROJECT_BINARY_DIR}/${PROJECT_NAME}/include"
 )
 
 CPMAddPackage (

@@ -1,0 +1,6 @@
+// the configured options and settings for Tutorial
+#define JoyShockMapper_VERSION_MAJOR @JoyShockMapper_VERSION_MAJOR@
+#define JoyShockMapper_VERSION_MINOR @JoyShockMapper_VERSION_MINOR@
+#define JoyShockMapper_VERSION_PATCH @JoyShockMapper_VERSION_PATCH@
+
+static const char* version = "@JoyShockMapper_VERSION_MAJOR@.@JoyShockMapper_VERSION_MINOR@.@JoyShockMapper_VERSION_PATCH@";

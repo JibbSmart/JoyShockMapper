@@ -1,5 +1,6 @@
 #pragma once
 
+#include "JSMVersion.h"
 #include "PlatformDefinitions.h"
 #include "magic_enum.hpp"
 #include <string>
@@ -8,7 +9,7 @@
 // C increases when all that's happened is some bugs have been fixed.
 // B increases and C resets to 0 when new features have been added.
 // A increases and B and C reset to 0 when major new features have been added that warrant a new major version, or replacing older features with better ones that require the user to interact with them differently
-static const char* version = "1.6.0";
+//static const char* version = "1.6.0";
 
 using namespace std;
 
