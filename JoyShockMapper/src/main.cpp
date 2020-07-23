@@ -1294,19 +1294,6 @@ public:
 	}
 };
 
-optional<float> getFloat(const std::string &str, size_t *newpos = nullptr)
-{
-	try
-	{
-		float f = std::stof(str, newpos);
-		return f;
-	}
-	catch (std::invalid_argument)
-	{
-		return nullopt;
-	}
-}
-
 static void resetAllMappings() {
 	for_each(mappings.begin(), mappings.end(), [] (auto &map) { map.Reset(); });
 	// Question: Why is this a default mapping? Shouldn't it be empty? It's always possible to calibrate with RESET_GYRO_CALIBRATION
@@ -1403,28 +1390,17 @@ bool do_GYRO_SENS(in_string argument)
 	}
 	if (c == '=')
 	{
-		size_t pos;
-		string value;
-		ss >> value;
-		auto sens = getFloat(value, &pos);
-		if (sens)
+		// Read the value
+		FloatXY newSens;
+		ss >> newSens;
+		if (!ss.fail())
 		{
-			FloatXY newSens{ *sens, *sens };
-			sens = getFloat(&value[pos]);
-			if (sens) {
-				newSens.second = *sens;
-				value[pos] = 0;
-				//cout << "Gyro sensitivity set to X:" << value << "x Y:" << &value[pos + 1] << "x" << endl;
-			}
-			else {
-				//cout << "Gyro sensitivity set to " << value << "x" << endl;
-			}
 			min_gyro_sens.operator=(newSens);
 			max_gyro_sens.operator=(newSens);
 			return true;
 		}
 		else {
-			cout << "Can't convert \"" << value << "\" to one or two numbers" << endl;
+			cout << "Can't convert \"" << argument.substr(argument.find_first_of('=')+1, argument.length()) << "\" to one or two numbers" << endl;
 		}
 	}
 	// Not an equal sign? The command is entered wrong!
@@ -1697,7 +1673,7 @@ void joyShockPollCallback(int jcHandle, JOY_SHOCK_STATE state, JOY_SHOCK_STATE l
 	auto numGyroSamples = jc->poll_rate * jc->getSetting(SettingID::GYRO_SMOOTH_TIME); // samples per second * seconds = samples
 	if (numGyroSamples < 1) numGyroSamples = 1; // need at least 1 sample
 	auto threshold = jc->getSetting(SettingID::GYRO_SMOOTH_THRESHOLD);
-	jc->GetSmoothedGyro(gyroX, gyroY, gyroLength, threshold / 2.0f, threshold, numGyroSamples, gyroX, gyroY);
+	jc->GetSmoothedGyro(gyroX, gyroY, gyroLength, threshold / 2.0f, threshold, int(numGyroSamples), gyroX, gyroY);
 	//printf("%d Samples for threshold: %0.4f\n", numGyroSamples, gyro_smooth_threshold * maxSmoothingSamples);
 
 	// now, honour gyro_cutoff_speed

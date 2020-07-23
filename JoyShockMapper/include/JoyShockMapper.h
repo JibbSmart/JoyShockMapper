@@ -179,18 +179,6 @@ struct FloatXY : public pair<float, float>
 
 };
 
-static ostream &operator << (ostream &out, FloatXY fxy)
-{
-	out << fxy.first << " " << fxy.second;
-	return out;
-}
-
-static istream &operator >> (istream &in, FloatXY fxy)
-{
-	in >> fxy.first >> fxy.second;
-	return in;
-}
-
 // Set of gyro control settings bundled in one structure
 struct GyroSettings {
 	bool always_off = false;
@@ -245,22 +233,22 @@ ostream &operator <<(ostream &out, FlickSnapMode fsm);
 
 istream &operator >>(istream &in, GyroSettings &gyro_settings);
 ostream &operator <<(ostream &out, GyroSettings gyro_settings);
-
-istream &operator >>(istream &in, Mapping &mapping);
-ostream &operator <<(ostream &out, Mapping mapping);
-
 bool operator ==(const GyroSettings &lhs, const GyroSettings &rhs);
 inline bool operator !=(const GyroSettings &lhs, const GyroSettings &rhs)
 {
 	return !(lhs == rhs);
 }
 
+istream &operator >>(istream &in, Mapping &mapping);
+ostream &operator <<(ostream &out, Mapping mapping);
 bool operator ==(const Mapping &lhs, const Mapping &rhs);
 inline bool operator !=(const Mapping &lhs, const Mapping &rhs)
 {
 	return !(lhs == rhs);
 }
 
+ostream &operator << (ostream &out, FloatXY fxy);
+istream &operator >> (istream &in, FloatXY &fxy);
 bool operator ==(const FloatXY &lhs, const FloatXY &rhs);
 inline bool operator !=(const FloatXY &lhs, const FloatXY &rhs)
 {

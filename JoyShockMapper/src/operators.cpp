@@ -2,6 +2,19 @@
 #include "inputHelpers.h"
 #include <sstream>
 
+static optional<float> getFloat(const string &str, size_t *newpos = nullptr)
+{
+	try
+	{
+		float f = stof(str, newpos);
+		return f;
+	}
+	catch (invalid_argument)
+	{
+		return nullopt;
+	}
+}
+
 istream & operator >> (istream &in, ButtonID &rhv)
 {
 	string s;
@@ -111,6 +124,13 @@ ostream &operator <<(ostream &out, GyroSettings gyro_settings)
 	return out;
 }
 
+bool operator ==(const GyroSettings &lhs, const GyroSettings &rhs)
+{
+	return lhs.always_off == rhs.always_off && 
+		   lhs.button == rhs.button && 
+		   lhs.ignore_mode == rhs.ignore_mode;
+}
+
 istream &operator >>(istream &in, Mapping &mapping)
 {
 	string valueName(128, '\0');
@@ -132,21 +152,42 @@ ostream &operator <<(ostream &out, Mapping mapping)
 	return out;
 }
 
-bool operator ==(const GyroSettings &lhs, const GyroSettings &rhs)
-{
-	return lhs.always_off == rhs.always_off && 
-		   lhs.button == rhs.button && 
-		   lhs.ignore_mode == rhs.ignore_mode;
-}
-
 bool operator ==(const Mapping &lhs, const Mapping &rhs)
 {
 	return lhs.pressBind.code == rhs.pressBind.code &&
 		   lhs.holdBind.code == rhs.holdBind.code;
 }
 
+ostream &operator << (ostream &out, FloatXY fxy)
+{
+	out << fxy.first;
+	if (fxy.first != fxy.second)
+		out << " " << fxy.second;
+	return out;
+}
+
+istream &operator >> (istream &in, FloatXY &fxy)
+{
+	size_t pos;
+	string value;
+	getline(in, value);
+	auto sens = getFloat(value, &pos);
+	if (sens)
+	{
+		FloatXY newSens{ *sens, *sens };
+		sens = getFloat(&value[pos]);
+		if (sens) {
+			newSens.second = *sens;
+			value[pos] = 0;
+		}
+		fxy = newSens;
+	}
+	return in;
+}
+
 bool operator ==(const FloatXY &lhs, const FloatXY &rhs)
 {
-	return lhs.first == rhs.first &&
-		   lhs.second == rhs.second;
+	// Do we need more precision than 1e-5?
+	return fabs(lhs.first - rhs.first) < 1e-5 &&
+		   fabs(lhs.second - rhs.second) < 1e-5;
 }
