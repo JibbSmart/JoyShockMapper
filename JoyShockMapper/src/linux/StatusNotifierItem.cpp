@@ -11,7 +11,6 @@ StatusNotifierItem::StatusNotifierItem(TrayIconData, std::function<void()> &&bef
 	  const auto APPDIR = ::getenv("APPDIR");
 	  if (APPDIR != nullptr)
 	  {
-		  std::puts("\n\033[1;33mRunning as AppImage, make sure rw permissions are set for the current user for /dev/uinput and /dev/hidraw*\n\033[0m");
 		  iconPath = APPDIR;
 		  iconPath += "/usr/share/icons/hicolor/24x24/status/jsm-status-dark.svg";
 		  gtk_icon_theme_prepend_search_path(gtk_icon_theme_get_default(), iconPath.c_str());
@@ -74,6 +73,10 @@ bool StatusNotifierItem::SendNotification(const std::string &)
 
 void StatusNotifierItem::AddMenuItem(const std::string &label, ClickCallbackType &&onClick)
 {
+	// Disable show-hide console since this is not supported on Linux
+	if (label == "Show Console")
+		return;
+
 	menuItems_.emplace_back(GTK_MENU_ITEM(gtk_menu_item_new_with_label(label.c_str())));
 
 	auto &menuItem = menuItems_.back();
@@ -89,6 +92,10 @@ void StatusNotifierItem::AddMenuItem(const std::string &label, ClickCallbackType
 
 void StatusNotifierItem::AddMenuItem(const std::string &label, ClickCallbackTypeChecked &&onClick, StateCallbackType &&getState)
 {
+	// Disable show-hide console since this is not supported on Linux
+	if (label == "Show Console")
+		return;
+
 	menuItems_.emplace_back(GTK_MENU_ITEM(gtk_check_menu_item_new_with_label(label.c_str())));
 
 	auto &menuItem = menuItems_.back();
@@ -108,6 +115,10 @@ void StatusNotifierItem::AddMenuItem(const std::string &label, ClickCallbackType
 
 void StatusNotifierItem::AddMenuItem(const std::string &l, const std::string &sl, ClickCallbackType &&onClick)
 {
+	// Disable show-hide console since this is not supported on Linux
+	if (l == "Show Console")
+		return;
+
 	const auto *label = l.c_str();
 	const auto *subLabel = sl.c_str();
 
