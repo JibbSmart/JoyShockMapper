@@ -7,9 +7,22 @@ StatusNotifierItem::StatusNotifierItem(TrayIconData, std::function<void()> &&bef
 	  int argc = 0;
 	  gtk_init(&argc, nullptr);
 
+	  std::string iconPath{};
+	  const auto APPDIR = ::getenv("APPDIR");
+	  if (APPDIR != nullptr)
+	  {
+		  iconPath = APPDIR;
+		  iconPath += "/usr/share/icons/hicolor/24x24/status/jsm-status-dark.svg";
+		  gtk_icon_theme_prepend_search_path(gtk_icon_theme_get_default(), iconPath.c_str());
+	  }
+	  else
+	  {
+		  iconPath = "jsm-status-dark";
+	  }
+
 	  menu_ = std::unique_ptr<GtkMenu, decltype(&::g_object_unref)>{ GTK_MENU(gtk_menu_new()), &g_object_unref };
 
-	  indicator_ = app_indicator_new(APPLICATION_RDN APPLICATION_NAME, "jsm-status-dark", APP_INDICATOR_CATEGORY_APPLICATION_STATUS);
+	  indicator_ = app_indicator_new(APPLICATION_RDN APPLICATION_NAME, iconPath.c_str(), APP_INDICATOR_CATEGORY_APPLICATION_STATUS);
 	  app_indicator_set_status(indicator_, APP_INDICATOR_STATUS_ACTIVE);
 	  app_indicator_set_menu(indicator_, menu_.get());
 
@@ -60,6 +73,10 @@ bool StatusNotifierItem::SendNotification(const std::string &)
 
 void StatusNotifierItem::AddMenuItem(const std::string &label, ClickCallbackType &&onClick)
 {
+	// Disable show-hide console since this is not supported on Linux
+	if (label == "Show Console")
+		return;
+
 	menuItems_.emplace_back(GTK_MENU_ITEM(gtk_menu_item_new_with_label(label.c_str())));
 
 	auto &menuItem = menuItems_.back();
@@ -75,6 +92,10 @@ void StatusNotifierItem::AddMenuItem(const std::string &label, ClickCallbackType
 
 void StatusNotifierItem::AddMenuItem(const std::string &label, ClickCallbackTypeChecked &&onClick, StateCallbackType &&getState)
 {
+	// Disable show-hide console since this is not supported on Linux
+	if (label == "Show Console")
+		return;
+
 	menuItems_.emplace_back(GTK_MENU_ITEM(gtk_check_menu_item_new_with_label(label.c_str())));
 
 	auto &menuItem = menuItems_.back();
@@ -94,6 +115,10 @@ void StatusNotifierItem::AddMenuItem(const std::string &label, ClickCallbackType
 
 void StatusNotifierItem::AddMenuItem(const std::string &l, const std::string &sl, ClickCallbackType &&onClick)
 {
+	// Disable show-hide console since this is not supported on Linux
+	if (l == "Show Console")
+		return;
+
 	const auto *label = l.c_str();
 	const auto *subLabel = sl.c_str();
 

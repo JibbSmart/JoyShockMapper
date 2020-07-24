@@ -7,65 +7,58 @@
 #include <sys/stat.h>
 #include <unistd.h>
 
-const char *AUTOLOAD_FOLDER = []{
+const char *AUTOLOAD_FOLDER = [] {
 	std::string directory;
 
 	const auto XDG_CONFIG_HOME = getenv("XDG_CONFIG_HOME");
 	if (XDG_CONFIG_HOME == nullptr)
 	{
-		directory = std::string{ getenv("HOME") } + "/.config/JoyShockMapper/";
+		directory = std::string{ getenv("HOME") } + "/.config";
 	}
 	else
 	{
-		directory = std::string{ XDG_CONFIG_HOME } + "/JoyShockMapper/";
+		directory = XDG_CONFIG_HOME;
 	}
 
-	::mkdir(directory.c_str(), S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH);
-	directory += "AutoLoad/";
-	::mkdir(directory.c_str(), S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH);
-
+	directory = directory + "/JoyShockMapper/AutoLoad/";
 	return strdup(directory.c_str());
 }();
 
-const char *GYRO_CONFIGS_FOLDER = []{
+const char *GYRO_CONFIGS_FOLDER = [] {
 	std::string directory;
 
 	const auto XDG_CONFIG_HOME = getenv("XDG_CONFIG_HOME");
 	if (XDG_CONFIG_HOME == nullptr)
 	{
-		directory = std::string{ getenv("HOME") } + "/.config/JoyShockMapper/";
+		directory = std::string{ getenv("HOME") } + "/.config";
 	}
 	else
 	{
-		directory = std::string{ XDG_CONFIG_HOME } + "/JoyShockMapper/";
+		directory = XDG_CONFIG_HOME;
 	}
 
-	::mkdir(directory.c_str(), S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH);
-	directory += "GyroConfigs/";
-	::mkdir(directory.c_str(), S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH);
-
+	directory = directory + "/JoyShockMapper/GyroConfigs/";
 	return strdup(directory.c_str());
 }();
 
-const char *BASE_JSM_CONFIG_FOLDER = []{
+const char *BASE_JSM_CONFIG_FOLDER = [] {
 	std::string directory;
 
 	const auto XDG_CONFIG_HOME = getenv("XDG_CONFIG_HOME");
 	if (XDG_CONFIG_HOME == nullptr)
 	{
-		directory = std::string{ getenv("HOME") } + "/.config/JoyShockMapper/";
+		directory = std::string{ getenv("HOME") } + "/.config";
 	}
 	else
 	{
-		directory = std::string{ XDG_CONFIG_HOME } + "/JoyShockMapper/";
+		directory = XDG_CONFIG_HOME;
 	}
 
-	::mkdir(directory.c_str(), S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH);
-
+	directory = directory + "/JoyShockMapper/";
 	return strdup(directory.c_str());
 }();
 
 unsigned long GetCurrentProcessId()
 {
-    return ::getpid();
+	return ::getpid();
 }
