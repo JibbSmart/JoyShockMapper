@@ -1,5 +1,19 @@
 set (BINARY_NAME ${PROJECT_NAME})
 
+git_describe(GIT_TAG --tags --dirty=-d)
+
+message("My git tag is " ${GIT_TAG})
+
+#parse the version information into pieces.
+string(REGEX REPLACE "^v([0-9]+)\\..*" "\\1" JSM_VERSION_MAJOR "${GIT_TAG}")
+string(REGEX REPLACE "^v[0-9]+\\.([0-9]+).*" "\\1" JSM_VERSION_MINOR "${GIT_TAG}")
+string(REGEX REPLACE "^v[0-9]+\\.[0-9]+\\.([0-9]+).*" "\\1" JSM_VERSION_PATCH "${GIT_TAG}")
+string(REGEX REPLACE "^v[0-9]+\\.[0-9]+\\.[0-9]+(-.*)" "\\1" VERSION_SHA1 "${VERSION}")
+set(JSM_VERSION "v${JSM_VERSION_MAJOR}.${JSM_VERSION_MINOR}.${JSM_VERSION_PATCH}")
+
+message("My JSM version is " ${JSM_VERSION})
+
+
 configure_file(include/JSMVersion.h.in include/JSMVersion.h)
 
 add_executable (

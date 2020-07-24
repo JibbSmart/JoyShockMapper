@@ -8,5 +8,6 @@ set (CMAKE_CXX_STANDARD_REQUIRED ON)
 include (cmake/LinuxConfig.cmake)
 include (cmake/WindowsConfig.cmake)
 include (cmake/CPM.cmake)
+include (cmake/GetGitRevisionDescription.cmake)
 
 add_subdirectory (JoyShockMapper)
