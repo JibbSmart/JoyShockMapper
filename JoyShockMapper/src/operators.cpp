@@ -142,7 +142,7 @@ istream &operator >>(istream &in, Mapping &mapping)
 	mapping.pressBind = KeyCode(valueName);
 	valueName.clear();
 	ss >> valueName;
-	mapping.holdBind.code = KeyCode(valueName);
+	mapping.holdBind = KeyCode(valueName);
 	return in;
 }
 

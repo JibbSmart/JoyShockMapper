@@ -28,11 +28,11 @@ public:
 
 protected:
 
-	// Default value of the variable. Cannot be changed after construction.
-	const T _defVal;
-
 	// The variable value itself
 	T _value;
+
+	// Default value of the variable. Cannot be changed after construction.
+	const T _defVal;
 
 	// Parts of the code can be notified of when _value changes. This is
 	// really important for a GUI to be possible.
@@ -49,16 +49,16 @@ protected:
 
 public:
 	JSMVariable(T defaultValue = T(0))
-		: _defVal(defaultValue)
-		, _value(_defVal)
+		: _value(defaultValue)
+		, _defVal(defaultValue)
 		, _onChangeListeners()
 		, _filter(&NoFiltering) // _filter is always valid
 	{	}
 
 	// Make a copy with a different default value
 	JSMVariable(const JSMVariable &copy, T defaultValue = T(0))
-		: _defVal(defaultValue)
-		, _value(_defVal)
+		: _value(defaultValue)
+		, _defVal(defaultValue)
 		, _onChangeListeners() // Don't copy listeners. This is a different variable!
 		, _filter(copy._filter)
 	{	}
@@ -209,7 +209,7 @@ public:
 	}
 };
 
-typedef pair<ButtonID, JSMVariable<Mapping>> ComboMap;
+typedef pair<const ButtonID, JSMVariable<Mapping>> ComboMap;
 
 class JSMButton : public ChordedVariable<Mapping>
 {
@@ -225,14 +225,20 @@ public:
 		, _id(id)
 	{}
 
-	optional<ComboMap> getSimMap(ButtonID simBtn)
+	ComboMap *getSimMap(ButtonID simBtn)
 	{
 		if (simBtn > ButtonID::NONE)
 		{
 			auto existingSim = _simMappings.find(simBtn);
-			return existingSim != _simMappings.end() ? optional(*existingSim) : nullopt;
+			return existingSim != _simMappings.end() ? &*existingSim : nullptr;
 		}
-		return nullopt;
+		return nullptr;
+	}
+
+	const ComboMap *getDblPressMap() const
+	{
+		auto existingChord = _chorded.find(_id);
+		return existingChord != _chorded.end() ? &*existingChord : nullptr;
 	}
 
 	inline bool HasSimMappings() const
@@ -261,6 +267,11 @@ public:
 
 	string getSimPressName(ButtonID simBtn) const
 	{
+		if (simBtn == _id)
+		{
+			// It's actually a double press, not a sim press
+			return getName(simBtn);
+		}
 		if (simBtn > ButtonID::NONE)
 		{
 			stringstream ss;
@@ -284,6 +295,7 @@ public:
 		{
 			JSMVariable<Mapping> var(*this, Mapping());
 			_simMappings.emplace( chord, var );
+			_simMappings[chord].AddOnChangeListener(bind(&SimPressCrossUpdate, chord, _id, placeholders::_1)); // TODO: manage id
 		}
 		return _simMappings[chord];
 	}

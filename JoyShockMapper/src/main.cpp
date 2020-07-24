@@ -10,11 +10,12 @@
 #include <mutex>
 #include <deque>
 
-#pragma warning(disable:4996)
+//#pragma warning(disable:4996)
 
 #define PI 3.14159265359f
 
 class JoyShock;
+void joyShockPollCallback(int jcHandle, JOY_SHOCK_STATE state, JOY_SHOCK_STATE lastState, IMU_STATE imuState, IMU_STATE lastImuState, float deltaTime);
 
 // Contains all settings that can be modeshifted. They should be accessed only via Joyshock::getSetting
 JSMSetting<StickMode> left_stick_mode = JSMSetting<StickMode>(SettingID::LEFT_STICK_MODE, StickMode::NO_MOUSE);
@@ -139,7 +140,7 @@ public:
 		// Look at active chord mappings starting with the latest activates chord
 		for (auto activeChord = _common.chordStack.begin(); activeChord != _common.chordStack.end(); activeChord++)
 		{
-			auto binding = _mapping[*activeChord];
+			auto binding = _mapping.get(*activeChord);
 			if(binding) 
 			{
 				return Mapping(*binding).holdBind;
@@ -152,18 +153,6 @@ public:
 	inline bool HasSimMapping()
 	{
 		return _mapping.HasSimMappings();
-	}
-
-	optional<ComboMap> GetDblPressMapping()
-	{
-		auto dblPress = _mapping[_id];
-		return dblPress ? optional<ComboMap>( { _id, *dblPress } )
-			: nullopt;
-	}
-
-	inline bool HasDblPressMapping()
-	{
-		return GetDblPressMapping().has_value();
 	}
 
 	KeyCode GetHoldMapping()
@@ -353,20 +342,20 @@ public:
 		//}
 	}
 
-	void SyncSimPress(const ComboMap &map)
+	void SyncSimPress(ButtonID btn, const ComboMap &map)
 	{
 		_keyToRelease = Mapping(map.second).pressBind;
-		_nameToRelease = _mapping.getSimPressName(map.first);
+		_nameToRelease = mappings[int(btn)].getSimPressName(map.first);
 		if (_keyToRelease.code >= GYRO_INV_X && _keyToRelease.code <= GYRO_ON_BIND)
 		{
 			_common.gyroActionQueue.push_back({ _id, _keyToRelease });
 		}
 	}
 
-	void SyncSimHold(const ComboMap &map)
+	void SyncSimHold(ButtonID btn, const ComboMap &map)
 	{
 		_keyToRelease = Mapping(map.second).holdBind;
-		_nameToRelease = _mapping.getSimPressName(map.first);
+		_nameToRelease = mappings[int(btn)].getSimPressName(map.first);
 		if (_keyToRelease.code >= GYRO_INV_X && _keyToRelease.code <= GYRO_ON_BIND)
 		{
 			// I know I don't handle multiple inversion. Otherwise GYRO_INV_X on sim press would do nothing
@@ -693,7 +682,7 @@ public:
 
 public:
 
-	optional<ComboMap> GetMatchingSimMap(ButtonID index)
+	ComboMap *GetMatchingSimMap(ButtonID index)
 	{
 		// Find the simMapping where the other btn is in the same state as this btn.
 		// POTENTIAL FLAW: The mapping you find may not necessarily be the one that got you in a 
@@ -707,7 +696,7 @@ public:
 				return simMap;
 			}
 		}
-		return nullopt;
+		return nullptr;
 	}
 
 	void ResetSmoothSample() {
@@ -794,11 +783,12 @@ public:
 		{
 			if (foundChord != btnCommon.chordStack.end())
 			{
-				// The chord is released
-				btnCommon.chordStack.erase(foundChord);
+				//cout << "Button " << index << " is released!" << endl;
+				btnCommon.chordStack.erase(foundChord); // The chord is released
 			}
 		}
 		else if (foundChord == btnCommon.chordStack.end()) {
+			//cout << "Button " << index << " is pressed!" << endl;
 			btnCommon.chordStack.push_front(index); // Always push at the fromt to make it a stack
 		}
 
@@ -819,7 +809,7 @@ public:
 					button._btnState = BtnState::WaitHold;
 					button._press_times = time_now;
 				}
-				else if (button.HasDblPressMapping())
+				else if (button._mapping.getDblPressMap())
 				{
 					// Start counting time between two start presses
 					button._btnState = BtnState::DblPressStart;
@@ -858,13 +848,14 @@ public:
 						button._btnState = BtnState::WaitSimHold;
 						buttons[int(simMap->first)]._btnState = BtnState::WaitSimHold;
 						button._press_times = time_now; // Reset Timer
+						buttons[int(simMap->first)]._press_times = time_now;
 					}
 					else
 					{
 						button._btnState = BtnState::SimPress;
 						buttons[int(simMap->first)]._btnState = BtnState::SimPress;
 						button.ApplyBtnPress(*simMap);
-						buttons[int(simMap->first)].SyncSimPress(*simMap);
+						buttons[int(simMap->first)].SyncSimPress(index, *simMap);
 					}
 				}
 				else if (button.GetPressDurationMS(time_now) > MAGIC_SIM_DELAY)
@@ -875,7 +866,7 @@ public:
 						button._btnState = BtnState::WaitHold;
 						// Don't reset time
 					}
-					else if (button.HasDblPressMapping())
+					else if (button._mapping.getDblPressMap())
 					{
 						// Start counting time between two start presses
 						button._btnState = BtnState::DblPressStart;
@@ -892,7 +883,7 @@ public:
 		case BtnState::WaitHold:
 			if (!pressed)
 			{
-				if (button.HasDblPressMapping())
+				if (button._mapping.getDblPressMap())
 				{
 					button._btnState = BtnState::DblPressStart;
 				}
@@ -949,18 +940,18 @@ public:
 			else if (!pressed)
 			{
 				button._btnState = BtnState::SimTapRelease;
-				buttons[int(simMap->first)]._btnState = BtnState::SimTapRelease;
+				buttons[int(simMap->first)]._btnState = BtnState::SimRelease;
 				button._press_times = time_now;
 				buttons[int(simMap->first)]._press_times = time_now;
 				button.ApplyBtnPress(*simMap, true);
-				buttons[int(simMap->first)].SyncSimPress(*simMap);
+				buttons[int(simMap->first)].SyncSimPress(index, *simMap);
 			}
 			else if (button.GetPressDurationMS(time_now) > MAGIC_HOLD_TIME)
 			{
 				button._btnState = BtnState::SimHold;
 				buttons[int(simMap->first)]._btnState = BtnState::SimHold;
 				button.ApplyBtnHold(*simMap);
-				buttons[int(simMap->first)].SyncSimHold(*simMap);
+				buttons[int(simMap->first)].SyncSimHold(index, *simMap);
 				// Else let time flow, stay in this state, no output.
 			}
 			break;
@@ -1001,6 +992,8 @@ public:
 			}
 			else if (pressed)
 			{
+				// The button has been pressed again before tap duration expired
+				// Let's move on!!
 				button.ApplyBtnRelease(*simMap, true);
 				button._btnState = BtnState::NoPress;
 				buttons[int(simMap->first)]._btnState = BtnState::SimRelease;
@@ -1040,7 +1033,7 @@ public:
 			else if (pressed)
 			{
 				// dblPress will be valid because HasDblPressMapping already returned true.
-				if (Mapping(button.GetDblPressMapping()->second).holdBind)
+				if (Mapping(button._mapping.getDblPressMap()->second).holdBind)
 				{
 					button._btnState = BtnState::DblPressWaitHold;
 					button._press_times = time_now;
@@ -1048,7 +1041,7 @@ public:
 				else
 				{
 					button._btnState = BtnState::DblPressPress;
-					button.ApplyBtnPress(*button.GetDblPressMapping());
+					button.ApplyBtnPress(*button._mapping.getDblPressMap());
 				}
 			}
 			break;
@@ -1056,7 +1049,7 @@ public:
 			if (!pressed)
 			{
 				button._btnState = BtnState::NoPress;
-				button.ApplyBtnRelease(*button.GetDblPressMapping());
+				button.ApplyBtnRelease(*button._mapping.getDblPressMap());
 			}
 			break;
 		case BtnState::DblPressWaitHold:
@@ -1064,19 +1057,19 @@ public:
 			{
 				button._btnState = BtnState::TapRelease;
 				button._press_times = time_now;
-				button.ApplyBtnPress(*button.GetDblPressMapping(), true);
+				button.ApplyBtnPress(*button._mapping.getDblPressMap(), true);
 			}
 			else if (button.GetPressDurationMS(time_now) > MAGIC_HOLD_TIME)
 			{
 				button._btnState = BtnState::DblPressHold;
-				button.ApplyBtnHold(*button.GetDblPressMapping());
+				button.ApplyBtnHold(*button._mapping.getDblPressMap());
 			}
 			break;
 		case BtnState::DblPressHold:
 			if (!pressed)
 			{
 				button._btnState = BtnState::NoPress;
-				button.ApplyBtnRelease(*button.GetDblPressMapping());
+				button.ApplyBtnRelease(*button._mapping.getDblPressMap());
 			}
 			break;
 		default:
@@ -1340,8 +1333,51 @@ static void resetAllMappings() {
 	last_flick_and_rotation = 0.0f;
 }
 
-void joyShockPollCallback(int jcHandle, JOY_SHOCK_STATE state, JOY_SHOCK_STATE lastState, IMU_STATE imuState, IMU_STATE lastImuState, float deltaTime);
-void connectDevices();
+void connectDevices() {
+	int numConnected = JslConnectDevices();
+	int* deviceHandles = new int[numConnected];
+
+	JslGetConnectedDeviceHandles(deviceHandles, numConnected);
+
+	for (int i = 0; i < numConnected; i++) {
+		// map handles to extra local data
+		int handle = deviceHandles[i];
+		JoyShock* js = new JoyShock(handle,
+			JslGetPollRate(handle),
+			JslGetControllerSplitType(handle),
+			JslGetStickStep(handle));
+		handle_to_joyshock.emplace(deviceHandles[i], js);
+
+		// calibration?
+		//JslStartContinuousCalibration(deviceHandles[i]);
+	}
+
+	string msg;
+	if (numConnected == 1) {
+		msg = "1 device connected\n";
+	}
+	else {
+		stringstream ss;
+		ss << numConnected << " devices connected" << endl;
+		msg = ss.str();
+	}
+	printf("%s\n", msg.c_str());
+	//if (!IsVisible())
+	//{
+	//	tray->SendToast(wstring(msg.begin(), msg.end()));
+	//}
+
+	//if (numConnected != 0) {
+	//	printf("All devices have started continuous gyro calibration\n");
+	//}
+
+	delete[] deviceHandles;
+}
+
+void SimPressCrossUpdate(ButtonID sim, ButtonID origin, Mapping newVal)
+{
+	mappings[int(sim)].CreateSim(origin) = newVal;
+}
 
 bool do_NO_GYRO_BUTTON() {
 	// TODO: handle chords
@@ -1965,47 +2001,6 @@ void joyShockPollCallback(int jcHandle, JOY_SHOCK_STATE state, JOY_SHOCK_STATE l
 			jc->getSetting(SettingID::MIN_GYRO_THRESHOLD), jc->getSetting(SettingID::MAX_GYRO_THRESHOLD), deltaTime,
 			camSpeedX * jc->getSetting(SettingID::STICK_AXIS_X), -camSpeedY * jc->getSetting(SettingID::STICK_AXIS_Y), mouseCalibration);
 	}
-}
-
-void connectDevices() {
-	int numConnected = JslConnectDevices();
-	int* deviceHandles = new int[numConnected];
-
-	JslGetConnectedDeviceHandles(deviceHandles, numConnected);
-
-	for (int i = 0; i < numConnected; i++) {
-		// map handles to extra local data
-		int handle = deviceHandles[i];
-		JoyShock* js = new JoyShock(handle,
-			JslGetPollRate(handle),
-			JslGetControllerSplitType(handle),
-			JslGetStickStep(handle));
-		handle_to_joyshock.emplace(deviceHandles[i], js);
-
-		// calibration?
-		//JslStartContinuousCalibration(deviceHandles[i]);
-	}
-
-	string msg;
-	if (numConnected == 1) {
-		msg = "1 device connected\n";
-	}
-	else {
-		stringstream ss;
-		ss << numConnected << " devices connected" << endl;
-		msg = ss.str();
-	}
-	printf("%s\n", msg.c_str());
-	//if (!IsVisible())
-	//{
-	//	tray->SendToast(wstring(msg.begin(), msg.end()));
-	//}
-
-	//if (numConnected != 0) {
-	//	printf("All devices have started continuous gyro calibration\n");
-	//}
-
-	delete[] deviceHandles;
 }
 
 // https://stackoverflow.com/a/25311622/1130520 says this is why filenames obtained by fgets don't work

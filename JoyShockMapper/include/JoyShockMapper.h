@@ -209,6 +209,8 @@ struct Mapping
 	Mapping(int dummy) : Mapping() {}
 };
 
+void SimPressCrossUpdate(ButtonID sim, ButtonID origin, Mapping newVal);
+
 template <class E, class = std::enable_if_t < std::is_enum<E>{} >>
 istream &operator >>(istream &in, E &rhv)
 {
