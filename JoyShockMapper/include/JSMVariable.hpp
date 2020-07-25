@@ -6,12 +6,11 @@
 #include <sstream>
 #include <algorithm>
 
-using namespace std;
-
+// Global ID generator
 static unsigned int _delegateID = 1;
 
 // JSMVariable is a wrapper class for an underlying variable of type T.
-// This class allows other parts of the code be notified of when this changes value.
+// This class allows other parts of the code be notified of when it changes value.
 // It also has a default value defined at construction that can be assigned on Reset.
 // Finally it has a customizable filter function, to restrict possible values.
 // Setter functions return the object itself so they can be chained.
@@ -34,8 +33,7 @@ protected:
 	// Default value of the variable. Cannot be changed after construction.
 	const T _defVal;
 
-	// Parts of the code can be notified of when _value changes. This is
-	// really important for a GUI to be possible.
+	// Parts of the code can be notified of when _value changes.
 	map<unsigned int, OnChangeDelegate> _onChangeListeners;
 
 	// The filtering function of the variable.
@@ -120,7 +118,7 @@ public:
 		_value = _filter(oldValue, newValue); // Pass new value through filtering
 		if (_value != oldValue)
 		{
-			// Notify listeners of the change
+			// Notify listeners of the change if there's a change
 			for (auto listener : _onChangeListeners)
 				listener.second(_value);
 		}
@@ -128,39 +126,44 @@ public:
 	}
 };
 
-
+// A chorded variable alternate values depending on buttons enabling the chorded value
 template<typename T>
 class ChordedVariable : public JSMVariable<T>
 {
 protected:
-	map<ButtonID, JSMVariable<T>> _chorded;
+	// Each chord is a separate variable with its own listeners, but will use the same filtering and parsing.
+	map<ButtonID, JSMVariable<T>> _chordedVariables;
 
 public:
 	ChordedVariable(T defval)
 		: JSMVariable(defval)
-		, _chorded()
+		, _chordedVariables()
 	{}
 	
-	JSMVariable<T> &CreateChord(ButtonID chord)
+	// Get the chorded variable, creating one if required.
+	JSMVariable<T> &AtChord(ButtonID chord)
 	{
-		auto existingChord = _chorded.find(chord);
-		if (existingChord == _chorded.end())
+		auto existingChord = _chordedVariables.find(chord);
+		if (existingChord == _chordedVariables.end())
 		{
-			_chorded.emplace( chord, JSMVariable<T>(*this, _defVal) );
+			// Create the chord when requested, using the copy constructor.
+			_chordedVariables.emplace( chord, JSMVariable<T>(*this, _defVal) );
 		}
-		return _chorded[chord];
+		return _chordedVariables[chord];
 	}
 
+	// Access the chorded variable. Will return nullptr if it does not exist.
 	const JSMVariable<T> *operator [](ButtonID chord) const
 	{
-		auto existingChord = _chorded.find(chord);
-		if (existingChord == _chorded.end())
+		auto existingChord = _chordedVariables.find(chord);
+		if (existingChord == _chordedVariables.end())
 		{
 			return nullptr;
 		}
 		return &existingChord->second;
 	}
 
+	// Obtain the value with provided chord if any.
 	optional<T> get(ButtonID chord = ButtonID::NONE) const
 	{
 		if (chord > ButtonID::NONE)
@@ -171,33 +174,23 @@ public:
 		return chord != ButtonID::INVALID ? optional(_value) : nullopt;
 	}
 
-	JSMVariable<T> *operator [](ButtonID chord)
-	{
-		auto existingChord = _chorded.find(chord);
-		if (existingChord == _chorded.end())
-		{
-			return nullptr;
-		}
-		return &existingChord->second;
-	}
-
+	// Resetting a chorded var always clears all chords.
 	virtual ChordedVariable<T> *Reset() override
 	{
 		JSMVariable<T>::Reset();
-		_chorded.clear();
+		_chordedVariables.clear();
 		return this;
 	}
 };
 
-
+// A Setting for JSM can be chorded normally. It also has its own setting ID
 template<typename T>
 class JSMSetting : public ChordedVariable<T>
 {
-protected:
+public:
 	// Identifier of the variable. Cannot be changed after construction.
 	const SettingID _id;
 
-public:
 	JSMSetting(SettingID id, T defaultValue)
 		: ChordedVariable(defaultValue)
 		, _id(id)
@@ -209,22 +202,38 @@ public:
 	}
 };
 
+// A ComboMap is a specific Mapping variable from a known button combined with another button.
 typedef pair<const ButtonID, JSMVariable<Mapping>> ComboMap;
 
+// Button Mapping Binding includes not only chorded mappings, but also simultaneous press mappings
 class JSMButton : public ChordedVariable<Mapping>
 {
-protected:
+public:
 	// Identifier of the variable. Cannot be changed after construction.
 	const ButtonID _id;
 
+protected:
 	map<ButtonID, JSMVariable<Mapping>> _simMappings;
+
+	map<ButtonID, unsigned int> _simListeners;
 	
 public:
 	JSMButton(ButtonID id, Mapping defaultValue)
 		: ChordedVariable(defaultValue)
 		, _id(id)
+		, _simMappings()
+		, _simListeners()
 	{}
 
+	virtual ~JSMButton()
+	{
+		for (auto id : _simListeners)
+		{
+			_simMappings[id.first].RemoveOnChangeListener(id.second);
+		}
+	}
+
+	// Obtain the Variable for a sim press if any.
 	ComboMap *getSimMap(ButtonID simBtn)
 	{
 		if (simBtn > ButtonID::NONE)
@@ -235,22 +244,26 @@ public:
 		return nullptr;
 	}
 
+	// Double Press mappings are stored in the chorded variables
 	const ComboMap *getDblPressMap() const
 	{
-		auto existingChord = _chorded.find(_id);
-		return existingChord != _chorded.end() ? &*existingChord : nullptr;
+		auto existingChord = _chordedVariables.find(_id);
+		return existingChord != _chordedVariables.end() ? &*existingChord : nullptr;
 	}
 
+	// Indicate whether any sim press mappings are present
 	inline bool HasSimMappings() const
 	{
 		return !_simMappings.empty();
 	}
 
+	// Operator forwarding
 	virtual Mapping operator =(Mapping baseValue) override
 	{
 		return JSMVariable<Mapping>::operator =(baseValue);
 	}
 
+	// Returns the display name of the chorded press if provided, or itself
 	string getName(ButtonID chord = ButtonID::NONE) const 
 	{
 		if (chord > ButtonID::NONE)
@@ -265,6 +278,7 @@ public:
 			return string();
 	}
 
+	// Returns the sim press name of itself with simBtn.
 	string getSimPressName(ButtonID simBtn) const
 	{
 		if (simBtn == _id)
@@ -281,21 +295,30 @@ public:
 		return string();
 	}
 
+	// Resetting a button also clears all assigned sim presses
 	virtual JSMButton *Reset() override
 	{
 		ChordedVariable<Mapping>::Reset();
+		for (auto id : _simListeners)
+		{
+			_simMappings[id.first].RemoveOnChangeListener(id.second);
+		}
 		_simMappings.clear();
 		return this;
 	}
 
-	JSMVariable<Mapping> &CreateSim(ButtonID chord)
+	// Get the SimPress variable, creating one if required.
+	// An additional listener is required for the complementary sim press
+	// to be updated when this value changes.
+	JSMVariable<Mapping> &AtSimPress(ButtonID chord)
 	{
 		auto existingSim = getSimMap(chord);
 		if (!existingSim)
 		{
 			JSMVariable<Mapping> var(*this, Mapping());
 			_simMappings.emplace( chord, var );
-			_simMappings[chord].AddOnChangeListener(bind(&SimPressCrossUpdate, chord, _id, placeholders::_1)); // TODO: manage id
+			_simListeners[chord] = _simMappings[chord].AddOnChangeListener(
+				bind(&SimPressCrossUpdate, chord, _id, placeholders::_1));
 		}
 		return _simMappings[chord];
 	}

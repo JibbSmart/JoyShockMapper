@@ -26,7 +26,7 @@ istream & operator >> (istream &in, ButtonID &rhv)
 	else
 	{
 		auto opt = magic_enum::enum_cast<ButtonID>(s);
-		rhv = opt ? *opt : *magic_enum::enum_cast<ButtonID>("INVALID");
+		rhv = opt ? *opt : ButtonID::INVALID;
 	}
 	return in;
 }
@@ -46,7 +46,10 @@ istream &operator >>(istream &in, FlickSnapMode &fsm)
 {
 	string name;
 	in >> name;
-	if (name.compare("4") == 0) {
+	if (name.compare("0") == 0) {
+		fsm = FlickSnapMode::NONE;
+	}
+	else if (name.compare("4") == 0) {
 		fsm = FlickSnapMode::FOUR;
 	}
 	else if (name.compare("8") == 0) {
@@ -55,7 +58,7 @@ istream &operator >>(istream &in, FlickSnapMode &fsm)
 	else
 	{
 		auto opt = magic_enum::enum_cast<FlickSnapMode>(name);
-		fsm = opt ? *opt : *magic_enum::enum_cast<FlickSnapMode>("INVALID");
+		fsm = opt ? *opt : FlickSnapMode::INVALID;
 	}
 	return in;
 }
@@ -74,11 +77,10 @@ istream &operator >>(istream &in, GyroSettings &gyro_settings)
 {
 	string valueName;
 	in >> valueName;
-	ButtonID rhsMappingIndex = ButtonID::INVALID;
-	stringstream(valueName) >> rhsMappingIndex;
-	if (rhsMappingIndex >= ButtonID::NONE)
+	auto rhsMappingIndex = magic_enum::enum_cast<ButtonID>(valueName);
+	if (rhsMappingIndex && *rhsMappingIndex >= ButtonID::NONE)
 	{
-		gyro_settings.button = rhsMappingIndex;
+		gyro_settings.button = *rhsMappingIndex;
 		gyro_settings.ignore_mode = GyroIgnoreMode::BUTTON;
 	}
 	else
@@ -190,4 +192,22 @@ bool operator ==(const FloatXY &lhs, const FloatXY &rhs)
 	// Do we need more precision than 1e-5?
 	return fabs(lhs.first - rhs.first) < 1e-5 &&
 		   fabs(lhs.second - rhs.second) < 1e-5;
+}
+
+istream& operator >> (istream& in, AxisMode& am)
+{
+	string name;
+	in >> name;
+	if (name.compare("1") == 0) {
+		am = AxisMode::STANDARD;
+	}
+	else if (name.compare("-1") == 0) {
+		am = AxisMode::INVERTED;
+	}
+	else
+	{
+		auto opt = magic_enum::enum_cast<AxisMode>(name);
+		am = opt ? *opt : AxisMode::INVALID;
+	}
+	return in;
 }

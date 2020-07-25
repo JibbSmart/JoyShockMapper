@@ -17,12 +17,14 @@ add_executable (
     ${BINARY_NAME}
     src/main.cpp
     src/operators.cpp
+	src/CmdRegistry.cpp
     include/InputHelpers.h
     include/PlatformDefinitions.h
     include/TrayIcon.h
     include/Whitelister.h
-    include/JSMCommand.h
-    include/JSMVariable.h
+    include/CmdRegistry.h
+	include/JSMAssignment.hpp
+    include/JSMVariable.hpp
     include/Whitelister.h
 	include/JoyShockMapper.h
 )

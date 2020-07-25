@@ -3,14 +3,13 @@
 #include "InputHelpers.h"
 #include "Whitelister.h"
 #include "TrayIcon.h"
-#include "JSMVariable.h"
-#include "JSMCommand.h"
+#include "JSMAssignment.hpp"
 
 #include <unordered_map>
 #include <mutex>
 #include <deque>
 
-//#pragma warning(disable:4996)
+#pragma warning(disable:4996) // Disable deprecated API warnings
 
 #define PI 3.14159265359f
 
@@ -39,10 +38,10 @@ JSMSetting<float> stick_sens = JSMSetting<float>(SettingID::STICK_SENS, 360.0f);
 JSMSetting<float> real_world_calibration = JSMSetting<float>(SettingID::REAL_WORLD_CALIBRATION, 40.0f);
 JSMSetting<float> in_game_sens = JSMSetting<float>(SettingID::IN_GAME_SENS, 1.0f);
 JSMSetting<float> trigger_threshold = JSMSetting<float>(SettingID::TRIGGER_THRESHOLD, 0.0f);
-JSMSetting<float> aim_y_sign = JSMSetting<float>(SettingID::STICK_AXIS_Y, 1.0f);
-JSMSetting<float> aim_x_sign = JSMSetting<float>(SettingID::STICK_AXIS_X, 1.0f);
-JSMSetting<float> gyro_y_sign = JSMSetting<float>(SettingID::GYRO_AXIS_Y, 1.0f);
-JSMSetting<float> gyro_x_sign = JSMSetting<float>(SettingID::GYRO_AXIS_X, 1.0f);
+JSMSetting<AxisMode> aim_x_sign = JSMSetting<AxisMode>(SettingID::STICK_AXIS_X, AxisMode::STANDARD);
+JSMSetting<AxisMode> aim_y_sign = JSMSetting<AxisMode>(SettingID::STICK_AXIS_Y, AxisMode::STANDARD);
+JSMSetting<AxisMode> gyro_y_sign = JSMSetting<AxisMode>(SettingID::GYRO_AXIS_Y, AxisMode::STANDARD);
+JSMSetting<AxisMode> gyro_x_sign = JSMSetting<AxisMode>(SettingID::GYRO_AXIS_X, AxisMode::STANDARD);
 JSMSetting<float> flick_time = JSMSetting<float>(SettingID::FLICK_TIME, 0.1f);
 JSMSetting<float> gyro_smooth_time = JSMSetting<float>(SettingID::GYRO_SMOOTH_TIME, 0.125f);
 JSMSetting<float> gyro_smooth_threshold = JSMSetting<float>(SettingID::GYRO_SMOOTH_THRESHOLD, 0.0f);
@@ -148,11 +147,6 @@ public:
 		}
 		// Chord stack should always include NONE which will provide a value in the loop above
 		return false;
-	}
-
-	inline bool HasSimMapping()
-	{
-		return _mapping.HasSimMappings();
 	}
 
 	KeyCode GetHoldMapping()
@@ -577,16 +571,16 @@ public:
 				opt = trigger_threshold.get(*activeChord);
 				break;
 			case SettingID::STICK_AXIS_X:
-				opt = aim_x_sign.get(*activeChord);
+				opt = GetOptionalSetting<float>(aim_x_sign, *activeChord);
 				break;
 			case SettingID::STICK_AXIS_Y:
-				opt = aim_y_sign.get(*activeChord);
+				opt = GetOptionalSetting<float>(aim_y_sign, *activeChord);
 				break;
 			case SettingID::GYRO_AXIS_X:
-				opt = gyro_x_sign.get(*activeChord);
+				opt = GetOptionalSetting<float>(gyro_x_sign, *activeChord);
 				break;
 			case SettingID::GYRO_AXIS_Y:
-				opt = gyro_y_sign.get(*activeChord);
+				opt = GetOptionalSetting<float>(gyro_y_sign, *activeChord);
 				break;
 			case SettingID::FLICK_TIME:
 				opt = flick_time.get(*activeChord);
@@ -799,7 +793,7 @@ public:
 		case BtnState::NoPress:
 			if (pressed)
 			{
-				if (button.HasSimMapping())
+				if (button._mapping.HasSimMappings())
 				{
 					button._btnState = BtnState::WaitSim;
 					button._press_times = time_now;
@@ -1376,7 +1370,7 @@ void connectDevices() {
 
 void SimPressCrossUpdate(ButtonID sim, ButtonID origin, Mapping newVal)
 {
-	mappings[int(sim)].CreateSim(origin) = newVal;
+	mappings[int(sim)].AtSimPress(origin) = newVal;
 }
 
 bool do_NO_GYRO_BUTTON() {
@@ -1526,7 +1520,7 @@ bool do_RESTART_GYRO_CALIBRATION() {
 	return true;
 }
 
-bool do_HELP() {
+bool do_README() {
 	printf("Opening online help in your browser\n");
 	if (auto err = ShowOnlineHelp() != 0)
 	{
@@ -2323,10 +2317,10 @@ int main(int argc, char *argv[]) {
 	real_world_calibration.SetFilter(&filterFloat);
 	in_game_sens.SetFilter(bind(&fmaxf, 0.0001f, ::placeholders::_2));
 	trigger_threshold.SetFilter(&filterClamp01);
-	aim_x_sign.SetFilter(&filterSign);
-	aim_y_sign.SetFilter(&filterSign);
-	gyro_x_sign.SetFilter(&filterSign);
-	gyro_y_sign.SetFilter(&filterSign);
+	aim_x_sign.SetFilter(&filterInvalidValue<AxisMode, AxisMode::INVALID>);
+	aim_y_sign.SetFilter(&filterInvalidValue<AxisMode, AxisMode::INVALID>);
+	gyro_x_sign.SetFilter(&filterInvalidValue<AxisMode, AxisMode::INVALID>);
+	gyro_y_sign.SetFilter(&filterInvalidValue<AxisMode, AxisMode::INVALID>);
 	flick_time.SetFilter(bind(&fmaxf, 0.0001f, ::placeholders::_2));
 	gyro_smooth_time.SetFilter(bind(&fmaxf, 0.0001f, ::placeholders::_2));
 	gyro_smooth_threshold.SetFilter(&filterPositive);
@@ -2345,64 +2339,119 @@ int main(int argc, char *argv[]) {
 	resetAllMappings();
 	
 	CmdRegistry commandRegistry;
-	for (auto &mapping : mappings)
+	for (auto &mapping : mappings) // Add all button mappings as commands
 	{
 		commandRegistry.Add(new JSMAssignment<Mapping>(mapping.getName(), mapping));
 	}
-	// Irregular commands are encapsulated in its own object.
-	commandRegistry.Add((new JSMAssignment<FloatXY>("MIN_GYRO_SENS", min_gyro_sens)));
-	commandRegistry.Add((new JSMAssignment<FloatXY>("MAX_GYRO_SENS", max_gyro_sens)));
-	commandRegistry.Add((new JSMAssignment<float>("MIN_GYRO_THRESHOLD", min_gyro_threshold)));
-	commandRegistry.Add((new JSMAssignment<float>("MAX_GYRO_THRESHOLD", max_gyro_threshold)));
-	commandRegistry.Add((new JSMAssignment<float>("STICK_POWER", stick_power)));
-	commandRegistry.Add((new JSMAssignment<float>("STICK_SENS", stick_sens)));
-	commandRegistry.Add((new JSMAssignment<float>("REAL_WORLD_CALIBRATION", real_world_calibration)));
-	commandRegistry.Add((new JSMAssignment<float>("IN_GAME_SENS", in_game_sens)));
-	commandRegistry.Add((new JSMAssignment<float>("TRIGGER_THRESHOLD", trigger_threshold)));
-	commandRegistry.Add((new JSMMacro("RESET_MAPPINGS"))->SetMacro(bind(&do_RESET_MAPPINGS)));
-	commandRegistry.Add((new JSMMacro("NO_GYRO_BUTTON"))->SetMacro(bind(&do_NO_GYRO_BUTTON)));
-	commandRegistry.Add((new JSMAssignment<StickMode>("LEFT_STICK_MODE", left_stick_mode)));
-	commandRegistry.Add((new JSMAssignment<StickMode>("RIGHT_STICK_MODE", right_stick_mode)));
-	commandRegistry.Add((new GyroAssignment("GYRO_OFF", false)));
-	commandRegistry.Add((new GyroAssignment("GYRO_ON", true))->SetListener()); // Set only one listener
-	commandRegistry.Add((new JSMAssignment<float>("STICK_AXIS_X", aim_x_sign))); // custom parser
-	commandRegistry.Add((new JSMAssignment<float>("STICK_AXIS_Y", aim_y_sign)));
-	commandRegistry.Add((new JSMAssignment<float>("GYRO_AXIS_X", gyro_x_sign)));
-	commandRegistry.Add((new JSMAssignment<float>("GYRO_AXIS_Y", gyro_y_sign)));
-	commandRegistry.Add((new JSMMacro("RECONNECT_CONTROLLERS"))->SetMacro(bind(&do_RECONNECT_CONTROLLERS)));
-	commandRegistry.Add((new JSMMacro("COUNTER_OS_MOUSE_SPEED"))->SetMacro(bind(do_COUNTER_OS_MOUSE_SPEED)));
-	commandRegistry.Add((new JSMMacro("IGNORE_OS_MOUSE_SPEED"))->SetMacro(bind(do_IGNORE_OS_MOUSE_SPEED)));
-	commandRegistry.Add((new JSMAssignment<JoyconMask>("JOYCON_GYRO_MASK", joycon_gyro_mask)));
-	commandRegistry.Add((new JSMMacro("GYRO_SENS"))->SetMacro(bind(&do_GYRO_SENS, placeholders::_2)));
-	commandRegistry.Add((new JSMAssignment<float>("FLICK_TIME", flick_time)));
-	commandRegistry.Add((new JSMAssignment<float>("GYRO_SMOOTH_THRESHOLD", gyro_smooth_threshold)));
-	commandRegistry.Add((new JSMAssignment<float>("GYRO_SMOOTH_TIME", gyro_smooth_time)));
-	commandRegistry.Add((new JSMAssignment<float>("GYRO_CUTOFF_SPEED", gyro_cutoff_speed)));
-	commandRegistry.Add((new JSMAssignment<float>("GYRO_CUTOFF_RECOVERY", gyro_cutoff_recovery)));
-	commandRegistry.Add((new JSMAssignment<float>("STICK_ACCELERATION_RATE", stick_acceleration_rate)));
-	commandRegistry.Add((new JSMAssignment<float>("STICK_ACCELERATION_CAP", stick_acceleration_cap)));
-	commandRegistry.Add((new JSMAssignment<float>("STICK_DEADZONE_INNER", stick_deadzone_inner)));
-	commandRegistry.Add((new JSMAssignment<float>("STICK_DEADZONE_OUTER", stick_deadzone_outer)));
-	commandRegistry.Add((new JSMMacro("CALCULATE_REAL_WORLD_CALIBRATION"))->SetMacro(bind(&do_CALCULATE_REAL_WORLD_CALIBRATION, placeholders::_2)));
-	commandRegistry.Add((new JSMMacro("FINISH_GYRO_CALIBRATION"))->SetMacro(bind(&do_FINISH_GYRO_CALIBRATION)));
-	commandRegistry.Add((new JSMMacro("RESTART_GYRO_CALIBRATION"))->SetMacro(bind(&do_RESTART_GYRO_CALIBRATION)));
-	commandRegistry.Add((new JSMAssignment<GyroAxisMask>("MOUSE_X_FROM_GYRO_AXIS", mouse_x_from_gyro)));
-	commandRegistry.Add((new JSMAssignment<GyroAxisMask>("MOUSE_Y_FROM_GYRO_AXIS", mouse_y_from_gyro)));
-	commandRegistry.Add((new JSMAssignment<TriggerMode>("ZR_MODE", zlMode)));
-	commandRegistry.Add((new JSMAssignment<TriggerMode>("ZL_MODE", zrMode)));
-	commandRegistry.Add((new JSMMacro("AUTOLOAD"))->SetParser(&do_AUTOLOAD));
-	commandRegistry.Add((new JSMMacro("HELP"))->SetMacro(bind(&do_HELP)));
-	commandRegistry.Add((new JSMMacro("WHITELIST_SHOW"))->SetMacro(bind(&do_WHITELIST_SHOW)));
-	commandRegistry.Add((new JSMMacro("WHITELIST_ADD"))->SetMacro(bind(&do_WHITELIST_ADD)));
-	commandRegistry.Add((new JSMMacro("WHITELIST_REMOVE"))->SetMacro(bind(&do_WHITELIST_REMOVE)));
-	commandRegistry.Add((new JSMAssignment<RingMode>("LEFT_RING_MODE", left_ring_mode)));
-	commandRegistry.Add((new JSMAssignment<RingMode>("RIGHT_RING_MODE", right_ring_mode)));
-	commandRegistry.Add((new JSMAssignment<float>("MOUSE_RING_RADIUS", mouse_ring_radius)));
-	commandRegistry.Add((new JSMAssignment<float>("SCREEN_RESOLUTION_X", screen_resolution_x)));
-	commandRegistry.Add((new JSMAssignment<float>("SCREEN_RESOLUTION_Y", screen_resolution_y)));
-	commandRegistry.Add((new JSMAssignment<float>("ROTATE_SMOOTH_OVERRIDE", rotate_smooth_override)));
-	commandRegistry.Add((new JSMAssignment<FlickSnapMode>("FLICK_SNAP_MODE", flick_snap_mode)));
-	commandRegistry.Add((new JSMAssignment<float>("FLICK_SNAP_STRENGTH", flick_snap_strength)));
+	commandRegistry.Add((new JSMAssignment<FloatXY>("MIN_GYRO_SENS", min_gyro_sens))
+		->SetHelp("Minimal gyro sensitivity factor before ramping linearily to maximum value.\nYou can assign a second value as a different vertical sensitivity."));
+	commandRegistry.Add((new JSMAssignment<FloatXY>("MAX_GYRO_SENS", max_gyro_sens))
+		->SetHelp("Maximal gyro sensitivity factor after ramping linearily from minimal value.\nYou can assign a second value as a different vertical sensitivity."));
+	commandRegistry.Add((new JSMAssignment<float>("MIN_GYRO_THRESHOLD", min_gyro_threshold))
+		->SetHelp("Number of degrees per second at which to apply minimal gyro sensitivity."));
+	commandRegistry.Add((new JSMAssignment<float>("MAX_GYRO_THRESHOLD", max_gyro_threshold))
+		->SetHelp("Number of degrees per second at which to apply maximal gyro sensitivity."));
+	commandRegistry.Add((new JSMAssignment<float>("STICK_POWER", stick_power))
+	    ->SetHelp(""));
+	commandRegistry.Add((new JSMAssignment<float>("STICK_SENS", stick_sens))
+		->SetHelp("Stick sensitivity when using classic AIM mode."));
+	commandRegistry.Add((new JSMAssignment<float>("REAL_WORLD_CALIBRATION", real_world_calibration))
+		->SetHelp("Calibration value mapping mouse values to in game degrees. This value is used for FLICK mode.")); // And other things?
+	commandRegistry.Add((new JSMAssignment<float>("IN_GAME_SENS", in_game_sens))
+		->SetHelp("Set this value to the sensitivity you use in game. It is used by stick FLICK and AIM modes."));
+	commandRegistry.Add((new JSMAssignment<float>("TRIGGER_THRESHOLD", trigger_threshold))
+		->SetHelp("Set this to a value between 0 and 1, representing the analog threshold point at which to apply soft press binding."));
+	commandRegistry.Add((new JSMMacro("RESET_MAPPINGS"))->SetMacro(bind(&do_RESET_MAPPINGS))
+		->SetHelp("Delete all cusstom bindings and reset to default.\nHOME and CAPTURE are set to CALIBRATE on both tap and hold by default."));
+	commandRegistry.Add((new JSMMacro("NO_GYRO_BUTTON"))->SetMacro(bind(&do_NO_GYRO_BUTTON))
+		->SetHelp("Enable gyro at all times, withhout any GYRO_OFF binding."));
+	commandRegistry.Add((new JSMAssignment<StickMode>("LEFT_STICK_MODE", left_stick_mode))
+		->SetHelp("Set a mouse mode for the left stick. Valid values are the following:\nNO_MOUSE, AIM, FLICK, FLICK_ONLY, ROTATE_ONLY, MOUSE_RING, MOUSE_AREA, OUTER_RING, INNER_RING"));
+	commandRegistry.Add((new JSMAssignment<StickMode>("RIGHT_STICK_MODE", right_stick_mode))
+		->SetHelp("Set a mouse mode for the right stick. Valid values are the following:\nNO_MOUSE, AIM, FLICK, FLICK_ONLY, ROTATE_ONLY, MOUSE_RING, MOUSE_AREA, OUTER_RING, INNER_RING"));
+	commandRegistry.Add((new GyroAssignment("GYRO_OFF", false))
+		->SetHelp("Assign a controller button to disable the gyro when pressed."));
+	commandRegistry.Add((new GyroAssignment("GYRO_ON", true))->SetListener() // Set only one listener
+		->SetHelp("Assign a controller button to enable the gyro when pressed."));
+	commandRegistry.Add((new JSMAssignment<AxisMode>("STICK_AXIS_X", aim_x_sign))
+		->SetHelp("Specify the stick X axis inversion value. Valid values are the following:\nSTANDARD or 1, and INVERTED or -1"));
+	commandRegistry.Add((new JSMAssignment<AxisMode>("STICK_AXIS_Y", aim_y_sign))
+		->SetHelp("Specify the stick Y axis inversion value. Valid values are the following:\nSTANDARD or 1, and INVERTED or -1"));
+	commandRegistry.Add((new JSMAssignment<AxisMode>("GYRO_AXIS_X", gyro_x_sign))
+		->SetHelp("Specify the gyro X axis inversion value. Valid values are the following:\nSTANDARD or 1, and INVERTED or -1"));
+	commandRegistry.Add((new JSMAssignment<AxisMode>("GYRO_AXIS_Y", gyro_y_sign))
+		->SetHelp("Specify the gyro Y axis inversion value. Valid values are the following:\nSTANDARD or 1, and INVERTED or -1"));
+	commandRegistry.Add((new JSMMacro("RECONNECT_CONTROLLERS"))->SetMacro(bind(&do_RECONNECT_CONTROLLERS))
+		->SetHelp("Reload the controller listing."));
+	commandRegistry.Add((new JSMMacro("COUNTER_OS_MOUSE_SPEED"))->SetMacro(bind(do_COUNTER_OS_MOUSE_SPEED))
+		->SetHelp("JoyShockMapper will load the user's OS mouse sensitivity value to consider it in it's calculations."));
+	commandRegistry.Add((new JSMMacro("IGNORE_OS_MOUSE_SPEED"))->SetMacro(bind(do_IGNORE_OS_MOUSE_SPEED))
+		->SetHelp("Disable JoyShockMapper's consideration of the the user's OS mouse sensitivity value."));
+	commandRegistry.Add((new JSMAssignment<JoyconMask>("JOYCON_GYRO_MASK", joycon_gyro_mask))
+		->SetHelp("When using two Joycons, select which one will be used for gyro. Valid values are the following:\nUSE_BOTH, IGNORE_LEFT, IGNORE_RIGHT, IGNORE_BOTH"));
+	commandRegistry.Add((new JSMMacro("GYRO_SENS"))->SetMacro(bind(&do_GYRO_SENS, placeholders::_2))
+		->SetHelp("Sets a gyro sensitivity to use. This sets both MIN_GYRO_SENS and MAX_GYRO_SENS to the same values. You can assign a second value as a different vertical sensitivity."));
+	commandRegistry.Add((new JSMAssignment<float>("FLICK_TIME", flick_time))
+		->SetHelp("Sets the duration for which a flick will last in seconds. This vlaue is used by stick FLICK mode."));
+	commandRegistry.Add((new JSMAssignment<float>("GYRO_SMOOTH_THRESHOLD", gyro_smooth_threshold))
+		->SetHelp(""));
+	commandRegistry.Add((new JSMAssignment<float>("GYRO_SMOOTH_TIME", gyro_smooth_time))
+		->SetHelp(""));
+	commandRegistry.Add((new JSMAssignment<float>("GYRO_CUTOFF_SPEED", gyro_cutoff_speed))
+		->SetHelp(""));
+	commandRegistry.Add((new JSMAssignment<float>("GYRO_CUTOFF_RECOVERY", gyro_cutoff_recovery))
+		->SetHelp(""));
+	commandRegistry.Add((new JSMAssignment<float>("STICK_ACCELERATION_RATE", stick_acceleration_rate))
+		->SetHelp(""));
+	commandRegistry.Add((new JSMAssignment<float>("STICK_ACCELERATION_CAP", stick_acceleration_cap))
+		->SetHelp(""));
+	commandRegistry.Add((new JSMAssignment<float>("STICK_DEADZONE_INNER", stick_deadzone_inner))
+		->SetHelp("Defines a radius of the stick for which all values will be null. This value can only be between 0 and 1 but it should be small."));
+	commandRegistry.Add((new JSMAssignment<float>("STICK_DEADZONE_OUTER", stick_deadzone_outer))
+		->SetHelp("Defines a distance from the stick's outer edge for which all values will be maximal. This value can only be between 0 and 1 but it should be small."));
+	commandRegistry.Add((new JSMMacro("CALCULATE_REAL_WORLD_CALIBRATION"))->SetMacro(bind(&do_CALCULATE_REAL_WORLD_CALIBRATION, placeholders::_2))
+		->SetHelp("Get JoyShockMapper to recommend you a REAL_WORLD_CALIBRATION value after performing the calibration sequence. Visit GyroWiki for details:\nhttp://gyrowiki.jibbsmart.com/blog:joyshockmapper-guide#calibrating"));
+	commandRegistry.Add((new JSMMacro("FINISH_GYRO_CALIBRATION"))->SetMacro(bind(&do_FINISH_GYRO_CALIBRATION))
+		->SetHelp("Stop the calibration of the gyro of all controllers."));
+	commandRegistry.Add((new JSMMacro("RESTART_GYRO_CALIBRATION"))->SetMacro(bind(&do_RESTART_GYRO_CALIBRATION))
+		->SetHelp("Start the calibration of the gyro of all controllers."));
+	commandRegistry.Add((new JSMAssignment<GyroAxisMask>("MOUSE_X_FROM_GYRO_AXIS", mouse_x_from_gyro))
+		->SetHelp("Pick a gyro axis to operate on the mouse's X axis. Valid values are the following: X, Y and Z."));
+	commandRegistry.Add((new JSMAssignment<GyroAxisMask>("MOUSE_Y_FROM_GYRO_AXIS", mouse_y_from_gyro))
+		->SetHelp("Pick a gyro axis to operate on the mouse's Y axis. Valid values are the following: X, Y and Z."));
+	commandRegistry.Add((new JSMAssignment<TriggerMode>("ZR_MODE", zlMode))
+		->SetHelp("Controllers with a right analog trigger can use one of the following dual stage trigger modes:\nNO_FULL, NO_SKIP, MAY_SKIP, MUST_SKIP, MAY_SKIP_R, MUST_SKIP_R"));
+	commandRegistry.Add((new JSMAssignment<TriggerMode>("ZL_MODE", zrMode))
+		->SetHelp("Controllers with a left analog trigger can use one of the following dual stage trigger modes:\nNO_FULL, NO_SKIP, MAY_SKIP, MUST_SKIP, MAY_SKIP_R, MUST_SKIP_R"));
+	stringstream ss("AUTOLOAD will automatically load file from the following folder when a window with a matching executable name enters focus:\n");
+	ss << GetCWD() << "\\AutoLoad\\";
+	commandRegistry.Add((new JSMMacro("AUTOLOAD"))->SetParser(&do_AUTOLOAD)
+		->SetHelp(ss.str()));
+	commandRegistry.Add((new JSMMacro("README"))->SetMacro(bind(&do_README))
+		->SetHelp("Open the latest JoyShockMapper README in your browser."));
+	commandRegistry.Add((new JSMMacro("WHITELIST_SHOW"))->SetMacro(bind(&do_WHITELIST_SHOW))
+		->SetHelp("Open HIDCerberus configuration page in your browser."));
+	commandRegistry.Add((new JSMMacro("WHITELIST_ADD"))->SetMacro(bind(&do_WHITELIST_ADD))
+		->SetHelp("Add JoyShockMapper to HIDGuardian whitelisted applications."));
+	commandRegistry.Add((new JSMMacro("WHITELIST_REMOVE"))->SetMacro(bind(&do_WHITELIST_REMOVE))
+		->SetHelp("Remove JoyShockMapper from HIDGuardian whitelisted applications."));
+	commandRegistry.Add((new JSMAssignment<RingMode>("LEFT_RING_MODE", left_ring_mode))
+		->SetHelp("Pick a ring where to apply the LEFT_RING binding. Valid values are the following: INNER and OUTER."));
+	commandRegistry.Add((new JSMAssignment<RingMode>("RIGHT_RING_MODE", right_ring_mode))
+		->SetHelp("Pick a ring where to apply the RIGHT_RING binding. Valid values are the following: INNER and OUTER."));
+	commandRegistry.Add((new JSMAssignment<float>("MOUSE_RING_RADIUS", mouse_ring_radius))
+		->SetHelp("Pick a radius on which the cursor will be allowed to move. This value is used for stick mode MOUSE_RING and MOUSE_AREA."));
+	commandRegistry.Add((new JSMAssignment<float>("SCREEN_RESOLUTION_X", screen_resolution_x))
+		->SetHelp("Indicate your monitor's horizontal resolution when using the stick mode MOUSE_RING."));
+	commandRegistry.Add((new JSMAssignment<float>("SCREEN_RESOLUTION_Y", screen_resolution_y))
+		->SetHelp("Indicate your monitor's vertical resolution when using the stick mode MOUSE_RING."));
+	commandRegistry.Add((new JSMAssignment<float>("ROTATE_SMOOTH_OVERRIDE", rotate_smooth_override))
+		->SetHelp(""));
+	commandRegistry.Add((new JSMAssignment<FlickSnapMode>("FLICK_SNAP_MODE", flick_snap_mode))
+		->SetHelp("Constrain flicks within cardinal directions. Valid values are the following: NONE or 0, FOUR or 4 and EIGHT or 8."));
+	commandRegistry.Add((new JSMAssignment<float>("FLICK_SNAP_STRENGTH", flick_snap_strength))
+		->SetHelp(""));
+	// TODO Add HELP command
 
 	bool quit = false;
 	commandRegistry.Add((new JSMMacro("QUIT"))
