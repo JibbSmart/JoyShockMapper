@@ -13,6 +13,12 @@ public:
 	// the data string to process. It returns whether the data was recognized or not.
 	typedef function<bool(JSMCommand *cmd, in_string &data)> ParseDelegate;
 
+	// Assignments can be given tasks to perform before destroying themselves.
+	// This is used for chorded press, sim presses and modeshifts to remove
+	// themselves from their host variable when assigned NONE
+	typedef function<void(JSMCommand &me)> TaskOnDestruction;
+
+
 protected:
 	// Parse functor to be assigned by derived class or overwritten
 	// Use setter to assign
@@ -20,6 +26,10 @@ protected:
 
 	// Help string to display about the command. Cannot be changed after construction
 	string _help;
+
+	// Some task to perform when this object is destroyed
+	TaskOnDestruction _taskOnDestruction;
+
 public:
 	// Name of the command. Cannot be changed after construction.
 	// I don't mind leaving this public since it can't be changed.
@@ -44,6 +54,13 @@ public:
 	inline string Help()
 	{
 		return _help;
+	}
+
+	// Set a task to perform when this command is destroyed
+	inline JSMCommand *SetTaskOnDestruction(const TaskOnDestruction &task)
+	{
+		_taskOnDestruction = task;
+		return this;
 	}
 
 	// Request this command to parse the command arguments. Returns true if the command was processed.

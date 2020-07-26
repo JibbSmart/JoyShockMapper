@@ -145,12 +145,22 @@ istream &operator >>(istream &in, Mapping &mapping)
 	valueName.clear();
 	ss >> valueName;
 	mapping.holdBind = KeyCode(valueName);
+	if (mapping.pressBind.code == NO_HOLD_MAPPED && mapping.holdBind.code == 0)
+		// Assigning none is clearing the value.
+		mapping.pressBind = KeyCode::EMPTY;
 	return in;
 }
 
 ostream &operator <<(ostream &out, Mapping mapping)
 {
-	out << mapping.pressBind.name << " " << mapping.holdBind.name << endl;
+	if (mapping.pressBind.code == 0 && mapping.holdBind.code == 0)
+	{
+		out << "no input";
+	}
+	else
+	{
+		out << mapping.pressBind.name << " " << mapping.holdBind.name;
+	}
 	return out;
 }
 

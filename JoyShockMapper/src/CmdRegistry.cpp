@@ -9,13 +9,17 @@
 
 
 JSMCommand::JSMCommand(in_string name)
-	: _name(name)
+	: _parse()
 	, _help("Error in entering the command. See README for help.")
-	, _parse()
+	, _taskOnDestruction()
+	, _name(name)
 {}
 
 JSMCommand::~JSMCommand() 
-{}
+{
+	if (_taskOnDestruction)
+		_taskOnDestruction(*this);
+}
 
 JSMCommand* JSMCommand::SetParser(ParseDelegate parserFunction)
 {
@@ -145,6 +149,7 @@ void CmdRegistry::processLine(string& line)
 				{
 					hasProcessed |= modCommand->ParseData(arguments);
 				}
+				// Any task set to be run on destruction is done here.
 			}
 			cmd = find_if(++cmd, _registry.end(), bind(&CmdRegistry::findCommandWithName, name, placeholders::_1));
 		}

@@ -5,7 +5,6 @@
 #include "TrayIcon.h"
 #include "JSMAssignment.hpp"
 
-#include <unordered_map>
 #include <mutex>
 #include <deque>
 
@@ -21,8 +20,8 @@ JSMSetting<StickMode> left_stick_mode = JSMSetting<StickMode>(SettingID::LEFT_ST
 JSMSetting<StickMode> right_stick_mode = JSMSetting<StickMode>(SettingID::RIGHT_STICK_MODE, StickMode::NO_MOUSE);
 JSMSetting<RingMode> left_ring_mode = JSMSetting<RingMode>(SettingID::LEFT_RING_MODE, RingMode::OUTER);
 JSMSetting<RingMode> right_ring_mode = JSMSetting<RingMode>(SettingID::LEFT_RING_MODE, RingMode::OUTER);
-JSMSetting<GyroAxisMask> mouse_x_from_gyro = JSMSetting<GyroAxisMask>(SettingID::MOUSE_X_FROM_GYRO_AXIS, GyroAxisMask::NONE);
-JSMSetting<GyroAxisMask> mouse_y_from_gyro = JSMSetting<GyroAxisMask>(SettingID::MOUSE_Y_FROM_GYRO_AXIS, GyroAxisMask::NONE);
+JSMSetting<GyroAxisMask> mouse_x_from_gyro = JSMSetting<GyroAxisMask>(SettingID::MOUSE_X_FROM_GYRO_AXIS, GyroAxisMask::Y);
+JSMSetting<GyroAxisMask> mouse_y_from_gyro = JSMSetting<GyroAxisMask>(SettingID::MOUSE_Y_FROM_GYRO_AXIS, GyroAxisMask::X);
 JSMSetting<GyroSettings> gyro_settings = JSMSetting<GyroSettings>(SettingID::GYRO_ON, GyroSettings()); // Ignore mode none means no GYRO_OFF button
 JSMSetting<JoyconMask> joycon_gyro_mask = JSMSetting<JoyconMask>(SettingID::JOYCON_GYRO_MASK, JoyconMask::IGNORE_LEFT);
 JSMSetting<TriggerMode> zlMode = JSMSetting<TriggerMode>(SettingID::ZL_MODE, TriggerMode::NO_FULL);
@@ -1370,7 +1369,7 @@ void connectDevices() {
 
 void SimPressCrossUpdate(ButtonID sim, ButtonID origin, Mapping newVal)
 {
-	mappings[int(sim)].AtSimPress(origin) = newVal;
+	mappings[int(sim)].AtSimPress(origin)->operator= (newVal);
 }
 
 bool do_NO_GYRO_BUTTON() {
@@ -1405,32 +1404,30 @@ bool do_IGNORE_OS_MOUSE_SPEED() {
 	return true;
 }
 
-bool do_GYRO_SENS(in_string argument)
+bool parse_GYRO_SENS(in_string argument)
 {
-	stringstream ss(argument);
-	// Ignore whitespaces until the '=' is found
-	char c;
-	do {
-		ss >> c;
-	} while (ss.good() && c != '=');
-	if (!ss.good())
+	if (argument.empty())
 	{
 		//No assignment? Display current assignment
 		cout << "MIN_GYRO_SENS = " << *min_gyro_sens.get() << endl << "MAX_GYRO_SENS = " << *max_gyro_sens.get() << endl;
 	}
-	if (c == '=')
+	else
 	{
+		stringstream ss(argument);
 		// Read the value
 		FloatXY newSens;
 		ss >> newSens;
 		if (!ss.fail())
 		{
+			FloatXY oldMin = min_gyro_sens;
+			FloatXY oldMax = max_gyro_sens;
 			min_gyro_sens.operator=(newSens);
 			max_gyro_sens.operator=(newSens);
-			return true;
+			return oldMin != min_gyro_sens && newSens != oldMin && 
+				  oldMax != max_gyro_sens && oldMax != newSens;
 		}
 		else {
-			cout << "Can't convert \"" << argument.substr(argument.find_first_of('=')+1, argument.length()) << "\" to one or two numbers" << endl;
+			cout << "Can't convert \"" << argument << "\" to one or two numbers" << endl;
 		}
 	}
 	// Not an equal sign? The command is entered wrong!
@@ -1444,17 +1441,14 @@ bool do_AUTOLOAD(JSMCommand *cmd, in_string argument)
 		cout << "AutoLoad is unavailable" << endl;
 		return true; // No need to display help
 	}
-	stringstream ss(argument);
-	// Ignore whitespaces until the '=' is found
-	char c;
-	for (c = ss.peek(); ss.good() && c == ' '; ss >> c);
-	if (!ss.good())
+	if (argument.empty())
 	{
 		//No assignment? Display current assignment
 		cout << "AUTOLOAD = " << (autoLoadThread->isRunning() ? "ON " : "OFF") << endl;
 	}
-	if (c == '=')
+	else
 	{
+		stringstream ss(argument);
 		string valueName;
 		ss >> valueName;
 		if (valueName.compare("ON") == 0)
@@ -2209,20 +2203,15 @@ private:
 
 	bool GyroParser(in_string data)
 	{
-		stringstream ss(data);
-		// Ignore whitespaces until the '=' is found
-		char c;
-		do {
-			ss >> c;
-		} while (ss.good() && c != '=');
-		if (!ss.good())
+		if (data.empty())
 		{
 			GyroSettings value(_var);
 			//No assignment? Display current assignment
 			cout << (value.always_off ? string("GYRO_ON") : string("GYRO_OFF")) << " = " << value << endl;;
 		}
-		if (c == '=')
+		else
 		{
+			stringstream ss(data);
 			// Read the value
 			GyroSettings value;
 			value.always_off = _always_off; // Added line from DefaultParser
@@ -2389,7 +2378,7 @@ int main(int argc, char *argv[]) {
 		->SetHelp("Disable JoyShockMapper's consideration of the the user's OS mouse sensitivity value."));
 	commandRegistry.Add((new JSMAssignment<JoyconMask>("JOYCON_GYRO_MASK", joycon_gyro_mask))
 		->SetHelp("When using two Joycons, select which one will be used for gyro. Valid values are the following:\nUSE_BOTH, IGNORE_LEFT, IGNORE_RIGHT, IGNORE_BOTH"));
-	commandRegistry.Add((new JSMMacro("GYRO_SENS"))->SetMacro(bind(&do_GYRO_SENS, placeholders::_2))
+	commandRegistry.Add((new JSMMacro("GYRO_SENS"))->SetMacro(bind(&parse_GYRO_SENS, placeholders::_2))
 		->SetHelp("Sets a gyro sensitivity to use. This sets both MIN_GYRO_SENS and MAX_GYRO_SENS to the same values. You can assign a second value as a different vertical sensitivity."));
 	commandRegistry.Add((new JSMAssignment<float>("FLICK_TIME", flick_time))
 		->SetHelp("Sets the duration for which a flick will last in seconds. This vlaue is used by stick FLICK mode."));
@@ -2469,6 +2458,10 @@ int main(int argc, char *argv[]) {
 	}
 	else printf("[AUTOLOAD] AutoLoad is unavailable\n");
 
+	map<int, float> toto;
+	toto[5] = 0.8f;
+	auto found = toto.find(5);
+	toto.erase(found);
 
 	// The main loop is simple and reads like pseudocode
 	string enteredCommand;

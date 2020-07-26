@@ -1,10 +1,10 @@
 #pragma once
 
 #include "JoyShockMapper.h"
-#include <functional>
-#include <map>
+//#include <functional>
+//#include <map>
 #include <sstream>
-#include <algorithm>
+//#include <algorithm>
 
 // Global ID generator
 static unsigned int _delegateID = 1;
@@ -30,9 +30,6 @@ protected:
 	// The variable value itself
 	T _value;
 
-	// Default value of the variable. Cannot be changed after construction.
-	const T _defVal;
-
 	// Parts of the code can be notified of when _value changes.
 	map<unsigned int, OnChangeDelegate> _onChangeListeners;
 
@@ -46,19 +43,22 @@ protected:
 	}
 
 public:
+	// Default value of the variable. Cannot be changed after construction.
+	const T _defVal;
+
 	JSMVariable(T defaultValue = T(0))
 		: _value(defaultValue)
-		, _defVal(defaultValue)
 		, _onChangeListeners()
 		, _filter(&NoFiltering) // _filter is always valid
+		, _defVal(defaultValue)
 	{	}
 
 	// Make a copy with a different default value
 	JSMVariable(const JSMVariable &copy, T defaultValue = T(0))
 		: _value(defaultValue)
-		, _defVal(defaultValue)
 		, _onChangeListeners() // Don't copy listeners. This is a different variable!
 		, _filter(copy._filter)
+		, _defVal(defaultValue)
 	{	}
 
 	virtual ~JSMVariable()
@@ -141,7 +141,7 @@ public:
 	{}
 	
 	// Get the chorded variable, creating one if required.
-	JSMVariable<T> &AtChord(ButtonID chord)
+	JSMVariable<T> *AtChord(ButtonID chord)
 	{
 		auto existingChord = _chordedVariables.find(chord);
 		if (existingChord == _chordedVariables.end())
@@ -149,7 +149,7 @@ public:
 			// Create the chord when requested, using the copy constructor.
 			_chordedVariables.emplace( chord, JSMVariable<T>(*this, _defVal) );
 		}
-		return _chordedVariables[chord];
+		return &_chordedVariables[chord];
 	}
 
 	// Access the chorded variable. Will return nullptr if it does not exist.
@@ -187,6 +187,8 @@ public:
 template<typename T>
 class JSMSetting : public ChordedVariable<T>
 {
+protected:
+	ButtonID _chordToRemove;
 public:
 	// Identifier of the variable. Cannot be changed after construction.
 	const SettingID _id;
@@ -194,11 +196,30 @@ public:
 	JSMSetting(SettingID id, T defaultValue)
 		: ChordedVariable(defaultValue)
 		, _id(id)
+		, _chordToRemove(ButtonID::NONE)
 	{}
 
 	virtual T operator =(T baseValue) override
 	{
 		return JSMVariable<T>::operator =(baseValue);
+	}
+
+	inline void MarkModeshiftForRemoval(ButtonID modeshift)
+	{
+		_chordToRemove = modeshift;
+	}
+
+	void ProcessModeshiftRemoval(ButtonID modeshift)
+	{
+		if(_chordToRemove == modeshift)
+		{
+			auto modeshiftVar = _chordedVariables.find(modeshift);
+			if (modeshiftVar != _chordedVariables.end())
+			{
+				_chordedVariables.erase(modeshiftVar);
+				_chordToRemove = ButtonID::NONE;
+			}
+		}
 	}
 };
 
@@ -252,8 +273,10 @@ public:
 	}
 
 	// Indicate whether any sim press mappings are present
-	inline bool HasSimMappings() const
+	// This function additionally removes any empty sim mappings.
+	bool HasSimMappings() const
 	{
+		Mapping EMPTY;
 		return !_simMappings.empty();
 	}
 
@@ -310,7 +333,7 @@ public:
 	// Get the SimPress variable, creating one if required.
 	// An additional listener is required for the complementary sim press
 	// to be updated when this value changes.
-	JSMVariable<Mapping> &AtSimPress(ButtonID chord)
+	JSMVariable<Mapping> *AtSimPress(ButtonID chord)
 	{
 		auto existingSim = getSimMap(chord);
 		if (!existingSim)
@@ -320,6 +343,30 @@ public:
 			_simListeners[chord] = _simMappings[chord].AddOnChangeListener(
 				bind(&SimPressCrossUpdate, chord, _id, placeholders::_1));
 		}
-		return _simMappings[chord];
+		return &_simMappings[chord];
+	}
+
+	void ProcessChordRemoval(ButtonID chord, const JSMVariable<Mapping> *value)
+	{
+		if (value && *value == _defVal)
+		{
+			auto chordVar = _chordedVariables.find(chord);
+			if (chordVar != _chordedVariables.end())
+			{
+				_chordedVariables.erase(chordVar);
+			}
+		}
+	}
+	
+	void ProcessSimPressRemoval(ButtonID chord, const JSMVariable<Mapping> *value)
+	{
+		if (value && *value == _defVal)
+		{
+			auto chordVar = _simMappings.find(chord);
+			if (chordVar != _simMappings.end())
+			{
+				_simMappings.erase(chordVar);
+			}
+		}
 	}
 };
