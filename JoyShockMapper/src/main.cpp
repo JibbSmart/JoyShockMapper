@@ -109,11 +109,10 @@ public:
 	KeyCode _keyToRelease; // At key press, remember what to release
 	string _nameToRelease;
 
-	float GetTapDuration()
+	float GetTapDuration() const
 	{
 		// for tap duration, we need to know if the key in question is a gyro-related mapping or not
-		KeyCode mapping = GetPressMapping(); //Consider chords
-		return (mapping.code >= GYRO_INV_X && mapping.code <= GYRO_ON_BIND) ? MAGIC_GYRO_TAP_DURATION : MAGIC_TAP_DURATION;
+		return (_keyToRelease.code >= GYRO_INV_X && _keyToRelease.code <= GYRO_ON_BIND) ? MAGIC_GYRO_TAP_DURATION : MAGIC_TAP_DURATION;
 	}
 
 	KeyCode GetPressMapping()
@@ -161,15 +160,14 @@ public:
 				return _keyToRelease;
 			}
 		}
-		_keyToRelease = Mapping(_mapping).holdBind;
-		_nameToRelease = _name;
-		return _keyToRelease;
+		// Chord stack should always include NONE which will provide a value in the loop above
+		return KeyCode::EMPTY;
 	}
 
 	void ApplyBtnPress(bool tap = false)
 	{
-		auto key = GetPressMapping();
-		if (key.code == CALIBRATE)
+		_keyToRelease = GetPressMapping();
+		if (_keyToRelease.code == CALIBRATE)
 		{
 			_common.toggleContinuous ^= tap; //Toggle on tap
 			if (!tap || _common.toggleContinuous) {
@@ -178,16 +176,15 @@ public:
 				JslStartContinuousCalibration(_common.intHandle);
 			}
 		}
-		else if (key.code >= GYRO_INV_X && key.code <= GYRO_ON_BIND)
+		else if (_keyToRelease.code >= GYRO_INV_X && _keyToRelease.code <= GYRO_ON_BIND)
 		{
-			_common.gyroActionQueue.push_back({ _id, key });
+			_common.gyroActionQueue.push_back({ _id, _keyToRelease });
 		}
 		else
 		{
 			printf("%s: %s\n", _nameToRelease.c_str(), tap ? "tapped" : "true");
-			pressKey(key, true);
+			pressKey(_keyToRelease, true);
 		}
-		_keyToRelease = key;
 		//if (find(_common.chordStack.begin(), _common.chordStack.end(), _id) == _common.chordStack.end())
 		//{
 		//	_common.chordStack.push_front(_id); // Always push at the fromt to make it a stack
@@ -196,23 +193,22 @@ public:
 
 	void ApplyBtnHold()
 	{
-		auto key = GetHoldMapping();
-		if (key.code == CALIBRATE)
+		_keyToRelease = GetHoldMapping();
+		if (_keyToRelease.code == CALIBRATE)
 		{
 			printf("Starting continuous calibration\n");
 			JslResetContinuousCalibration(_common.intHandle);
 			JslStartContinuousCalibration(_common.intHandle);
 		}
-		else if (key.code >= GYRO_INV_X && key.code <= GYRO_ON_BIND)
+		else if (_keyToRelease.code >= GYRO_INV_X && _keyToRelease.code <= GYRO_ON_BIND)
 		{
-			_common.gyroActionQueue.push_back({ _id, key });
+			_common.gyroActionQueue.push_back({ _id, _keyToRelease });
 		}
-		else if (key.code != NO_HOLD_MAPPED)
+		else if (_keyToRelease.code != NO_HOLD_MAPPED)
 		{
 			printf("%s: held\n", _nameToRelease.c_str());
-			pressKey(key, true);
+			pressKey(_keyToRelease, true);
 		}
-		_keyToRelease = key;
 		//if (find(_common.chordStack.begin(), _common.chordStack.end(), _id) == _common.chordStack.end())
 		//{
 		//	_common.chordStack.push_front(_id); // Always push at the fromt to make it a stack
@@ -481,7 +477,6 @@ public:
 		}
 	}
 
-
 	~JoyShock()
 	{}
 
@@ -675,7 +670,7 @@ public:
 
 public:
 
-	ComboMap *GetMatchingSimMap(ButtonID index)
+	const ComboMap *GetMatchingSimMap(ButtonID index)
 	{
 		// Find the simMapping where the other btn is in the same state as this btn.
 		// POTENTIAL FLAW: The mapping you find may not necessarily be the one that got you in a 
@@ -684,12 +679,7 @@ public:
 		for (int id = 0; id < MAPPING_SIZE; ++id)
 		{
 			auto simMap = mappings[int(index)].getSimMap(ButtonID(id));
-			// Find a different button with the same button state OR if this button is at SimTapRelease, the other button should be at SimRelease.
-			if (simMap && index != simMap->first &&
-					(buttons[int(simMap->first)]._btnState == buttons[int(index)]._btnState ||
-						(buttons[int(index)]._btnState == BtnState::SimTapRelease && buttons[int(simMap->first)]._btnState == BtnState::SimRelease)
-					)
-				)
+			if (simMap && index != simMap->first && buttons[int(simMap->first)]._btnState == buttons[int(index)]._btnState)
 			{
 				return simMap;
 			}
@@ -938,14 +928,11 @@ public:
 			else if (!pressed)
 			{
 				// The simultaneous buttons are going to different states instead of the same!
-				// This adds a lot of complication to GetMatchingSimMap()
-				// But it is necessarey because of tap duration.
 				button._btnState = BtnState::SimTapRelease;
 				buttons[int(simMap->first)]._btnState = BtnState::SimRelease;
 				button._press_times = time_now;
-				buttons[int(simMap->first)]._press_times = time_now;
 				button.ApplyBtnPress(*simMap, true);
-				buttons[int(simMap->first)].SyncSimPress(index, *simMap);
+				// A sim pressed tapped does not need the other btn to be synced
 			}
 			else if (button.GetPressDurationMS(time_now) > MAGIC_HOLD_TIME)
 			{
@@ -983,27 +970,11 @@ public:
 			break;
 		case BtnState::SimTapRelease:
 		{
-			// Which is the sim mapping where the other button is in WaitSimHold state too?
-			auto simMap = GetMatchingSimMap(index);
-			if (!simMap)
+			// The button has been pressed again before tap duration expired, move on!
+			if (pressed || button.GetPressDurationMS(time_now) > button.GetTapDuration())
 			{
-				// Should never happen but added for robustness.
-				printf("Error: lost track of matching sim press for %s! Resetting to NoPress.\n", button._name.c_str());
+				button.ApplyBtnRelease(true); // Notice this is not the ComboMap release overload
 				button._btnState = BtnState::NoPress;
-			}
-			else if (pressed)
-			{
-				// The button has been pressed again before tap duration expired
-				// Let's move on!!
-				button.ApplyBtnRelease(*simMap, true);
-				button._btnState = BtnState::NoPress;
-				buttons[int(simMap->first)]._btnState = BtnState::SimRelease;
-			}
-			else if (button.GetPressDurationMS(time_now) > button.GetTapDuration())
-			{
-				button.ApplyBtnRelease(*simMap, true);
-				button._btnState = BtnState::SimRelease;
-				buttons[int(simMap->first)]._btnState = BtnState::SimRelease;
 			}
 			break;
 		}
@@ -1971,14 +1942,19 @@ void joyShockPollCallback(int jcHandle, JOY_SHOCK_STATE state, JOY_SHOCK_STATE l
 	for (auto pair : jc->btnCommon.gyroActionQueue)
 	{
 		// TODO: logic optimization
-		if (pair.second.code == GYRO_ON_BIND) blockGyro = false;
-		else if (pair.second.code == GYRO_OFF_BIND) blockGyro = true;
-		else if (pair.second.code == GYRO_INV_X) gyro_x_sign_to_use *= -1; // Intentionally don't support multiple inversions
-		else if (pair.second.code == GYRO_INV_Y) gyro_y_sign_to_use *= -1;
+		if (pair.second.code == GYRO_ON_BIND)
+			blockGyro = false;
+		else if (pair.second.code == GYRO_OFF_BIND)
+			blockGyro = true;
+		else if (pair.second.code == GYRO_INV_X)
+			gyro_x_sign_to_use = jc->getSetting(SettingID::GYRO_AXIS_X) * -1; // Intentionally don't support multiple inversions
+		else if (pair.second.code == GYRO_INV_Y)
+			gyro_y_sign_to_use = jc->getSetting(SettingID::GYRO_AXIS_Y) * -1; // Intentionally don't support multiple inversions
 		else if (pair.second.code == GYRO_INVERT)
 		{
-			gyro_x_sign_to_use *= -1;
-			gyro_y_sign_to_use *= -1;
+			// Intentionally don't support multiple inversions
+			gyro_x_sign_to_use = jc->getSetting(SettingID::GYRO_AXIS_X) * -1;
+			gyro_y_sign_to_use = jc->getSetting(SettingID::GYRO_AXIS_Y) * -1;
 		}
 	}
 

@@ -46,23 +46,29 @@ protected:
 			cout << inst->_displayName << " = " << (T)inst->_var << endl;
 			return true;
 		}
-		else
+		
+		stringstream ss(data);
+		// Read the value
+		T value = T();
+		ss >> value;
+		if (!ss.fail())
 		{
-			stringstream ss(data);
-			// Read the value
-			T value = T();
-			ss >> value;
-			if (!ss.fail())
+			T oldVal = inst->_var;
+			inst->_var = value;
+
+			// The assignment won't trigger my listener DisplayNewValue if 
+			// the new value after filtering is the same as the old.
+			if (oldVal == inst->_var)
 			{
-				T oldVal = inst->_var;
-				inst->_var = value;
-				// Command succeeded if the value requested was the current one
-				// or if the new value is different from the old.
-				return value == oldVal || inst->_var != oldVal; // Command processed successfully
+				// So I want to do it myself.
+				inst->DisplayNewValue(inst->_var);
 			}
-			// Couldn't read the value
+
+			// Command succeeded if the value requested was the current one
+			// or if the new value is different from the old.
+			return value == oldVal || inst->_var != oldVal; // Command processed successfully
 		}
-		// Not an equal sign? The command is entered wrong!
+		// Couldn't read the value
 		return false;
 	}
 

@@ -255,12 +255,12 @@ public:
 	}
 
 	// Obtain the Variable for a sim press if any.
-	ComboMap *getSimMap(ButtonID simBtn)
+	const ComboMap *getSimMap(ButtonID simBtn) const
 	{
 		if (simBtn > ButtonID::NONE)
 		{
 			auto existingSim = _simMappings.find(simBtn);
-			return existingSim != _simMappings.end() ? &*existingSim : nullptr;
+			return existingSim != _simMappings.cend() ? &*existingSim : nullptr;
 		}
 		return nullptr;
 	}
