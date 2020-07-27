@@ -125,6 +125,7 @@ void CmdRegistry::processLine(string& line)
 				op = results[2].str()[0];
 				name = results[3];
 				strtrim(&name[0]);
+				name.resize(strlen(name.c_str()));
 			}
 			else
 			{

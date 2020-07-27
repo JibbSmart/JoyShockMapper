@@ -33,7 +33,6 @@ protected:
 		return DefaultParser(cmd, argument);
 	}
 
-
 	// The default parser uses the overloaded >> operator to parse
 	// any base type. Custom types can also be extracted if you define
 	// a static parse operation for it.
@@ -93,8 +92,6 @@ protected:
 					unique_ptr<JSMCommand> chordAssignment(new JSMAssignment<T>(name, *settingVar->AtChord(*btn)));
 					chordAssignment->SetHelp(_help)->SetParser(bind(&JSMAssignment<T>::ModeshiftParser, *btn, settingVar, placeholders::_1, placeholders::_2))
 						->SetTaskOnDestruction(bind(&JSMSetting<T>::ProcessModeshiftRemoval, settingVar, *btn));
-					// BE ADVISED! If a custom parser was set using bind(), the very same bound vars will
-					// be passed along.
 					return chordAssignment;
 				}
 				auto buttonVar = dynamic_cast<JSMButton*>(&_var);
@@ -168,9 +165,13 @@ void JSMAssignment<Mapping>::DisplayNewValue(Mapping newValue)
 		cout << "Tap " << _name << " mapped to " << newValue.pressBind.name << endl
 			<< "Hold " << _name << " mapped to " << newValue.holdBind.name << endl;
 	}
-	else
+	else if(newValue.pressBind)
 	{
 		// Unambiguous call to display of mapping
 		cout << _name << " mapped to " << Mapping(newValue.pressBind) << endl;
+	}
+	else
+	{
+		cout << _name << " mapped to no input" << endl;
 	}
 }

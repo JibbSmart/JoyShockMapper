@@ -151,25 +151,13 @@ public:
 		}
 		return &_chordedVariables[chord];
 	}
-
-	// Access the chorded variable. Will return nullptr if it does not exist.
-	const JSMVariable<T> *operator [](ButtonID chord) const
-	{
-		auto existingChord = _chordedVariables.find(chord);
-		if (existingChord == _chordedVariables.end())
-		{
-			return nullptr;
-		}
-		return &existingChord->second;
-	}
-
 	// Obtain the value with provided chord if any.
 	optional<T> get(ButtonID chord = ButtonID::NONE) const
 	{
 		if (chord > ButtonID::NONE)
 		{
-			auto existingChord = operator [](chord);
-			return existingChord ? optional<T>(T(*existingChord)) : nullopt;
+			auto existingChord = _chordedVariables.find(chord);
+			return existingChord != _chordedVariables.end() ? optional<T>(T(existingChord->second)) : nullopt;
 		}
 		return chord != ButtonID::INVALID ? optional(_value) : nullopt;
 	}

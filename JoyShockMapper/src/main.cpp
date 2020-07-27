@@ -180,7 +180,7 @@ public:
 		{
 			_common.gyroActionQueue.push_back({ _id, _keyToRelease });
 		}
-		else
+		else if(_keyToRelease.code != NO_HOLD_MAPPED)
 		{
 			printf("%s: %s\n", _nameToRelease.c_str(), tap ? "tapped" : "true");
 			pressKey(_keyToRelease, true);

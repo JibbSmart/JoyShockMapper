@@ -153,14 +153,10 @@ istream &operator >>(istream &in, Mapping &mapping)
 
 ostream &operator <<(ostream &out, Mapping mapping)
 {
-	if (mapping.pressBind.code == 0 && mapping.holdBind.code == 0)
-	{
-		out << "no input";
-	}
-	else
-	{
+	if (mapping.pressBind || mapping.holdBind)
 		out << mapping.pressBind.name << " " << mapping.holdBind.name;
-	}
+	else
+		out << "NONE";
 	return out;
 }
 
