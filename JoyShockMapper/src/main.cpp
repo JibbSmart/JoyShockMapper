@@ -269,7 +269,7 @@ public:
 			// I know I don't handle multiple inversion. Otherwise GYRO_INV_X on sim press would do nothing
 			_common.gyroActionQueue.push_back({ _id, _keyToRelease });
 		}
-		else
+		else if(_keyToRelease.code != NO_HOLD_MAPPED)
 		{
 			printf("%s: %s\n", _nameToRelease.c_str(), tap ? "tapped" : "true");
 			pressKey(_keyToRelease, true);
@@ -684,7 +684,12 @@ public:
 		for (int id = 0; id < MAPPING_SIZE; ++id)
 		{
 			auto simMap = mappings[int(index)].getSimMap(ButtonID(id));
-			if (simMap && index != simMap->first && buttons[int(simMap->first)]._btnState == buttons[int(index)]._btnState)
+			// Find a different button with the same button state OR if this button is at SimTapRelease, the other button should be at SimRelease.
+			if (simMap && index != simMap->first &&
+					(buttons[int(simMap->first)]._btnState == buttons[int(index)]._btnState ||
+						(buttons[int(index)]._btnState == BtnState::SimTapRelease && buttons[int(simMap->first)]._btnState == BtnState::SimRelease)
+					)
+				)
 			{
 				return simMap;
 			}
@@ -932,6 +937,9 @@ public:
 			}
 			else if (!pressed)
 			{
+				// The simultaneous buttons are going to different states instead of the same!
+				// This adds a lot of complication to GetMatchingSimMap()
+				// But it is necessarey because of tap duration.
 				button._btnState = BtnState::SimTapRelease;
 				buttons[int(simMap->first)]._btnState = BtnState::SimRelease;
 				button._press_times = time_now;
@@ -975,7 +983,7 @@ public:
 			break;
 		case BtnState::SimTapRelease:
 		{
-			// Which is the sim mapping where the other button is in SimTapRelease state too?
+			// Which is the sim mapping where the other button is in WaitSimHold state too?
 			auto simMap = GetMatchingSimMap(index);
 			if (!simMap)
 			{
@@ -1404,35 +1412,35 @@ bool do_IGNORE_OS_MOUSE_SPEED() {
 	return true;
 }
 
-bool parse_GYRO_SENS(in_string argument)
-{
-	if (argument.empty())
-	{
-		//No assignment? Display current assignment
-		cout << "MIN_GYRO_SENS = " << *min_gyro_sens.get() << endl << "MAX_GYRO_SENS = " << *max_gyro_sens.get() << endl;
-	}
-	else
-	{
-		stringstream ss(argument);
-		// Read the value
-		FloatXY newSens;
-		ss >> newSens;
-		if (!ss.fail())
-		{
-			FloatXY oldMin = min_gyro_sens;
-			FloatXY oldMax = max_gyro_sens;
-			min_gyro_sens.operator=(newSens);
-			max_gyro_sens.operator=(newSens);
-			return oldMin != min_gyro_sens && newSens != oldMin && 
-				  oldMax != max_gyro_sens && oldMax != newSens;
-		}
-		else {
-			cout << "Can't convert \"" << argument << "\" to one or two numbers" << endl;
-		}
-	}
-	// Not an equal sign? The command is entered wrong!
-	return false;
-}
+//bool parse_GYRO_SENS(in_string argument)
+//{
+//	if (argument.empty())
+//	{
+//		//No assignment? Display current assignment
+//		cout << "MIN_GYRO_SENS = " << *min_gyro_sens.get() << endl << "MAX_GYRO_SENS = " << *max_gyro_sens.get() << endl;
+//	}
+//	else
+//	{
+//		stringstream ss(argument);
+//		// Read the value
+//		FloatXY newSens;
+//		ss >> newSens;
+//		if (!ss.fail())
+//		{
+//			FloatXY oldMin = min_gyro_sens;
+//			FloatXY oldMax = max_gyro_sens;
+//			min_gyro_sens.operator=(newSens);
+//			max_gyro_sens.operator=(newSens);
+//			return oldMin != min_gyro_sens && newSens != oldMin && 
+//				  oldMax != max_gyro_sens && oldMax != newSens;
+//		}
+//		else {
+//			cout << "Can't convert \"" << argument << "\" to one or two numbers" << endl;
+//		}
+//	}
+//	// Not an equal sign? The command is entered wrong!
+//	return false;
+//}
 
 bool do_AUTOLOAD(JSMCommand *cmd, in_string argument)
 {
@@ -2196,7 +2204,18 @@ void UpdateRingModeFromStickMode(JSMVariable<RingMode> *stickRingMode, StickMode
 	}
 }
 
-class GyroAssignment : public JSMAssignment<GyroSettings>
+class GyroSensAssignment : public JSMAssignment<FloatXY>
+{
+public:
+	GyroSensAssignment(in_string name, JSMSetting<FloatXY>& gyroSens)
+		: JSMAssignment(name, string(magic_enum::enum_name(gyroSens._id)), gyroSens)
+	{
+		// min and max gyro sens already have a listener
+		gyroSens.RemoveOnChangeListener(_listenerId);
+	}
+};
+
+class GyroButtonAssignment : public JSMAssignment<GyroSettings>
 {
 private:
 	const bool _always_off;
@@ -2235,21 +2254,21 @@ private:
 		cout << (value.always_off ? string("GYRO_ON") : string("GYRO_OFF")) << " is set to " << value << endl;;
 	}
 public:
-	GyroAssignment(in_string name, bool always_off)
+	GyroButtonAssignment(in_string name, bool always_off)
 		: JSMAssignment(name, gyro_settings)
 		, _always_off(always_off)
 	{
-		SetParser(bind(&GyroAssignment::GyroParser, this, placeholders::_2));
+		SetParser(bind(&GyroButtonAssignment::GyroParser, this, placeholders::_2));
 		_var.RemoveOnChangeListener(_listenerId);
 	}
 
-	GyroAssignment *SetListener()
+	GyroButtonAssignment *SetListener()
 	{
-		_listenerId = _var.AddOnChangeListener(bind(&GyroAssignment::DisplayGyroSettingValue, this, placeholders::_1));
+		_listenerId = _var.AddOnChangeListener(bind(&GyroButtonAssignment::DisplayGyroSettingValue, this, placeholders::_1));
 		return this;
 	}
 
-	virtual ~GyroAssignment() = default;
+	virtual ~GyroButtonAssignment() = default;
 };
 
 //int main(int argc, char *argv[]) {
@@ -2358,9 +2377,9 @@ int main(int argc, char *argv[]) {
 		->SetHelp("Set a mouse mode for the left stick. Valid values are the following:\nNO_MOUSE, AIM, FLICK, FLICK_ONLY, ROTATE_ONLY, MOUSE_RING, MOUSE_AREA, OUTER_RING, INNER_RING"));
 	commandRegistry.Add((new JSMAssignment<StickMode>("RIGHT_STICK_MODE", right_stick_mode))
 		->SetHelp("Set a mouse mode for the right stick. Valid values are the following:\nNO_MOUSE, AIM, FLICK, FLICK_ONLY, ROTATE_ONLY, MOUSE_RING, MOUSE_AREA, OUTER_RING, INNER_RING"));
-	commandRegistry.Add((new GyroAssignment("GYRO_OFF", false))
+	commandRegistry.Add((new GyroButtonAssignment("GYRO_OFF", false))
 		->SetHelp("Assign a controller button to disable the gyro when pressed."));
-	commandRegistry.Add((new GyroAssignment("GYRO_ON", true))->SetListener() // Set only one listener
+	commandRegistry.Add((new GyroButtonAssignment("GYRO_ON", true))->SetListener() // Set only one listener
 		->SetHelp("Assign a controller button to enable the gyro when pressed."));
 	commandRegistry.Add((new JSMAssignment<AxisMode>("STICK_AXIS_X", aim_x_sign))
 		->SetHelp("Specify the stick X axis inversion value. Valid values are the following:\nSTANDARD or 1, and INVERTED or -1"));
@@ -2378,8 +2397,9 @@ int main(int argc, char *argv[]) {
 		->SetHelp("Disable JoyShockMapper's consideration of the the user's OS mouse sensitivity value."));
 	commandRegistry.Add((new JSMAssignment<JoyconMask>("JOYCON_GYRO_MASK", joycon_gyro_mask))
 		->SetHelp("When using two Joycons, select which one will be used for gyro. Valid values are the following:\nUSE_BOTH, IGNORE_LEFT, IGNORE_RIGHT, IGNORE_BOTH"));
-	commandRegistry.Add((new JSMMacro("GYRO_SENS"))->SetMacro(bind(&parse_GYRO_SENS, placeholders::_2))
+	commandRegistry.Add((new GyroSensAssignment("GYRO_SENS", min_gyro_sens))
 		->SetHelp("Sets a gyro sensitivity to use. This sets both MIN_GYRO_SENS and MAX_GYRO_SENS to the same values. You can assign a second value as a different vertical sensitivity."));
+	commandRegistry.Add(new GyroSensAssignment("GYRO_SENS", max_gyro_sens));
 	commandRegistry.Add((new JSMAssignment<float>("FLICK_TIME", flick_time))
 		->SetHelp("Sets the duration for which a flick will last in seconds. This vlaue is used by stick FLICK mode."));
 	commandRegistry.Add((new JSMAssignment<float>("GYRO_SMOOTH_THRESHOLD", gyro_smooth_threshold))

@@ -18,6 +18,10 @@ protected:
 	// the command objects
 	JSMVariable<T>& _var;
 
+	// The display name is usually the same as the name, but in some cases it might be different.
+	// For example the two GYRO_SENS assignment commands will display MIN_GYRO_SENS and MAX_GYRO_SENS respectively.
+	const string _displayName;
+
 	static bool ModeshiftParser(ButtonID modeshift, JSMSetting<T> *setting, JSMCommand* cmd, in_string argument)
 	{
 		if (setting && argument.compare("NONE") == 0)
@@ -39,7 +43,7 @@ protected:
 		if (data.empty())
 		{
 			//No assignment? Display current assignment
-			cout << inst->_name << " = " << (T)inst->_var << endl;
+			cout << inst->_displayName << " = " << (T)inst->_var << endl;
 			return true;
 		}
 		else
@@ -65,7 +69,7 @@ protected:
 	void DisplayNewValue(T newValue)
 	{
 		// See Specialization for T=Mapping at the end of this file
-		cout << _name << " has been set to " << newValue << endl;
+		cout << _displayName << " has been set to " << newValue << endl;
 	}
 
 	virtual unique_ptr<JSMCommand> GetModifiedCmd(char op, in_string chord) override
@@ -79,7 +83,7 @@ protected:
 				if (settingVar)
 				{
 					//Create Modeshift
-					string name = chord + op + _name;
+					string name = chord + op + _displayName;
 					unique_ptr<JSMCommand> chordAssignment(new JSMAssignment<T>(name, *settingVar->AtChord(*btn)));
 					chordAssignment->SetHelp(_help)->SetParser(bind(&JSMAssignment<T>::ModeshiftParser, *btn, settingVar, placeholders::_1, placeholders::_2))
 						->SetTaskOnDestruction(bind(&JSMSetting<T>::ProcessModeshiftRemoval, settingVar, *btn));
@@ -90,7 +94,7 @@ protected:
 				auto buttonVar = dynamic_cast<JSMButton*>(&_var);
 				if (buttonVar && *btn > ButtonID::NONE)
 				{
-					string name = chord + op + _name;
+					string name = chord + op + _displayName;
 					auto chordedVar = buttonVar->AtChord(*btn);
 					// The reinterpret_cast is required for compilation, but settings will never run this code anyway.
 					unique_ptr<JSMCommand> chordAssignment(new JSMAssignment<T>(name, reinterpret_cast<JSMVariable<T>&>(*chordedVar)));
@@ -105,7 +109,7 @@ protected:
 				auto buttonVar = dynamic_cast<JSMButton*>(&_var);
 				if (buttonVar && int(*btn) >= 0)
 				{
-					string name = chord + op + _name;
+					string name = chord + op + _displayName;
 					auto simPressVar = buttonVar->AtSimPress(*btn);
 					unique_ptr<JSMCommand> simAssignment(new JSMAssignment<Mapping>(name, *simPressVar));
 					simAssignment->SetHelp(_help)->SetParser(_parse)->SetTaskOnDestruction(bind(&JSMButton::ProcessSimPressRemoval, buttonVar, *btn, simPressVar));
@@ -121,9 +125,10 @@ protected:
 	unsigned int _listenerId;
 
 public:
-	JSMAssignment(in_string name, JSMVariable<T>& var)
+	JSMAssignment(in_string name, in_string displayName, JSMVariable<T>& var)
 		: JSMCommand(name)
 		, _var(var)
+		, _displayName(displayName)
 		, _listenerId(0)
 	{
 		// Child Classes assign their own parser. Use bind to convert instance function call
@@ -131,6 +136,10 @@ public:
 		SetParser(&JSMAssignment::DefaultParser);
 		_listenerId = _var.AddOnChangeListener(bind(&JSMAssignment::DisplayNewValue, this, placeholders::_1));
 	}
+
+	JSMAssignment(in_string name, JSMVariable<T>& var)
+		: JSMAssignment(name, name, var)
+	{ }
 
 	virtual ~JSMAssignment()
 	{

@@ -20,7 +20,7 @@ typedef unsigned long       DWORD;
 // Only use undefined keys from the above list for JSM custom commands
 constexpr WORD V_WHEEL_UP = 0x03; // Here I intentionally overwride VK_CANCEL because breaking a process with a keybind is not something we want to do
 constexpr WORD V_WHEEL_DOWN = 0x07; // I want all mouse bindings to be contiguous IDs for ease to distinguish
-constexpr WORD NO_HOLD_MAPPED = 0x0A;
+constexpr WORD NO_HOLD_MAPPED = 0x0A; // Empty mapping, which is different form no mapping for combo presses
 constexpr WORD CALIBRATE = 0x0B;
 constexpr WORD GYRO_INV_X = 0x88;
 constexpr WORD GYRO_INV_Y = 0x89;

@@ -54,7 +54,7 @@ public:
 	{	}
 
 	// Make a copy with a different default value
-	JSMVariable(const JSMVariable &copy, T defaultValue = T(0))
+	JSMVariable(const JSMVariable &copy, T defaultValue)
 		: _value(defaultValue)
 		, _onChangeListeners() // Don't copy listeners. This is a different variable!
 		, _filter(copy._filter)
@@ -348,7 +348,7 @@ public:
 
 	void ProcessChordRemoval(ButtonID chord, const JSMVariable<Mapping> *value)
 	{
-		if (value && *value == _defVal)
+		if (value && *value == Mapping())
 		{
 			auto chordVar = _chordedVariables.find(chord);
 			if (chordVar != _chordedVariables.end())
@@ -360,7 +360,7 @@ public:
 	
 	void ProcessSimPressRemoval(ButtonID chord, const JSMVariable<Mapping> *value)
 	{
-		if (value && *value == _defVal)
+		if (value && *value == Mapping())
 		{
 			auto chordVar = _simMappings.find(chord);
 			if (chordVar != _simMappings.end())
