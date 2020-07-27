@@ -1383,36 +1383,6 @@ bool do_IGNORE_OS_MOUSE_SPEED() {
 	return true;
 }
 
-//bool parse_GYRO_SENS(in_string argument)
-//{
-//	if (argument.empty())
-//	{
-//		//No assignment? Display current assignment
-//		cout << "MIN_GYRO_SENS = " << *min_gyro_sens.get() << endl << "MAX_GYRO_SENS = " << *max_gyro_sens.get() << endl;
-//	}
-//	else
-//	{
-//		stringstream ss(argument);
-//		// Read the value
-//		FloatXY newSens;
-//		ss >> newSens;
-//		if (!ss.fail())
-//		{
-//			FloatXY oldMin = min_gyro_sens;
-//			FloatXY oldMax = max_gyro_sens;
-//			min_gyro_sens.operator=(newSens);
-//			max_gyro_sens.operator=(newSens);
-//			return oldMin != min_gyro_sens && newSens != oldMin && 
-//				  oldMax != max_gyro_sens && oldMax != newSens;
-//		}
-//		else {
-//			cout << "Can't convert \"" << argument << "\" to one or two numbers" << endl;
-//		}
-//	}
-//	// Not an equal sign? The command is entered wrong!
-//	return false;
-//}
-
 bool do_AUTOLOAD(JSMCommand *cmd, in_string argument)
 {
 	if (!autoLoadThread)
@@ -2375,7 +2345,7 @@ int main(int argc, char *argv[]) {
 		->SetHelp("When using two Joycons, select which one will be used for gyro. Valid values are the following:\nUSE_BOTH, IGNORE_LEFT, IGNORE_RIGHT, IGNORE_BOTH"));
 	commandRegistry.Add((new GyroSensAssignment("GYRO_SENS", min_gyro_sens))
 		->SetHelp("Sets a gyro sensitivity to use. This sets both MIN_GYRO_SENS and MAX_GYRO_SENS to the same values. You can assign a second value as a different vertical sensitivity."));
-	commandRegistry.Add(new GyroSensAssignment("GYRO_SENS", max_gyro_sens));
+	commandRegistry.Add((new GyroSensAssignment("GYRO_SENS", max_gyro_sens))->SetHelp(""));
 	commandRegistry.Add((new JSMAssignment<float>("FLICK_TIME", flick_time))
 		->SetHelp("Sets the duration for which a flick will last in seconds. This vlaue is used by stick FLICK mode."));
 	commandRegistry.Add((new JSMAssignment<float>("GYRO_SMOOTH_THRESHOLD", gyro_smooth_threshold))

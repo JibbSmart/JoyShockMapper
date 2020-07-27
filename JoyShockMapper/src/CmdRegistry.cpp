@@ -117,20 +117,30 @@ void CmdRegistry::processLine(string& line)
 		// Break up the line of text in its relevant parts.
 		// Pro tip: use regex101.com to develop these beautiful monstrosities. :P
 		// Also, use raw strings R"(...)" to avoid the need to escape characters
-		if (regex_match(line, results, regex(R"(^ *(\w+) *([,\+]?) *(\w*) *(=?) *([^#\n]*)#? *(.*)$)")))
+		if (regex_match(line, results, regex(R"(^ *(\w+) *([,\+]?) *(\w* *)(=?) *([^#\n]*)#? *(.*)$)")))
 		{
 			if (results[2].length() > 0)
 			{
 				combo = results[1];
 				op = results[2].str()[0];
 				name = results[3];
+				strtrim(&name[0]);
 			}
 			else
 			{
 				name = results[1];
 				combo = results[2];
 			}
-			arguments = results[4].length() > 0 || results[2].length() > 0 ? results[5] : results[3];
+
+			if (results[4].length() > 0 || results[2].length() > 0)
+			{
+				arguments = results[5];
+			}
+			else
+			{
+				arguments = results[3];
+				arguments += results[5];
+			}
 			label = results[6];
 		}
 
