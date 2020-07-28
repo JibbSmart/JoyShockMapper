@@ -46,7 +46,7 @@ float getMouseSpeed() {
 }
 
 // send mouse button
-int pressMouse(WORD vkKey, bool isPressed) {
+int pressMouse(KeyCode vkKey, bool isPressed) {
 	// https://docs.microsoft.com/en-us/windows/win32/api/winuser/ns-winuser-mouseinput
 	// Map a VK id to mouse event id press (0) or release (1) and mouseData (2) complementary info
 	static std::unordered_map<WORD, std::tuple<DWORD, DWORD, DWORD>> mouseMaps = {
@@ -73,9 +73,9 @@ int pressMouse(WORD vkKey, bool isPressed) {
 }
 
 // send key press
-int pressKey(WORD vkKey, bool pressed) {
-	if (vkKey == 0) return 0;
-	if (vkKey <= V_WHEEL_DOWN) { // Highest mouse ID
+int pressKey(KeyCode vkKey, bool pressed) {
+	if (vkKey.code == 0) return 0;
+	if (vkKey.code <= V_WHEEL_DOWN) { // Highest mouse ID
 		return pressMouse(vkKey, pressed);
 	}
 	INPUT input;
@@ -83,12 +83,12 @@ int pressKey(WORD vkKey, bool pressed) {
 	input.ki.time = 0;
 	input.ki.dwFlags = KEYEVENTF_SCANCODE;
 	input.ki.dwFlags |= pressed ? 0 : KEYEVENTF_KEYUP;
-	if (vkKey >= VK_LEFT && vkKey <= VK_DOWN) {
+	if (vkKey.code >= VK_LEFT && vkKey.code <= VK_DOWN) {
 		input.ki.dwFlags |= KEYEVENTF_EXTENDEDKEY;
 	}
 	//input.ki.wVk = vkKey;
 	input.ki.wVk = 0;
-	input.ki.wScan = MapVirtualKey(vkKey, MAPVK_VK_TO_VSC);
+	input.ki.wScan = MapVirtualKey(vkKey.code, MAPVK_VK_TO_VSC);
 	return SendInput(1, &input, sizeof(input));
 }
 
@@ -142,7 +142,7 @@ BOOL WriteToConsole(const std::string& command)
 		ir.EventType = KEY_EVENT;
 		ir.Event.KeyEvent.bKeyDown = TRUE;
 		ir.Event.KeyEvent.wRepeatCount = 1;
-		auto vkc = nameToKey(std::string() + (char)(toupper(c)));
+		auto vkc = char(toupper(c));
 		ir.Event.KeyEvent.wVirtualKeyCode = vkc;
 		ir.Event.KeyEvent.wVirtualScanCode = MapVirtualKey(vkc, MAPVK_VK_TO_VSC);
 		ir.Event.KeyEvent.uChar.UnicodeChar = c;
@@ -303,7 +303,7 @@ bool PollingThread::Start() {
 	return isRunning();
 }
 
-DWORD __stdcall PollingThread::pollFunction(void *param)
+DWORD WINAPI PollingThread::pollFunction(void *param)
 {
 	auto workerThread = reinterpret_cast<PollingThread*>(param);
 	if (workerThread)

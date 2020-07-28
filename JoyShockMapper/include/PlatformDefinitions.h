@@ -15,6 +15,25 @@ extern const char *AUTOLOAD_FOLDER;
 extern const char *GYRO_CONFIGS_FOLDER;
 extern const char *BASE_JSM_CONFIG_FOLDER;
 
+struct KeyCode
+{
+	static const KeyCode EMPTY;
+	WORD code;
+	std::string name;
+
+	KeyCode();
+
+	KeyCode(const std::string &keyName);
+
+	inline operator bool()
+	{
+		return code != 0;
+	}
+private:
+	static WORD nameToKey(const std::string &name);
+};
+
+
 #elif defined (__linux__)
 
 #define WINAPI

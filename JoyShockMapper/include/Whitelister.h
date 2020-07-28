@@ -2,6 +2,8 @@
 
 #include <string>
 
+using namespace std;
+
 // A whitelister object adds its PID to a running HIDCerberus service and removes it on destruciton
 // as per the RAII design pattern: https://en.cppreference.com/w/cpp/language/raii
 class Whitelister
@@ -24,8 +26,8 @@ public:
 		Remove();
 	}
 
-	bool Add(std::string *optErrMsg = nullptr);
-	bool Remove(std::string *optErrMsg = nullptr);
+	bool Add(string *optErrMsg = nullptr);
+	bool Remove(string *optErrMsg = nullptr);
 
 	// Check whether you're whitelisted or not.
 	// Could be replaced with an socket query, if one exists.
@@ -35,9 +37,9 @@ public:
 	}
 
 private:
-	std::string SendToHIDGuardian(std::string command);
-	std::string readUrl2(std::string &szUrl, long &bytesReturnedOut, std::string *headerOut);
-	void mParseUrl(std::string mUrl, std::string &serverName, std::string &filepath, std::string &filename);
+	string SendToHIDGuardian(string command);
+	string readUrl2(string &szUrl, long &bytesReturnedOut, string *headerOut);
+	void mParseUrl(string mUrl, string &serverName, string &filepath, string &filename);
 	int getHeaderLength(char *content);
 
 	bool _whitelisted;

@@ -14,6 +14,8 @@ This software links to (and includes compiled binaries of) my JoyShockLibrary (C
 * mfosse's JoyCon-Driver (JoyCon driver), Copyright 2018 Matthew Fosse: https://github.com/mfosse/JoyCon-Driver
 * chrippa's ds4drv (DualShock 4 driver), Copyright 2013-2014 Christopher Rosell: https://github.com/chrippa/ds4drv
 * Ryochan7 and Jay2Kings' DS4Windows (DualShock 4 input mapper), Copyright 2019 Travis Nickles: https://github.com/Ryochan7/DS4Windows
+* Neargye's magic_enum (Magic Enum C++), Copyright (c) 2019 - 2020 Daniil Goncharov: https://github.com/Neargye/magic_enum
+* iPenguin's version_git: https://github.com/iPenguin/version_git
 
 JoyShockLibrary also utilises signal11's HIDAPI, which has its own permissive license: https://github.com/signal11/hidapi
 
