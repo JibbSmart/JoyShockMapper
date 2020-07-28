@@ -2217,6 +2217,67 @@ public:
 	virtual ~GyroButtonAssignment() = default;
 };
 
+class HelpCmd : public JSMMacro
+{
+private:
+	// HELP runs the macro for each argument given to it.
+	string arg; // parsed argument
+
+	bool Parser(in_string arguments)
+	{
+		stringstream ss(arguments);
+		ss >> arg;
+		do { // Run at least once with an empty arg string if there's no argument.
+			_macro(this, arguments);
+			ss >> arg;
+		} while (!ss.fail());
+		return true;
+	}
+
+	// The run function is nothing like the delegate. See how I use the bind function
+	// below to hard-code the pointer parameter and the instance pointer 'this'.
+	void RunHelp(CmdRegistry *registry)
+	{
+		if (arg.empty())
+		{
+			// Show all commands
+			cout << "Here's the list of all commands." << endl;
+			vector<string> list;
+			registry->GetCommandList(list);
+			for (auto cmd : list)
+			{
+				cout << "    " << cmd << endl;
+			}
+			cout << "Enter HELP [cmd1] [cmd2] ... for details on a specific commands." << endl;
+		}
+		else
+		{
+			auto help = registry->GetHelp(arg);
+			if (!help.empty())
+			{
+				cout << arg << " :" << endl <<
+					"    " << help << endl;
+			}
+			else
+			{
+				cout << arg << " is not a recognized command" << endl;
+			}
+		}
+	}
+public:
+	HelpCmd(CmdRegistry &reg)
+		: JSMMacro("HELP")
+	{
+		// Bind allows me to use instance function by hardcoding the invisible "this" parameter, and the registry pointer
+		SetMacro(bind(&HelpCmd::RunHelp, this, &reg));
+
+		// The placeholder parameter says to pass 2nd parameter of call to _parse to the 1st argument of the call to HelpCmd::Parser.
+		// The first parameter is the command pointer which is not required because Parser is an instance function rather than a static one.
+		SetParser(bind(&HelpCmd::Parser, this, ::placeholders::_2));
+	}
+};
+
+
 //int main(int argc, char *argv[]) {
 #ifdef _WIN32
 int __stdcall wWinMain(HINSTANCE hInstance, HINSTANCE prevInstance, LPWSTR cmdLine, int cmdShow) {
@@ -2406,7 +2467,7 @@ int main(int argc, char *argv[]) {
 		->SetHelp("Constrain flicks within cardinal directions. Valid values are the following: NONE or 0, FOUR or 4 and EIGHT or 8."));
 	commandRegistry.Add((new JSMAssignment<float>("FLICK_SNAP_STRENGTH", flick_snap_strength))
 		->SetHelp(""));
-	// TODO Add HELP command
+	commandRegistry.Add(new HelpCmd(commandRegistry));
 
 	bool quit = false;
 	commandRegistry.Add((new JSMMacro("QUIT"))
