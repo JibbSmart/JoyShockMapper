@@ -4,6 +4,7 @@
 #include "CmdRegistry.h" // for JSMCommand
 #include "JSMVariable.hpp"
 #include <iostream>
+#include <regex>
 
 // This class handles any kind of assignment command by binding to a JSM variable
 // of the parameterized type T. If T is not a base type, implement the following
@@ -21,6 +22,26 @@ protected:
 	// The display name is usually the same as the name, but in some cases it might be different.
 	// For example the two GYRO_SENS assignment commands will display MIN_GYRO_SENS and MAX_GYRO_SENS respectively.
 	const string _displayName;
+
+	virtual bool ParseData(in_string arguments) override
+	{
+		smatch results;
+		_ASSERT_EXPR(_parse, L"There is no function defined to parse this command.");
+		if (arguments.compare("HELP") == 0)
+		{
+			// Parsing has failed. Show help.
+			cout << _help << endl;
+		}
+		else if (regex_match(arguments, results, regex(R"(\s*=?\s*([\w\s]*))")))
+		{
+			if (!_parse(this, results[1]))
+			{
+				// Parsing has failed. Show help.
+				cout << _help << endl;
+			}
+		}
+		return true; // Command is completely processed
+	}
 
 	static bool ModeshiftParser(ButtonID modeshift, JSMSetting<T> *setting, JSMCommand* cmd, in_string argument)
 	{
@@ -42,10 +63,10 @@ protected:
 		if (data.empty())
 		{
 			//No assignment? Display current assignment
-			cout << inst->_displayName << " = " << (T)inst->_var << endl;
+			cout << inst->_displayName << " = " << inst->_var.get() << endl;
 			return true;
 		}
-		
+
 		stringstream ss(data);
 		// Read the value
 		T value = T();
