@@ -59,6 +59,12 @@ vector<JSMButton> mappings; // array enables use of for each loop and other i/f
 
 mutex loading_lock;
 
+enum class Switch : char
+{
+	ON,
+	OFF,
+};
+JSMVariable<Switch> autoloadSwitch = JSMVariable<Switch>(Switch::ON);
 
 float os_mouse_speed = 1.0;
 float last_flick_and_rotation = 0.0;
@@ -249,7 +255,7 @@ public:
 
 	void ApplyBtnPress(const ComboMap &map, bool tap = false)
 	{
-		_keyToRelease = Mapping(map.second).pressBind;
+		_keyToRelease = map.second.get().pressBind;
 		_nameToRelease = _mapping.getSimPressName(map.first);
 		if (_keyToRelease.code == CALIBRATE)
 		{
@@ -274,7 +280,7 @@ public:
 
 	void ApplyBtnHold(const ComboMap &map)
 	{
-		_keyToRelease = Mapping(map.second).holdBind;
+		_keyToRelease = map.second.get().holdBind;
 		_nameToRelease = _mapping.getSimPressName(map.first);
 		if (_keyToRelease.code == CALIBRATE)
 		{
@@ -333,7 +339,7 @@ public:
 
 	void SyncSimPress(ButtonID btn, const ComboMap &map)
 	{
-		_keyToRelease = Mapping(map.second).pressBind;
+		_keyToRelease = map.second.get().pressBind;
 		_nameToRelease = mappings[int(btn)].getSimPressName(map.first);
 		if (_keyToRelease.code >= GYRO_INV_X && _keyToRelease.code <= GYRO_ON_BIND)
 		{
@@ -343,7 +349,7 @@ public:
 
 	void SyncSimHold(ButtonID btn, const ComboMap &map)
 	{
-		_keyToRelease = Mapping(map.second).holdBind;
+		_keyToRelease = map.second.get().holdBind;
 		_nameToRelease = mappings[int(btn)].getSimPressName(map.first);
 		if (_keyToRelease.code >= GYRO_INV_X && _keyToRelease.code <= GYRO_ON_BIND)
 		{
@@ -831,7 +837,7 @@ public:
 				if (simMap)
 				{
 					// We have a simultaneous press!
-					if (Mapping(simMap->second).holdBind)
+					if (simMap->second.get().holdBind)
 					{
 						button._btnState = BtnState::WaitSimHold;
 						buttons[int(simMap->first)]._btnState = BtnState::WaitSimHold;
@@ -1005,7 +1011,7 @@ public:
 			else if (pressed)
 			{
 				// dblPress will be valid because HasDblPressMapping already returned true.
-				if (Mapping(button._mapping.getDblPressMap()->second).holdBind)
+				if (button._mapping.getDblPressMap()->second.get().holdBind)
 				{
 					button._btnState = BtnState::DblPressWaitHold;
 					button._press_times = time_now;
@@ -1383,39 +1389,23 @@ bool do_IGNORE_OS_MOUSE_SPEED() {
 	return true;
 }
 
-bool do_AUTOLOAD(JSMCommand *cmd, in_string argument)
+void UpdateAutoload(Switch newValue)
 {
-	if (!autoLoadThread)
+	if (autoLoadThread)
 	{
-		cout << "AutoLoad is unavailable" << endl;
-		return true; // No need to display help
-	}
-	if (argument.empty())
-	{
-		//No assignment? Display current assignment
-		cout << "AUTOLOAD = " << (autoLoadThread->isRunning() ? "ON " : "OFF") << endl;
+		if (newValue == Switch::ON)
+		{
+			autoLoadThread->Start();
+		}
+		else if (newValue == Switch::OFF)
+		{
+			autoLoadThread->Stop();
+		}
 	}
 	else
 	{
-		stringstream ss(argument);
-		string valueName;
-		ss >> valueName;
-		if (valueName.compare("ON") == 0)
-		{
-			autoLoadThread->Start();
-			cout << "AutoLoad is now running" << endl;
-		}
-		else if (valueName.compare("OFF") == 0)
-		{
-			autoLoadThread->Stop();
-			cout << "AutoLoad is stopped" << endl;;
-		}
-		else {
-			cout << valueName << " is an invalid option" << endl << "AUTOLOAD can only be assigned ON or OFF" << endl;
-		}
+		cout << "AutoLoad is unavailable" << endl;
 	}
-	// Not an equal sign? The command is entered wrong!
-	return false;
 }
 
 bool do_CALCULATE_REAL_WORLD_CALIBRATION(in_string argument) {
@@ -2248,7 +2238,7 @@ private:
 			{
 				cout << "    " << cmd << endl;
 			}
-			cout << "Enter HELP [cmd1] [cmd2] ... for details on a specific commands." << endl;
+			cout << "Enter HELP [cmd1] [cmd2] ... for details on specific commands." << endl;
 		}
 		else
 		{
@@ -2350,10 +2340,20 @@ int main(int argc, char *argv[]) {
 	screen_resolution_y.SetFilter(&filterPositive);
 	rotate_smooth_override.SetFilter(&filterClamp01);
 	flick_snap_strength.SetFilter(&filterClamp01);
+	autoloadSwitch.AddOnChangeListener(&UpdateAutoload);
 	
 	resetAllMappings();
 	
 	CmdRegistry commandRegistry;
+
+	autoLoadThread.reset(new PollingThread(&AutoLoadPoll, &commandRegistry, 1000, true)); // Start by default
+	if (autoLoadThread && autoLoadThread->isRunning())
+	{
+		printf("AutoLoad is enabled. Configurations in \"%s\" folder will get loaded when matching application is in focus.\n", AUTOLOAD_FOLDER);
+	}
+	else printf("[AUTOLOAD] AutoLoad is unavailable\n");
+
+
 	for (auto &mapping : mappings) // Add all button mappings as commands
 	{
 		commandRegistry.Add(new JSMAssignment<Mapping>(mapping.getName(), mapping));
@@ -2379,7 +2379,7 @@ int main(int argc, char *argv[]) {
 	commandRegistry.Add((new JSMMacro("RESET_MAPPINGS"))->SetMacro(bind(&do_RESET_MAPPINGS))
 		->SetHelp("Delete all cusstom bindings and reset to default.\nHOME and CAPTURE are set to CALIBRATE on both tap and hold by default."));
 	commandRegistry.Add((new JSMMacro("NO_GYRO_BUTTON"))->SetMacro(bind(&do_NO_GYRO_BUTTON))
-		->SetHelp("Enable gyro at all times, withhout any GYRO_OFF binding."));
+		->SetHelp("Enable gyro at all times, without any GYRO_OFF binding."));
 	commandRegistry.Add((new JSMAssignment<StickMode>("LEFT_STICK_MODE", left_stick_mode))
 		->SetHelp("Set a mouse mode for the left stick. Valid values are the following:\nNO_MOUSE, AIM, FLICK, FLICK_ONLY, ROTATE_ONLY, MOUSE_RING, MOUSE_AREA, OUTER_RING, INNER_RING"));
 	commandRegistry.Add((new JSMAssignment<StickMode>("RIGHT_STICK_MODE", right_stick_mode))
@@ -2439,9 +2439,9 @@ int main(int argc, char *argv[]) {
 		->SetHelp("Controllers with a right analog trigger can use one of the following dual stage trigger modes:\nNO_FULL, NO_SKIP, MAY_SKIP, MUST_SKIP, MAY_SKIP_R, MUST_SKIP_R"));
 	commandRegistry.Add((new JSMAssignment<TriggerMode>("ZL_MODE", zrMode))
 		->SetHelp("Controllers with a left analog trigger can use one of the following dual stage trigger modes:\nNO_FULL, NO_SKIP, MAY_SKIP, MUST_SKIP, MAY_SKIP_R, MUST_SKIP_R"));
-	stringstream ss("AUTOLOAD will automatically load file from the following folder when a window with a matching executable name enters focus:\n");
-	ss << GetCWD() << "\\AutoLoad\\";
-	commandRegistry.Add((new JSMMacro("AUTOLOAD"))->SetParser(&do_AUTOLOAD)
+	stringstream ss;
+	ss << "AUTOLOAD will attempt load a file from the following folder when a window with a matching executable name enters focus:" << endl << GetCWD() << "\\AutoLoad\\";
+	commandRegistry.Add((new JSMAssignment<Switch>(magic_enum::enum_name(SettingID::AUTOLOAD).data(), autoloadSwitch))
 		->SetHelp(ss.str()));
 	commandRegistry.Add((new JSMMacro("README"))->SetMacro(bind(&do_README))
 		->SetHelp("Open the latest JoyShockMapper README in your browser."));
@@ -2477,13 +2477,6 @@ int main(int argc, char *argv[]) {
 			})
 		->SetHelp("Close the application.")
 	);
-
-	autoLoadThread.reset(new PollingThread(&AutoLoadPoll, &commandRegistry, 1000, true)); // Start by default
-	if (autoLoadThread && *autoLoadThread)
-	{
-		printf("AutoLoad is enabled. Configurations in \"%s\" folder will get loaded when matching application is in focus.\n", AUTOLOAD_FOLDER);
-	}
-	else printf("[AUTOLOAD] AutoLoad is unavailable\n");
 
 	map<int, float> toto;
 	toto[5] = 0.8f;

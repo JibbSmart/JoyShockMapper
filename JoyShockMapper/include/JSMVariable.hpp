@@ -109,6 +109,11 @@ public:
 		return _value;
 	}
 
+	virtual T get() const
+	{
+		return _value;
+	}
+
 	// Value can be written by using operator =.
 	// N.B.: It's important to always use this function
 	// for changing the member _value

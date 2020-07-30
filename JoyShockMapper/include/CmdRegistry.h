@@ -51,7 +51,7 @@ public:
 	virtual unique_ptr<JSMCommand> GetModifiedCmd(char op, in_string chord);
 
 	// Get the help string for the command.
-	inline string Help()
+	inline string Help() const
 	{
 		return _help;
 	}
@@ -64,8 +64,7 @@ public:
 	}
 
 	// Request this command to parse the command arguments. Returns true if the command was processed.
-	// Derived classes should assign their own parser rather than override this.
-	virtual bool ParseData(in_string arguments) final;
+	virtual bool ParseData(in_string arguments);
 };
 
 // The command registry holds all JSMCommands object and should not care what the derived type is. 
