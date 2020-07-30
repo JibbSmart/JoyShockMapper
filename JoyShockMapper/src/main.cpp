@@ -100,8 +100,9 @@ public:
 		, _mapping(mappings[int(_id)])
 		, _press_times()
 		, _btnState(BtnState::NoPress)
-		, _keyToRelease()
+		, _keyToRelease(nullptr)
 		, _nameToRelease()
+		, _turboCount(0)
 	{
 
 	}
@@ -112,30 +113,25 @@ public:
 	const JSMButton &_mapping;
 	chrono::steady_clock::time_point _press_times;
 	BtnState _btnState = BtnState::NoPress;
-	KeyCode _keyToRelease; // At key press, remember what to release
+	const EventMapping *_keyToRelease; // At key press, remember what to release
 	string _nameToRelease;
+	unsigned int _turboCount;
 
-	float GetTapDuration() const
-	{
-		// for tap duration, we need to know if the key in question is a gyro-related mapping or not
-		return (_keyToRelease.code >= GYRO_INV_X && _keyToRelease.code <= GYRO_ON_BIND) ? MAGIC_GYRO_TAP_DURATION : MAGIC_TAP_DURATION;
-	}
-
-	KeyCode GetPressMapping()
+	EventMapping &GetPressMapping()
 	{
 		// Look at active chord mappings starting with the latest activates chord
-		for (auto activeChord = _common.chordStack.begin(); activeChord != _common.chordStack.end(); activeChord++)
+		for (auto activeChord = _common.chordStack.cbegin(); activeChord != _common.chordStack.cend(); activeChord++)
 		{
 			auto binding = _mapping.get(*activeChord);
 			if (binding)
 			{
-				_keyToRelease = Mapping(*binding).pressBind;
+				_keyToRelease = &*binding;
 				_nameToRelease = _mapping.getName(*activeChord);
-				return _keyToRelease;
+				return *binding;
 			}
 		}
 		// Chord stack should always include NONE which will provide a value in the loop above
-		return KeyCode::EMPTY;
+		return EventMapping();
 	}
 
 	bool HasHoldMapping()
@@ -146,216 +142,206 @@ public:
 			auto binding = _mapping.get(*activeChord);
 			if(binding)
 			{
-				return Mapping(*binding).holdBind;
+				auto map = binding->eventMapping.find(ButtonEvent::OnHold);
+				return map != binding->eventMapping.end();
 			}
 		}
 		// Chord stack should always include NONE which will provide a value in the loop above
 		return false;
 	}
 
-	KeyCode GetHoldMapping()
-	{
-		// Look at active chord mappings starting with the latest activates chord
-		for (auto activeChord = _common.chordStack.begin(); activeChord != _common.chordStack.end(); activeChord++)
-		{
-			auto binding = _mapping.get(*activeChord);
-			if (binding)
-			{
-				_keyToRelease = Mapping(*binding).holdBind;
-				_nameToRelease = _mapping.getName(*activeChord);
-				return _keyToRelease;
-			}
-		}
-		// Chord stack should always include NONE which will provide a value in the loop above
-		return KeyCode::EMPTY;
-	}
+	//KeyCode GetHoldMapping()
+	//{
+	//	// Look at active chord mappings starting with the latest activates chord
+	//	for (auto activeChord = _common.chordStack.begin(); activeChord != _common.chordStack.end(); activeChord++)
+	//	{
+	//		auto binding = _mapping.get(*activeChord);
+	//		if (binding)
+	//		{
+	//			_keyToRelease = Mapping(*binding).holdBind;
+	//			_nameToRelease = _mapping.getName(*activeChord);
+	//			return _keyToRelease;
+	//		}
+	//	}
+	//	// Chord stack should always include NONE which will provide a value in the loop above
+	//	return KeyCode::EMPTY;
+	//}
 
-	void ApplyBtnPress(bool tap = false)
-	{
-		_keyToRelease = GetPressMapping();
-		if (_keyToRelease.code == CALIBRATE)
-		{
-			_common.toggleContinuous ^= tap; //Toggle on tap
-			if (!tap || _common.toggleContinuous) {
-				printf("Starting continuous calibration\n");
-				JslResetContinuousCalibration(_common.intHandle);
-				JslStartContinuousCalibration(_common.intHandle);
-			}
-		}
-		else if (_keyToRelease.code >= GYRO_INV_X && _keyToRelease.code <= GYRO_ON_BIND)
-		{
-			_common.gyroActionQueue.push_back({ _id, _keyToRelease });
-		}
-		else if(_keyToRelease.code != NO_HOLD_MAPPED)
-		{
-			printf("%s: %s\n", _nameToRelease.c_str(), tap ? "tapped" : "true");
-			pressKey(_keyToRelease, true);
-		}
-		//if (find(_common.chordStack.begin(), _common.chordStack.end(), _id) == _common.chordStack.end())
-		//{
-		//	_common.chordStack.push_front(_id); // Always push at the fromt to make it a stack
-		//}
-	}
+	//void ApplyBtnPress(bool tap = false)
+	//{
+	//	_keyToRelease = &GetPressMapping();
+	//	if (_keyToRelease.code == CALIBRATE)
+	//	{
+	//		_common.toggleContinuous ^= tap; //Toggle on tap
+	//		if (!tap || _common.toggleContinuous) {
+	//			printf("Starting continuous calibration\n");
+	//			JslResetContinuousCalibration(_common.intHandle);
+	//			JslStartContinuousCalibration(_common.intHandle);
+	//		}
+	//	}
+	//	else if (_keyToRelease.code >= GYRO_INV_X && _keyToRelease.code <= GYRO_ON_BIND)
+	//	{
+	//		_common.gyroActionQueue.push_back({ _id, _keyToRelease });
+	//	}
+	//	else if(_keyToRelease.code != NO_HOLD_MAPPED)
+	//	{
+	//		printf("%s: %s\n", _nameToRelease.c_str(), tap ? "tapped" : "true");
+	//		pressKey(_keyToRelease, true);
+	//	}
+	//	//if (find(_common.chordStack.begin(), _common.chordStack.end(), _id) == _common.chordStack.end())
+	//	//{
+	//	//	_common.chordStack.push_front(_id); // Always push at the fromt to make it a stack
+	//	//}
+	//}
 
-	void ApplyBtnHold()
-	{
-		_keyToRelease = GetHoldMapping();
-		if (_keyToRelease.code == CALIBRATE)
-		{
-			printf("Starting continuous calibration\n");
-			JslResetContinuousCalibration(_common.intHandle);
-			JslStartContinuousCalibration(_common.intHandle);
-		}
-		else if (_keyToRelease.code >= GYRO_INV_X && _keyToRelease.code <= GYRO_ON_BIND)
-		{
-			_common.gyroActionQueue.push_back({ _id, _keyToRelease });
-		}
-		else if (_keyToRelease.code != NO_HOLD_MAPPED)
-		{
-			printf("%s: held\n", _nameToRelease.c_str());
-			pressKey(_keyToRelease, true);
-		}
-		//if (find(_common.chordStack.begin(), _common.chordStack.end(), _id) == _common.chordStack.end())
-		//{
-		//	_common.chordStack.push_front(_id); // Always push at the fromt to make it a stack
-		//}
-	}
+	//void ApplyBtnHold()
+	//{
+	//	_keyToRelease = GetHoldMapping();
+	//	if (_keyToRelease.code == CALIBRATE)
+	//	{
+	//		printf("Starting continuous calibration\n");
+	//		JslResetContinuousCalibration(_common.intHandle);
+	//		JslStartContinuousCalibration(_common.intHandle);
+	//	}
+	//	else if (_keyToRelease.code >= GYRO_INV_X && _keyToRelease.code <= GYRO_ON_BIND)
+	//	{
+	//		_common.gyroActionQueue.push_back({ _id, _keyToRelease });
+	//	}
+	//	else if (_keyToRelease.code != NO_HOLD_MAPPED)
+	//	{
+	//		printf("%s: held\n", _nameToRelease.c_str());
+	//		pressKey(_keyToRelease, true);
+	//	}
+	//	//if (find(_common.chordStack.begin(), _common.chordStack.end(), _id) == _common.chordStack.end())
+	//	//{
+	//	//	_common.chordStack.push_front(_id); // Always push at the fromt to make it a stack
+	//	//}
+	//}
 
-	void ApplyBtnRelease(bool tap = false)
-	{
-		if (_keyToRelease.code == CALIBRATE)
-		{
-			if (!tap || !_common.toggleContinuous)
-			{
-				JslPauseContinuousCalibration(_common.intHandle);
-				_common.toggleContinuous = false; // if we've held the calibration button, we're disabling continuous calibration
-				printf("Gyro calibration set\n");
-			}
-		}
-		else if (_keyToRelease.code >= GYRO_INV_X && _keyToRelease.code <= GYRO_ON_BIND)
-		{
-			_common.gyroActionQueue.erase(find_if(_common.gyroActionQueue.begin(), _common.gyroActionQueue.end(),
-				[this](auto pair)
-				{
-					return pair.first == _id;
-				}));
-		}
-		else if (_keyToRelease.code != NO_HOLD_MAPPED)
-		{
-			printf(tap ? "" : "%s: false\n", _nameToRelease.c_str()); // Is this good coding? [Insert meme]
-			pressKey(_keyToRelease, false);
-		}
-		//auto foundChord = find(_common.chordStack.begin(), _common.chordStack.end(), _id);
-		//if (foundChord != _common.chordStack.end())
-		//{
-		//	// The chord is released
-		//	_common.chordStack.erase(foundChord);
-		//}
-	}
+	//void ApplyBtnRelease(bool tap = false)
+	//{
+	//	if (_keyToRelease.code == CALIBRATE)
+	//	{
+	//		if (!tap || !_common.toggleContinuous)
+	//		{
+	//			JslPauseContinuousCalibration(_common.intHandle);
+	//			_common.toggleContinuous = false; // if we've held the calibration button, we're disabling continuous calibration
+	//			printf("Gyro calibration set\n");
+	//		}
+	//	}
+	//	else if (_keyToRelease.code >= GYRO_INV_X && _keyToRelease.code <= GYRO_ON_BIND)
+	//	{
+	//		_common.gyroActionQueue.erase(find_if(_common.gyroActionQueue.begin(), _common.gyroActionQueue.end(),
+	//			[this](auto pair)
+	//			{
+	//				return pair.first == _id;
+	//			}));
+	//	}
+	//	else if (_keyToRelease.code != NO_HOLD_MAPPED)
+	//	{
+	//		printf(tap ? "" : "%s: false\n", _nameToRelease.c_str()); // Is this good coding? [Insert meme]
+	//		pressKey(_keyToRelease, false);
+	//	}
+	//	//auto foundChord = find(_common.chordStack.begin(), _common.chordStack.end(), _id);
+	//	//if (foundChord != _common.chordStack.end())
+	//	//{
+	//	//	// The chord is released
+	//	//	_common.chordStack.erase(foundChord);
+	//	//}
+	//}
 
-	void ApplyBtnPress(const ComboMap &map, bool tap = false)
-	{
-		_keyToRelease = map.second.get().pressBind;
-		_nameToRelease = _mapping.getSimPressName(map.first);
-		if (_keyToRelease.code == CALIBRATE)
-		{
-			_common.toggleContinuous ^= tap; //Toggle on tap
-			if (!tap || _common.toggleContinuous) {
-				printf("Starting continuous calibration\n");
-				JslResetContinuousCalibration(_common.intHandle);
-				JslStartContinuousCalibration(_common.intHandle);
-			}
-		}
-		else if (_keyToRelease.code >= GYRO_INV_X && _keyToRelease.code <= GYRO_ON_BIND)
-		{
-			// I know I don't handle multiple inversion. Otherwise GYRO_INV_X on sim press would do nothing
-			_common.gyroActionQueue.push_back({ _id, _keyToRelease });
-		}
-		else if(_keyToRelease.code != NO_HOLD_MAPPED)
-		{
-			printf("%s: %s\n", _nameToRelease.c_str(), tap ? "tapped" : "true");
-			pressKey(_keyToRelease, true);
-		}
-	}
+	//void ApplyBtnPress(const ComboMap &map, bool tap = false)
+	//{
+	//	_keyToRelease = map.second.get().pressBind;
+	//	_nameToRelease = _mapping.getSimPressName(map.first);
+	//	if (_keyToRelease.code == CALIBRATE)
+	//	{
+	//		_common.toggleContinuous ^= tap; //Toggle on tap
+	//		if (!tap || _common.toggleContinuous) {
+	//			printf("Starting continuous calibration\n");
+	//			JslResetContinuousCalibration(_common.intHandle);
+	//			JslStartContinuousCalibration(_common.intHandle);
+	//		}
+	//	}
+	//	else if (_keyToRelease.code >= GYRO_INV_X && _keyToRelease.code <= GYRO_ON_BIND)
+	//	{
+	//		// I know I don't handle multiple inversion. Otherwise GYRO_INV_X on sim press would do nothing
+	//		_common.gyroActionQueue.push_back({ _id, _keyToRelease });
+	//	}
+	//	else if(_keyToRelease.code != NO_HOLD_MAPPED)
+	//	{
+	//		printf("%s: %s\n", _nameToRelease.c_str(), tap ? "tapped" : "true");
+	//		pressKey(_keyToRelease, true);
+	//	}
+	//}
 
-	void ApplyBtnHold(const ComboMap &map)
-	{
-		_keyToRelease = map.second.get().holdBind;
-		_nameToRelease = _mapping.getSimPressName(map.first);
-		if (_keyToRelease.code == CALIBRATE)
-		{
-			printf("Starting continuous calibration\n");
-			JslResetContinuousCalibration(_common.intHandle);
-			JslStartContinuousCalibration(_common.intHandle);
-		}
-		else if (_keyToRelease.code >= GYRO_INV_X && _keyToRelease.code <= GYRO_ON_BIND)
-		{
-			// I know I don't handle multiple inversion. Otherwise GYRO_INV_X on sim press would do nothing
-			_common.gyroActionQueue.push_back({ _id, _keyToRelease });
-		}
-		else if (_keyToRelease.code != NO_HOLD_MAPPED)
-		{
-			printf("%s: held\n", _nameToRelease.c_str());
-			pressKey(_keyToRelease, true);
-		}
-	}
+	//void ApplyBtnHold(const ComboMap &map)
+	//{
+	//	_keyToRelease = map.second.get().holdBind;
+	//	_nameToRelease = _mapping.getSimPressName(map.first);
+	//	if (_keyToRelease.code == CALIBRATE)
+	//	{
+	//		printf("Starting continuous calibration\n");
+	//		JslResetContinuousCalibration(_common.intHandle);
+	//		JslStartContinuousCalibration(_common.intHandle);
+	//	}
+	//	else if (_keyToRelease.code >= GYRO_INV_X && _keyToRelease.code <= GYRO_ON_BIND)
+	//	{
+	//		// I know I don't handle multiple inversion. Otherwise GYRO_INV_X on sim press would do nothing
+	//		_common.gyroActionQueue.push_back({ _id, _keyToRelease });
+	//	}
+	//	else if (_keyToRelease.code != NO_HOLD_MAPPED)
+	//	{
+	//		printf("%s: held\n", _nameToRelease.c_str());
+	//		pressKey(_keyToRelease, true);
+	//	}
+	//}
 
-	void ApplyBtnRelease(const ComboMap &map, bool tap = false)
-	{
-		if (_keyToRelease.code == CALIBRATE)
-		{
-			if (!tap || !_common.toggleContinuous)
-			{
-				JslPauseContinuousCalibration(_common.intHandle);
-				_common.toggleContinuous = false; // if we've held the calibration button, we're disabling continuous calibration
-				printf("Gyro calibration set\n");
-			}
-		}
-		else if (_keyToRelease.code >= GYRO_INV_X && _keyToRelease.code <= GYRO_ON_BIND)
-		{
-			_common.gyroActionQueue.erase(find_if(_common.gyroActionQueue.begin(), _common.gyroActionQueue.end(),
-				[this](auto pair)
-				{
-					return pair.first == _id;
-				}));
-			_common.gyroActionQueue.erase(find_if(_common.gyroActionQueue.begin(), _common.gyroActionQueue.end(),
-				[map](auto pair)
-				{
-					return pair.first == map.first;
-				}));
-		}
-		else if (_keyToRelease.code != NO_HOLD_MAPPED)
-		{
-			printf(tap ? "" : "%s: false\n", _nameToRelease.c_str());
-			pressKey(_keyToRelease, false);
-		}
-		//auto foundChord = find(_common.chordStack.begin(), _common.chordStack.end(), _id);
-		//if (foundChord != _common.chordStack.end())
-		//{
-		//	// The chord is released
-		//	_common.chordStack.erase(foundChord);
-		//}
-	}
+	//void ApplyBtnRelease(const ComboMap &map, bool tap = false)
+	//{
+	//	if (_keyToRelease.code == CALIBRATE)
+	//	{
+	//		if (!tap || !_common.toggleContinuous)
+	//		{
+	//			JslPauseContinuousCalibration(_common.intHandle);
+	//			_common.toggleContinuous = false; // if we've held the calibration button, we're disabling continuous calibration
+	//			printf("Gyro calibration set\n");
+	//		}
+	//	}
+	//	else if (_keyToRelease.code >= GYRO_INV_X && _keyToRelease.code <= GYRO_ON_BIND)
+	//	{
+	//		_common.gyroActionQueue.erase(find_if(_common.gyroActionQueue.begin(), _common.gyroActionQueue.end(),
+	//			[this](auto pair)
+	//			{
+	//				return pair.first == _id;
+	//			}));
+	//		_common.gyroActionQueue.erase(find_if(_common.gyroActionQueue.begin(), _common.gyroActionQueue.end(),
+	//			[map](auto pair)
+	//			{
+	//				return pair.first == map.first;
+	//			}));
+	//	}
+	//	else if (_keyToRelease.code != NO_HOLD_MAPPED)
+	//	{
+	//		printf(tap ? "" : "%s: false\n", _nameToRelease.c_str());
+	//		pressKey(_keyToRelease, false);
+	//	}
+	//	//auto foundChord = find(_common.chordStack.begin(), _common.chordStack.end(), _id);
+	//	//if (foundChord != _common.chordStack.end())
+	//	//{
+	//	//	// The chord is released
+	//	//	_common.chordStack.erase(foundChord);
+	//	//}
+	//}
 
 	void SyncSimPress(ButtonID btn, const ComboMap &map)
 	{
-		_keyToRelease = map.second.get().pressBind;
 		_nameToRelease = mappings[int(btn)].getSimPressName(map.first);
-		if (_keyToRelease.code >= GYRO_INV_X && _keyToRelease.code <= GYRO_ON_BIND)
-		{
-			_common.gyroActionQueue.push_back({ _id, _keyToRelease });
-		}
 	}
 
 	void SyncSimHold(ButtonID btn, const ComboMap &map)
 	{
-		_keyToRelease = map.second.get().holdBind;
 		_nameToRelease = mappings[int(btn)].getSimPressName(map.first);
-		if (_keyToRelease.code >= GYRO_INV_X && _keyToRelease.code <= GYRO_ON_BIND)
-		{
-			// I know I don't handle multiple inversion. Otherwise GYRO_INV_X on sim press would do nothing
-			_common.gyroActionQueue.push_back({ _id, _keyToRelease });
-		}
 	}
 
 	// Pretty wrapper
@@ -798,11 +784,6 @@ public:
 					button._btnState = BtnState::WaitSim;
 					button._press_times = time_now;
 				}
-				else if (button.HasHoldMapping())
-				{
-					button._btnState = BtnState::WaitHold;
-					button._press_times = time_now;
-				}
 				else if (button._mapping.getDblPressMap())
 				{
 					// Start counting time between two start presses
@@ -812,15 +793,44 @@ public:
 				else
 				{
 					button._btnState = BtnState::BtnPress;
-					button.ApplyBtnPress();
+					button._press_times = time_now;
+					button.GetPressMapping().eventMapping[ButtonEvent::OnPress]();
 				}
 			}
 			break;
 		case BtnState::BtnPress:
-			if (!pressed)
+			if (pressed)
+			{
+				if (button.GetPressDurationMS(time_now) / MAGIC_HOLD_TIME > button._turboCount)
+				{
+					if (button._turboCount == 0)
+					{
+						button.GetPressMapping().eventMapping[ButtonEvent::OnHold]();
+					}
+					button.GetPressMapping().eventMapping[ButtonEvent::OnTurbo]();
+					button._turboCount++;
+				}
+			}
+			else
+			{
+				if (button.GetPressDurationMS(time_now) < MAGIC_HOLD_TIME)
+				{
+					button._btnState = BtnState::TapRelease;
+					button.GetPressMapping().eventMapping[ButtonEvent::OnTap]();
+					button._press_times = time_now;
+				}
+				else
+				{
+					button._btnState = BtnState::NoPress;
+					button.GetPressMapping().eventMapping[ButtonEvent::OnRelease]();
+				}
+			}
+			break;
+		case BtnState::TapRelease:
+			if (pressed || button.GetPressDurationMS(time_now) > button.GetPressMapping().tapDurationMs)
 			{
 				button._btnState = BtnState::NoPress;
-				button.ApplyBtnRelease();
+				button.GetPressMapping().eventMapping[ButtonEvent::OnTapRelease]();
 			}
 			break;
 		case BtnState::WaitSim:
@@ -828,39 +838,25 @@ public:
 			{
 				button._btnState = BtnState::TapRelease;
 				button._press_times = time_now;
-				button.ApplyBtnPress(true);
+				button.GetPressMapping().eventMapping[ButtonEvent::OnRelease]();
+				button.GetPressMapping().eventMapping[ButtonEvent::OnTap]();
 			}
-			else
+			else // is pressed!
 			{
 				// Is there a sim mapping on this button where the other button is in WaitSim state too?
 				auto simMap = GetMatchingSimMap(index);
 				if (simMap)
 				{
-					// We have a simultaneous press!
-					if (simMap->second.get().holdBind)
-					{
-						button._btnState = BtnState::WaitSimHold;
-						buttons[int(simMap->first)]._btnState = BtnState::WaitSimHold;
-						button._press_times = time_now; // Reset Timer
-						buttons[int(simMap->first)]._press_times = time_now;
-					}
-					else
-					{
-						button._btnState = BtnState::SimPress;
-						buttons[int(simMap->first)]._btnState = BtnState::SimPress;
-						button.ApplyBtnPress(*simMap);
-						buttons[int(simMap->first)].SyncSimPress(index, *simMap);
-					}
+					button._btnState = BtnState::SimPress;
+					buttons[int(simMap->first)]._btnState = BtnState::SimPress;
+					button._press_times = time_now; // Reset Timer
+					buttons[int(simMap->first)]._press_times = time_now;
+					simMap->second.get().eventMapping[ButtonEvent::OnPress]();
+					buttons[int(simMap->first)].SyncSimPress(index, *simMap);
 				}
 				else if (button.GetPressDurationMS(time_now) > MAGIC_SIM_DELAY)
 				{
-					// Sim delay expired!
-					if (button.HasHoldMapping())
-					{
-						button._btnState = BtnState::WaitHold;
-						// Don't reset time
-					}
-					else if (button._mapping.getDblPressMap())
+					if (button._mapping.getDblPressMap())
 					{
 						// Start counting time between two start presses
 						button._btnState = BtnState::DblPressStart;
@@ -868,32 +864,12 @@ public:
 					else
 					{
 						button._btnState = BtnState::BtnPress;
-						button.ApplyBtnPress();
+						// Don't reset timer
+						button.GetPressMapping().eventMapping[ButtonEvent::OnPress]();
 					}
 				}
 				// Else let time flow, stay in this state, no output.
 			}
-			break;
-		case BtnState::WaitHold:
-			if (!pressed)
-			{
-				if (button._mapping.getDblPressMap())
-				{
-					button._btnState = BtnState::DblPressStart;
-				}
-				else
-				{
-					button._btnState = BtnState::TapRelease;
-					button._press_times = time_now;
-					button.ApplyBtnPress(true);
-				}
-			}
-			else if (button.GetPressDurationMS(time_now) > MAGIC_HOLD_TIME)
-			{
-				button._btnState = BtnState::HoldPress;
-				button.ApplyBtnHold();
-			}
-			// Else let time flow, stay in this state, no output.
 			break;
 		case BtnState::SimPress:
 		{
@@ -905,97 +881,35 @@ public:
 				printf("Error: lost track of matching sim press for %s! Resetting to NoPress.\n", button._name.c_str());
 				button._btnState = BtnState::NoPress;
 			}
-			else if (!pressed)
+			if (pressed)
 			{
-				button._btnState = BtnState::SimRelease;
-				buttons[int(simMap->first)]._btnState = BtnState::SimRelease;
-				button.ApplyBtnRelease(*simMap);
+				if (button.GetPressDurationMS(time_now) / MAGIC_HOLD_TIME > button._turboCount)
+				{
+					if (button._turboCount == 0)
+					{
+						simMap->second.get().eventMapping[ButtonEvent::OnHold]();
+					}
+					simMap->second.get().eventMapping[ButtonEvent::OnTurbo]();
+					button._turboCount++;
+				}
 			}
-			// else sim press is being held, as far as this button is concerned.
-			break;
-		}
-		case BtnState::HoldPress:
-			if (!pressed)
+			else
 			{
 				button._btnState = BtnState::NoPress;
-				button.ApplyBtnRelease();
-			}
-			break;
-		case BtnState::WaitSimHold:
-		{
-			// Which is the sim mapping where the other button is in WaitSimHold state too?
-			auto simMap = GetMatchingSimMap(index);
-			if (!simMap)
-			{
-				// Should never happen but added for robustness.
-				printf("Error: lost track of matching sim press for %s! Resetting to NoPress.\n", button._name.c_str());
-				button._btnState = BtnState::NoPress;
-			}
-			else if (!pressed)
-			{
-				// The simultaneous buttons are going to different states instead of the same!
-				button._btnState = BtnState::SimTapRelease;
-				buttons[int(simMap->first)]._btnState = BtnState::SimRelease;
-				button._press_times = time_now;
-				button.ApplyBtnPress(*simMap, true);
-				// A sim pressed tapped does not need the other btn to be synced
-			}
-			else if (button.GetPressDurationMS(time_now) > MAGIC_HOLD_TIME)
-			{
-				button._btnState = BtnState::SimHold;
-				buttons[int(simMap->first)]._btnState = BtnState::SimHold;
-				button.ApplyBtnHold(*simMap);
-				buttons[int(simMap->first)].SyncSimHold(index, *simMap);
-				// Else let time flow, stay in this state, no output.
+				simMap->second.get().eventMapping[ButtonEvent::OnRelease]();
+				if (button.GetPressDurationMS(time_now) < MAGIC_HOLD_TIME)
+				{
+					simMap->second.get().eventMapping[ButtonEvent::OnTap]();
+				}
 			}
 			break;
 		}
-		case BtnState::SimHold:
-		{
-			// Which is the sim mapping where the other button is in SimHold state too?
-			auto simMap = GetMatchingSimMap(index);
-			if (!simMap)
-			{
-				// Should never happen but added for robustness.
-				printf("Error: lost track of matching sim press for %s! Resetting to NoPress.\n", button._name.c_str());
-				button._btnState = BtnState::NoPress;
-			}
-			else if (!pressed)
-			{
-				button._btnState = BtnState::SimRelease;
-				buttons[int(simMap->first)]._btnState = BtnState::SimRelease;
-				button.ApplyBtnRelease(*simMap);
-			}
-			break;
-		}
-		case BtnState::SimRelease:
-			if (!pressed)
-			{
-				button._btnState = BtnState::NoPress;
-			}
-			break;
-		case BtnState::SimTapRelease:
-		{
-			// The button has been pressed again before tap duration expired, move on!
-			if (pressed || button.GetPressDurationMS(time_now) > button.GetTapDuration())
-			{
-				button.ApplyBtnRelease(true); // Notice this is not the ComboMap release overload
-				button._btnState = BtnState::NoPress;
-			}
-			break;
-		}
-		case BtnState::TapRelease:
-			if (pressed || button.GetPressDurationMS(time_now) > button.GetTapDuration())
-			{
-				button.ApplyBtnRelease(true);
-				button._btnState = BtnState::NoPress;
-			}
-			break;
 		case BtnState::DblPressStart:
 			if (button.GetPressDurationMS(time_now) > MAGIC_DBL_PRESS_WINDOW)
 			{
 				button._btnState = BtnState::BtnPress;
-				button.ApplyBtnPress();
+				// Don't reset timer
+				button.GetPressMapping().eventMapping[ButtonEvent::OnPress]();
 			}
 			else if (!pressed)
 			{
@@ -1005,58 +919,336 @@ public:
 		case BtnState::DblPressNoPress:
 			if (button.GetPressDurationMS(time_now) > MAGIC_DBL_PRESS_WINDOW)
 			{
-				button._btnState = BtnState::TapRelease;
-				button.ApplyBtnPress(true);
+				button._btnState = BtnState::BtnPress;
+				// Don't reset timer
+				button.GetPressMapping().eventMapping[ButtonEvent::OnPress]();
+				button.GetPressMapping().eventMapping[ButtonEvent::OnRelease]();
+				button.GetPressMapping().eventMapping[ButtonEvent::OnTap]();
 			}
 			else if (pressed)
 			{
-				// dblPress will be valid because HasDblPressMapping already returned true.
-				if (button._mapping.getDblPressMap()->second.get().holdBind)
-				{
-					button._btnState = BtnState::DblPressWaitHold;
-					button._press_times = time_now;
-				}
-				else
-				{
-					button._btnState = BtnState::DblPressPress;
-					button.ApplyBtnPress(*button._mapping.getDblPressMap());
-				}
+				button._btnState = BtnState::DblPressPress;
+				button._press_times = time_now;
+				button._mapping.getDblPressMap()->second.get().eventMapping[ButtonEvent::OnPress]();
 			}
 			break;
 		case BtnState::DblPressPress:
-			if (!pressed)
+			if (pressed)
+			{
+				if (button.GetPressDurationMS(time_now) / MAGIC_HOLD_TIME > button._turboCount)
+				{
+					if (button._turboCount == 0)
+					{
+						button._mapping.getDblPressMap()->second.get().eventMapping[ButtonEvent::OnHold]();
+					}
+					button._mapping.getDblPressMap()->second.get().eventMapping[ButtonEvent::OnTurbo]();
+					button._turboCount++;
+				}
+			}
+			else
 			{
 				button._btnState = BtnState::NoPress;
-				button.ApplyBtnRelease(*button._mapping.getDblPressMap());
-			}
-			break;
-		case BtnState::DblPressWaitHold:
-			if (!pressed)
-			{
-				button._btnState = BtnState::TapRelease;
-				button._press_times = time_now;
-				button.ApplyBtnPress(*button._mapping.getDblPressMap(), true);
-			}
-			else if (button.GetPressDurationMS(time_now) > MAGIC_HOLD_TIME)
-			{
-				button._btnState = BtnState::DblPressHold;
-				button.ApplyBtnHold(*button._mapping.getDblPressMap());
-			}
-			break;
-		case BtnState::DblPressHold:
-			if (!pressed)
-			{
-				button._btnState = BtnState::NoPress;
-				button.ApplyBtnRelease(*button._mapping.getDblPressMap());
+				button._mapping.getDblPressMap()->second.get().eventMapping[ButtonEvent::OnRelease]();
+				if (button.GetPressDurationMS(time_now) < MAGIC_HOLD_TIME)
+				{
+					button._mapping.getDblPressMap()->second.get().eventMapping[ButtonEvent::OnTap]();
+				}
 			}
 			break;
 		default:
 			printf("Invalid button state %d: Resetting to NoPress\n", button._btnState);
 			button._btnState = BtnState::NoPress;
 			break;
-
 		}
 	}
+
+	//void old_handleButtonChange(ButtonID index, bool pressed)
+	//{
+	//	auto foundChord = find(btnCommon.chordStack.begin(), btnCommon.chordStack.end(), index);
+	//	if (!pressed)
+	//	{
+	//		if (foundChord != btnCommon.chordStack.end())
+	//		{
+	//			//cout << "Button " << index << " is released!" << endl;
+	//			btnCommon.chordStack.erase(foundChord); // The chord is released
+	//		}
+	//	}
+	//	else if (foundChord == btnCommon.chordStack.end()) {
+	//		//cout << "Button " << index << " is pressed!" << endl;
+	//		btnCommon.chordStack.push_front(index); // Always push at the fromt to make it a stack
+	//	}
+
+	//	DigitalButton &button = buttons[int(index)];
+
+	//	switch (button._btnState)
+	//	{
+	//	case BtnState::NoPress:
+	//		if (pressed)
+	//		{
+	//			if (button._mapping.HasSimMappings())
+	//			{
+	//				button._btnState = BtnState::WaitSim;
+	//				button._press_times = time_now;
+	//			}
+	//			else if (button.HasHoldMapping())
+	//			{
+	//				button._btnState = BtnState::WaitHold;
+	//				button._press_times = time_now;
+	//			}
+	//			else if (button._mapping.getDblPressMap())
+	//			{
+	//				// Start counting time between two start presses
+	//				button._btnState = BtnState::DblPressStart;
+	//				button._press_times = time_now;
+	//			}
+	//			else
+	//			{
+	//				button._btnState = BtnState::BtnPress;
+	//				button.ApplyBtnPress();
+	//			}
+	//		}
+	//		break;
+	//	case BtnState::BtnPress:
+	//		if (!pressed)
+	//		{
+	//			button._btnState = BtnState::NoPress;
+	//			button.ApplyBtnRelease();
+	//		}
+	//		break;
+	//	case BtnState::WaitSim:
+	//		if (!pressed)
+	//		{
+	//			button._btnState = BtnState::TapRelease;
+	//			button._press_times = time_now;
+	//			button.ApplyBtnPress(true);
+	//		}
+	//		else
+	//		{
+	//			// Is there a sim mapping on this button where the other button is in WaitSim state too?
+	//			auto simMap = GetMatchingSimMap(index);
+	//			if (simMap)
+	//			{
+	//				// We have a simultaneous press!
+	//				if (simMap->second.get().holdBind)
+	//				{
+	//					button._btnState = BtnState::WaitSimHold;
+	//					buttons[int(simMap->first)]._btnState = BtnState::WaitSimHold;
+	//					button._press_times = time_now; // Reset Timer
+	//					buttons[int(simMap->first)]._press_times = time_now;
+	//				}
+	//				else
+	//				{
+	//					button._btnState = BtnState::SimPress;
+	//					buttons[int(simMap->first)]._btnState = BtnState::SimPress;
+	//					button.ApplyBtnPress(*simMap);
+	//					buttons[int(simMap->first)].SyncSimPress(index, *simMap);
+	//				}
+	//			}
+	//			else if (button.GetPressDurationMS(time_now) > MAGIC_SIM_DELAY)
+	//			{
+	//				// Sim delay expired!
+	//				if (button.HasHoldMapping())
+	//				{
+	//					button._btnState = BtnState::WaitHold;
+	//					// Don't reset time
+	//				}
+	//				else if (button._mapping.getDblPressMap())
+	//				{
+	//					// Start counting time between two start presses
+	//					button._btnState = BtnState::DblPressStart;
+	//				}
+	//				else
+	//				{
+	//					button._btnState = BtnState::BtnPress;
+	//					button.ApplyBtnPress();
+	//				}
+	//			}
+	//			// Else let time flow, stay in this state, no output.
+	//		}
+	//		break;
+	//	case BtnState::WaitHold:
+	//		if (!pressed)
+	//		{
+	//			if (button._mapping.getDblPressMap())
+	//			{
+	//				button._btnState = BtnState::DblPressStart;
+	//			}
+	//			else
+	//			{
+	//				button._btnState = BtnState::TapRelease;
+	//				button._press_times = time_now;
+	//				button.ApplyBtnPress(true);
+	//			}
+	//		}
+	//		else if (button.GetPressDurationMS(time_now) > MAGIC_HOLD_TIME)
+	//		{
+	//			button._btnState = BtnState::HoldPress;
+	//			button.ApplyBtnHold();
+	//		}
+	//		// Else let time flow, stay in this state, no output.
+	//		break;
+	//	case BtnState::SimPress:
+	//	{
+	//		// Which is the sim mapping where the other button is in SimPress state too?
+	//		auto simMap = GetMatchingSimMap(index);
+	//		if (!simMap)
+	//		{
+	//			// Should never happen but added for robustness.
+	//			printf("Error: lost track of matching sim press for %s! Resetting to NoPress.\n", button._name.c_str());
+	//			button._btnState = BtnState::NoPress;
+	//		}
+	//		else if (!pressed)
+	//		{
+	//			button._btnState = BtnState::SimRelease;
+	//			buttons[int(simMap->first)]._btnState = BtnState::SimRelease;
+	//			button.ApplyBtnRelease(*simMap);
+	//		}
+	//		// else sim press is being held, as far as this button is concerned.
+	//		break;
+	//	}
+	//	case BtnState::HoldPress:
+	//		if (!pressed)
+	//		{
+	//			button._btnState = BtnState::NoPress;
+	//			button.ApplyBtnRelease();
+	//		}
+	//		break;
+	//	case BtnState::WaitSimHold:
+	//	{
+	//		// Which is the sim mapping where the other button is in WaitSimHold state too?
+	//		auto simMap = GetMatchingSimMap(index);
+	//		if (!simMap)
+	//		{
+	//			// Should never happen but added for robustness.
+	//			printf("Error: lost track of matching sim press for %s! Resetting to NoPress.\n", button._name.c_str());
+	//			button._btnState = BtnState::NoPress;
+	//		}
+	//		else if (!pressed)
+	//		{
+	//			// The simultaneous buttons are going to different states instead of the same!
+	//			button._btnState = BtnState::SimTapRelease;
+	//			buttons[int(simMap->first)]._btnState = BtnState::SimRelease;
+	//			button._press_times = time_now;
+	//			button.ApplyBtnPress(*simMap, true);
+	//			// A sim pressed tapped does not need the other btn to be synced
+	//		}
+	//		else if (button.GetPressDurationMS(time_now) > MAGIC_HOLD_TIME)
+	//		{
+	//			button._btnState = BtnState::SimHold;
+	//			buttons[int(simMap->first)]._btnState = BtnState::SimHold;
+	//			button.ApplyBtnHold(*simMap);
+	//			buttons[int(simMap->first)].SyncSimHold(index, *simMap);
+	//			// Else let time flow, stay in this state, no output.
+	//		}
+	//		break;
+	//	}
+	//	case BtnState::SimHold:
+	//	{
+	//		// Which is the sim mapping where the other button is in SimHold state too?
+	//		auto simMap = GetMatchingSimMap(index);
+	//		if (!simMap)
+	//		{
+	//			// Should never happen but added for robustness.
+	//			printf("Error: lost track of matching sim press for %s! Resetting to NoPress.\n", button._name.c_str());
+	//			button._btnState = BtnState::NoPress;
+	//		}
+	//		else if (!pressed)
+	//		{
+	//			button._btnState = BtnState::SimRelease;
+	//			buttons[int(simMap->first)]._btnState = BtnState::SimRelease;
+	//			button.ApplyBtnRelease(*simMap);
+	//		}
+	//		break;
+	//	}
+	//	case BtnState::SimRelease:
+	//		if (!pressed)
+	//		{
+	//			button._btnState = BtnState::NoPress;
+	//		}
+	//		break;
+	//	case BtnState::SimTapRelease:
+	//	{
+	//		// The button has been pressed again before tap duration expired, move on!
+	//		if (pressed || button.GetPressDurationMS(time_now) > button.GetTapDuration())
+	//		{
+	//			button.ApplyBtnRelease(true); // Notice this is not the ComboMap release overload
+	//			button._btnState = BtnState::NoPress;
+	//		}
+	//		break;
+	//	}
+	//	case BtnState::TapRelease:
+	//		if (pressed || button.GetPressDurationMS(time_now) > button.GetTapDuration())
+	//		{
+	//			button.ApplyBtnRelease(true);
+	//			button._btnState = BtnState::NoPress;
+	//		}
+	//		break;
+	//	case BtnState::DblPressStart:
+	//		if (button.GetPressDurationMS(time_now) > MAGIC_DBL_PRESS_WINDOW)
+	//		{
+	//			button._btnState = BtnState::BtnPress;
+	//			button.ApplyBtnPress();
+	//		}
+	//		else if (!pressed)
+	//		{
+	//			button._btnState = BtnState::DblPressNoPress;
+	//		}
+	//		break;
+	//	case BtnState::DblPressNoPress:
+	//		if (button.GetPressDurationMS(time_now) > MAGIC_DBL_PRESS_WINDOW)
+	//		{
+	//			button._btnState = BtnState::TapRelease;
+	//			button.ApplyBtnPress(true);
+	//		}
+	//		else if (pressed)
+	//		{
+	//			// dblPress will be valid because HasDblPressMapping already returned true.
+	//			if (button._mapping.getDblPressMap()->second.get().holdBind)
+	//			{
+	//				button._btnState = BtnState::DblPressWaitHold;
+	//				button._press_times = time_now;
+	//			}
+	//			else
+	//			{
+	//				button._btnState = BtnState::DblPressPress;
+	//				button.ApplyBtnPress(*button._mapping.getDblPressMap());
+	//			}
+	//		}
+	//		break;
+	//	case BtnState::DblPressPress:
+	//		if (!pressed)
+	//		{
+	//			button._btnState = BtnState::NoPress;
+	//			button.ApplyBtnRelease(*button._mapping.getDblPressMap());
+	//		}
+	//		break;
+	//	case BtnState::DblPressWaitHold:
+	//		if (!pressed)
+	//		{
+	//			button._btnState = BtnState::TapRelease;
+	//			button._press_times = time_now;
+	//			button.ApplyBtnPress(*button._mapping.getDblPressMap(), true);
+	//		}
+	//		else if (button.GetPressDurationMS(time_now) > MAGIC_HOLD_TIME)
+	//		{
+	//			button._btnState = BtnState::DblPressHold;
+	//			button.ApplyBtnHold(*button._mapping.getDblPressMap());
+	//		}
+	//		break;
+	//	case BtnState::DblPressHold:
+	//		if (!pressed)
+	//		{
+	//			button._btnState = BtnState::NoPress;
+	//			button.ApplyBtnRelease(*button._mapping.getDblPressMap());
+	//		}
+	//		break;
+	//	default:
+	//		printf("Invalid button state %d: Resetting to NoPress\n", button._btnState);
+	//		button._btnState = BtnState::NoPress;
+	//		break;
+
+	//	}
+	//}
 
 	void handleTriggerChange(ButtonID softIndex, ButtonID fullIndex, TriggerMode mode, float pressed)
 	{
@@ -1352,10 +1544,16 @@ void connectDevices() {
 	delete[] deviceHandles;
 }
 
-void SimPressCrossUpdate(ButtonID sim, ButtonID origin, Mapping newVal)
+//void SimPressCrossUpdate(ButtonID sim, ButtonID origin, Mapping newVal)
+//{
+//	mappings[int(sim)].AtSimPress(origin)->operator= (newVal);
+//}
+
+void SimPressCrossUpdate(ButtonID sim, ButtonID origin, EventMapping newVal)
 {
 	mappings[int(sim)].AtSimPress(origin)->operator= (newVal);
 }
+
 
 bool do_NO_GYRO_BUTTON() {
 	// TODO: handle chords
@@ -2289,7 +2487,7 @@ int main(int argc, char *argv[]) {
 	for (int id = 0; id < MAPPING_SIZE; ++id)
 	{
 		Mapping def = (id == int(ButtonID::HOME) || id == int(ButtonID::CAPTURE)) ? Mapping(CALIBRATE_KEY, CALIBRATE_KEY) : Mapping();
-		mappings.push_back(JSMButton(ButtonID(id), def));
+		mappings.push_back(JSMButton(ButtonID(id)/*, def*/));
 	}
 	tray.reset(new TrayIcon(trayIconData, &beforeShowTrayMenu ));
 	// console
@@ -2361,7 +2559,7 @@ int main(int argc, char *argv[]) {
 
 	for (auto &mapping : mappings) // Add all button mappings as commands
 	{
-		commandRegistry.Add(new JSMAssignment<Mapping>(mapping.getName(), mapping));
+		commandRegistry.Add(new JSMAssignment<EventMapping>(mapping.getName(), mapping));
 	}
 	commandRegistry.Add((new JSMAssignment<FloatXY>("MIN_GYRO_SENS", min_gyro_sens))
 		->SetHelp("Minimal gyro sensitivity factor before ramping linearily to maximum value.\nYou can assign a second value as a different vertical sensitivity."));

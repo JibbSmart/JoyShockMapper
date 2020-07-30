@@ -1,10 +1,9 @@
 #pragma once
 
 #include "JoyShockMapper.h"
-
-#include <map>
+//#include <functional>
+//#include <map>
 #include <sstream>
-#include <functional>
 //#include <algorithm>
 
 // Global ID generator
@@ -222,10 +221,10 @@ public:
 };
 
 // A ComboMap is a specific Mapping variable from a known button combined with another button.
-typedef pair<const ButtonID, JSMVariable<Mapping>> ComboMap;
+typedef pair<const ButtonID, JSMVariable<Mapping>> OldComboMap;
 
 // Button Mapping Binding includes not only chorded mappings, but also simultaneous press mappings
-class JSMButton : public ChordedVariable<Mapping>
+class OldJSMButton : public ChordedVariable<Mapping>
 {
 public:
 	// Identifier of the variable. Cannot be changed after construction.
@@ -237,14 +236,14 @@ protected:
 	map<ButtonID, unsigned int> _simListeners;
 
 public:
-	JSMButton(ButtonID id, Mapping defaultValue)
+	OldJSMButton(ButtonID id, Mapping defaultValue)
 		: ChordedVariable(defaultValue)
 		, _id(id)
 		, _simMappings()
 		, _simListeners()
 	{}
 
-	virtual ~JSMButton()
+	virtual ~OldJSMButton()
 	{
 		for (auto id : _simListeners)
 		{
@@ -253,7 +252,7 @@ public:
 	}
 
 	// Obtain the Variable for a sim press if any.
-	const ComboMap *getSimMap(ButtonID simBtn) const
+	const OldComboMap *getSimMap(ButtonID simBtn) const
 	{
 		if (simBtn > ButtonID::NONE)
 		{
@@ -264,7 +263,7 @@ public:
 	}
 
 	// Double Press mappings are stored in the chorded variables
-	const ComboMap *getDblPressMap() const
+	const OldComboMap *getDblPressMap() const
 	{
 		auto existingChord = _chordedVariables.find(_id);
 		return existingChord != _chordedVariables.end() ? &*existingChord : nullptr;
@@ -317,7 +316,7 @@ public:
 	}
 
 	// Resetting a button also clears all assigned sim presses
-	virtual JSMButton *Reset() override
+	virtual OldJSMButton *Reset() override
 	{
 		ChordedVariable<Mapping>::Reset();
 		for (auto id : _simListeners)
@@ -338,8 +337,9 @@ public:
 		{
 			JSMVariable<Mapping> var(*this, Mapping());
 			_simMappings.emplace( chord, var );
-			_simListeners[chord] = _simMappings[chord].AddOnChangeListener(
-				bind(&SimPressCrossUpdate, chord, _id, placeholders::_1));
+			/*_simListeners[chord] = _simMappings[chord]
+				.AddOnChangeListener(
+				bind(&SimPressCrossUpdate<Mapping>, chord, _id, placeholders::_1));*/
 		}
 		return &_simMappings[chord];
 	}

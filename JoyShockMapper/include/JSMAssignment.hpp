@@ -137,7 +137,7 @@ protected:
 				{
 					string name = chord + op + _displayName;
 					auto simPressVar = buttonVar->AtSimPress(*btn);
-					unique_ptr<JSMCommand> simAssignment(new JSMAssignment<Mapping>(name, *simPressVar));
+					unique_ptr<JSMCommand> simAssignment(new JSMAssignment<EventMapping>(name, *simPressVar));
 					simAssignment->SetHelp(_help)->SetParser(_parse)->SetTaskOnDestruction(bind(&JSMButton::ProcessSimPressRemoval, buttonVar, *btn, simPressVar));
 					// BE ADVISED! If a custom parser was set using bind(), the very same bound vars will
 					// be passed along.

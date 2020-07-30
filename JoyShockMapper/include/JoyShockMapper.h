@@ -4,6 +4,9 @@
 #include "PlatformDefinitions.h"
 #include "magic_enum.hpp"
 
+#include <map>
+#include <functional>
+
 // This header file is meant to be included among all core JSM source files
 // And as such it should contain only constants, types and functions related to them
 
@@ -156,6 +159,7 @@ enum class BtnState {
 	WaitSim, SimPress, WaitSimHold, SimHold, SimTapRelease, SimRelease,
 	DblPressStart, DblPressNoPress, DblPressPress, DblPressWaitHold, DblPressHold, INVALID
 };
+enum class ButtonEvent { OnPress, OnTap, OnHold, OnTurbo, OnRelease, OnTapRelease, INVALID };
 
 struct KeyCode
 {
@@ -231,9 +235,21 @@ struct Mapping
 	Mapping(int dummy) : Mapping() {}
 };
 
+struct EventMapping
+{
+	map<ButtonEvent, function<void()>> eventMapping;
+	float tapDurationMs = 40.0f;
+	string representation;
+
+	EventMapping() = default;
+
+	EventMapping(int dummy) : EventMapping() {}
+};
+
 // This function is defined in main.cpp. It enables two sim press variables to
 // listen to each other and make sure they both hold the same values.
-void SimPressCrossUpdate(ButtonID sim, ButtonID origin, Mapping newVal);
+//void SimPressCrossUpdate(ButtonID sim, ButtonID origin, Mapping newVal);
+void SimPressCrossUpdate(ButtonID sim, ButtonID origin, EventMapping newVal);
 
 // This operator enables reading any enum from string
 template <class E, class = std::enable_if_t < std::is_enum<E>{} >>
@@ -282,6 +298,14 @@ ostream &operator << (ostream &out, FloatXY fxy);
 istream &operator >> (istream &in, FloatXY &fxy);
 bool operator ==(const FloatXY &lhs, const FloatXY &rhs);
 inline bool operator !=(const FloatXY &lhs, const FloatXY &rhs)
+{
+	return !(lhs == rhs);
+}
+
+ostream &operator << (ostream &out, EventMapping fxy);
+istream &operator >> (istream &in, EventMapping &fxy);
+bool operator ==(const EventMapping &lhs, const EventMapping &rhs);
+inline bool operator !=(const EventMapping &lhs, const EventMapping &rhs)
 {
 	return !(lhs == rhs);
 }
