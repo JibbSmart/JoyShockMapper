@@ -497,6 +497,12 @@ public:
 		return &_simMappings[chord];
 	}
 
+	const JSMVariable<EventMapping> *AtSimPress(ButtonID chord) const
+	{
+		auto existingSim = getSimMap(chord);
+		return existingSim ? &existingSim->second : nullptr;
+	}
+
 	void ProcessChordRemoval(ButtonID chord, const JSMVariable<EventMapping> *value)
 	{
 		if (value && value->get().eventMapping.empty())

@@ -187,8 +187,6 @@ private:
 	static WORD nameToKey(const std::string &name);
 };
 
-inline const KeyCode KeyCode::EMPTY = KeyCode();
-
 // Used for XY pair values such as sensitivity or GyroSample
 // that includes a nicer accessor
 struct FloatXY : public pair<float, float>
