@@ -203,49 +203,6 @@ bool operator ==(const FloatXY &lhs, const FloatXY &rhs)
 		   fabs(lhs.second - rhs.second) < 1e-5;
 }
 
-ostream &operator << (ostream &out, EventMapping evtmap)
-{
-	out << evtmap.representation;
-	return out;
-}
-
-istream &operator >> (istream &in, EventMapping &evtmap)
-{
-	string valueName(128, '\0');
-	in.getline(&valueName[0], valueName.size());
-	valueName.resize(strlen(valueName.c_str()));
-	stringstream ss(valueName);
-	evtmap.representation = valueName;
-	string tap, hold;
-	ss >> tap;
-	ss >> hold;
-	
-	KeyCode tapKey(tap), holdKey(hold);
-	if (holdKey)
-	{
-		evtmap.eventMapping[ButtonEvent::OnTap] = bind(&pressKey, tapKey, true);
-		evtmap.eventMapping[ButtonEvent::OnTapRelease] = bind(&pressKey, tapKey, false);
-		evtmap.eventMapping[ButtonEvent::OnHold] = bind(&pressKey, holdKey, true);
-		evtmap.eventMapping[ButtonEvent::OnRelease] = bind(&pressKey, holdKey, false);
-	}
-	else if( tapKey.code != NO_HOLD_MAPPED )
-	{
-		evtmap.eventMapping[ButtonEvent::OnPress] = bind(&pressKey, tapKey, true);
-		evtmap.eventMapping[ButtonEvent::OnRelease] = bind(&pressKey, tapKey, false);
-	}
-	else
-	{
-		evtmap.representation.clear();
-	}
-	return in;
-}
-
-bool operator ==(const EventMapping &lhs, const EventMapping &rhs)
-{
-	// Do we need more precision than 1e-5?
-	return lhs.representation == rhs.representation;
-}
-
 istream& operator >> (istream& in, AxisMode& am)
 {
 	string name;

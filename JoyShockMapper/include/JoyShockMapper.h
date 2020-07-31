@@ -235,15 +235,19 @@ struct Mapping
 	Mapping(int dummy) : Mapping() {}
 };
 
+class DigitalButton;
+
 struct EventMapping
 {
-	map<ButtonEvent, function<void()>> eventMapping;
-	float tapDurationMs = 40.0f;
+	map<ButtonEvent, function<void(DigitalButton *)>> eventMapping;
+	float tapDurationMs = MAGIC_TAP_DURATION;
 	string representation;
 
 	EventMapping() = default;
 
 	EventMapping(int dummy) : EventMapping() {}
+
+	void ProcessEvent(ButtonEvent evt, DigitalButton &button);
 };
 
 // This function is defined in main.cpp. It enables two sim press variables to
