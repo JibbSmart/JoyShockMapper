@@ -1,6 +1,9 @@
 #include "JoyShockMapper.h"
-#include "inputHelpers.h"
+#include "InputHelpers.h"
+
+#include <cstring>
 #include <sstream>
+#include <memory>
 
 static optional<float> getFloat(const string &str, size_t *newpos = nullptr)
 {
@@ -128,8 +131,8 @@ ostream &operator <<(ostream &out, GyroSettings gyro_settings)
 
 bool operator ==(const GyroSettings &lhs, const GyroSettings &rhs)
 {
-	return lhs.always_off == rhs.always_off && 
-		   lhs.button == rhs.button && 
+	return lhs.always_off == rhs.always_off &&
+		   lhs.button == rhs.button &&
 		   lhs.ignore_mode == rhs.ignore_mode;
 }
 

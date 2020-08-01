@@ -1,12 +1,12 @@
-#pragma once
-
 #include "CmdRegistry.h"
+#include "PlatformDefinitions.h"
+
+#include <cctype>
 #include <iostream>
 #include <memory>
 #include <regex>
 #include <sstream>
 #include <fstream>
-
 
 JSMCommand::JSMCommand(in_string name)
 	: _parse()
@@ -15,7 +15,7 @@ JSMCommand::JSMCommand(in_string name)
 	, _name(name)
 {}
 
-JSMCommand::~JSMCommand() 
+JSMCommand::~JSMCommand()
 {
 	if (_taskOnDestruction)
 		_taskOnDestruction(*this);
@@ -71,18 +71,23 @@ bool CmdRegistry::loadMappings(in_string fileName) {
 	return false;
 }
 
-// https://stackoverflow.com/questions/25345598/c-implementation-to-trim-char-array-of-leading-trailing-white-space-not-workin
-void CmdRegistry::strtrim(char* str) {
-	int start = 0; // number of leading spaces
-	char* buffer = str;
-	while (*str && *str++ == ' ') ++start;
-	while (*str++); // move to end of string
-	auto end = str - buffer - 1;
-	while (end > 0 && buffer[end - 1] == ' ') --end; // backup over trailing spaces
-	buffer[end] = 0; // remove trailing spaces
-	if (end <= start || start == 0) return; // exit if no leading spaces or string is now empty
-	str = buffer + start;
-	while ((*buffer++ = *str++));  // remove leading spaces: K&R
+string_view CmdRegistry::strtrim(std::string_view str)
+{
+	if (str.empty()) return {};
+
+	while (isspace(str[0]))
+	{
+		str.remove_prefix(1);
+		if (str.empty()) return {};
+	}
+
+	while (isspace(str.back()))
+	{
+		str.remove_suffix(1);
+		if (str.empty()) return {};
+	}
+
+	return str;
 }
 
 // Add a command to the registry. The regisrty takes ownership of the memory of this pointer.
@@ -106,10 +111,11 @@ bool CmdRegistry::findCommandWithName(in_string name, CmdMap::value_type& pair)
 	return name == pair.first;
 }
 
-void CmdRegistry::processLine(string& line)
+void CmdRegistry::processLine(const string& line)
 {
-	strtrim(&line[0]);
-	if (!line.empty() && line[0] != '#' && !loadMappings(line))
+	auto trimmedLine = std::string{ strtrim(line) };
+
+	if (!trimmedLine.empty() && trimmedLine.front() != '#' && !loadMappings(trimmedLine))
 	{
 		smatch results;
 		string combo, name, arguments, label;
@@ -117,7 +123,7 @@ void CmdRegistry::processLine(string& line)
 		// Break up the line of text in its relevant parts.
 		// Pro tip: use regex101.com to develop these beautiful monstrosities. :P
 		// Also, use raw strings R"(...)" to avoid the need to escape characters
-		if (regex_match(line, results, regex(R"(^\s*(\w+)\s*([,+]\s*(\w*))?\s*([^#\n]*)(#\s*(.*))?$)")))
+		if (regex_match(trimmedLine, results, regex(R"(^\s*(\w+)\s*([,+]\s*(\w*))?\s*([^#\n]*)(#\s*(.*))?$)")))
 		{
 			if (results[2].length() > 0)
 			{
@@ -156,7 +162,7 @@ void CmdRegistry::processLine(string& line)
 
 		if (!hasProcessed)
 		{
-			cout << "Unrecognized command: \"" << line << "\"\nEnter HELP to display all commands." << endl;
+			cout << "Unrecognized command: \"" << trimmedLine << "\"\nEnter HELP to display all commands." << endl;
 		}
 	}
 	// else ignore empty lines

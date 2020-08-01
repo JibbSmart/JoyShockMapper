@@ -9,7 +9,7 @@ string(REGEX REPLACE "^v[0-9]+\\.[0-9]+\\.([0-9]+).*" "\\1" JSM_VERSION_PATCH "$
 string(REGEX REPLACE "^v[0-9]+\\.[0-9]+\\.[0-9]+(-?[0-9]*).*" "\\1" JSM_VERSION_TWEAK "${GIT_TAG}")
 set(JSM_VERSION "v${JSM_VERSION_MAJOR}.${JSM_VERSION_MINOR}.${JSM_VERSION_PATCH}${JSM_VERSION_TWEAK}")
 
-message("JSM version is " ${JSM_VERSION})
+message(STATUS "JSM version is " ${JSM_VERSION})
 
 configure_file(include/JSMVersion.h.in include/JSMVersion.h)
 
@@ -17,16 +17,16 @@ add_executable (
     ${BINARY_NAME}
     src/main.cpp
     src/operators.cpp
-	src/CmdRegistry.cpp
+    src/CmdRegistry.cpp
     include/InputHelpers.h
     include/PlatformDefinitions.h
     include/TrayIcon.h
     include/Whitelister.h
     include/CmdRegistry.h
-	include/JSMAssignment.hpp
+    include/JSMAssignment.hpp
     include/JSMVariable.hpp
     include/Whitelister.h
-	include/JoyShockMapper.h
+    include/JoyShockMapper.h
 )
 
 if (WINDOWS)
@@ -82,7 +82,7 @@ target_compile_definitions (
 target_include_directories (
     ${BINARY_NAME} PUBLIC
     "${CMAKE_CURRENT_SOURCE_DIR}/include"
-	"${PROJECT_BINARY_DIR}/${PROJECT_NAME}/include"
+    "${PROJECT_BINARY_DIR}/${PROJECT_NAME}/include"
 )
 
 CPMAddPackage (
@@ -111,8 +111,4 @@ target_link_libraries (
     ${BINARY_NAME} PRIVATE
     Platform::Dependencies
     magic_enum
-)
-
-install (
-    TARGETS ${BINARY_NAME} magic_enum
 )

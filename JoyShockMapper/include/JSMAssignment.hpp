@@ -3,6 +3,8 @@
 #include "JoyShockMapper.h"
 #include "CmdRegistry.h" // for JSMCommand
 #include "JSMVariable.hpp"
+#include "PlatformDefinitions.h"
+
 #include <iostream>
 #include <regex>
 
@@ -76,7 +78,7 @@ protected:
 			T oldVal = inst->_var;
 			inst->_var = value;
 
-			// The assignment won't trigger my listener DisplayNewValue if 
+			// The assignment won't trigger my listener DisplayNewValue if
 			// the new value after filtering is the same as the old.
 			if (oldVal == inst->_var)
 			{
