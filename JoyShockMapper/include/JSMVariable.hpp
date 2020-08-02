@@ -1,9 +1,10 @@
 #pragma once
 
 #include "JoyShockMapper.h"
-//#include <functional>
-//#include <map>
+
+#include <map>
 #include <sstream>
+#include <functional>
 //#include <algorithm>
 
 // Global ID generator
@@ -135,16 +136,18 @@ public:
 template<typename T>
 class ChordedVariable : public JSMVariable<T>
 {
+	using Base = JSMVariable<T>;
+
 protected:
 	// Each chord is a separate variable with its own listeners, but will use the same filtering and parsing.
 	map<ButtonID, JSMVariable<T>> _chordedVariables;
 
 public:
 	ChordedVariable(T defval)
-		: JSMVariable(defval)
+		: Base(defval)
 		, _chordedVariables()
 	{}
-	
+
 	// Get the chorded variable, creating one if required.
 	JSMVariable<T> *AtChord(ButtonID chord)
 	{
@@ -152,7 +155,7 @@ public:
 		if (existingChord == _chordedVariables.end())
 		{
 			// Create the chord when requested, using the copy constructor.
-			_chordedVariables.emplace( chord, JSMVariable<T>(*this, _defVal) );
+			_chordedVariables.emplace( chord, JSMVariable<T>(*this, Base::_defVal) );
 		}
 		return &_chordedVariables[chord];
 	}
@@ -164,7 +167,7 @@ public:
 			auto existingChord = _chordedVariables.find(chord);
 			return existingChord != _chordedVariables.end() ? optional<T>(T(existingChord->second)) : nullopt;
 		}
-		return chord != ButtonID::INVALID ? optional(_value) : nullopt;
+		return chord != ButtonID::INVALID ? optional(Base::_value) : nullopt;
 	}
 
 	// Resetting a chorded var always clears all chords.
@@ -180,6 +183,8 @@ public:
 template<typename T>
 class JSMSetting : public ChordedVariable<T>
 {
+	using Base = ChordedVariable<T>;
+
 protected:
 	ButtonID _chordToRemove;
 public:
@@ -187,7 +192,7 @@ public:
 	const SettingID _id;
 
 	JSMSetting(SettingID id, T defaultValue)
-		: ChordedVariable(defaultValue)
+		: Base(defaultValue)
 		, _id(id)
 		, _chordToRemove(ButtonID::NONE)
 	{}
@@ -206,10 +211,10 @@ public:
 	{
 		if(_chordToRemove == modeshift)
 		{
-			auto modeshiftVar = _chordedVariables.find(modeshift);
-			if (modeshiftVar != _chordedVariables.end())
+			auto modeshiftVar = Base::_chordedVariables.find(modeshift);
+			if (modeshiftVar != Base::_chordedVariables.end())
 			{
-				_chordedVariables.erase(modeshiftVar);
+				Base::_chordedVariables.erase(modeshiftVar);
 				_chordToRemove = ButtonID::NONE;
 			}
 		}
@@ -230,7 +235,7 @@ protected:
 	map<ButtonID, JSMVariable<Mapping>> _simMappings;
 
 	map<ButtonID, unsigned int> _simListeners;
-	
+
 public:
 	JSMButton(ButtonID id, Mapping defaultValue)
 		: ChordedVariable(defaultValue)
@@ -280,7 +285,7 @@ public:
 	}
 
 	// Returns the display name of the chorded press if provided, or itself
-	string getName(ButtonID chord = ButtonID::NONE) const 
+	string getName(ButtonID chord = ButtonID::NONE) const
 	{
 		if (chord > ButtonID::NONE)
 		{
@@ -350,7 +355,7 @@ public:
 			}
 		}
 	}
-	
+
 	void ProcessSimPressRemoval(ButtonID chord, const JSMVariable<Mapping> *value)
 	{
 		if (value && *value == Mapping())

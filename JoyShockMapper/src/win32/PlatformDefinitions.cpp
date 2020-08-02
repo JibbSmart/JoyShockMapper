@@ -12,21 +12,8 @@ const char *GYRO_CONFIGS_FOLDER = []{
 }();
 
 const char *BASE_JSM_CONFIG_FOLDER = []{
-    return _strdup((GetCWD() + "\\").c_str());
+	return _strdup((GetCWD() + "\\").c_str());
 }();
-
-const KeyCode KeyCode::EMPTY = KeyCode();
-
-KeyCode::KeyCode()
-	: code(0)
-	, name()
-{}
-
-KeyCode::KeyCode(const std::string &keyName)
-	: code(nameToKey(keyName))
-	, name(code != 0 ? keyName : string())
-{}
-
 
 /// Valid inputs:
 /// 0-9, N0-N9, F1-F29, A-Z, (L, R, )CONTROL, (L, R, )ALT, (L, R, )SHIFT, TAB, ENTER

@@ -1,8 +1,11 @@
 #pragma once
 
 #include "JoyShockMapper.h"
+
 #include <functional>
 #include <map>
+#include <memory>
+#include <string_view>
 
 
 // This is a base class for any Command line operation. It binds a command name to a parser function
@@ -67,10 +70,10 @@ public:
 	virtual bool ParseData(in_string arguments);
 };
 
-// The command registry holds all JSMCommands object and should not care what the derived type is. 
+// The command registry holds all JSMCommands object and should not care what the derived type is.
 // It's capable of recognizing a command and requesting it to process arguments. That's it.
 // It uses regular expression to breakup a command string in its various components.
-// Currently it refuses to accept different commands with the same name but there's an 
+// Currently it refuses to accept different commands with the same name but there's an
 // argument to be made to use the return value of JSMCommand::ParseData() to attempt multiple
 // commands until one returns true. This can enable multiple parsers for the same command.
 class CmdRegistry
@@ -83,7 +86,7 @@ private:
 
 	bool loadMappings(in_string fileName);
 
-	static void strtrim(char* str);
+	static string_view strtrim(std::string_view str);
 
 public:
 	CmdRegistry();
@@ -97,7 +100,7 @@ public:
 
 	// Process a command entered by the user
 	// intentionally dont't use const ref
-	void processLine(string& line);
+	void processLine(const string& line);
 
 	// Fill vector with registered command names
 	void GetCommandList(vector<string>& outList);
@@ -124,7 +127,7 @@ protected:
 public:
 	JSMMacro(in_string name);
 
-	// Assign a Macro function to run. It returns a pointer to itself 
+	// Assign a Macro function to run. It returns a pointer to itself
 	// to chain setters.
 	JSMMacro* SetMacro(MacroDelegate macroFunction);
 };

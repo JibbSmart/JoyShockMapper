@@ -279,9 +279,9 @@ private:
 		case VK_XBUTTON2:
 			return BTN_EXTRA;
 		case V_WHEEL_DOWN:
-			return V_WHEEL_DOWN;
+			return static_cast<decltype(KEY_0)>(V_WHEEL_DOWN);
 		case V_WHEEL_UP:
-			return V_WHEEL_UP;
+			return static_cast<decltype(KEY_0)>(V_WHEEL_UP);
 		case VK_BACK:
 			return KEY_BACK;
 			//		case NO_HOLD_MAPPED: return NO_HOLD_MAPPED;
@@ -513,23 +513,23 @@ int pressMouse(WORD vkKey, bool isPressed)
 }
 
 // send key press
-int pressKey(WORD vkKey, bool pressed)
+int pressKey(KeyCode vkKey, bool pressed)
 {
 	if (vkKey == 0)
 		return 0;
-	if (vkKey <= V_WHEEL_DOWN)
+	if (vkKey.code <= V_WHEEL_DOWN)
 	{
 		// Highest mouse ID
-		return pressMouse(vkKey, pressed);
+		return pressMouse(vkKey.code, pressed);
 	}
 
 	if (pressed)
 	{
-		keyboard.press_key(vkKey);
+		keyboard.press_key(vkKey.code);
 	}
 	else
 	{
-		keyboard.release_key(vkKey);
+		keyboard.release_key(vkKey.code);
 	}
 
 	return 0;

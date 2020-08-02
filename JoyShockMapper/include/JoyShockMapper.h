@@ -10,7 +10,7 @@
 using namespace std; // simplify all std calls
 
 // input string parameters should be const references.
-typedef const string &in_string; 
+typedef const string &in_string;
 
 // Reused OS typedefs
 typedef unsigned short      WORD;
@@ -157,6 +157,34 @@ enum class BtnState {
 	DblPressStart, DblPressNoPress, DblPressPress, DblPressWaitHold, DblPressHold, INVALID
 };
 
+struct KeyCode
+{
+	static const KeyCode EMPTY;
+
+	WORD code;
+	std::string name;
+
+	inline KeyCode()
+		: code(0)
+		, name()
+	{}
+
+	inline KeyCode(const std::string &keyName)
+		: code(nameToKey(keyName))
+		, name(code != 0 ? keyName : string())
+	{}
+
+	inline operator bool()
+	{
+		return code != 0;
+	}
+
+private:
+	static WORD nameToKey(const std::string &name);
+};
+
+inline const KeyCode KeyCode::EMPTY = KeyCode();
+
 // Used for XY pair values such as sensitivity or GyroSample
 // that includes a nicer accessor
 struct FloatXY : public pair<float, float>
@@ -182,7 +210,6 @@ struct GyroSettings {
 	GyroIgnoreMode ignore_mode = GyroIgnoreMode::BUTTON;
 
 	GyroSettings() = default;
-
 	// This constructor is required to make use of the default value of JSMVariable's constructor
 	GyroSettings(int dummy) : GyroSettings() {}
 };
@@ -195,7 +222,7 @@ struct Mapping
 {
 	KeyCode pressBind; // Press or tap binding
 	KeyCode holdBind; // Hold binding if any.
-	
+
 	Mapping(KeyCode press = KeyCode::EMPTY, KeyCode hold = KeyCode::EMPTY)
 		: pressBind(press)
 		, holdBind(hold)

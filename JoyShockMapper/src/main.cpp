@@ -144,7 +144,7 @@ public:
 		for (auto activeChord = _common.chordStack.begin(); activeChord != _common.chordStack.end(); activeChord++)
 		{
 			auto binding = _mapping.get(*activeChord);
-			if(binding) 
+			if(binding)
 			{
 				return Mapping(*binding).holdBind;
 			}
@@ -382,7 +382,7 @@ private:
 	int _frontGyroSample = 0;
 
 	template<typename E1, typename E2>
-	static inline optional<E1> GetOptionalSetting(const JSMSetting<E2> &setting, ButtonID chord) 
+	static inline optional<E1> GetOptionalSetting(const JSMSetting<E2> &setting, ButtonID chord)
 	{
 		return setting.get(chord) ? optional<E1>(static_cast<E1>(*setting.get(chord))) : nullopt;
 	}
@@ -432,7 +432,7 @@ private:
 		}
 		stringstream ss;
 		ss << "Button " << index << " is not valid ";
-		throw exception(ss.str().c_str());
+		throw invalid_argument(ss.str().c_str());
 	}
 
 public:
@@ -461,8 +461,8 @@ public:
 	vector<DstState> triggerState; // State of analog triggers when skip mode is active
 	DigitalButton::Common btnCommon;
 
-	// Modeshifting the stick mode can create quirky behaviours on transition. These flags 
-	// will be set upon returning to standard mode and ignore stick inputs until the stick 
+	// Modeshifting the stick mode can create quirky behaviours on transition. These flags
+	// will be set upon returning to standard mode and ignore stick inputs until the stick
 	// returns to neutral
 	bool ignore_left_stick_mode = false;
 	bool ignore_right_stick_mode = false;
@@ -538,7 +538,7 @@ public:
 		}
 		stringstream ss;
 		ss << "Index " << index << " is not a valid enum setting";
-		throw exception(ss.str().c_str());
+		throw invalid_argument(ss.str().c_str());
 	}
 
 	float getSetting(SettingID index)
@@ -654,7 +654,7 @@ public:
 
 		stringstream ss;
 		ss << "Index " << index << " is not a valid FloatXY setting";
-		throw exception(ss.str().c_str());
+		throw invalid_argument(ss.str().c_str());
 	}
 
 	template<>
@@ -671,7 +671,7 @@ public:
 		}
 		stringstream ss;
 		ss << "Index " << index << " is not a valid GyroSetting";
-		throw std::exception( ss.str().c_str() );
+		throw invalid_argument(ss.str().c_str());
 	}
 
 public:
@@ -679,7 +679,7 @@ public:
 	const ComboMap *GetMatchingSimMap(ButtonID index)
 	{
 		// Find the simMapping where the other btn is in the same state as this btn.
-		// POTENTIAL FLAW: The mapping you find may not necessarily be the one that got you in a 
+		// POTENTIAL FLAW: The mapping you find may not necessarily be the one that got you in a
 		// Simultaneous state in the first place if there is a second SimPress going on where one
 		// of the buttons has a third SimMap with this one. I don't know if it's worth solving though...
 		for (int id = 0; id < MAPPING_SIZE; ++id)
@@ -1306,7 +1306,7 @@ static void resetAllMappings() {
 	rotate_smooth_override.Reset();
 	flick_snap_strength.Reset();
 	flick_snap_mode.Reset();
-	
+
 	os_mouse_speed = 1.0f;
 	last_flick_and_rotation = 0.0f;
 }
@@ -2012,8 +2012,8 @@ void beforeShowTrayMenu()
 		});
 		tray->AddMenuItem(U("AutoLoad"), [](bool isChecked)
 			{
-				isChecked ? 
-					autoLoadThread->Start() : 
+				isChecked ?
+					autoLoadThread->Start() :
 					autoLoadThread->Stop();
 			}, bind(&PollingThread::isRunning, autoLoadThread.get()));
 
@@ -2042,7 +2042,7 @@ void beforeShowTrayMenu()
 		{
 			string fullPathName = autoloadFolder + file;
 			auto noext = file.substr(0, file.find_last_of('.'));
-			tray->AddMenuItem(L"AutoLoad folder", std::wstring(noext.begin(), noext.end()), [fullPathName]
+			tray->AddMenuItem(U("AutoLoad folder"), UnicodeString(noext.begin(), noext.end()), [fullPathName]
 			{
 				WriteToConsole(string(fullPathName.begin(), fullPathName.end()));
 				autoLoadThread->Stop();
@@ -2053,7 +2053,7 @@ void beforeShowTrayMenu()
 		{
 			string fullPathName = gyroConfigsFolder + file;
 			auto noext = file.substr(0, file.find_last_of('.'));
-			tray->AddMenuItem(L"GyroConfigs folder", std::wstring(noext.begin(), noext.end()), [fullPathName]
+			tray->AddMenuItem(U("GyroConfigs folder"), UnicodeString(noext.begin(), noext.end()), [fullPathName]
 			{
 				WriteToConsole(string(fullPathName.begin(), fullPathName.end()));
 				autoLoadThread->Stop();
@@ -2341,9 +2341,9 @@ int main(int argc, char *argv[]) {
 	rotate_smooth_override.SetFilter(&filterClamp01);
 	flick_snap_strength.SetFilter(&filterClamp01);
 	autoloadSwitch.AddOnChangeListener(&UpdateAutoload);
-	
+
 	resetAllMappings();
-	
+
 	CmdRegistry commandRegistry;
 
 	autoLoadThread.reset(new PollingThread(&AutoLoadPoll, &commandRegistry, 1000, true)); // Start by default
@@ -2367,7 +2367,7 @@ int main(int argc, char *argv[]) {
 	commandRegistry.Add((new JSMAssignment<float>("MAX_GYRO_THRESHOLD", max_gyro_threshold))
 		->SetHelp("Number of degrees per second at which to apply maximal gyro sensitivity."));
 	commandRegistry.Add((new JSMAssignment<float>("STICK_POWER", stick_power))
-	    ->SetHelp(""));
+		->SetHelp(""));
 	commandRegistry.Add((new JSMAssignment<float>("STICK_SENS", stick_sens))
 		->SetHelp("Stick sensitivity when using classic AIM mode."));
 	commandRegistry.Add((new JSMAssignment<float>("REAL_WORLD_CALIBRATION", real_world_calibration))
