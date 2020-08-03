@@ -32,7 +32,7 @@ JSMSetting<FloatXY> max_gyro_sens = JSMSetting<FloatXY>(SettingID::MAX_GYRO_SENS
 JSMSetting<float> min_gyro_threshold = JSMSetting<float>(SettingID::MIN_GYRO_THRESHOLD, 0.0f);
 JSMSetting<float> max_gyro_threshold = JSMSetting<float>(SettingID::MAX_GYRO_THRESHOLD, 0.0f);
 JSMSetting<float> stick_power = JSMSetting<float>(SettingID::STICK_POWER, 1.0f);
-JSMSetting<float> stick_sens = JSMSetting<float>(SettingID::STICK_SENS, 360.0f);
+JSMSetting<FloatXY> stick_sens = JSMSetting<FloatXY>(SettingID::STICK_SENS, {360.0f, 360.0f});
 // There's an argument that RWC has no interest in being modeshifted and thus could be outside this structure.
 JSMSetting<float> real_world_calibration = JSMSetting<float>(SettingID::REAL_WORLD_CALIBRATION, 40.0f);
 JSMSetting<float> in_game_sens = JSMSetting<float>(SettingID::IN_GAME_SENS, 1.0f);
@@ -558,9 +558,6 @@ public:
 			case SettingID::STICK_POWER:
 				opt = stick_power.get(*activeChord);
 				break;
-			case SettingID::STICK_SENS:
-				opt = stick_sens.get(*activeChord);
-				break;
 			case SettingID::REAL_WORLD_CALIBRATION:
 				opt = real_world_calibration.get(*activeChord);
 				break;
@@ -647,6 +644,9 @@ public:
 				break;
 			case SettingID::MAX_GYRO_SENS:
 				opt = max_gyro_sens.get(*activeChord);
+				break;
+			case SettingID::STICK_SENS:
+				opt = stick_sens.get(*activeChord);
 				break;
 			}
 			if (opt) return *opt;
@@ -1705,10 +1705,12 @@ void joyShockPollCallback(int jcHandle, JOY_SHOCK_STATE state, JOY_SHOCK_STATE l
 		float stickLength = sqrt(calX * calX + calY * calY);
 		if (stickLength != 0.0f) {
 			leftAny = true;
-			float warpedStickLength = pow(stickLength, jc->getSetting(SettingID::STICK_POWER));
-			warpedStickLength *= jc->getSetting(SettingID::STICK_SENS) * jc->getSetting(SettingID::REAL_WORLD_CALIBRATION) / os_mouse_speed / jc->getSetting(SettingID::IN_GAME_SENS);
-			camSpeedX += calX / stickLength * warpedStickLength * jc->left_acceleration * deltaTime;
-			camSpeedY += calY / stickLength * warpedStickLength * jc->left_acceleration * deltaTime;
+			float warpedStickLengthX = pow(stickLength, jc->getSetting(SettingID::STICK_POWER));
+			float warpedStickLenghtY = warpedStickLengthX;
+			warpedStickLengthX *= jc->getSetting(SettingID::STICK_SENS.first) * jc->getSetting(SettingID::REAL_WORLD_CALIBRATION) / os_mouse_speed / jc->getSetting(SettingID::IN_GAME_SENS);
+			warpedStickLengthY *= jc->getSetting(SettingID::STICK_SENS.second) * jc->getSetting(SettingID::REAL_WORLD_CALIBRATION) / os_mouse_speed / jc->getSetting(SettingID::IN_GAME_SENS);
+			camSpeedX += calX / stickLength * warpedStickLengthX * jc->left_acceleration * deltaTime;
+			camSpeedY += calY / stickLength * warpedStickLengthY * jc->left_acceleration * deltaTime;
 			if (leftPegged) {
 				jc->left_acceleration += jc->getSetting(SettingID::STICK_ACCELERATION_RATE) * deltaTime;
 				auto cap = jc->getSetting(SettingID::STICK_ACCELERATION_CAP);
@@ -2368,7 +2370,7 @@ int main(int argc, char *argv[]) {
 		->SetHelp("Number of degrees per second at which to apply maximal gyro sensitivity."));
 	commandRegistry.Add((new JSMAssignment<float>("STICK_POWER", stick_power))
 		->SetHelp(""));
-	commandRegistry.Add((new JSMAssignment<float>("STICK_SENS", stick_sens))
+	commandRegistry.Add((new JSMAssignment<FloatXY>("STICK_SENS", stick_sens))
 		->SetHelp("Stick sensitivity when using classic AIM mode."));
 	commandRegistry.Add((new JSMAssignment<float>("REAL_WORLD_CALIBRATION", real_world_calibration))
 		->SetHelp("Calibration value mapping mouse values to in game degrees. This value is used for FLICK mode.")); // And other things?
