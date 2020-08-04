@@ -1706,9 +1706,9 @@ void joyShockPollCallback(int jcHandle, JOY_SHOCK_STATE state, JOY_SHOCK_STATE l
 		if (stickLength != 0.0f) {
 			leftAny = true;
 			float warpedStickLengthX = pow(stickLength, jc->getSetting(SettingID::STICK_POWER));
-			float warpedStickLenghtY = warpedStickLengthX;
-			warpedStickLengthX *= jc->getSetting(SettingID::STICK_SENS.first) * jc->getSetting(SettingID::REAL_WORLD_CALIBRATION) / os_mouse_speed / jc->getSetting(SettingID::IN_GAME_SENS);
-			warpedStickLengthY *= jc->getSetting(SettingID::STICK_SENS.second) * jc->getSetting(SettingID::REAL_WORLD_CALIBRATION) / os_mouse_speed / jc->getSetting(SettingID::IN_GAME_SENS);
+			float warpedStickLengthY = warpedStickLengthX;
+			warpedStickLengthX *= jc->getSetting<FloatXY>(SettingID::STICK_SENS).first * jc->getSetting(SettingID::REAL_WORLD_CALIBRATION) / os_mouse_speed / jc->getSetting(SettingID::IN_GAME_SENS);
+			warpedStickLengthY *= jc->getSetting<FloatXY>(SettingID::STICK_SENS).second * jc->getSetting(SettingID::REAL_WORLD_CALIBRATION) / os_mouse_speed / jc->getSetting(SettingID::IN_GAME_SENS);
 			camSpeedX += calX / stickLength * warpedStickLengthX * jc->left_acceleration * deltaTime;
 			camSpeedY += calY / stickLength * warpedStickLengthY * jc->left_acceleration * deltaTime;
 			if (leftPegged) {
@@ -1802,10 +1802,13 @@ void joyShockPollCallback(int jcHandle, JOY_SHOCK_STATE state, JOY_SHOCK_STATE l
 		float stickLength = sqrt(calX * calX + calY * calY);
 		if (stickLength > 0.0f) {
 			rightAny = true;
-			float warpedStickLength = pow(stickLength, jc->getSetting(SettingID::STICK_POWER));
-			warpedStickLength *= jc->getSetting(SettingID::STICK_SENS) * jc->getSetting(SettingID::REAL_WORLD_CALIBRATION) / os_mouse_speed / jc->getSetting(SettingID::IN_GAME_SENS);
-			camSpeedX += calX / stickLength * warpedStickLength * jc->right_acceleration * deltaTime;
-			camSpeedY += calY / stickLength * warpedStickLength * jc->right_acceleration * deltaTime;
+			float warpedStickLengthX = pow(stickLength, jc->getSetting(SettingID::STICK_POWER));
+			float warpedStickLengthY = warpedStickLengthX;
+			warpedStickLengthX *= jc->getSetting<FloatXY>(SettingID::STICK_SENS).first * jc->getSetting(SettingID::REAL_WORLD_CALIBRATION) / os_mouse_speed / jc->getSetting(SettingID::IN_GAME_SENS);
+			warpedStickLengthY *= jc->getSetting<FloatXY>(SettingID::STICK_SENS).second * jc->getSetting(SettingID::REAL_WORLD_CALIBRATION) / os_mouse_speed / jc->getSetting(SettingID::IN_GAME_SENS);
+			camSpeedX += calX / stickLength * warpedStickLengthX * jc->right_acceleration * deltaTime;
+			camSpeedY += calY / stickLength * warpedStickLengthY * jc->right_acceleration * deltaTime;
+			
 			if (rightPegged) {
 				jc->right_acceleration += jc->getSetting(SettingID::STICK_ACCELERATION_RATE) * deltaTime;
 				auto cap = jc->getSetting(SettingID::STICK_ACCELERATION_CAP);
