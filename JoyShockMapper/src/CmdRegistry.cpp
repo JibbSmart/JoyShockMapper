@@ -123,7 +123,8 @@ void CmdRegistry::processLine(const string& line)
 		// Break up the line of text in its relevant parts.
 		// Pro tip: use regex101.com to develop these beautiful monstrosities. :P
 		// Also, use raw strings R"(...)" to avoid the need to escape characters
-		if (regex_match(trimmedLine, results, regex(R"(^\s*(\w+)\s*([,+]\s*(\w*))?\s*([^#\n]*)(#\s*(.*))?$)")))
+		// I dislike having to code in exception for + and - buttons not being \w characters
+		if (regex_match(trimmedLine, results, regex(R"(^\s*([+-]?\w*)\s*([,+]\s*(\w*))?\s*([^#\n]*)(#\s*(.*))?$)")))
 		{
 			if (results[2].length() > 0)
 			{

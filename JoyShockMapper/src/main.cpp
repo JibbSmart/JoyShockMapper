@@ -104,6 +104,7 @@ public:
 		, _btnState(BtnState::NoPress)
 		, _keyToRelease()
 		, _turboCount(0)
+		, _simPressMaster(ButtonID::NONE)
 	{
 
 	}
@@ -117,6 +118,7 @@ public:
 	unique_ptr<EventMapping> _keyToRelease; // At key press, remember what to release
 	string _nameToRelease;
 	unsigned int _turboCount;
+	ButtonID _simPressMaster;
 
 	EventMapping *GetPressMapping()
 	{
@@ -282,6 +284,7 @@ public:
 	{
 		_keyToRelease.reset(new EventMapping(*_mapping.AtSimPress(btn)));
 		_nameToRelease = _mapping.getSimPressName(btn);
+		_simPressMaster = btn;
 	}
 
 	void ClearKey()
@@ -289,6 +292,7 @@ public:
 		_keyToRelease.reset();
 		_nameToRelease.clear();
 		_turboCount = 0;
+		_simPressMaster = ButtonID::NONE;
 	}
 
 	// Pretty wrapper
@@ -926,7 +930,7 @@ public:
 			}
 			else if (pressed)
 			{
-				if (floorf(button.GetPressDurationMS(time_now) / MAGIC_HOLD_TIME) > button._turboCount)
+				if (button._simPressMaster != ButtonID::NONE && floorf(button.GetPressDurationMS(time_now) / MAGIC_HOLD_TIME) > button._turboCount)
 				{
 					if (button._turboCount == 0)
 					{
@@ -939,6 +943,7 @@ public:
 			else
 			{
 				button._btnState = BtnState::NoPress;
+				buttons[int(simMap->first)]._btnState = BtnState::SimRelease;
 				simMap->second.get().ProcessEvent(ButtonEvent::OnRelease, button);
 				if (button.GetPressDurationMS(time_now) < MAGIC_HOLD_TIME)
 				{
@@ -947,6 +952,12 @@ public:
 			}
 			break;
 		}
+		case BtnState::SimRelease:
+			if (!pressed)
+			{
+				button._btnState = BtnState::NoPress;
+			}
+			break;
 		case BtnState::DblPressStart:
 			if (button.GetPressDurationMS(time_now) > MAGIC_DBL_PRESS_WINDOW)
 			{
@@ -999,7 +1010,7 @@ public:
 			}
 			break;
 		default:
-			printf("Invalid button state %d: Resetting to NoPress\n", button._btnState);
+			cout << "Invalid button state " << button._btnState << ": Resetting to NoPress" << endl;
 			button._btnState = BtnState::NoPress;
 			break;
 		}
