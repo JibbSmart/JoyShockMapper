@@ -235,9 +235,11 @@ struct Mapping
 
 class DigitalButton;
 
+typedef function<void(DigitalButton *)> OnEventAction;
+
 struct EventMapping
 {
-	map<ButtonEvent, function<void(DigitalButton *)>> eventMapping;
+	map<ButtonEvent, OnEventAction> eventMapping;
 	float tapDurationMs = MAGIC_TAP_DURATION;
 	string representation;
 

@@ -34,15 +34,16 @@ protected:
 			// Parsing has failed. Show help.
 			cout << _help << endl;
 		}
-		else if (regex_match(arguments, results, regex(R"(\s*=?\s*([\w\s]*))")))
+		else if (regex_match(arguments, results, regex(R"(\s*=?\s*([\^\+\w\s]*))")))
 		{
 			if (!_parse(this, results[1]))
 			{
 				// Parsing has failed. Show help.
 				cout << _help << endl;
 			}
+			return true; // Command is completely processed
 		}
-		return true; // Command is completely processed
+		return false; // Error in entering the command
 	}
 
 	static bool ModeshiftParser(ButtonID modeshift, JSMSetting<T> *setting, JSMCommand* cmd, in_string argument)

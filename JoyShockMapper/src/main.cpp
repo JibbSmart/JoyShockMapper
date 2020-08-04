@@ -105,6 +105,7 @@ public:
 		, _keyToRelease()
 		, _turboCount(0)
 		, _simPressMaster(ButtonID::NONE)
+		, _toggleActive(false)
 	{
 
 	}
@@ -119,6 +120,7 @@ public:
 	string _nameToRelease;
 	unsigned int _turboCount;
 	ButtonID _simPressMaster;
+	bool _toggleActive;
 
 	EventMapping *GetPressMapping()
 	{
@@ -194,6 +196,19 @@ public:
 			}
 			pressKey(keyCode, false);
 		}
+	}
+
+	void ApplyButtonToggle(function<void(DigitalButton *)> apply, function<void(DigitalButton *)> release)
+	{
+		if (!_toggleActive)
+		{
+			apply(this);
+		}
+		else
+		{
+			release(this);
+		}
+		_toggleActive = !_toggleActive;
 	}
 
 	//void ApplyBtnPress(const ComboMap &map, bool tap = false)
@@ -322,28 +337,63 @@ istream &operator >> (istream &in, EventMapping &evtmap)
 	stringstream ss(valueName);
 	evtmap.representation = valueName;
 	string tap, hold;
+	bool toggleTap = false, toggleHold = false;
+	bool turboTap = false, turboHold = false;
 	ss >> tap;
 	ss >> hold;
+
+	if (tap[0] == '^')
+	{
+		toggleTap = true;
+		tap = tap.substr(1);
+	}
+	if (hold[0] == '^')
+	{
+		toggleHold = true;
+		hold = hold.substr(1);
+	}
+	if (tap[tap.size() - 1] == '+')
+	{
+		turboTap = true;
+		tap = tap.substr(0, tap.size() - 1);
+	}
+	if (hold[hold.size() - 1] == '+')
+	{
+		turboHold = true;
+		hold = hold.substr(0, hold.size() - 1);
+	}
 
 	KeyCode tapKey(tap), holdKey(hold);
 	pair<ButtonEvent, ButtonEvent> pressEvents{ ButtonEvent::OnPress, ButtonEvent::OnRelease };
 	bool isTap = false;
+	OnEventAction apply;
+	OnEventAction release;
 	if (holdKey)
 	{
 		if (holdKey.code == CALIBRATE)
 		{
-			evtmap.eventMapping[ButtonEvent::OnHold] = bind(&DigitalButton::StartCalibration, placeholders::_1, false);
-			evtmap.eventMapping[ButtonEvent::OnRelease] = bind(&DigitalButton::FinishCalibration, placeholders::_1, false);
+			apply = bind(&DigitalButton::StartCalibration, placeholders::_1, false);
+			release = bind(&DigitalButton::FinishCalibration, placeholders::_1, false);
 		}
 		else if (holdKey.code >= GYRO_INV_X && holdKey.code <= GYRO_ON_BIND)
 		{
-			evtmap.eventMapping[ButtonEvent::OnHold] = bind(&DigitalButton::ApplyGyroAction, placeholders::_1, holdKey);
-			evtmap.eventMapping[ButtonEvent::OnRelease] = bind(&DigitalButton::RemoveGyroAction, placeholders::_1);
+			apply = bind(&DigitalButton::ApplyGyroAction, placeholders::_1, holdKey);
+			release = bind(&DigitalButton::RemoveGyroAction, placeholders::_1);
 		}
 		else // if (holdKey.code == NO_HOLD_MAPPED) ?????
 		{
-			evtmap.eventMapping[ButtonEvent::OnHold] = bind(&DigitalButton::ApplyBtnPress, placeholders::_1, holdKey, false);
-			evtmap.eventMapping[ButtonEvent::OnRelease] = bind(&DigitalButton::ApplyBtnRelease, placeholders::_1, holdKey, false);
+			apply = bind(&DigitalButton::ApplyBtnPress, placeholders::_1, holdKey, false);
+			release = bind(&DigitalButton::ApplyBtnRelease, placeholders::_1, holdKey, false);
+		}
+
+		if (toggleHold)
+		{
+			evtmap.eventMapping[ButtonEvent::OnHold] = bind(&DigitalButton::ApplyButtonToggle, placeholders::_1, apply, release);
+		}
+		else
+		{
+			evtmap.eventMapping[ButtonEvent::OnHold] = apply;
+			evtmap.eventMapping[ButtonEvent::OnRelease] = release;
 		}
 		pressEvents = { ButtonEvent::OnTap, ButtonEvent::OnTapRelease };
 		isTap = true;
@@ -357,24 +407,33 @@ istream &operator >> (istream &in, EventMapping &evtmap)
 
 	if (tapKey.code == CALIBRATE)
 	{
-		evtmap.eventMapping[pressEvents.first] = bind(&DigitalButton::StartCalibration, placeholders::_1, isTap);
-		evtmap.eventMapping[pressEvents.second] = bind(&DigitalButton::FinishCalibration, placeholders::_1, isTap);
+		apply = bind(&DigitalButton::StartCalibration, placeholders::_1, isTap);
+		release = bind(&DigitalButton::FinishCalibration, placeholders::_1, isTap);
 	}
 	else if (tapKey.code >= GYRO_INV_X && tapKey.code <= GYRO_ON_BIND)
 	{
-		evtmap.eventMapping[pressEvents.first] = bind(&DigitalButton::ApplyGyroAction, placeholders::_1, tapKey);
-		evtmap.eventMapping[pressEvents.second] = bind(&DigitalButton::RemoveGyroAction, placeholders::_1);
+		apply = bind(&DigitalButton::ApplyGyroAction, placeholders::_1, tapKey);
+		release = bind(&DigitalButton::RemoveGyroAction, placeholders::_1);
 		evtmap.tapDurationMs = MAGIC_GYRO_TAP_DURATION; // Unused in regular press
 	}
 	else // if (tapKey.code != NO_HOLD_MAPPED) ???
 	{
-		evtmap.eventMapping[pressEvents.first] = bind(&DigitalButton::ApplyBtnPress, placeholders::_1, tapKey, isTap);
-		evtmap.eventMapping[pressEvents.second] = bind(&DigitalButton::ApplyBtnRelease, placeholders::_1, tapKey, isTap);
+		apply = bind(&DigitalButton::ApplyBtnPress, placeholders::_1, tapKey, isTap);
+		release = bind(&DigitalButton::ApplyBtnRelease, placeholders::_1, tapKey, isTap);
+	}
+
+	if (toggleTap)
+	{
+		evtmap.eventMapping[pressEvents.first] = bind(&DigitalButton::ApplyButtonToggle, placeholders::_1, apply, release);
+	}
+	else
+	{
+		evtmap.eventMapping[pressEvents.first] = apply;
+		evtmap.eventMapping[pressEvents.second] = release;
 		if (!holdKey.code)
 		{
 			// When there are no hold bindings, release key press on both possible key release
-			//evtmap.eventMapping[ButtonEvent::OnTap] = bind(&DigitalButton::ApplyBtnPress, placeholders::_1, tapKey, isTap);
-			evtmap.eventMapping[ButtonEvent::OnTapRelease] = bind(&DigitalButton::ApplyBtnRelease, placeholders::_1, tapKey, isTap);
+			evtmap.eventMapping[ButtonEvent::OnTapRelease] = release;
 		}
 	}
 	return in;
@@ -382,7 +441,6 @@ istream &operator >> (istream &in, EventMapping &evtmap)
 
 bool operator ==(const EventMapping &lhs, const EventMapping &rhs)
 {
-	// Do we need more precision than 1e-5?
 	return lhs.representation == rhs.representation;
 }
 
