@@ -97,7 +97,7 @@ protected:
 
 	void DisplayNewValue(T newValue)
 	{
-		// See Specialization for T=Mapping at the end of this file
+		// See Specialization for T=EventMapping at the end of this file
 		cout << _displayName << " has been set to " << newValue << endl;
 	}
 
@@ -180,22 +180,17 @@ public:
 	}
 };
 
-// Specialization for Mapping
+// Specialization for EventMapping
 template<>
-void JSMAssignment<Mapping>::DisplayNewValue(Mapping newValue)
+void JSMAssignment<EventMapping>::DisplayNewValue(EventMapping newValue)
 {
-	if (newValue.holdBind)
+	if (newValue.eventMapping.empty())
 	{
-		cout << "Tap " << _name << " mapped to " << newValue.pressBind.name << endl
-			<< "Hold " << _name << " mapped to " << newValue.holdBind.name << endl;
-	}
-	else if(newValue.pressBind)
-	{
-		// Unambiguous call to display of mapping
-		cout << _name << " mapped to " << Mapping(newValue.pressBind) << endl;
+		cout << _name << " mapped to no input" << endl;
 	}
 	else
 	{
-		cout << _name << " mapped to no input" << endl;
+		// to be elaborated
+		cout << _name << " mapped to " << newValue.representation << endl;
 	}
 }

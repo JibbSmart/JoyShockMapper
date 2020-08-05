@@ -227,157 +227,10 @@ public:
 	}
 };
 
-// A ComboMap is a specific Mapping variable from a known button combined with another button.
-typedef pair<const ButtonID, JSMVariable<Mapping>> OldComboMap;
-
-// Button Mapping Binding includes not only chorded mappings, but also simultaneous press mappings
-class OldJSMButton : public ChordedVariable<Mapping>
-{
-public:
-	// Identifier of the variable. Cannot be changed after construction.
-	const ButtonID _id;
-
-protected:
-	map<ButtonID, JSMVariable<Mapping>> _simMappings;
-
-	map<ButtonID, unsigned int> _simListeners;
-
-public:
-	OldJSMButton(ButtonID id, Mapping defaultValue)
-		: ChordedVariable(defaultValue)
-		, _id(id)
-		, _simMappings()
-		, _simListeners()
-	{}
-
-	virtual ~OldJSMButton()
-	{
-		for (auto id : _simListeners)
-		{
-			_simMappings[id.first].RemoveOnChangeListener(id.second);
-		}
-	}
-
-	// Obtain the Variable for a sim press if any.
-	const OldComboMap *getSimMap(ButtonID simBtn) const
-	{
-		if (simBtn > ButtonID::NONE)
-		{
-			auto existingSim = _simMappings.find(simBtn);
-			return existingSim != _simMappings.cend() ? &*existingSim : nullptr;
-		}
-		return nullptr;
-	}
-
-	// Double Press mappings are stored in the chorded variables
-	const OldComboMap *getDblPressMap() const
-	{
-		auto existingChord = _chordedVariables.find(_id);
-		return existingChord != _chordedVariables.end() ? &*existingChord : nullptr;
-	}
-
-	// Indicate whether any sim press mappings are present
-	// This function additionally removes any empty sim mappings.
-	bool HasSimMappings() const
-	{
-		Mapping EMPTY;
-		return !_simMappings.empty();
-	}
-
-	// Operator forwarding
-	virtual Mapping operator =(Mapping baseValue) override
-	{
-		return JSMVariable<Mapping>::operator =(baseValue);
-	}
-
-	// Returns the display name of the chorded press if provided, or itself
-	string getName(ButtonID chord = ButtonID::NONE) const
-	{
-		if (chord > ButtonID::NONE)
-		{
-			stringstream ss;
-			ss << chord << ',' << _id;
-			return ss.str();
-		}
-		else if (chord != ButtonID::INVALID)
-			return string(magic_enum::enum_name(_id));
-		else
-			return string();
-	}
-
-	// Returns the sim press name of itself with simBtn.
-	string getSimPressName(ButtonID simBtn) const
-	{
-		if (simBtn == _id)
-		{
-			// It's actually a double press, not a sim press
-			return getName(simBtn);
-		}
-		if (simBtn > ButtonID::NONE)
-		{
-			stringstream ss;
-			ss << simBtn << '+' << _id;
-			return ss.str();
-		}
-		return string();
-	}
-
-	// Resetting a button also clears all assigned sim presses
-	virtual OldJSMButton *Reset() override
-	{
-		ChordedVariable<Mapping>::Reset();
-		for (auto id : _simListeners)
-		{
-			_simMappings[id.first].RemoveOnChangeListener(id.second);
-		}
-		_simMappings.clear();
-		return this;
-	}
-
-	// Get the SimPress variable, creating one if required.
-	// An additional listener is required for the complementary sim press
-	// to be updated when this value changes.
-	JSMVariable<Mapping> *AtSimPress(ButtonID chord)
-	{
-		auto existingSim = getSimMap(chord);
-		if (!existingSim)
-		{
-			JSMVariable<Mapping> var(*this, Mapping());
-			_simMappings.emplace( chord, var );
-			/*_simListeners[chord] = _simMappings[chord]
-				.AddOnChangeListener(
-				bind(&SimPressCrossUpdate<Mapping>, chord, _id, placeholders::_1));*/
-		}
-		return &_simMappings[chord];
-	}
-
-	void ProcessChordRemoval(ButtonID chord, const JSMVariable<Mapping> *value)
-	{
-		if (value && *value == Mapping())
-		{
-			auto chordVar = _chordedVariables.find(chord);
-			if (chordVar != _chordedVariables.end())
-			{
-				_chordedVariables.erase(chordVar);
-			}
-		}
-	}
-
-	void ProcessSimPressRemoval(ButtonID chord, const JSMVariable<Mapping> *value)
-	{
-		if (value && *value == Mapping())
-		{
-			auto chordVar = _simMappings.find(chord);
-			if (chordVar != _simMappings.end())
-			{
-				_simMappings.erase(chordVar);
-			}
-		}
-	}
-};
-
+// A combo map is an item of _simMappings below. It holds an alternative variable when ButtonID is pressed.
 typedef pair<const ButtonID, JSMVariable<EventMapping>> ComboMap;
-// Button Mapping Binding includes not only chorded mappings, but also simultaneous press mappings
+
+// Button mappings includes not only chorded mappings, but also simultaneous press mappings
 class JSMButton : public ChordedVariable<EventMapping>
 {
 public:
@@ -387,11 +240,12 @@ public:
 protected:
 	map<ButtonID, JSMVariable<EventMapping>> _simMappings;
 
+	// Store listener IDs for its sim presses. This is required for Cross updates
 	map<ButtonID, unsigned int> _simListeners;
 
 public:
-	JSMButton(ButtonID id)
-		: ChordedVariable(EventMapping())
+	JSMButton(ButtonID id, EventMapping def)
+		: ChordedVariable(def)
 		, _id(id)
 		, _simMappings()
 		, _simListeners()
@@ -425,9 +279,8 @@ public:
 
 	// Indicate whether any sim press mappings are present
 	// This function additionally removes any empty sim mappings.
-	bool HasSimMappings() const
+	inline bool HasSimMappings() const
 	{
-		Mapping EMPTY;
 		return !_simMappings.empty();
 	}
 

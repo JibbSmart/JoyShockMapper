@@ -155,9 +155,8 @@ enum class JoyconMask { USE_BOTH, IGNORE_LEFT, IGNORE_RIGHT, IGNORE_BOTH, INVALI
 enum class GyroIgnoreMode { BUTTON, LEFT_STICK, RIGHT_STICK, INVALID };
 enum class DstState { NoPress = 0, PressStart, QuickSoftTap, QuickFullPress, QuickFullRelease, SoftPress, DelayFullPress, PressStartResp, INVALID };
 enum class BtnState {
-	NoPress = 0, BtnPress, WaitHold, HoldPress, TapRelease,
-	WaitSim, SimPress, WaitSimHold, SimHold, SimTapRelease, SimRelease,
-	DblPressStart, DblPressNoPress, DblPressPress, DblPressWaitHold, DblPressHold, INVALID
+	NoPress = 0, BtnPress, TapRelease, WaitSim, SimPress, SimRelease,
+	DblPressStart, DblPressNoPressTap, DblPressNoPressHold, DblPressPress, INVALID
 };
 enum class ButtonEvent { OnPress, OnTap, OnHold, OnTurbo, OnRelease, OnTapRelease, INVALID };
 
@@ -216,27 +215,14 @@ struct GyroSettings {
 	GyroSettings(int dummy) : GyroSettings() {}
 };
 
-// This structure holds information about a simple button binding that can possibly be held.
-// It also contains all alternate values it can provide via button combination.
-// The location of this element in the overarching data structure identifies to what button
-// the binding is bound.
-struct Mapping
-{
-	KeyCode pressBind; // Press or tap binding
-	KeyCode holdBind; // Hold binding if any.
-
-	Mapping(KeyCode press = KeyCode::EMPTY, KeyCode hold = KeyCode::EMPTY)
-		: pressBind(press)
-		, holdBind(hold)
-	{}
-	// This constructor is required to make use of the default value of JSMVariable's constructor
-	Mapping(int dummy) : Mapping() {}
-};
 
 class DigitalButton;
 
 typedef function<void(DigitalButton *)> OnEventAction;
 
+// This structure handles the mapping of a button, buy processing and action
+// to be done on tap, hold, turbo and others. It holds a map of actions to perform
+// when a specific event happens. This replaces the old Mapping structure.
 struct EventMapping
 {
 	map<ButtonEvent, OnEventAction> eventMapping;
@@ -252,7 +238,6 @@ struct EventMapping
 
 // This function is defined in main.cpp. It enables two sim press variables to
 // listen to each other and make sure they both hold the same values.
-//void SimPressCrossUpdate(ButtonID sim, ButtonID origin, Mapping newVal);
 void SimPressCrossUpdate(ButtonID sim, ButtonID origin, EventMapping newVal);
 
 // This operator enables reading any enum from string
@@ -290,10 +275,10 @@ inline bool operator !=(const GyroSettings &lhs, const GyroSettings &rhs)
 	return !(lhs == rhs);
 }
 
-istream &operator >>(istream &in, Mapping &mapping);
-ostream &operator <<(ostream &out, Mapping mapping);
-bool operator ==(const Mapping &lhs, const Mapping &rhs);
-inline bool operator !=(const Mapping &lhs, const Mapping &rhs)
+ostream &operator << (ostream &out, EventMapping fxy);
+istream &operator >> (istream &in, EventMapping &fxy);
+bool operator ==(const EventMapping &lhs, const EventMapping &rhs);
+inline bool operator !=(const EventMapping &lhs, const EventMapping &rhs)
 {
 	return !(lhs == rhs);
 }
@@ -302,14 +287,6 @@ ostream &operator << (ostream &out, FloatXY fxy);
 istream &operator >> (istream &in, FloatXY &fxy);
 bool operator ==(const FloatXY &lhs, const FloatXY &rhs);
 inline bool operator !=(const FloatXY &lhs, const FloatXY &rhs)
-{
-	return !(lhs == rhs);
-}
-
-ostream &operator << (ostream &out, EventMapping fxy);
-istream &operator >> (istream &in, EventMapping &fxy);
-bool operator ==(const EventMapping &lhs, const EventMapping &rhs);
-inline bool operator !=(const EventMapping &lhs, const EventMapping &rhs)
 {
 	return !(lhs == rhs);
 }
