@@ -10,7 +10,7 @@
 
 JSMCommand::JSMCommand(in_string name)
 	: _parse()
-	, _help("Error in entering the command. See README for help.")
+	, _help("Error in entering the command. Enter README to bring up the user manual.")
 	, _taskOnDestruction()
 	, _name(name)
 {}

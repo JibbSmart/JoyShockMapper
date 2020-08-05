@@ -245,90 +245,6 @@ public:
 		_toggleActive = !_toggleActive;
 	}
 
-	//void ApplyBtnPress(const ComboMap &map, bool tap = false)
-	//{
-	//	_keyToRelease = map.second.get().pressBind;
-	//	_nameToRelease = _mapping.getSimPressName(map.first);
-	//	if (_keyToRelease.code == CALIBRATE)
-	//	{
-	//		_common.toggleContinuous ^= tap; //Toggle on tap
-	//		if (!tap || _common.toggleContinuous) {
-	//			printf("Starting continuous calibration\n");
-	//			JslResetContinuousCalibration(_common.intHandle);
-	//			JslStartContinuousCalibration(_common.intHandle);
-	//		}
-	//	}
-	//	else if (_keyToRelease.code >= GYRO_INV_X && _keyToRelease.code <= GYRO_ON_BIND)
-	//	{
-	//		// I know I don't handle multiple inversion. Otherwise GYRO_INV_X on sim press would do nothing
-	//		_common.gyroActionQueue.push_back({ _id, _keyToRelease });
-	//	}
-	//	else if(_keyToRelease.code != NO_HOLD_MAPPED)
-	//	{
-	//		printf("%s: %s\n", _nameToRelease.c_str(), tap ? "tapped" : "true");
-	//		pressKey(_keyToRelease, true);
-	//	}
-	//}
-
-	//void ApplyBtnHold(const ComboMap &map)
-	//{
-	//	_keyToRelease = map.second.get().holdBind;
-	//	_nameToRelease = _mapping.getSimPressName(map.first);
-	//	if (_keyToRelease.code == CALIBRATE)
-	//	{
-	//		printf("Starting continuous calibration\n");
-	//		JslResetContinuousCalibration(_common.intHandle);
-	//		JslStartContinuousCalibration(_common.intHandle);
-	//	}
-	//	else if (_keyToRelease.code >= GYRO_INV_X && _keyToRelease.code <= GYRO_ON_BIND)
-	//	{
-	//		// I know I don't handle multiple inversion. Otherwise GYRO_INV_X on sim press would do nothing
-	//		_common.gyroActionQueue.push_back({ _id, _keyToRelease });
-	//	}
-	//	else if (_keyToRelease.code != NO_HOLD_MAPPED)
-	//	{
-	//		printf("%s: held\n", _nameToRelease.c_str());
-	//		pressKey(_keyToRelease, true);
-	//	}
-	//}
-
-	//void ApplyBtnRelease(const ComboMap &map, bool tap = false)
-	//{
-	//	if (_keyToRelease.code == CALIBRATE)
-	//	{
-	//		if (!tap || !_common.toggleContinuous)
-	//		{
-	//			JslPauseContinuousCalibration(_common.intHandle);
-	//			_common.toggleContinuous = false; // if we've held the calibration button, we're disabling continuous calibration
-	//			printf("Gyro calibration set\n");
-	//		}
-	//	}
-	//	else if (_keyToRelease.code >= GYRO_INV_X && _keyToRelease.code <= GYRO_ON_BIND)
-	//	{
-	//		_common.gyroActionQueue.erase(find_if(_common.gyroActionQueue.begin(), _common.gyroActionQueue.end(),
-	//			[this](auto pair)
-	//			{
-	//				return pair.first == _id;
-	//			}));
-	//		_common.gyroActionQueue.erase(find_if(_common.gyroActionQueue.begin(), _common.gyroActionQueue.end(),
-	//			[map](auto pair)
-	//			{
-	//				return pair.first == map.first;
-	//			}));
-	//	}
-	//	else if (_keyToRelease.code != NO_HOLD_MAPPED)
-	//	{
-	//		printf(tap ? "" : "%s: false\n", _nameToRelease.c_str());
-	//		pressKey(_keyToRelease, false);
-	//	}
-	//	//auto foundChord = find(_common.chordStack.begin(), _common.chordStack.end(), _id);
-	//	//if (foundChord != _common.chordStack.end())
-	//	//{
-	//	//	// The chord is released
-	//	//	_common.chordStack.erase(foundChord);
-	//	//}
-	//}
-
 	void SyncSimPress(ButtonID btn, const ComboMap &map)
 	{
 		_keyToRelease.reset(new EventMapping(*_mapping.AtSimPress(btn)));
@@ -365,29 +281,29 @@ istream &operator >> (istream &in, EventMapping &evtmap)
 	stringstream ss(valueName);
 	evtmap.representation = valueName;
 	string tap, hold;
-	bool toggleTap = false, toggleHold = false;
-	bool turboTap = false, turboHold = false;
+	char tapModifier = '\0', holdModifier = '\0';
+	bool turboPress = false, turboHold = false;
 	ss >> tap;
 	ss >> hold;
 
 	if (!tap.empty())
 	{
-		if (tap[0] == '^')
+		if (tap[0] == '^' || tap[0] == '!')
 		{
-			toggleTap = true;
+			tapModifier = tap[0];
 			tap = tap.substr(1);
 		}
 		if (tap[tap.size() - 1] == '+')
 		{
-			turboTap = true;
+			turboPress = true;
 			tap = tap.substr(0, tap.size() - 1);
 		}
 	}
 	if (!hold.empty())
 	{
-		if (hold[0] == '^')
+		if (hold[0] == '^' || hold[0] == '!')
 		{
-			toggleHold = true;
+			holdModifier = hold[0];
 			hold = hold.substr(1);
 		}
 		if (hold[hold.size() - 1] == '+')
@@ -398,7 +314,8 @@ istream &operator >> (istream &in, EventMapping &evtmap)
 	}
 	KeyCode tapKey(tap), holdKey(hold);
 	if (!tap.empty() && !tapKey.code ||
-		!hold.empty() && !holdKey.code)
+		!hold.empty() && !holdKey.code ||
+		turboPress && holdKey.code)
 	{
 		//error!!!
 		in.setstate(in.failbit);
@@ -426,16 +343,30 @@ istream &operator >> (istream &in, EventMapping &evtmap)
 			apply = bind(&DigitalButton::ApplyBtnPress, placeholders::_1, holdKey, false);
 			release = bind(&DigitalButton::ApplyBtnRelease, placeholders::_1, holdKey, false);
 		}
-
-		if (toggleHold)
+		
+		if (holdModifier == '^')
 		{
 			evtmap.eventMapping[ButtonEvent::OnHold] = bind(&DigitalButton::ApplyButtonToggle, placeholders::_1, apply, release);
+			evtmap.eventMapping[ButtonEvent::OnRelease] = OnEventAction(); // Add empty field
 		}
-		else
+		else if (holdModifier == '!')
+		{
+			evtmap.eventMapping[ButtonEvent::OnHold] = bind(&EventMapping::RunAllActions, placeholders::_1, 2, apply, release);
+			evtmap.eventMapping[ButtonEvent::OnRelease] = OnEventAction(); // Add empty field
+		}
+		else // no modifiers
 		{
 			evtmap.eventMapping[ButtonEvent::OnHold] = apply;
 			evtmap.eventMapping[ButtonEvent::OnRelease] = release;
 		}
+
+		if (turboHold)
+		{
+			evtmap.eventMapping[ButtonEvent::OnTurbo] = bind(&EventMapping::RunAllActions, placeholders::_1, 2,
+				evtmap.eventMapping[ButtonEvent::OnRelease], // Perform release event, and then
+				evtmap.eventMapping[ButtonEvent::OnHold]);   // Perform apply event;
+		}		
+
 		pressEvents = { ButtonEvent::OnTap, ButtonEvent::OnTapRelease };
 		isTap = true;
 	}
@@ -463,9 +394,13 @@ istream &operator >> (istream &in, EventMapping &evtmap)
 		release = bind(&DigitalButton::ApplyBtnRelease, placeholders::_1, tapKey, isTap);
 	}
 
-	if (toggleTap)
+	if (tapModifier == '^')
 	{
 		evtmap.eventMapping[pressEvents.first] = bind(&DigitalButton::ApplyButtonToggle, placeholders::_1, apply, release);
+	}
+	else if (tapModifier == '!')
+	{
+		evtmap.eventMapping[pressEvents.first] = bind(&EventMapping::RunAllActions, placeholders::_1, 2, apply, release);
 	}
 	else
 	{
@@ -473,9 +408,16 @@ istream &operator >> (istream &in, EventMapping &evtmap)
 		evtmap.eventMapping[pressEvents.second] = release;
 		if (!holdKey.code)
 		{
-			// When there are no hold bindings, release key press on both possible key release
+			// When there are no hold bindings, release key press on both possible key release events
 			evtmap.eventMapping[ButtonEvent::OnTap] = release;
 		}
+	}
+
+	if (turboPress)
+	{
+		evtmap.eventMapping[ButtonEvent::OnTurbo] = bind(&EventMapping::RunAllActions, placeholders::_1, 2, 
+			evtmap.eventMapping[pressEvents.second], // Perform release event, and then
+			evtmap.eventMapping[pressEvents.first]); // Perform apply event
 	}
 	return in;
 }
@@ -490,11 +432,24 @@ void EventMapping::ProcessEvent(ButtonEvent evt, DigitalButton &button)
 {
 	// cout << button._id << " processes event " << evt << endl;
 	auto entry = eventMapping.find(evt);
-	if (entry != eventMapping.end())
+	if (entry != eventMapping.end() && entry->second) // Skip over empty entries
 	{
 		cout << button._id << " processes event " << evt << endl;
 		entry->second(&button);
 	}
+}
+
+void EventMapping::RunAllActions(DigitalButton *btn, int numEventActions, ...)
+{
+	va_list arguments;
+	va_start(arguments, numEventActions);
+	for (int x = 0; x < numEventActions; x++)
+	{
+		auto action = va_arg(arguments, OnEventAction);
+		action(btn);
+	}
+	va_end(arguments);
+	return;
 }
 
 // An instance of this class represents a single controller device that JSM is listening to.

@@ -234,6 +234,8 @@ struct EventMapping
 	EventMapping(int dummy) : EventMapping() {}
 
 	void ProcessEvent(ButtonEvent evt, DigitalButton &button);
+
+	static void RunAllActions(DigitalButton *btn, int numEventActions, ...);
 };
 
 // This function is defined in main.cpp. It enables two sim press variables to
