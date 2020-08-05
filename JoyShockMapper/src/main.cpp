@@ -74,7 +74,7 @@ unique_ptr<PollingThread> autoLoadThread;
 unique_ptr<TrayIcon> tray;
 bool devicesCalibrating = false;
 Whitelister whitelister(false);
-unordered_map<int, JoyShock*> handle_to_joyshock;
+unordered_map<int, shared_ptr<JoyShock>> handle_to_joyshock;
 
 // This class holds all the logic related to a single digital button. It does not hold the mapping but only a reference
 // to it. It also contains it's various states, flags and data.
@@ -1314,14 +1314,32 @@ static void resetAllMappings() {
 }
 
 void connectDevices() {
+	handle_to_joyshock.clear();
 	int numConnected = JslConnectDevices();
 	int* deviceHandles = new int[numConnected];
 
 	JslGetConnectedDeviceHandles(deviceHandles, numConnected);
 
 	for (int i = 0; i < numConnected; i++) {
+
 		// map handles to extra local data
 		int handle = deviceHandles[i];
+		auto type = JslGetControllerType(handle);
+		if (type == JS_TYPE_JOYCON_LEFT || type == JS_TYPE_JOYCON_RIGHT)
+		{
+			auto otherJoyCon = find_if(handle_to_joyshock.begin(), handle_to_joyshock.end(), 
+				[type](auto pair)
+				{
+					return type == JS_TYPE_JOYCON_LEFT  && pair.first == JS_TYPE_JOYCON_RIGHT ||
+						   type == JS_TYPE_JOYCON_RIGHT && pair.first == JS_TYPE_JOYCON_LEFT;
+				});
+			if (otherJoyCon != handle_to_joyshock.end())
+			{
+				// The second JC points to the same instance of JoyShock as the other one.
+				handle_to_joyshock.emplace(handle, otherJoyCon->second);
+				continue; // next loop iteration
+			}
+		}
 		JoyShock* js = new JoyShock(handle,
 			JslGetPollRate(handle),
 			JslGetControllerSplitType(handle),
