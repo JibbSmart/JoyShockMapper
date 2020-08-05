@@ -12,6 +12,8 @@
 
 #define PI 3.14159265359f
 
+const KeyCode KeyCode::EMPTY = KeyCode();
+
 class JoyShock;
 void joyShockPollCallback(int jcHandle, JOY_SHOCK_STATE state, JOY_SHOCK_STATE lastState, IMU_STATE imuState, IMU_STATE lastImuState, float deltaTime);
 
