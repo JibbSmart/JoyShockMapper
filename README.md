@@ -17,10 +17,11 @@ JoyShockMapper works on Windows and uses JoyShockLibrary to read inputs from con
 * **[Commands](#commands)**
   * **[Digital Inputs](#1-digital-inputs)**
     * **[Tap & Hold](#11-tap--hold)**
-	* **[Simultaneous Press](#12-simultaneous-press)**
-	* **[Chorded Press](#13-chorded-press)**
-	* **[Double Press](#14-double-press)**
-	* **[Gyro Button](#15-gyro-button)**
+	* **[Keybind modifiers](#12-keybind-modifiers)**
+	* **[Simultaneous Press](#13-simultaneous-press)**
+	* **[Chorded Press](#14-chorded-press)**
+	* **[Double Press](#15-double-press)**
+	* **[Gyro Button](#16-gyro-button)**
   * **[Analog Triggers](#2-analog-triggers)**
   * **[Stick Mouse Inputs](#3-stick-mouse-inputs)**
   * **[Gyro Mouse Inputs](#4-gyro-mouse-inputs)**
@@ -229,7 +230,18 @@ W = R NONE
 
 Gyro-related tap bindings will apply for about half a second from releasing the tap, but other bindings will simulate a very quick button tap.
 
-#### 1.2 Simultaneous Press
+#### 1.2 Keybind Modifiers
+
+There are two kinds of modifiers that can be applied to key bindings: action modifiers and event modifiers. They are represented by symbols added before and after the key name repectively.
+
+**Action modifiers** come in two kinds: **toggle (^)** and **instant (!)**. Using either of these modifiers will make it so that nothing is bound to the release of the button press.
+* ^ Toggle makes it so that the key will alternate between applying and releasing the key press at each press.
+* ! Instant sends both the key press and release at the same time
+
+**Event Modifiers** come in a single kind: **turbo (+)**. Only one key in a binding can be given the turbo modifier. 
+* + Turbo enables that while the button is rpessed, every 150ms the binding will be released and pressed again (with consideration of action modifiers), resulting in a fast pulsing of the key.
+
+#### 1.3 Simultaneous Press
 JoyShockMapper additionally allows you to map simultaneous button presses to different mappings. For example you can bind character abilities on your bumpers and an ultimate ability on both like this:
 
 ```
@@ -240,7 +252,7 @@ L+R = Q    # Ultimate Ability
 
 To enable a simultaneous binding, both buttons need to be pressed within a very short time of each other. Doing so will ignore the individual button bindings and apply the specified binding until either of the button is released. Simultaneous bindings also support tap & hold bindings just like other mappings. This feature is great to make use of the dpad diagonals, or to add JSM specific features like gyro calibration and gyro control without taking away accessible buttons.
 
-#### 1.3 Chorded Press
+#### 1.4 Chorded Press
 Chorded press works differently from Simultaneous Press, despite being similar at first blush. A chorded press mapping allows you to override a button mapping when the chord button is down. This enables a world of different practical combinations, allowing you to have contextual bindings. Here's an example for Left 4 Dead 2, that would enable you to equip items without lifting the thumb from the left stick.
 
 ```
@@ -258,7 +270,7 @@ L,N = F # Flashlight
 
 A button can be chorded with multiple other buttons. In this case, the latest chord takes precedence over previous chords. This can be understood as a stack of layers being put on top of the binding each time a chord is pressed, where only the top one is active. Notice that you don't need to have NONE as a binding. The chord binding could very well be bound to a button that brings up a weapon wheel for example.
 
-#### 1.4 Double Press
+#### 1.5 Double Press
 You can also assign the double press of a button to a different binding. Double press notation is the same as chorded button notation, except the button is chorded with iteself. It supports taps and holds like all previous entries. 
 
 ```
@@ -268,7 +280,7 @@ N,N = X # Cycle weapon fire mode
 
 The double press binding is applied when a down press occurs within a fifth of a second from a first down press. In that period of time no other binding can be assumed, so regular taps will have the delay introduced. At this point in time the time window cannot be changed.
 
-#### 1.5 Gyro Button
+#### 1.6 Gyro Button
 Lastly, there is one digital input that works differently, because it can overlap with any other input. Well, two inputs, but you'll use at most one of them in a given configuration:
 
 ```
