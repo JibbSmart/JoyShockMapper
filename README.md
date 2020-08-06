@@ -17,7 +17,7 @@ JoyShockMapper works on Windows and uses JoyShockLibrary to read inputs from con
 * **[Commands](#commands)**
   * **[Digital Inputs](#1-digital-inputs)**
     * **[Tap & Hold](#11-tap--hold)**
-	* **[Keybind modifiers](#12-keybind-modifiers)**
+	* **[Binding Modifiers](#12-binding-modifiers)**
 	* **[Simultaneous Press](#13-simultaneous-press)**
 	* **[Chorded Press](#14-chorded-press)**
 	* **[Double Press](#15-double-press)**
@@ -228,9 +228,9 @@ If you want □ to 'reload' when tapped, but do nothing at all when held, you ca
 W = R NONE
 ```
 
-Gyro-related tap bindings will apply for about half a second from releasing the tap, but other bindings will simulate a very quick button tap.
+Gyro-related tap bindings will apply for about half a second from releasing the tap, but other bindings will simulate a very quick button tap (40ms).
 
-#### 1.2 Keybind Modifiers
+#### 1.2 Binding Modifiers
 
 There are two kinds of modifiers that can be applied to key bindings: action modifiers and event modifiers. They are represented by symbols added before and after the key name repectively.
 
@@ -238,8 +238,21 @@ There are two kinds of modifiers that can be applied to key bindings: action mod
 * ^ Toggle makes it so that the key will alternate between applying and releasing the key press at each press.
 * ! Instant sends both the key press and release at the same time
 
-**Event Modifiers** come in a single kind: **turbo (+)**. Only one key in a binding can be given the turbo modifier. 
-* + Turbo enables that while the button is rpessed, every 150ms the binding will be released and pressed again (with consideration of action modifiers), resulting in a fast pulsing of the key.
+**Event Modifiers** come in three kinds: **start press (\\)**, **turbo (+)** and **release press (/)**. Each event modifier can only be applied once in a binding. 
+* \\ Start press will apply the binding whenever the button is pressed, even if a hold binding exists. This can turn a tap binding into a regular press on top of the hold binding.
+* \+ Turbo enables that while the button is pressed, every 150ms the binding will be released and pressed again (with consideration of action modifiers), resulting in a fast pulsing of the key.
+* \/ Release press will apply the binding when the button is release. A binding on release press needs an action modifier to be valid.
+
+These modifiers can enable you to work around in game tap and holds, or convert one form of press into another. Here's a few example of how you can make use of those modifiers.
+
+```
+ZL = ^RMOUSE RMOUSE  # ADS toggle on tap
+E  = !C\ !C/         # Convert in game toggle crouch to regular press
+UP = !1\ 1           # Convert Batarang throw double press to hold press
+W  = R E\            # In Halo MCC, reload on tap but apply E right away to cover for in game hold
+-,S = SPACE+         # Turbo press for button mash QTEs. No one likes to button mash :(
+R3 = !1\ LMOUSE+ !Q/ # Half life melee button
+```
 
 #### 1.3 Simultaneous Press
 JoyShockMapper additionally allows you to map simultaneous button presses to different mappings. For example you can bind character abilities on your bumpers and an ultimate ability on both like this:
