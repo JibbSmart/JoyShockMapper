@@ -91,6 +91,7 @@ public:
 		}
 		bool toggleContinuous = false;
 		deque<pair<ButtonID, KeyCode>> gyroActionQueue; // Queue of gyro control actions currently in effect
+		deque<pair<KeyCode, OnEventAction>> activeTogglesQueue;
 		deque<ButtonID> chordStack; // Represents the current active buttons in order from most recent to latest
 		int intHandle;
 	};
@@ -104,7 +105,6 @@ public:
 		, _keyToRelease()
 		, _turboCount(0)
 		, _simPressMaster(ButtonID::NONE)
-		, _toggleActive(false)
 	{
 
 	}
@@ -118,7 +118,6 @@ public:
 	string _nameToRelease;
 	unsigned int _turboCount;
 	ButtonID _simPressMaster;
-	bool _toggleActive;
 
 	void ProcessButtonPress(bool pressed, chrono::steady_clock::time_point time_now)
 	{
@@ -287,6 +286,9 @@ istream &operator >> (istream &in, EventMapping &evtmap)
 		evtmap.clear();
 		return in;
 	}
+
+	evtmap.setRepresentation(valueName);
+
 	while (regex_match(valueName, results, regex(R"(\s*([!\^]?)([^\\\/+\s]*)([\\\/+]?)\s*(.*))")) && !results[0].str().empty())
 	{
 		EventMapping::ActionModifier actMod = results[1].str().empty() ? EventMapping::ActionModifier::None :
@@ -1386,9 +1388,8 @@ bool do_CALCULATE_REAL_WORLD_CALIBRATION(in_string argument) {
 
 bool do_FINISH_GYRO_CALIBRATION() {
 	printf("Finishing continuous calibration for all devices\n");
-	for (unordered_map<int, JoyShock*>::iterator iter = handle_to_joyshock.begin(); iter != handle_to_joyshock.end(); ++iter) {
-		JoyShock* jc = iter->second;
-		JslPauseContinuousCalibration(jc->intHandle);
+	for (auto iter = handle_to_joyshock.begin(); iter != handle_to_joyshock.end(); ++iter) {
+		JslPauseContinuousCalibration(iter->second->intHandle);
 	}
 	devicesCalibrating = false;
 	return true;
@@ -1396,10 +1397,9 @@ bool do_FINISH_GYRO_CALIBRATION() {
 
 bool do_RESTART_GYRO_CALIBRATION() {
 	printf("Restarting continuous calibration for all devices\n");
-	for (unordered_map<int, JoyShock*>::iterator iter = handle_to_joyshock.begin(); iter != handle_to_joyshock.end(); ++iter) {
-		JoyShock* jc = iter->second;
-		JslResetContinuousCalibration(jc->intHandle);
-		JslStartContinuousCalibration(jc->intHandle);
+	for (auto iter = handle_to_joyshock.begin(); iter != handle_to_joyshock.end(); ++iter) {
+		JslResetContinuousCalibration(iter->second->intHandle);
+		JslStartContinuousCalibration(iter->second->intHandle);
 	}
 	devicesCalibrating = true;
 	return true;
@@ -1544,7 +1544,7 @@ JoyShock* getJoyShockFromHandle(int handle) {
 	auto iter = handle_to_joyshock.find(handle);
 
 	if (iter != handle_to_joyshock.end()) {
-		return iter->second;
+		return iter->second.get();
 		// iter is item pair in the map. The value will be accessible as `iter->second`.
 	}
 	return nullptr;

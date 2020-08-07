@@ -248,6 +248,11 @@ public:
 		return AddMapping(key, applyEvt, releaseEvt, ActionModifier::None, evtMod);
 	}
 
+	void setRepresentation(in_string rep)
+	{
+		representation = rep;
+	}
+
 	inline bool isEmpty() const
 	{
 		return eventMapping.empty();
