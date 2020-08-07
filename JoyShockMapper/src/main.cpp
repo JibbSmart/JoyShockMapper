@@ -125,22 +125,24 @@ public:
 		auto elapsed_time = GetPressDurationMS(time_now);
 		if (pressed)
 		{
-			if (floorf(elapsed_time / MAGIC_HOLD_TIME) > _turboCount)
+			if (_turboCount == 0)
 			{
-				if (_turboCount == 0)
+				if (elapsed_time > MAGIC_HOLD_TIME)
 				{
 					_keyToRelease->ProcessEvent(ButtonEvent::OnHold, *this);
+					_turboCount++;
 				}
-				else
-				{
-					_keyToRelease->ProcessEvent(ButtonEvent::OnTurbo, *this);
-				}
+			}
+			else if (floorf( (elapsed_time - MAGIC_HOLD_TIME) / MAGIC_TURBO_PERIOD ) > (_turboCount - 1))
+			{
+				_keyToRelease->ProcessEvent(ButtonEvent::OnTurbo, *this);
 				_turboCount++;
 			}
 		}
 		else // not pressed
 		{
-			if (elapsed_time < MAGIC_HOLD_TIME)
+			_keyToRelease->ProcessEvent(ButtonEvent::OnRelease, *this);
+			if (_turboCount == 0)
 			{
 				_keyToRelease->ProcessEvent(ButtonEvent::OnTap, *this);
 				_btnState = BtnState::TapRelease;
@@ -148,7 +150,7 @@ public:
 			}
 			else
 			{
-				_keyToRelease->ProcessEvent(ButtonEvent::OnRelease, *this);
+				_keyToRelease->ProcessEvent(ButtonEvent::OnHoldRelease, *this);
 				_btnState = BtnState::NoPress;
 				ClearKey();
 			}
@@ -269,7 +271,7 @@ public:
 
 ostream &operator << (ostream &out, EventMapping evtmap)
 {
-	out << evtmap.representation;
+	out << evtmap.toString();
 	return out;
 }
 
@@ -278,157 +280,60 @@ istream &operator >> (istream &in, EventMapping &evtmap)
 	string valueName(128, '\0');
 	in.getline(&valueName[0], valueName.size());
 	valueName.resize(strlen(valueName.c_str()));
-	stringstream ss(valueName);
-	evtmap.representation = valueName;
-	string tap, hold;
-	char tapModifier = '\0', holdModifier = '\0';
-	bool turboPress = false, turboHold = false;
-	ss >> tap;
-	ss >> hold;
-
-	if (!tap.empty())
+	smatch results;
+	int count = 0;
+	if (regex_match(valueName, regex(R"(\s*NONE\s*)")))
 	{
-		if (tap[0] == '^' || tap[0] == '!')
-		{
-			tapModifier = tap[0];
-			tap = tap.substr(1);
-		}
-		if (tap[tap.size() - 1] == '+')
-		{
-			turboPress = true;
-			tap = tap.substr(0, tap.size() - 1);
-		}
-	}
-	if (!hold.empty())
-	{
-		if (hold[0] == '^' || hold[0] == '!')
-		{
-			holdModifier = hold[0];
-			hold = hold.substr(1);
-		}
-		if (hold[hold.size() - 1] == '+')
-		{
-			turboHold = true;
-			hold = hold.substr(0, hold.size() - 1);
-		}
-	}
-	KeyCode tapKey(tap), holdKey(hold);
-	if (!tap.empty() && !tapKey.code ||
-		!hold.empty() && !holdKey.code ||
-		turboPress && holdKey.code)
-	{
-		//error!!!
-		in.setstate(in.failbit);
+		evtmap.clear();
 		return in;
 	}
+	while (regex_match(valueName, results, regex(R"(\s*([!\^]?)([^\\\/+\s]*)([\\\/+]?)\s*(.*))")) && !results[0].str().empty())
+	{
+		EventMapping::ActionModifier actMod = results[1].str().empty() ? EventMapping::ActionModifier::None :
+			results[1].str()[0] == '!' ? EventMapping::ActionModifier::Instant :
+			results[1].str()[0] == '^' ? EventMapping::ActionModifier::Toggle :
+			EventMapping::ActionModifier::INVALID;
 
-	pair<ButtonEvent, ButtonEvent> pressEvents{ ButtonEvent::OnPress, ButtonEvent::OnRelease };
-	bool isTap = false;
-	OnEventAction apply;
-	OnEventAction release;
-	if (holdKey)
-	{
-		if (holdKey.code == CALIBRATE)
-		{
-			apply = bind(&DigitalButton::StartCalibration, placeholders::_1, false);
-			release = bind(&DigitalButton::FinishCalibration, placeholders::_1, false);
-		}
-		else if (holdKey.code >= GYRO_INV_X && holdKey.code <= GYRO_ON_BIND)
-		{
-			apply = bind(&DigitalButton::ApplyGyroAction, placeholders::_1, holdKey);
-			release = bind(&DigitalButton::RemoveGyroAction, placeholders::_1);
-		}
-		else // if (holdKey.code == NO_HOLD_MAPPED) ?????
-		{
-			apply = bind(&DigitalButton::ApplyBtnPress, placeholders::_1, holdKey, false);
-			release = bind(&DigitalButton::ApplyBtnRelease, placeholders::_1, holdKey, false);
-		}
-		
-		if (holdModifier == '^')
-		{
-			evtmap.eventMapping[ButtonEvent::OnHold] = bind(&DigitalButton::ApplyButtonToggle, placeholders::_1, apply, release);
-			evtmap.eventMapping[ButtonEvent::OnRelease] = OnEventAction(); // Add empty field
-		}
-		else if (holdModifier == '!')
-		{
-			evtmap.eventMapping[ButtonEvent::OnHold] = bind(&EventMapping::RunAllActions, placeholders::_1, 2, apply, release);
-			evtmap.eventMapping[ButtonEvent::OnRelease] = OnEventAction(); // Add empty field
-		}
-		else // no modifiers
-		{
-			evtmap.eventMapping[ButtonEvent::OnHold] = apply;
-			evtmap.eventMapping[ButtonEvent::OnRelease] = release;
-		}
+		string keyStr(results[2]);
 
-		if (turboHold)
+		EventMapping::EventModifier evtMod = results[3].str().empty() ? EventMapping::EventModifier::None :
+			results[3].str()[0] == '\\' ? EventMapping::EventModifier::StartPress :
+			results[3].str()[0] == '+'  ? EventMapping::EventModifier::TurboPress :
+			results[3].str()[0] == '/'  ? EventMapping::EventModifier::ReleasePress :
+			EventMapping::EventModifier::INVALID;
+
+		string leftovers(results[4]);
+
+		KeyCode key(keyStr);
+
+		ButtonEvent applyEvt = count == 0 ? (leftovers.empty() ?  ButtonEvent::OnPress : ButtonEvent::OnTap) : ButtonEvent::OnHold;
+		ButtonEvent releaseEvt = count == 0 ? (leftovers.empty() ? ButtonEvent::OnRelease : ButtonEvent::OnTapRelease) : ButtonEvent::OnHoldRelease;
+
+		if (key.code == 0 ||
+			actMod == EventMapping::ActionModifier::INVALID ||
+			evtMod == EventMapping::EventModifier::INVALID ||
+			evtMod == EventMapping::EventModifier::None && count >= 2 ||
+			evtMod == EventMapping::EventModifier::ReleasePress && actMod == EventMapping::ActionModifier::None ||
+			!evtmap.AddMapping(key, applyEvt, releaseEvt, actMod, evtMod))
 		{
-			evtmap.eventMapping[ButtonEvent::OnTurbo] = bind(&EventMapping::RunAllActions, placeholders::_1, 2,
-				evtmap.eventMapping[ButtonEvent::OnRelease], // Perform release event, and then
-				evtmap.eventMapping[ButtonEvent::OnHold]);   // Perform apply event;
-		}		
-
-		pressEvents = { ButtonEvent::OnTap, ButtonEvent::OnTapRelease };
-		isTap = true;
-	}
-	else if (tapKey.code == NO_HOLD_MAPPED)
-	{
-		// No hold and NONE means no input
-		evtmap.representation.clear();
-		return in;
-	}
-
-	if (tapKey.code == CALIBRATE)
-	{
-		apply = bind(&DigitalButton::StartCalibration, placeholders::_1, isTap);
-		release = bind(&DigitalButton::FinishCalibration, placeholders::_1, isTap);
-	}
-	else if (tapKey.code >= GYRO_INV_X && tapKey.code <= GYRO_ON_BIND)
-	{
-		apply = bind(&DigitalButton::ApplyGyroAction, placeholders::_1, tapKey);
-		release = bind(&DigitalButton::RemoveGyroAction, placeholders::_1);
-		evtmap.tapDurationMs = MAGIC_GYRO_TAP_DURATION; // Unused in regular press
-	}
-	else // if (tapKey.code != NO_HOLD_MAPPED) ???
-	{
-		apply = bind(&DigitalButton::ApplyBtnPress, placeholders::_1, tapKey, isTap);
-		release = bind(&DigitalButton::ApplyBtnRelease, placeholders::_1, tapKey, isTap);
-	}
-
-	if (tapModifier == '^')
-	{
-		evtmap.eventMapping[pressEvents.first] = bind(&DigitalButton::ApplyButtonToggle, placeholders::_1, apply, release);
-	}
-	else if (tapModifier == '!')
-	{
-		evtmap.eventMapping[pressEvents.first] = bind(&EventMapping::RunAllActions, placeholders::_1, 2, apply, release);
-	}
-	else
-	{
-		evtmap.eventMapping[pressEvents.first] = apply;
-		evtmap.eventMapping[pressEvents.second] = release;
-		if (!holdKey.code)
-		{
-			// When there are no hold bindings, release key press on both possible key release events
-			evtmap.eventMapping[ButtonEvent::OnTap] = release;
+			//error!!!
+			in.setstate(in.failbit);
+			break;
 		}
-	}
-
-	if (turboPress)
-	{
-		evtmap.eventMapping[ButtonEvent::OnTurbo] = bind(&EventMapping::RunAllActions, placeholders::_1, 2, 
-			evtmap.eventMapping[pressEvents.second], // Perform release event, and then
-			evtmap.eventMapping[pressEvents.first]); // Perform apply event
-	}
+		valueName = leftovers;
+		count++;
+	} // Next item
+	
 	return in;
 }
 
 bool operator ==(const EventMapping &lhs, const EventMapping &rhs)
 {
-	return lhs.representation == rhs.representation;
+	return lhs.toString() == rhs.toString();
 }
 
 
-void EventMapping::ProcessEvent(ButtonEvent evt, DigitalButton &button)
+void EventMapping::ProcessEvent(ButtonEvent evt, DigitalButton &button) const
 {
 	// cout << button._id << " processes event " << evt << endl;
 	auto entry = eventMapping.find(evt);
@@ -437,6 +342,68 @@ void EventMapping::ProcessEvent(ButtonEvent evt, DigitalButton &button)
 		cout << button._id << " processes event " << evt << endl;
 		entry->second(&button);
 	}
+}
+
+void EventMapping::AddEventMapping(ButtonEvent evt, OnEventAction action)
+{
+	auto existingActions = eventMapping.find(evt);
+	eventMapping[evt] = existingActions == eventMapping.end() ? action :
+		bind(&RunAllActions, placeholders::_1, 2, existingActions->second, action);
+}
+
+bool EventMapping::AddMapping(KeyCode key, ButtonEvent applyEvt, ButtonEvent releaseEvt, ActionModifier actMod, EventModifier evtMod)
+{
+	bool isTap = applyEvt == ButtonEvent::OnTap && releaseEvt == ButtonEvent::OnTapRelease;
+	OnEventAction apply, release;
+	if (key.code == CALIBRATE)
+	{
+		apply = bind(&DigitalButton::StartCalibration, placeholders::_1, isTap);
+		release = bind(&DigitalButton::FinishCalibration, placeholders::_1, isTap);
+	}
+	else if (key.code >= GYRO_INV_X && key.code <= GYRO_ON_BIND)
+	{
+		apply = bind(&DigitalButton::ApplyGyroAction, placeholders::_1, key);
+		release = bind(&DigitalButton::RemoveGyroAction, placeholders::_1);
+		tapDurationMs = MAGIC_GYRO_TAP_DURATION; // Unused in regular press
+	}
+	else if (key.code != NO_HOLD_MAPPED)
+	{
+		apply = bind(&DigitalButton::ApplyBtnPress, placeholders::_1, key, isTap);
+		release = bind(&DigitalButton::ApplyBtnRelease, placeholders::_1, key, isTap);
+	}
+
+	if (evtMod == EventModifier::StartPress)
+	{
+		applyEvt = ButtonEvent::OnPress;
+		releaseEvt = ButtonEvent::OnRelease;
+	}
+	else if (evtMod == EventModifier::ReleasePress)
+	{
+		// Acttion Modifier is required
+		applyEvt = ButtonEvent::OnRelease;
+	}
+
+	if (actMod == ActionModifier::Toggle)
+	{
+		AddEventMapping(applyEvt, bind(&DigitalButton::ApplyButtonToggle, placeholders::_1, apply, release));
+	}
+	else if (actMod == ActionModifier::Instant)
+	{
+		AddEventMapping(applyEvt, bind(&EventMapping::RunAllActions, placeholders::_1, 2, apply, release));
+	}
+	else
+	{
+		AddEventMapping(applyEvt, apply);
+		AddEventMapping(releaseEvt, release);
+	}
+
+	if (evtMod == EventModifier::TurboPress)
+	{
+		AddEventMapping(ButtonEvent::OnTurbo, bind(&EventMapping::RunAllActions, placeholders::_1, 2,
+			eventMapping[releaseEvt], // Perform release event, and then
+			eventMapping[applyEvt])); // Perform apply event
+	}
+	return true;
 }
 
 void EventMapping::RunAllActions(DigitalButton *btn, int numEventActions, ...)
@@ -895,7 +862,7 @@ public:
 			button.ProcessButtonPress(pressed, time_now);
 			break;
 		case BtnState::TapRelease:
-			if (pressed || button.GetPressDurationMS(time_now) > button.GetPressMapping()->tapDurationMs)
+			if (pressed || button.GetPressDurationMS(time_now) > button._keyToRelease->getTapDuration())
 			{
 				button.GetPressMapping()->ProcessEvent(ButtonEvent::OnTapRelease, button);
 				button._btnState = BtnState::NoPress;

@@ -358,7 +358,7 @@ public:
 
 	void ProcessChordRemoval(ButtonID chord, const JSMVariable<EventMapping> *value)
 	{
-		if (value && value->get().eventMapping.empty())
+		if (value && value->get().isEmpty())
 		{
 			auto chordVar = _chordedVariables.find(chord);
 			if (chordVar != _chordedVariables.end())
@@ -370,7 +370,7 @@ public:
 
 	void ProcessSimPressRemoval(ButtonID chord, const JSMVariable<EventMapping> *value)
 	{
-		if (value && value->get().eventMapping.empty())
+		if (value && value->get().isEmpty())
 		{
 			auto chordVar = _simMappings.find(chord);
 			if (chordVar != _simMappings.end())

@@ -140,6 +140,7 @@ constexpr float MAGIC_DST_DELAY = 150.0f; // in milliseconds
 constexpr float MAGIC_TAP_DURATION = 40.0f; // in milliseconds
 constexpr float MAGIC_GYRO_TAP_DURATION = 500.0f; // in milliseconds
 constexpr float MAGIC_HOLD_TIME = 150.0f; // in milliseconds
+constexpr float MAGIC_TURBO_PERIOD = 150.0f; // in milliseconds
 constexpr float MAGIC_SIM_DELAY = 50.0f; // in milliseconds
 constexpr float MAGIC_DBL_PRESS_WINDOW = 200.0f; // in milliseconds
 static_assert(MAGIC_SIM_DELAY < MAGIC_HOLD_TIME, "Simultaneous press delay has to be smaller than hold delay!");
@@ -158,7 +159,7 @@ enum class BtnState {
 	NoPress = 0, BtnPress, TapRelease, WaitSim, SimPress, SimRelease,
 	DblPressStart, DblPressNoPressTap, DblPressNoPressHold, DblPressPress, INVALID
 };
-enum class ButtonEvent { OnPress, OnTap, OnHold, OnTurbo, OnRelease, OnTapRelease, INVALID };
+enum class ButtonEvent { OnPress, OnTap, OnHold, OnTurbo, OnRelease, OnTapRelease, OnHoldRelease, INVALID };
 
 struct KeyCode
 {
@@ -225,17 +226,49 @@ typedef function<void(DigitalButton *)> OnEventAction;
 // when a specific event happens. This replaces the old Mapping structure.
 struct EventMapping
 {
+	enum class ActionModifier { None, Toggle, Instant, INVALID};
+	enum class EventModifier { None, StartPress, ReleasePress, TurboPress, INVALID };
+private:
 	map<ButtonEvent, OnEventAction> eventMapping;
 	float tapDurationMs = MAGIC_TAP_DURATION;
 	string representation;
 
+	void AddEventMapping(ButtonEvent evt, OnEventAction action);
+	static void RunAllActions(DigitalButton *btn, int numEventActions, ...);
+public:
 	EventMapping() = default;
 
 	EventMapping(int dummy) : EventMapping() {}
 
-	void ProcessEvent(ButtonEvent evt, DigitalButton &button);
+	void ProcessEvent(ButtonEvent evt, DigitalButton &button) const;
 
-	static void RunAllActions(DigitalButton *btn, int numEventActions, ...);
+	bool AddMapping(KeyCode key, ButtonEvent applyEvt, ButtonEvent releaseEvt, ActionModifier actMod = ActionModifier::None, EventModifier evtMod = EventModifier::None);
+	inline bool AddMapping(KeyCode key, ButtonEvent applyEvt, ButtonEvent releaseEvt, EventModifier evtMod = EventModifier::None)
+	{
+		return AddMapping(key, applyEvt, releaseEvt, ActionModifier::None, evtMod);
+	}
+
+	inline bool isEmpty() const
+	{
+		return eventMapping.empty();
+	}
+
+	inline string toString() const
+	{
+		return representation;
+	}
+
+	inline float getTapDuration() const
+	{
+		return tapDurationMs;
+	}
+
+	inline void clear()
+	{
+		eventMapping.clear();
+		representation.clear();
+		tapDurationMs = MAGIC_TAP_DURATION;
+	}
 };
 
 // This function is defined in main.cpp. It enables two sim press variables to

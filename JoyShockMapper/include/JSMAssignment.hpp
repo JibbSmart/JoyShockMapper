@@ -34,7 +34,7 @@ protected:
 			// Parsing has failed. Show help.
 			cout << _help << endl;
 		}
-		else if (regex_match(arguments, results, regex(R"(\s*=?\s*([\^\+\w\s]*))")))
+		else if (regex_match(arguments, results, regex(R"(\s*=?\s*([\^\+\\\/!\w\s]*))")))
 		{
 			if (!_parse(this, results[1]))
 			{
@@ -184,13 +184,13 @@ public:
 template<>
 void JSMAssignment<EventMapping>::DisplayNewValue(EventMapping newValue)
 {
-	if (newValue.eventMapping.empty())
+	if (newValue.isEmpty())
 	{
 		cout << _name << " mapped to no input" << endl;
 	}
 	else
 	{
 		// to be elaborated
-		cout << _name << " mapped to " << newValue.representation << endl;
+		cout << _name << " mapped to " << newValue.toString() << endl;
 	}
 }
