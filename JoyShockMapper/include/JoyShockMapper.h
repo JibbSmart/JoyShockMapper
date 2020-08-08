@@ -140,7 +140,7 @@ constexpr float MAGIC_DST_DELAY = 150.0f; // in milliseconds
 constexpr float MAGIC_TAP_DURATION = 40.0f; // in milliseconds
 constexpr float MAGIC_GYRO_TAP_DURATION = 500.0f; // in milliseconds
 constexpr float MAGIC_HOLD_TIME = 150.0f; // in milliseconds
-constexpr float MAGIC_TURBO_PERIOD = 150.0f; // in milliseconds
+constexpr float MAGIC_TURBO_PERIOD = 80.0f; // in milliseconds
 constexpr float MAGIC_SIM_DELAY = 50.0f; // in milliseconds
 constexpr float MAGIC_DBL_PRESS_WINDOW = 200.0f; // in milliseconds
 static_assert(MAGIC_SIM_DELAY < MAGIC_HOLD_TIME, "Simultaneous press delay has to be smaller than hold delay!");
@@ -154,9 +154,9 @@ enum class TriggerMode { NO_FULL, NO_SKIP, MAY_SKIP, MUST_SKIP, MAY_SKIP_R, MUST
 enum class GyroAxisMask { NONE = 0, X = 1, Y = 2, Z = 4, INVALID = 8 };
 enum class JoyconMask { USE_BOTH, IGNORE_LEFT, IGNORE_RIGHT, IGNORE_BOTH, INVALID };
 enum class GyroIgnoreMode { BUTTON, LEFT_STICK, RIGHT_STICK, INVALID };
-enum class DstState { NoPress = 0, PressStart, QuickSoftTap, QuickFullPress, QuickFullRelease, SoftPress, DelayFullPress, PressStartResp, INVALID };
+enum class DstState { NoPress, PressStart, QuickSoftTap, QuickFullPress, QuickFullRelease, SoftPress, DelayFullPress, PressStartResp, INVALID };
 enum class BtnState {
-	NoPress = 0, BtnPress, TapRelease, WaitSim, SimPress, SimRelease,
+	NoPress, BtnPress, TapRelease, WaitSim, SimPress, SimRelease,
 	DblPressStart, DblPressNoPressTap, DblPressNoPressHold, DblPressPress, INVALID
 };
 enum class ButtonEvent { OnPress, OnTap, OnHold, OnTurbo, OnRelease, OnTapRelease, OnHoldRelease, INVALID };

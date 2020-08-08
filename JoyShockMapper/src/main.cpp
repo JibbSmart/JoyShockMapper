@@ -129,10 +129,11 @@ public:
 				if (elapsed_time > MAGIC_HOLD_TIME)
 				{
 					_keyToRelease->ProcessEvent(ButtonEvent::OnHold, *this);
+					_keyToRelease->ProcessEvent(ButtonEvent::OnTurbo, *this);
 					_turboCount++;
 				}
 			}
-			else if (floorf( (elapsed_time - MAGIC_HOLD_TIME) / MAGIC_TURBO_PERIOD ) > (_turboCount - 1))
+			else if (floorf( (elapsed_time - MAGIC_HOLD_TIME) / MAGIC_TURBO_PERIOD ) >= _turboCount)
 			{
 				_keyToRelease->ProcessEvent(ButtonEvent::OnTurbo, *this);
 				_turboCount++;
@@ -415,7 +416,10 @@ bool Mapping::AddMapping(KeyCode key, ButtonEvent applyEvt, ButtonEvent releaseE
 	}
 	else
 	{
-		AddEventMapping(applyEvt, apply);
+		if (applyEvt != ButtonEvent::OnHold || evtMod != EventModifier::TurboPress)
+		{
+			AddEventMapping(applyEvt, apply);
+		}
 		AddEventMapping(releaseEvt, release);
 	}
 
@@ -423,7 +427,7 @@ bool Mapping::AddMapping(KeyCode key, ButtonEvent applyEvt, ButtonEvent releaseE
 	{
 		AddEventMapping(ButtonEvent::OnTurbo, bind(&Mapping::RunAllActions, placeholders::_1, 2,
 			eventMapping[releaseEvt], // Perform release event, and then
-			eventMapping[applyEvt])); // Perform apply event
+			eventMapping[applyEvt])); // Perform apply event.
 	}
 	return true;
 }
