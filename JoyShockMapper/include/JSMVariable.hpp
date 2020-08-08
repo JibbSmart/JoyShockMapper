@@ -228,23 +228,23 @@ public:
 };
 
 // A combo map is an item of _simMappings below. It holds an alternative variable when ButtonID is pressed.
-typedef pair<const ButtonID, JSMVariable<EventMapping>> ComboMap;
+typedef pair<const ButtonID, JSMVariable<Mapping>> ComboMap;
 
 // Button mappings includes not only chorded mappings, but also simultaneous press mappings
-class JSMButton : public ChordedVariable<EventMapping>
+class JSMButton : public ChordedVariable<Mapping>
 {
 public:
 	// Identifier of the variable. Cannot be changed after construction.
 	const ButtonID _id;
 
 protected:
-	map<ButtonID, JSMVariable<EventMapping>> _simMappings;
+	map<ButtonID, JSMVariable<Mapping>> _simMappings;
 
 	// Store listener IDs for its sim presses. This is required for Cross updates
 	map<ButtonID, unsigned int> _simListeners;
 
 public:
-	JSMButton(ButtonID id, EventMapping def)
+	JSMButton(ButtonID id, Mapping def)
 		: ChordedVariable(def)
 		, _id(id)
 		, _simMappings()
@@ -285,9 +285,9 @@ public:
 	}
 
 	// Operator forwarding
-	virtual EventMapping operator =(EventMapping baseValue) override
+	virtual Mapping operator =(Mapping baseValue) override
 	{
-		return JSMVariable<EventMapping>::operator =(baseValue);
+		return JSMVariable<Mapping>::operator =(baseValue);
 	}
 
 	// Returns the display name of the chorded press if provided, or itself
@@ -325,7 +325,7 @@ public:
 	// Resetting a button also clears all assigned sim presses
 	virtual JSMButton *Reset() override
 	{
-		ChordedVariable<EventMapping>::Reset();
+		ChordedVariable<Mapping>::Reset();
 		for (auto id : _simListeners)
 		{
 			_simMappings[id.first].RemoveOnChangeListener(id.second);
@@ -337,12 +337,12 @@ public:
 	// Get the SimPress variable, creating one if required.
 	// An additional listener is required for the complementary sim press
 	// to be updated when this value changes.
-	JSMVariable<EventMapping> *AtSimPress(ButtonID chord)
+	JSMVariable<Mapping> *AtSimPress(ButtonID chord)
 	{
 		auto existingSim = getSimMap(chord);
 		if (!existingSim)
 		{
-			JSMVariable<EventMapping> var(*this, EventMapping());
+			JSMVariable<Mapping> var(*this, Mapping());
 			_simMappings.emplace(chord, var);
 			_simListeners[chord] = _simMappings[chord].AddOnChangeListener(
 				bind(&SimPressCrossUpdate, chord, _id, placeholders::_1));
@@ -350,15 +350,15 @@ public:
 		return &_simMappings[chord];
 	}
 
-	const JSMVariable<EventMapping> *AtSimPress(ButtonID chord) const
+	const JSMVariable<Mapping> *AtSimPress(ButtonID chord) const
 	{
 		auto existingSim = getSimMap(chord);
 		return existingSim ? &existingSim->second : nullptr;
 	}
 
-	void ProcessChordRemoval(ButtonID chord, const JSMVariable<EventMapping> *value)
+	void ProcessChordRemoval(ButtonID chord, const JSMVariable<Mapping> *value)
 	{
-		if (value && value->get().isEmpty())
+		if (value && value->get() == NO_MAPPING)
 		{
 			auto chordVar = _chordedVariables.find(chord);
 			if (chordVar != _chordedVariables.end())
@@ -368,9 +368,9 @@ public:
 		}
 	}
 
-	void ProcessSimPressRemoval(ButtonID chord, const JSMVariable<EventMapping> *value)
+	void ProcessSimPressRemoval(ButtonID chord, const JSMVariable<Mapping> *value)
 	{
-		if (value && value->get().isEmpty())
+		if (value && value->get() == NO_MAPPING)
 		{
 			auto chordVar = _simMappings.find(chord);
 			if (chordVar != _simMappings.end())

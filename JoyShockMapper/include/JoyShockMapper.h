@@ -166,14 +166,14 @@ struct KeyCode
 	static const KeyCode EMPTY;
 
 	WORD code;
-	std::string name;
+	string name;
 
 	inline KeyCode()
 		: code(0)
 		, name()
 	{}
 
-	inline KeyCode(const std::string &keyName)
+	inline KeyCode(in_string keyName)
 		: code(nameToKey(keyName))
 		, name(code != 0 ? keyName : string())
 	{}
@@ -181,6 +181,16 @@ struct KeyCode
 	inline operator bool()
 	{
 		return code != 0;
+	}
+
+	inline bool operator ==(const KeyCode& rhs)
+	{
+		return code == rhs.code && name == rhs.name;
+	}
+
+	inline bool operator !=(const KeyCode& rhs)
+	{
+		return !operator=(rhs);
 	}
 
 private:
@@ -224,7 +234,7 @@ typedef function<void(DigitalButton *)> OnEventAction;
 // This structure handles the mapping of a button, buy processing and action
 // to be done on tap, hold, turbo and others. It holds a map of actions to perform
 // when a specific event happens. This replaces the old Mapping structure.
-struct EventMapping
+struct Mapping
 {
 	enum class ActionModifier { None, Toggle, Instant, INVALID};
 	enum class EventModifier { None, StartPress, ReleasePress, TurboPress, INVALID };
@@ -236,19 +246,20 @@ private:
 	void AddEventMapping(ButtonEvent evt, OnEventAction action);
 	static void RunAllActions(DigitalButton *btn, int numEventActions, ...);
 public:
-	EventMapping() = default;
+	Mapping() = default;
 
-	EventMapping(int dummy) : EventMapping() {}
+	Mapping(int dummy) : Mapping() {}
 
 	void ProcessEvent(ButtonEvent evt, DigitalButton &button) const;
 
 	bool AddMapping(KeyCode key, ButtonEvent applyEvt, ButtonEvent releaseEvt, ActionModifier actMod = ActionModifier::None, EventModifier evtMod = EventModifier::None);
+	
 	inline bool AddMapping(KeyCode key, ButtonEvent applyEvt, ButtonEvent releaseEvt, EventModifier evtMod = EventModifier::None)
 	{
 		return AddMapping(key, applyEvt, releaseEvt, ActionModifier::None, evtMod);
 	}
 
-	void setRepresentation(in_string rep)
+	inline void setRepresentation(in_string rep)
 	{
 		representation = rep;
 	}
@@ -276,9 +287,11 @@ public:
 	}
 };
 
+static Mapping NO_MAPPING; // Used as a constant but I don't have a clean way to initialize it from constructor
+
 // This function is defined in main.cpp. It enables two sim press variables to
 // listen to each other and make sure they both hold the same values.
-void SimPressCrossUpdate(ButtonID sim, ButtonID origin, EventMapping newVal);
+void SimPressCrossUpdate(ButtonID sim, ButtonID origin, Mapping newVal);
 
 // This operator enables reading any enum from string
 template <class E, class = std::enable_if_t < std::is_enum<E>{} >>
@@ -315,10 +328,10 @@ inline bool operator !=(const GyroSettings &lhs, const GyroSettings &rhs)
 	return !(lhs == rhs);
 }
 
-ostream &operator << (ostream &out, EventMapping fxy);
-istream &operator >> (istream &in, EventMapping &fxy);
-bool operator ==(const EventMapping &lhs, const EventMapping &rhs);
-inline bool operator !=(const EventMapping &lhs, const EventMapping &rhs)
+ostream &operator << (ostream &out, Mapping fxy);
+istream &operator >> (istream &in, Mapping &fxy);
+bool operator ==(const Mapping &lhs, const Mapping &rhs);
+inline bool operator !=(const Mapping &lhs, const Mapping &rhs)
 {
 	return !(lhs == rhs);
 }

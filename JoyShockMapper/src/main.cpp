@@ -91,7 +91,7 @@ public:
 		}
 		bool toggleContinuous = false;
 		deque<pair<ButtonID, KeyCode>> gyroActionQueue; // Queue of gyro control actions currently in effect
-		deque<pair<KeyCode, OnEventAction>> activeTogglesQueue;
+		deque<pair<ButtonID, KeyCode>> activeTogglesQueue;
 		deque<ButtonID> chordStack; // Represents the current active buttons in order from most recent to latest
 		int intHandle;
 	};
@@ -114,7 +114,7 @@ public:
 	const JSMButton &_mapping;
 	chrono::steady_clock::time_point _press_times;
 	BtnState _btnState = BtnState::NoPress;
-	unique_ptr<EventMapping> _keyToRelease; // At key press, remember what to release
+	unique_ptr<Mapping> _keyToRelease; // At key press, remember what to release
 	string _nameToRelease;
 	unsigned int _turboCount;
 	ButtonID _simPressMaster;
@@ -156,7 +156,7 @@ public:
 		}
 	}
 
-	EventMapping *GetPressMapping()
+	Mapping *GetPressMapping()
 	{
 		if (!_keyToRelease)
 		{
@@ -166,7 +166,7 @@ public:
 				auto binding = _mapping.get(*activeChord);
 				if (binding && *activeChord != _id)
 				{
-					_keyToRelease.reset( new EventMapping(*binding));
+					_keyToRelease.reset( new Mapping(*binding));
 					_nameToRelease = _mapping.getName(*activeChord);
 					return _keyToRelease.get();
 				}
@@ -194,6 +194,7 @@ public:
 			JslPauseContinuousCalibration(_common.intHandle);
 			_common.toggleContinuous = false; // if we've held the calibration button, we're disabling continuous calibration
 			printf("Gyro calibration set\n");
+			ClearAnyActiveToggle(KeyCode("CALIBRATE"));
 		}
 	}
 
@@ -204,51 +205,75 @@ public:
 
 	void RemoveGyroAction()
 	{
-		_common.gyroActionQueue.erase(find_if(_common.gyroActionQueue.begin(), _common.gyroActionQueue.end(),
+		auto gyroAction = find_if(_common.gyroActionQueue.begin(), _common.gyroActionQueue.end(),
 			[this](auto pair)
 			{
 				// On a sim press, release the master button (the one who triggered the press)
 				return pair.first == (_simPressMaster != ButtonID::NONE ? _simPressMaster : _id);
-			}));
+			});
+		if (gyroAction != _common.gyroActionQueue.end())
+		{
+			ClearAnyActiveToggle(gyroAction->second);
+			_common.gyroActionQueue.erase(gyroAction);
+		}
 	}
 
 	void ApplyBtnPress(KeyCode keyCode, bool tap)
 	{
+		cout << _nameToRelease << ": " <<  (tap ? "tapped" : "true") << endl;
 		if(keyCode.code != NO_HOLD_MAPPED)
 		{
-			printf("%s: %s\n", _nameToRelease.c_str(), tap ? "tapped" : "true");
 			pressKey(keyCode, true);
 		}
 	}
 
-	void ApplyBtnRelease(KeyCode keyCode, bool tap)
+	void ApplyBtnRelease(KeyCode key, bool tap)
 	{
-		if (keyCode.code != NO_HOLD_MAPPED)
+		if (!tap)
 		{
-			if (!tap)
-			{
-				printf("%s: false\n", _nameToRelease.c_str());
-			}
-			pressKey(keyCode, false);
+			printf("%s: false\n", _nameToRelease.c_str());
+		}
+		if (key.code != NO_HOLD_MAPPED)
+		{
+			pressKey(key, false);
+			ClearAnyActiveToggle(key);
 		}
 	}
 
-	void ApplyButtonToggle(function<void(DigitalButton *)> apply, function<void(DigitalButton *)> release)
+	void ApplyButtonToggle(KeyCode key, function<void(DigitalButton *)> apply, function<void(DigitalButton *)> release)
 	{
-		if (!_toggleActive)
+		auto currentlyActive = find_if(_common.activeTogglesQueue.begin(), _common.activeTogglesQueue.end(),
+			[this](pair<ButtonID, KeyCode> pair)
+			{
+				return pair.first == _id;
+			});
+		if (currentlyActive == _common.activeTogglesQueue.end())
 		{
 			apply(this);
+			_common.activeTogglesQueue.push_front( { _id, key } );
 		}
 		else
 		{
-			release(this);
+			release(this); // The bound action here should always erase the active toggle from the queue
 		}
-		_toggleActive = !_toggleActive;
+	}
+
+	void ClearAnyActiveToggle(KeyCode key)
+	{
+		auto currentlyActive = find_if(_common.activeTogglesQueue.begin(), _common.activeTogglesQueue.end(),
+			[key](pair<ButtonID, KeyCode> pair)
+			{
+				return pair.second == key;
+			});
+		if (currentlyActive != _common.activeTogglesQueue.end())
+		{
+			_common.activeTogglesQueue.erase(currentlyActive);
+		}
 	}
 
 	void SyncSimPress(ButtonID btn, const ComboMap &map)
 	{
-		_keyToRelease.reset(new EventMapping(*_mapping.AtSimPress(btn)));
+		_keyToRelease.reset(new Mapping(*_mapping.AtSimPress(btn)));
 		_nameToRelease = _mapping.getSimPressName(btn);
 		_simPressMaster = btn;
 		//cout << btn << " is the master button" << endl;
@@ -268,41 +293,36 @@ public:
 	}
 };
 
-ostream &operator << (ostream &out, EventMapping evtmap)
+ostream &operator << (ostream &out, Mapping evtmap)
 {
 	out << evtmap.toString();
 	return out;
 }
 
-istream &operator >> (istream &in, EventMapping &evtmap)
+istream &operator >> (istream &in, Mapping &evtmap)
 {
 	string valueName(128, '\0');
 	in.getline(&valueName[0], valueName.size());
 	valueName.resize(strlen(valueName.c_str()));
 	smatch results;
 	int count = 0;
-	if (regex_match(valueName, regex(R"(\s*NONE\s*)")))
-	{
-		evtmap.clear();
-		return in;
-	}
 
 	evtmap.setRepresentation(valueName);
 
 	while (regex_match(valueName, results, regex(R"(\s*([!\^]?)([^\\\/+\s]*)([\\\/+]?)\s*(.*))")) && !results[0].str().empty())
 	{
-		EventMapping::ActionModifier actMod = results[1].str().empty() ? EventMapping::ActionModifier::None :
-			results[1].str()[0] == '!' ? EventMapping::ActionModifier::Instant :
-			results[1].str()[0] == '^' ? EventMapping::ActionModifier::Toggle :
-			EventMapping::ActionModifier::INVALID;
+		Mapping::ActionModifier actMod = results[1].str().empty() ? Mapping::ActionModifier::None :
+			results[1].str()[0] == '!' ? Mapping::ActionModifier::Instant :
+			results[1].str()[0] == '^' ? Mapping::ActionModifier::Toggle :
+			Mapping::ActionModifier::INVALID;
 
 		string keyStr(results[2]);
 
-		EventMapping::EventModifier evtMod = results[3].str().empty() ? EventMapping::EventModifier::None :
-			results[3].str()[0] == '\\' ? EventMapping::EventModifier::StartPress :
-			results[3].str()[0] == '+'  ? EventMapping::EventModifier::TurboPress :
-			results[3].str()[0] == '/'  ? EventMapping::EventModifier::ReleasePress :
-			EventMapping::EventModifier::INVALID;
+		Mapping::EventModifier evtMod = results[3].str().empty() ? Mapping::EventModifier::None :
+			results[3].str()[0] == '\\' ? Mapping::EventModifier::StartPress :
+			results[3].str()[0] == '+'  ? Mapping::EventModifier::TurboPress :
+			results[3].str()[0] == '/'  ? Mapping::EventModifier::ReleasePress :
+			Mapping::EventModifier::INVALID;
 
 		string leftovers(results[4]);
 
@@ -312,10 +332,10 @@ istream &operator >> (istream &in, EventMapping &evtmap)
 		ButtonEvent releaseEvt = count == 0 ? (leftovers.empty() ? ButtonEvent::OnRelease : ButtonEvent::OnTapRelease) : ButtonEvent::OnHoldRelease;
 
 		if (key.code == 0 ||
-			actMod == EventMapping::ActionModifier::INVALID ||
-			evtMod == EventMapping::EventModifier::INVALID ||
-			evtMod == EventMapping::EventModifier::None && count >= 2 ||
-			evtMod == EventMapping::EventModifier::ReleasePress && actMod == EventMapping::ActionModifier::None ||
+			actMod == Mapping::ActionModifier::INVALID ||
+			evtMod == Mapping::EventModifier::INVALID ||
+			evtMod == Mapping::EventModifier::None && count >= 2 ||
+			evtMod == Mapping::EventModifier::ReleasePress && actMod == Mapping::ActionModifier::None ||
 			!evtmap.AddMapping(key, applyEvt, releaseEvt, actMod, evtMod))
 		{
 			//error!!!
@@ -329,31 +349,31 @@ istream &operator >> (istream &in, EventMapping &evtmap)
 	return in;
 }
 
-bool operator ==(const EventMapping &lhs, const EventMapping &rhs)
+bool operator ==(const Mapping &lhs, const Mapping &rhs)
 {
 	return lhs.toString() == rhs.toString();
 }
 
 
-void EventMapping::ProcessEvent(ButtonEvent evt, DigitalButton &button) const
+void Mapping::ProcessEvent(ButtonEvent evt, DigitalButton &button) const
 {
 	// cout << button._id << " processes event " << evt << endl;
 	auto entry = eventMapping.find(evt);
 	if (entry != eventMapping.end() && entry->second) // Skip over empty entries
 	{
-		cout << button._id << " processes event " << evt << endl;
+		//cout << button._id << " processes event " << evt << endl;
 		entry->second(&button);
 	}
 }
 
-void EventMapping::AddEventMapping(ButtonEvent evt, OnEventAction action)
+void Mapping::AddEventMapping(ButtonEvent evt, OnEventAction action)
 {
 	auto existingActions = eventMapping.find(evt);
 	eventMapping[evt] = existingActions == eventMapping.end() ? action :
 		bind(&RunAllActions, placeholders::_1, 2, existingActions->second, action);
 }
 
-bool EventMapping::AddMapping(KeyCode key, ButtonEvent applyEvt, ButtonEvent releaseEvt, ActionModifier actMod, EventModifier evtMod)
+bool Mapping::AddMapping(KeyCode key, ButtonEvent applyEvt, ButtonEvent releaseEvt, ActionModifier actMod, EventModifier evtMod)
 {
 	bool isTap = applyEvt == ButtonEvent::OnTap && releaseEvt == ButtonEvent::OnTapRelease;
 	OnEventAction apply, release;
@@ -368,7 +388,7 @@ bool EventMapping::AddMapping(KeyCode key, ButtonEvent applyEvt, ButtonEvent rel
 		release = bind(&DigitalButton::RemoveGyroAction, placeholders::_1);
 		tapDurationMs = MAGIC_GYRO_TAP_DURATION; // Unused in regular press
 	}
-	else if (key.code != NO_HOLD_MAPPED)
+	else // if (key.code != NO_HOLD_MAPPED)
 	{
 		apply = bind(&DigitalButton::ApplyBtnPress, placeholders::_1, key, isTap);
 		release = bind(&DigitalButton::ApplyBtnRelease, placeholders::_1, key, isTap);
@@ -387,11 +407,11 @@ bool EventMapping::AddMapping(KeyCode key, ButtonEvent applyEvt, ButtonEvent rel
 
 	if (actMod == ActionModifier::Toggle)
 	{
-		AddEventMapping(applyEvt, bind(&DigitalButton::ApplyButtonToggle, placeholders::_1, apply, release));
+		AddEventMapping(applyEvt, bind(&DigitalButton::ApplyButtonToggle, placeholders::_1, key, apply, release));
 	}
 	else if (actMod == ActionModifier::Instant)
 	{
-		AddEventMapping(applyEvt, bind(&EventMapping::RunAllActions, placeholders::_1, 2, apply, release));
+		AddEventMapping(applyEvt, bind(&Mapping::RunAllActions, placeholders::_1, 2, apply, release));
 	}
 	else
 	{
@@ -401,14 +421,14 @@ bool EventMapping::AddMapping(KeyCode key, ButtonEvent applyEvt, ButtonEvent rel
 
 	if (evtMod == EventModifier::TurboPress)
 	{
-		AddEventMapping(ButtonEvent::OnTurbo, bind(&EventMapping::RunAllActions, placeholders::_1, 2,
+		AddEventMapping(ButtonEvent::OnTurbo, bind(&Mapping::RunAllActions, placeholders::_1, 2,
 			eventMapping[releaseEvt], // Perform release event, and then
 			eventMapping[applyEvt])); // Perform apply event
 	}
 	return true;
 }
 
-void EventMapping::RunAllActions(DigitalButton *btn, int numEventActions, ...)
+void Mapping::RunAllActions(DigitalButton *btn, int numEventActions, ...)
 {
 	va_list arguments;
 	va_start(arguments, numEventActions);
@@ -879,7 +899,7 @@ public:
 			{
 				button._btnState = BtnState::SimPress;
 				button._press_times = time_now; // Reset Timer
-				button._keyToRelease.reset(new EventMapping(simMap->second)); // Make a copy
+				button._keyToRelease.reset(new Mapping(simMap->second)); // Make a copy
 				button._nameToRelease = button._mapping.getSimPressName(simMap->first);
 
 				buttons[int(simMap->first)]._btnState = BtnState::SimPress;
@@ -962,7 +982,7 @@ public:
 			{
 				button._btnState = BtnState::DblPressPress;
 				button._press_times = time_now;
-				button._keyToRelease.reset(new EventMapping(button._mapping.getDblPressMap()->second));
+				button._keyToRelease.reset(new Mapping(button._mapping.getDblPressMap()->second));
 				button._nameToRelease = button._mapping.getName(index);
 				button._mapping.getDblPressMap()->second.get().ProcessEvent(ButtonEvent::OnPress, button);
 			}
@@ -978,7 +998,7 @@ public:
 			{
 				button._btnState = BtnState::DblPressPress;
 				button._press_times = time_now;
-				button._keyToRelease.reset(new EventMapping(button._mapping.getDblPressMap()->second));
+				button._keyToRelease.reset(new Mapping(button._mapping.getDblPressMap()->second));
 				button._nameToRelease = button._mapping.getName(index);
 				button._mapping.getDblPressMap()->second.get().ProcessEvent(ButtonEvent::OnPress, button);
 			}
@@ -1305,7 +1325,7 @@ void connectDevices() {
 	delete[] deviceHandles;
 }
 
-void SimPressCrossUpdate(ButtonID sim, ButtonID origin, EventMapping newVal)
+void SimPressCrossUpdate(ButtonID sim, ButtonID origin, Mapping newVal)
 {
 	mappings[int(sim)].AtSimPress(origin)->operator= (newVal);
 }
@@ -2236,12 +2256,15 @@ int main(int argc, char *argv[]) {
 	void *trayIconData = nullptr;
 #endif // _WIN32
 	mappings.reserve(MAPPING_SIZE);
-	EventMapping calibrationDefault;
+	Mapping calibrationDefault;
 	stringstream ss("CALIBRATE CALIBRATE");
 	ss >> calibrationDefault;
+	ss.clear();
+	ss.str("NONE");
+	ss >> NO_MAPPING;
 	for (int id = 0; id < MAPPING_SIZE; ++id)
 	{
-		EventMapping def = (id == int(ButtonID::HOME) || id == int(ButtonID::CAPTURE)) ? calibrationDefault : EventMapping();
+		Mapping def = (id == int(ButtonID::HOME) || id == int(ButtonID::CAPTURE)) ? calibrationDefault : NO_MAPPING;
 		mappings.push_back(JSMButton(ButtonID(id), def));
 	}
 	tray.reset(new TrayIcon(trayIconData, &beforeShowTrayMenu ));
@@ -2314,7 +2337,7 @@ int main(int argc, char *argv[]) {
 
 	for (auto &mapping : mappings) // Add all button mappings as commands
 	{
-		commandRegistry.Add(new JSMAssignment<EventMapping>(mapping.getName(), mapping));
+		commandRegistry.Add(new JSMAssignment<Mapping>(mapping.getName(), mapping));
 	}
 	commandRegistry.Add((new JSMAssignment<FloatXY>("MIN_GYRO_SENS", min_gyro_sens))
 		->SetHelp("Minimal gyro sensitivity factor before ramping linearily to maximum value.\nYou can assign a second value as a different vertical sensitivity."));
