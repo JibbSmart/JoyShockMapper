@@ -228,20 +228,22 @@ If you want □ to 'reload' when tapped, but do nothing at all when held, you ca
 W = R NONE
 ```
 
-Gyro-related tap bindings will apply for about half a second from releasing the tap, but other bindings will simulate a very quick button tap (40ms).
+See the tap press and hold press event modifiers below for more details on how keybinds are applied.
 
 #### 1.2 Binding Modifiers
 
-There are two kinds of modifiers that can be applied to key bindings: action modifiers and event modifiers. They are represented by symbols added before and after the key name repectively.
+There are two kinds of modifiers that can be applied to key bindings: action modifiers and event modifiers. They are represented by symbols added before and after the key name repectively. And each binding can only ever have one of each. You can however have multiple keys bound to the same events, thus sending multiple key presses at once.
 
 **Action modifiers** come in two kinds: **toggle (^)** and **instant (!)**. Using either of these modifiers will make it so that nothing is bound to the release of the button press.
 * ^ Toggle makes it so that the key will alternate between applying and releasing the key press at each press.
 * ! Instant sends both the key press and release at the same time
 
-**Event Modifiers** come in three kinds: **start press (\\)**, **turbo (+)** and **release press (/)**. Each event modifier can only be applied once in a binding. 
-* \\ Start press will apply the binding whenever the button is pressed, even if a hold binding exists. This can turn a tap binding into a regular press on top of the hold binding.
-* \+ Turbo enables that while the button is pressed, every 150ms the binding will be released and pressed again (with consideration of action modifiers), resulting in a fast pulsing of the key.
+**Event Modifiers** come in five kinds: **tap press (')**, **hold press (_)**, **start press (\\)**, **release press (/)** and **turbo (+)**.
+* ' Tap press is the default event modifier for the first key bind when there are multiple of them. It will apply the key press when the button is released if the total press time is less than the hold time threshold. The key press is released a short time after, with that time being longer for gyro related action and calibration, unless an action modifier instructs otherwise.
+* _ Hold press is the default event modifier for the second key bind when there are multiple of them. It will apply the key only after the button is held down a short amount of time. The key is released when the button is released as well, unless an action modifier instructs otherwise.
+* \\ Start press is the default event modifier when there is only a single key bind. It will apply the key press as soon as the button is pressed and releases the key when the button is released, unless an action modifier instructs otherwise. This can be useful to have a key held while other keys are being activated.
 * \/ Release press will apply the binding when the button is release. A binding on release press needs an action modifier to be valid.
+* \+ Turbo will apply a key press repeatedly (with consideration of action modifiers), resulting in a fast pulsing of the key. The turbo pulsing starts only after the button has been held for the hold time.
 
 These modifiers can enable you to work around in game tap and holds, or convert one form of press into another. Here's a few example of how you can make use of those modifiers.
 
@@ -249,10 +251,14 @@ These modifiers can enable you to work around in game tap and holds, or convert 
 ZL = ^RMOUSE RMOUSE  # ADS toggle on tap
 E  = !C\ !C/         # Convert in game toggle crouch to regular press
 UP = !1\ 1           # Convert Batarang throw double press to hold press
-W  = R E\            # In Halo MCC, reload on tap but apply E right away to cover for in game hold
+W  = R E\            # In Halo MCC, reload on tap but apply E right away to cover for in-game hold processing
 -,S = SPACE+         # Turbo press for button mash QTEs. No one likes to button mash :(
 R3 = !1\ LMOUSE+ !Q/ # Half life melee button
+UP,UP = !ENTER\ LSHIFT\ !G\ !L\ !SPACE\ !H\ !F\ !ENTER/ # Pre recorded message
+UP,E = BACKSPACE+    # Erase pre recorded message if I change my mind
 ```
+
+Take note that the Simultaneous Press and Double Press bindings (but not Chorded Press) below introduce delays in the raising of the events until the right mapping is determined. Time windows are not added but events might be pushed together within a frame or two.
 
 #### 1.3 Simultaneous Press
 JoyShockMapper additionally allows you to map simultaneous button presses to different mappings. For example you can bind character abilities on your bumpers and an ultimate ability on both like this:

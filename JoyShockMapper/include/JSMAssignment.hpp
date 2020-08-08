@@ -34,9 +34,10 @@ protected:
 			// Parsing has failed. Show help.
 			cout << _help << endl;
 		}
-		else if (regex_match(arguments, results, regex(R"(\s*=?\s*([\^\+\\\/!\w\s]*))")))
+		else if (arguments.empty() || regex_match(arguments, results, regex(R"(\s*=\s*(.*))")))
 		{
-			if (!_parse(this, results[1]))
+			string fwd_args(results.empty() ? arguments : results[1].str());
+			if (!_parse(this, fwd_args))
 			{
 				// Parsing has failed. Show help.
 				cout << _help << endl;

@@ -129,6 +129,8 @@ enum class SettingID
 	ROTATE_SMOOTH_OVERRIDE, // = 83
 	FLICK_SNAP_MODE,		// = 84
 	FLICK_SNAP_STRENGTH,	// = 85
+	TRIGGER_SKIP_DELAY,
+	TURBO_PERIOD,
 };
 
 // constexpr are like #define but with respect to typeness
@@ -136,11 +138,9 @@ constexpr int MAPPING_SIZE = int(ButtonID::SIZE);
 constexpr int FIRST_ANALOG_TRIGGER = int(ButtonID::ZLF);
 constexpr int LAST_ANALOG_TRIGGER = int(ButtonID::ZRF);
 constexpr int NUM_ANALOG_TRIGGERS = int(LAST_ANALOG_TRIGGER) - int(FIRST_ANALOG_TRIGGER) + 1;
-constexpr float MAGIC_DST_DELAY = 150.0f; // in milliseconds
 constexpr float MAGIC_TAP_DURATION = 40.0f; // in milliseconds
-constexpr float MAGIC_GYRO_TAP_DURATION = 500.0f; // in milliseconds
+constexpr float MAGIC_EXTENDED_TAP_DURATION = 500.0f; // in milliseconds
 constexpr float MAGIC_HOLD_TIME = 150.0f; // in milliseconds
-constexpr float MAGIC_TURBO_PERIOD = 80.0f; // in milliseconds
 constexpr float MAGIC_SIM_DELAY = 50.0f; // in milliseconds
 constexpr float MAGIC_DBL_PRESS_WINDOW = 200.0f; // in milliseconds
 static_assert(MAGIC_SIM_DELAY < MAGIC_HOLD_TIME, "Simultaneous press delay has to be smaller than hold delay!");
@@ -237,13 +237,13 @@ typedef function<void(DigitalButton *)> OnEventAction;
 struct Mapping
 {
 	enum class ActionModifier { None, Toggle, Instant, INVALID};
-	enum class EventModifier { None, StartPress, ReleasePress, TurboPress, INVALID };
+	enum class EventModifier { None, StartPress, ReleasePress, TurboPress, TapPress, HoldPress, INVALID };
 private:
 	map<ButtonEvent, OnEventAction> eventMapping;
 	float tapDurationMs = MAGIC_TAP_DURATION;
 	string representation;
 
-	void AddEventMapping(ButtonEvent evt, OnEventAction action);
+	void InsertEventMapping(ButtonEvent evt, OnEventAction action);
 	static void RunAllActions(DigitalButton *btn, int numEventActions, ...);
 public:
 	Mapping() = default;

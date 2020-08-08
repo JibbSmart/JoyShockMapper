@@ -57,6 +57,8 @@ JSMSetting<float> screen_resolution_x = JSMSetting<float>(SettingID::SCREEN_RESO
 JSMSetting<float> screen_resolution_y = JSMSetting<float>(SettingID::SCREEN_RESOLUTION_Y, 1080.0f);
 JSMSetting<float> rotate_smooth_override = JSMSetting<float>(SettingID::ROTATE_SMOOTH_OVERRIDE, -1.0f);
 JSMSetting<float> flick_snap_strength = JSMSetting<float>(SettingID::FLICK_SNAP_STRENGTH, 01.0f);
+JSMSetting<float> trigger_skip_delay = JSMSetting<float>(SettingID::TRIGGER_SKIP_DELAY, 150.0f);
+JSMSetting<float> turbo_period = JSMSetting<float>(SettingID::TURBO_PERIOD, 80.0f);
 vector<JSMButton> mappings; // array enables use of for each loop and other i/f
 
 mutex loading_lock;
@@ -89,7 +91,6 @@ public:
 		{
 			chordStack.push_front(ButtonID::NONE); //Always hold mapping none at the end to handle modeshifts and chords
 		}
-		bool toggleContinuous = false;
 		deque<pair<ButtonID, KeyCode>> gyroActionQueue; // Queue of gyro control actions currently in effect
 		deque<pair<ButtonID, KeyCode>> activeTogglesQueue;
 		deque<ButtonID> chordStack; // Represents the current active buttons in order from most recent to latest
@@ -119,7 +120,7 @@ public:
 	unsigned int _turboCount;
 	ButtonID _simPressMaster;
 
-	void ProcessButtonPress(bool pressed, chrono::steady_clock::time_point time_now)
+	void ProcessButtonPress(bool pressed, chrono::steady_clock::time_point time_now, float turbo_ms)
 	{
 		auto elapsed_time = GetPressDurationMS(time_now);
 		if (pressed)
@@ -133,7 +134,7 @@ public:
 					_turboCount++;
 				}
 			}
-			else if (floorf( (elapsed_time - MAGIC_HOLD_TIME) / MAGIC_TURBO_PERIOD ) >= _turboCount)
+			else if (floorf( (elapsed_time - MAGIC_HOLD_TIME) / turbo_ms ) >= _turboCount)
 			{
 				_keyToRelease->ProcessEvent(ButtonEvent::OnTurbo, *this);
 				_turboCount++;
@@ -178,25 +179,18 @@ public:
 		return _keyToRelease.get();
 	}
 
-	void StartCalibration(bool tap)
+	void StartCalibration()
 	{
-		_common.toggleContinuous ^= tap; //Toggle on tap
-		if (!tap || _common.toggleContinuous) {
-			printf("Starting continuous calibration\n");
-			JslResetContinuousCalibration(_common.intHandle);
-			JslStartContinuousCalibration(_common.intHandle);
-		}
+		printf("Starting continuous calibration\n");
+		JslResetContinuousCalibration(_common.intHandle);
+		JslStartContinuousCalibration(_common.intHandle);
 	}
 
-	void FinishCalibration(bool tap)
+	void FinishCalibration()
 	{
-		if (!tap || !_common.toggleContinuous)
-		{
-			JslPauseContinuousCalibration(_common.intHandle);
-			_common.toggleContinuous = false; // if we've held the calibration button, we're disabling continuous calibration
-			printf("Gyro calibration set\n");
-			ClearAnyActiveToggle(KeyCode("CALIBRATE"));
-		}
+		JslPauseContinuousCalibration(_common.intHandle);
+		printf("Gyro calibration set\n");
+		ClearAnyActiveToggle(KeyCode("CALIBRATE"));
 	}
 
 	void ApplyGyroAction(KeyCode gyroAction) // TODO: Keycode should be WORD here
@@ -310,7 +304,7 @@ istream &operator >> (istream &in, Mapping &evtmap)
 
 	evtmap.setRepresentation(valueName);
 
-	while (regex_match(valueName, results, regex(R"(\s*([!\^]?)([^\\\/+\s]*)([\\\/+]?)\s*(.*))")) && !results[0].str().empty())
+	while (regex_match(valueName, results, regex(R"(\s*([!\^]?)([^\\\/+'_\s]*)([\\\/+'_]?)\s*(.*))")) && !results[0].str().empty())
 	{
 		Mapping::ActionModifier actMod = results[1].str().empty() ? Mapping::ActionModifier::None :
 			results[1].str()[0] == '!' ? Mapping::ActionModifier::Instant :
@@ -323,6 +317,8 @@ istream &operator >> (istream &in, Mapping &evtmap)
 			results[3].str()[0] == '\\' ? Mapping::EventModifier::StartPress :
 			results[3].str()[0] == '+'  ? Mapping::EventModifier::TurboPress :
 			results[3].str()[0] == '/'  ? Mapping::EventModifier::ReleasePress :
+			results[3].str()[0] == '\'' ? Mapping::EventModifier::TapPress :
+			results[3].str()[0] == '_' ? Mapping::EventModifier::HoldPress :
 			Mapping::EventModifier::INVALID;
 
 		string leftovers(results[4]);
@@ -367,11 +363,11 @@ void Mapping::ProcessEvent(ButtonEvent evt, DigitalButton &button) const
 	}
 }
 
-void Mapping::AddEventMapping(ButtonEvent evt, OnEventAction action)
+void Mapping::InsertEventMapping(ButtonEvent evt, OnEventAction action)
 {
 	auto existingActions = eventMapping.find(evt);
 	eventMapping[evt] = existingActions == eventMapping.end() ? action :
-		bind(&RunAllActions, placeholders::_1, 2, existingActions->second, action);
+		bind(&RunAllActions, placeholders::_1, 2, existingActions->second, action); // Chain with already existing mapping, if any
 }
 
 bool Mapping::AddMapping(KeyCode key, ButtonEvent applyEvt, ButtonEvent releaseEvt, ActionModifier actMod, EventModifier evtMod)
@@ -380,14 +376,15 @@ bool Mapping::AddMapping(KeyCode key, ButtonEvent applyEvt, ButtonEvent releaseE
 	OnEventAction apply, release;
 	if (key.code == CALIBRATE)
 	{
-		apply = bind(&DigitalButton::StartCalibration, placeholders::_1, isTap);
-		release = bind(&DigitalButton::FinishCalibration, placeholders::_1, isTap);
+		apply = bind(&DigitalButton::StartCalibration, placeholders::_1);
+		release = bind(&DigitalButton::FinishCalibration, placeholders::_1);
+		tapDurationMs = MAGIC_EXTENDED_TAP_DURATION; // Unused in regular press
 	}
 	else if (key.code >= GYRO_INV_X && key.code <= GYRO_ON_BIND)
 	{
 		apply = bind(&DigitalButton::ApplyGyroAction, placeholders::_1, key);
 		release = bind(&DigitalButton::RemoveGyroAction, placeholders::_1);
-		tapDurationMs = MAGIC_GYRO_TAP_DURATION; // Unused in regular press
+		tapDurationMs = MAGIC_EXTENDED_TAP_DURATION; // Unused in regular press
 	}
 	else // if (key.code != NO_HOLD_MAPPED)
 	{
@@ -400,6 +397,16 @@ bool Mapping::AddMapping(KeyCode key, ButtonEvent applyEvt, ButtonEvent releaseE
 		applyEvt = ButtonEvent::OnPress;
 		releaseEvt = ButtonEvent::OnRelease;
 	}
+	else if (evtMod == EventModifier::TapPress)
+	{
+		applyEvt = ButtonEvent::OnTap;
+		releaseEvt = ButtonEvent::OnTapRelease;
+	}
+	else if (evtMod == EventModifier::HoldPress)
+	{
+		applyEvt = ButtonEvent::OnHold;
+		releaseEvt = ButtonEvent::OnHoldRelease;
+	}
 	else if (evtMod == EventModifier::ReleasePress)
 	{
 		// Acttion Modifier is required
@@ -408,24 +415,24 @@ bool Mapping::AddMapping(KeyCode key, ButtonEvent applyEvt, ButtonEvent releaseE
 
 	if (actMod == ActionModifier::Toggle)
 	{
-		AddEventMapping(applyEvt, bind(&DigitalButton::ApplyButtonToggle, placeholders::_1, key, apply, release));
+		InsertEventMapping(applyEvt, bind(&DigitalButton::ApplyButtonToggle, placeholders::_1, key, apply, release));
 	}
 	else if (actMod == ActionModifier::Instant)
 	{
-		AddEventMapping(applyEvt, bind(&Mapping::RunAllActions, placeholders::_1, 2, apply, release));
+		InsertEventMapping(applyEvt, bind(&Mapping::RunAllActions, placeholders::_1, 2, apply, release));
 	}
 	else
 	{
 		if (applyEvt != ButtonEvent::OnHold || evtMod != EventModifier::TurboPress)
 		{
-			AddEventMapping(applyEvt, apply);
+			InsertEventMapping(applyEvt, apply);
 		}
-		AddEventMapping(releaseEvt, release);
+		InsertEventMapping(releaseEvt, release);
 	}
 
 	if (evtMod == EventModifier::TurboPress)
 	{
-		AddEventMapping(ButtonEvent::OnTurbo, bind(&Mapping::RunAllActions, placeholders::_1, 2,
+		InsertEventMapping(ButtonEvent::OnTurbo, bind(&Mapping::RunAllActions, placeholders::_1, 2,
 			eventMapping[releaseEvt], // Perform release event, and then
 			eventMapping[applyEvt])); // Perform apply event.
 	}
@@ -695,6 +702,12 @@ public:
 			case SettingID::FLICK_SNAP_STRENGTH:
 				opt = flick_snap_strength.get(*activeChord);
 				break;
+			case SettingID::TRIGGER_SKIP_DELAY:
+				opt = trigger_skip_delay.get(*activeChord);
+				break;
+			case SettingID::TURBO_PERIOD:
+				opt = turbo_period.get(*activeChord);
+				break;
 			}
 			if (opt) return *opt;
 		}
@@ -885,7 +898,7 @@ public:
 			}
 			break;
 		case BtnState::BtnPress:
-			button.ProcessButtonPress(pressed, time_now);
+			button.ProcessButtonPress(pressed, time_now, getSetting(SettingID::TURBO_PERIOD));
 			break;
 		case BtnState::TapRelease:
 			if (pressed || button.GetPressDurationMS(time_now) > button._keyToRelease->getTapDuration())
@@ -940,7 +953,7 @@ public:
 			}
 			else if(!pressed || button._simPressMaster == ButtonID::NONE) // Both slave and master handle release, but only the master handles the press
 			{
-				button.ProcessButtonPress(pressed, time_now);
+				button.ProcessButtonPress(pressed, time_now, getSetting(SettingID::TURBO_PERIOD));
 				if (button._simPressMaster != ButtonID::NONE && button._btnState != BtnState::SimPress)
 				{
 					// The slave button has released! Change master state now!
@@ -1008,7 +1021,7 @@ public:
 			}
 			break;
 		case BtnState::DblPressPress:
-			button.ProcessButtonPress(pressed, time_now);
+			button.ProcessButtonPress(pressed, time_now, getSetting(SettingID::TURBO_PERIOD));
 			break;
 		default:
 			cout << "Invalid button state " << button._btnState << ": Resetting to NoPress" << endl;
@@ -1085,7 +1098,7 @@ public:
 				triggerState[idxState] = DstState::QuickFullPress;
 				handleButtonChange(fullIndex, true);
 			}
-			else if (buttons[int(softIndex)].GetPressDurationMS(time_now) >= MAGIC_DST_DELAY) { // todo: get rid of magic number -- make this a user setting )
+			else if (buttons[int(softIndex)].GetPressDurationMS(time_now) >= getSetting(SettingID::TRIGGER_SKIP_DELAY)) { // todo: get rid of magic number -- make this a user setting )
 				triggerState[idxState] = DstState::SoftPress;
 				// Reset the time for hold soft press purposes.
 				buttons[int(softIndex)]._press_times = time_now;
@@ -1108,7 +1121,7 @@ public:
 			}
 			else
 			{
-				if (buttons[int(softIndex)].GetPressDurationMS(time_now) >= MAGIC_DST_DELAY) { // todo: get rid of magic number -- make this a user setting )
+				if (buttons[int(softIndex)].GetPressDurationMS(time_now) >= getSetting(SettingID::TRIGGER_SKIP_DELAY)) { // todo: get rid of magic number -- make this a user setting )
 					triggerState[idxState] = DstState::SoftPress;
 				}
 				handleButtonChange(softIndex, true);
@@ -1265,6 +1278,8 @@ static void resetAllMappings() {
 	rotate_smooth_override.Reset();
 	flick_snap_strength.Reset();
 	flick_snap_mode.Reset();
+	trigger_skip_delay.Reset();
+	turbo_period.Reset();
 
 	os_mouse_speed = 1.0f;
 	last_flick_and_rotation = 0.0f;
@@ -2261,7 +2276,7 @@ int main(int argc, char *argv[]) {
 #endif // _WIN32
 	mappings.reserve(MAPPING_SIZE);
 	Mapping calibrationDefault;
-	stringstream ss("CALIBRATE CALIBRATE");
+	stringstream ss("^CALIBRATE CALIBRATE");
 	ss >> calibrationDefault;
 	ss.clear();
 	ss.str("NONE");
@@ -2325,6 +2340,8 @@ int main(int argc, char *argv[]) {
 	screen_resolution_y.SetFilter(&filterPositive);
 	rotate_smooth_override.SetFilter(&filterClamp01);
 	flick_snap_strength.SetFilter(&filterClamp01);
+	trigger_skip_delay.SetFilter(&filterPositive);
+	turbo_period.SetFilter(&filterPositive);
 	autoloadSwitch.AddOnChangeListener(&UpdateAutoload);
 
 	resetAllMappings();
@@ -2452,6 +2469,10 @@ int main(int argc, char *argv[]) {
 		->SetHelp("Constrain flicks within cardinal directions. Valid values are the following: NONE or 0, FOUR or 4 and EIGHT or 8."));
 	commandRegistry.Add((new JSMAssignment<float>("FLICK_SNAP_STRENGTH", flick_snap_strength))
 		->SetHelp(""));
+	commandRegistry.Add((new JSMAssignment<float>("TRIGGER_SKIP_DELAY", trigger_skip_delay))
+		->SetHelp("Sets the amount of time in milliseconds within which the user needs to reach the full press to skip the soft pull binding of the trigger."));
+	commandRegistry.Add((new JSMAssignment<float>("TURBO_PERIOD", turbo_period))
+		->SetHelp("Sets the time in milliseconds to wait between each turbo activation."));
 	commandRegistry.Add(new HelpCmd(commandRegistry));
 
 	bool quit = false;
