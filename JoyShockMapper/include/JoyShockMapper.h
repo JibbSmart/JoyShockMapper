@@ -131,6 +131,9 @@ enum class SettingID
 	FLICK_SNAP_STRENGTH,	// = 85
 	TRIGGER_SKIP_DELAY,
 	TURBO_PERIOD,
+	HOLD_PRESS_DELAY,
+	SIM_PRESS_DELAY, // Unchorded setting
+	DBL_PRESS_DELAY,// Unchorded setting
 };
 
 // constexpr are like #define but with respect to typeness
@@ -140,11 +143,9 @@ constexpr int LAST_ANALOG_TRIGGER = int(ButtonID::ZRF);
 constexpr int NUM_ANALOG_TRIGGERS = int(LAST_ANALOG_TRIGGER) - int(FIRST_ANALOG_TRIGGER) + 1;
 constexpr float MAGIC_TAP_DURATION = 40.0f; // in milliseconds
 constexpr float MAGIC_EXTENDED_TAP_DURATION = 500.0f; // in milliseconds
-constexpr float MAGIC_HOLD_TIME = 150.0f; // in milliseconds
-constexpr float MAGIC_SIM_DELAY = 50.0f; // in milliseconds
-constexpr float MAGIC_DBL_PRESS_WINDOW = 200.0f; // in milliseconds
-static_assert(MAGIC_SIM_DELAY < MAGIC_HOLD_TIME, "Simultaneous press delay has to be smaller than hold delay!");
-static_assert(MAGIC_HOLD_TIME < MAGIC_DBL_PRESS_WINDOW, "Hold delay has to be smaller than double press window!");
+
+//static_assert(MAGIC_SIM_DELAY < MAGIC_HOLD_TIME, "Simultaneous press delay has to be smaller than hold delay!");
+//static_assert(MAGIC_HOLD_TIME < MAGIC_DBL_PRESS_WINDOW, "Hold delay has to be smaller than double press window!");
 
 enum class RingMode { OUTER, INNER, INVALID };
 enum class StickMode { NO_MOUSE, AIM, FLICK, FLICK_ONLY, ROTATE_ONLY, MOUSE_RING, MOUSE_AREA, OUTER_RING, INNER_RING, INVALID };

@@ -169,6 +169,10 @@ public:
 		: JSMAssignment(name, name, var)
 	{ }
 
+	JSMAssignment(JSMSetting<T>& var)
+		: JSMAssignment(magic_enum::enum_name(var._id).data(), var)
+	{ }
+
 	virtual ~JSMAssignment()
 	{
 		_var.RemoveOnChangeListener(_listenerId);

@@ -59,14 +59,18 @@ JSMSetting<float> rotate_smooth_override = JSMSetting<float>(SettingID::ROTATE_S
 JSMSetting<float> flick_snap_strength = JSMSetting<float>(SettingID::FLICK_SNAP_STRENGTH, 01.0f);
 JSMSetting<float> trigger_skip_delay = JSMSetting<float>(SettingID::TRIGGER_SKIP_DELAY, 150.0f);
 JSMSetting<float> turbo_period = JSMSetting<float>(SettingID::TURBO_PERIOD, 80.0f);
+JSMSetting<float> hold_press_delay = JSMSetting<float>(SettingID::HOLD_PRESS_DELAY, 150.0f);
+JSMVariable<float> sim_press_delay = JSMVariable<float>(50.0f);
+JSMVariable<float> dbl_press_delay = JSMVariable<float>(200.0f);
 vector<JSMButton> mappings; // array enables use of for each loop and other i/f
 
 mutex loading_lock;
 
 enum class Switch : char
 {
-	ON,
 	OFF,
+	ON,
+	INVALID, // required on parse error
 };
 JSMVariable<Switch> autoloadSwitch = JSMVariable<Switch>(Switch::ON);
 
@@ -120,21 +124,21 @@ public:
 	unsigned int _turboCount;
 	ButtonID _simPressMaster;
 
-	void ProcessButtonPress(bool pressed, chrono::steady_clock::time_point time_now, float turbo_ms)
+	void ProcessButtonPress(bool pressed, chrono::steady_clock::time_point time_now, float turbo_ms, float hold_ms)
 	{
 		auto elapsed_time = GetPressDurationMS(time_now);
 		if (pressed)
 		{
 			if (_turboCount == 0)
 			{
-				if (elapsed_time > MAGIC_HOLD_TIME)
+				if (elapsed_time > hold_ms)
 				{
 					_keyToRelease->ProcessEvent(ButtonEvent::OnHold, *this);
 					_keyToRelease->ProcessEvent(ButtonEvent::OnTurbo, *this);
 					_turboCount++;
 				}
 			}
-			else if (floorf( (elapsed_time - MAGIC_HOLD_TIME) / turbo_ms ) >= _turboCount)
+			else if (floorf( (elapsed_time - hold_ms) / turbo_ms ) >= _turboCount)
 			{
 				_keyToRelease->ProcessEvent(ButtonEvent::OnTurbo, *this);
 				_turboCount++;
@@ -708,6 +712,10 @@ public:
 			case SettingID::TURBO_PERIOD:
 				opt = turbo_period.get(*activeChord);
 				break;
+			case SettingID::HOLD_PRESS_DELAY:
+				opt = turbo_period.get(*activeChord);
+				break;
+				// SIM_PRESS_DELAY and DBL_PRESS_DELAY are not chorded, they can be accessed as is.
 			}
 			if (opt) return *opt;
 		}
@@ -898,7 +906,7 @@ public:
 			}
 			break;
 		case BtnState::BtnPress:
-			button.ProcessButtonPress(pressed, time_now, getSetting(SettingID::TURBO_PERIOD));
+			button.ProcessButtonPress(pressed, time_now, getSetting(SettingID::TURBO_PERIOD), getSetting(SettingID::HOLD_PRESS_DELAY));
 			break;
 		case BtnState::TapRelease:
 			if (pressed || button.GetPressDurationMS(time_now) > button._keyToRelease->getTapDuration())
@@ -925,7 +933,7 @@ public:
 
 				simMap->second.get().ProcessEvent(ButtonEvent::OnPress, button);
 			}
-			else if (!pressed || button.GetPressDurationMS(time_now) > MAGIC_SIM_DELAY)
+			else if (!pressed || button.GetPressDurationMS(time_now) > sim_press_delay)
 			{
 				// Button was released before sim delay expired OR
 				// Button is still pressed but Sim delay did expire
@@ -953,7 +961,7 @@ public:
 			}
 			else if(!pressed || button._simPressMaster == ButtonID::NONE) // Both slave and master handle release, but only the master handles the press
 			{
-				button.ProcessButtonPress(pressed, time_now, getSetting(SettingID::TURBO_PERIOD));
+				button.ProcessButtonPress(pressed, time_now, getSetting(SettingID::TURBO_PERIOD), getSetting(SettingID::HOLD_PRESS_DELAY));
 				if (button._simPressMaster != ButtonID::NONE && button._btnState != BtnState::SimPress)
 				{
 					// The slave button has released! Change master state now!
@@ -970,7 +978,7 @@ public:
 			}
 			break;
 		case BtnState::DblPressStart:
-			if (button.GetPressDurationMS(time_now) > MAGIC_DBL_PRESS_WINDOW)
+			if (button.GetPressDurationMS(time_now) > dbl_press_delay)
 			{
 				button.GetPressMapping()->ProcessEvent(ButtonEvent::OnPress, button);
 				button._btnState = BtnState::BtnPress;
@@ -978,7 +986,7 @@ public:
 			}
 			else if (!pressed)
 			{
-				if (button.GetPressDurationMS(time_now) > MAGIC_HOLD_TIME)
+				if (button.GetPressDurationMS(time_now) > getSetting(SettingID::HOLD_PRESS_DELAY))
 				{
 					button._btnState = BtnState::DblPressNoPressHold;
 				}
@@ -989,7 +997,7 @@ public:
 			}
 			break;
 		case BtnState::DblPressNoPressTap:
-			if (button.GetPressDurationMS(time_now) > MAGIC_DBL_PRESS_WINDOW)
+			if (button.GetPressDurationMS(time_now) > dbl_press_delay)
 			{
 				button._btnState = BtnState::BtnPress;
 				button._press_times = time_now; // Reset Timer to raise a tap
@@ -1005,7 +1013,7 @@ public:
 			}
 			break;
 		case BtnState::DblPressNoPressHold:
-			if (button.GetPressDurationMS(time_now) > MAGIC_DBL_PRESS_WINDOW)
+			if (button.GetPressDurationMS(time_now) > dbl_press_delay)
 			{
 				button._btnState = BtnState::BtnPress;
 				// Don't reset timer to preserve hold press behaviour
@@ -1021,7 +1029,7 @@ public:
 			}
 			break;
 		case BtnState::DblPressPress:
-			button.ProcessButtonPress(pressed, time_now, getSetting(SettingID::TURBO_PERIOD));
+			button.ProcessButtonPress(pressed, time_now, getSetting(SettingID::TURBO_PERIOD), getSetting(SettingID::HOLD_PRESS_DELAY));
 			break;
 		default:
 			cout << "Invalid button state " << button._btnState << ": Resetting to NoPress" << endl;
@@ -1280,6 +1288,9 @@ static void resetAllMappings() {
 	flick_snap_mode.Reset();
 	trigger_skip_delay.Reset();
 	turbo_period.Reset();
+	hold_press_delay.Reset();
+	sim_press_delay.Reset();
+	dbl_press_delay.Reset();
 
 	os_mouse_speed = 1.0f;
 	last_flick_and_rotation = 0.0f;
@@ -2342,7 +2353,20 @@ int main(int argc, char *argv[]) {
 	flick_snap_strength.SetFilter(&filterClamp01);
 	trigger_skip_delay.SetFilter(&filterPositive);
 	turbo_period.SetFilter(&filterPositive);
-	autoloadSwitch.AddOnChangeListener(&UpdateAutoload);
+	hold_press_delay.SetFilter( [] (float c, float next)
+		{
+			if (next <= sim_press_delay || next >= hold_press_delay)
+			{
+				cout << SettingID::HOLD_PRESS_DELAY << " can only be set to a value between those of " << 
+					SettingID::SIM_PRESS_DELAY << " (" << sim_press_delay << "ms) and " << 
+					SettingID::DBL_PRESS_DELAY << " (" << dbl_press_delay << "ms) exclusive." << endl;
+				return c;
+			}
+			return next;
+		});
+	sim_press_delay.SetFilter(&filterPositive);
+	dbl_press_delay.SetFilter(&filterPositive);
+	autoloadSwitch.SetFilter(&filterInvalidValue<Switch, Switch::INVALID>)->AddOnChangeListener(&UpdateAutoload);
 
 	resetAllMappings();
 
@@ -2360,43 +2384,43 @@ int main(int argc, char *argv[]) {
 	{
 		commandRegistry.Add(new JSMAssignment<Mapping>(mapping.getName(), mapping));
 	}
-	commandRegistry.Add((new JSMAssignment<FloatXY>("MIN_GYRO_SENS", min_gyro_sens))
+	commandRegistry.Add((new JSMAssignment<FloatXY>(min_gyro_sens))
 		->SetHelp("Minimal gyro sensitivity factor before ramping linearily to maximum value.\nYou can assign a second value as a different vertical sensitivity."));
-	commandRegistry.Add((new JSMAssignment<FloatXY>("MAX_GYRO_SENS", max_gyro_sens))
+	commandRegistry.Add((new JSMAssignment<FloatXY>(max_gyro_sens))
 		->SetHelp("Maximal gyro sensitivity factor after ramping linearily from minimal value.\nYou can assign a second value as a different vertical sensitivity."));
-	commandRegistry.Add((new JSMAssignment<float>("MIN_GYRO_THRESHOLD", min_gyro_threshold))
+	commandRegistry.Add((new JSMAssignment<float>(min_gyro_threshold))
 		->SetHelp("Number of degrees per second at which to apply minimal gyro sensitivity."));
-	commandRegistry.Add((new JSMAssignment<float>("MAX_GYRO_THRESHOLD", max_gyro_threshold))
+	commandRegistry.Add((new JSMAssignment<float>(max_gyro_threshold))
 		->SetHelp("Number of degrees per second at which to apply maximal gyro sensitivity."));
-	commandRegistry.Add((new JSMAssignment<float>("STICK_POWER", stick_power))
+	commandRegistry.Add((new JSMAssignment<float>(stick_power))
 		->SetHelp(""));
-	commandRegistry.Add((new JSMAssignment<FloatXY>("STICK_SENS", stick_sens))
+	commandRegistry.Add((new JSMAssignment<FloatXY>(stick_sens))
 		->SetHelp("Stick sensitivity when using classic AIM mode."));
-	commandRegistry.Add((new JSMAssignment<float>("REAL_WORLD_CALIBRATION", real_world_calibration))
+	commandRegistry.Add((new JSMAssignment<float>(real_world_calibration))
 		->SetHelp("Calibration value mapping mouse values to in game degrees. This value is used for FLICK mode.")); // And other things?
-	commandRegistry.Add((new JSMAssignment<float>("IN_GAME_SENS", in_game_sens))
+	commandRegistry.Add((new JSMAssignment<float>(in_game_sens))
 		->SetHelp("Set this value to the sensitivity you use in game. It is used by stick FLICK and AIM modes."));
-	commandRegistry.Add((new JSMAssignment<float>("TRIGGER_THRESHOLD", trigger_threshold))
+	commandRegistry.Add((new JSMAssignment<float>(trigger_threshold))
 		->SetHelp("Set this to a value between 0 and 1, representing the analog threshold point at which to apply soft press binding."));
 	commandRegistry.Add((new JSMMacro("RESET_MAPPINGS"))->SetMacro(bind(&do_RESET_MAPPINGS))
 		->SetHelp("Delete all cusstom bindings and reset to default.\nHOME and CAPTURE are set to CALIBRATE on both tap and hold by default."));
 	commandRegistry.Add((new JSMMacro("NO_GYRO_BUTTON"))->SetMacro(bind(&do_NO_GYRO_BUTTON))
 		->SetHelp("Enable gyro at all times, without any GYRO_OFF binding."));
-	commandRegistry.Add((new JSMAssignment<StickMode>("LEFT_STICK_MODE", left_stick_mode))
+	commandRegistry.Add((new JSMAssignment<StickMode>(left_stick_mode))
 		->SetHelp("Set a mouse mode for the left stick. Valid values are the following:\nNO_MOUSE, AIM, FLICK, FLICK_ONLY, ROTATE_ONLY, MOUSE_RING, MOUSE_AREA, OUTER_RING, INNER_RING"));
-	commandRegistry.Add((new JSMAssignment<StickMode>("RIGHT_STICK_MODE", right_stick_mode))
+	commandRegistry.Add((new JSMAssignment<StickMode>(right_stick_mode))
 		->SetHelp("Set a mouse mode for the right stick. Valid values are the following:\nNO_MOUSE, AIM, FLICK, FLICK_ONLY, ROTATE_ONLY, MOUSE_RING, MOUSE_AREA, OUTER_RING, INNER_RING"));
 	commandRegistry.Add((new GyroButtonAssignment("GYRO_OFF", false))
 		->SetHelp("Assign a controller button to disable the gyro when pressed."));
 	commandRegistry.Add((new GyroButtonAssignment("GYRO_ON", true))->SetListener() // Set only one listener
 		->SetHelp("Assign a controller button to enable the gyro when pressed."));
-	commandRegistry.Add((new JSMAssignment<AxisMode>("STICK_AXIS_X", aim_x_sign))
+	commandRegistry.Add((new JSMAssignment<AxisMode>(aim_x_sign))
 		->SetHelp("Specify the stick X axis inversion value. Valid values are the following:\nSTANDARD or 1, and INVERTED or -1"));
-	commandRegistry.Add((new JSMAssignment<AxisMode>("STICK_AXIS_Y", aim_y_sign))
+	commandRegistry.Add((new JSMAssignment<AxisMode>(aim_y_sign))
 		->SetHelp("Specify the stick Y axis inversion value. Valid values are the following:\nSTANDARD or 1, and INVERTED or -1"));
-	commandRegistry.Add((new JSMAssignment<AxisMode>("GYRO_AXIS_X", gyro_x_sign))
+	commandRegistry.Add((new JSMAssignment<AxisMode>(gyro_x_sign))
 		->SetHelp("Specify the gyro X axis inversion value. Valid values are the following:\nSTANDARD or 1, and INVERTED or -1"));
-	commandRegistry.Add((new JSMAssignment<AxisMode>("GYRO_AXIS_Y", gyro_y_sign))
+	commandRegistry.Add((new JSMAssignment<AxisMode>(gyro_y_sign))
 		->SetHelp("Specify the gyro Y axis inversion value. Valid values are the following:\nSTANDARD or 1, and INVERTED or -1"));
 	commandRegistry.Add((new JSMMacro("RECONNECT_CONTROLLERS"))->SetMacro(bind(&do_RECONNECT_CONTROLLERS))
 		->SetHelp("Reload the controller listing."));
@@ -2409,23 +2433,23 @@ int main(int argc, char *argv[]) {
 	commandRegistry.Add((new GyroSensAssignment("GYRO_SENS", min_gyro_sens))
 		->SetHelp("Sets a gyro sensitivity to use. This sets both MIN_GYRO_SENS and MAX_GYRO_SENS to the same values. You can assign a second value as a different vertical sensitivity."));
 	commandRegistry.Add((new GyroSensAssignment("GYRO_SENS", max_gyro_sens))->SetHelp(""));
-	commandRegistry.Add((new JSMAssignment<float>("FLICK_TIME", flick_time))
+	commandRegistry.Add((new JSMAssignment<float>(flick_time))
 		->SetHelp("Sets the duration for which a flick will last in seconds. This vlaue is used by stick FLICK mode."));
-	commandRegistry.Add((new JSMAssignment<float>("GYRO_SMOOTH_THRESHOLD", gyro_smooth_threshold))
+	commandRegistry.Add((new JSMAssignment<float>(gyro_smooth_threshold))
 		->SetHelp(""));
-	commandRegistry.Add((new JSMAssignment<float>("GYRO_SMOOTH_TIME", gyro_smooth_time))
+	commandRegistry.Add((new JSMAssignment<float>(gyro_smooth_time))
 		->SetHelp(""));
-	commandRegistry.Add((new JSMAssignment<float>("GYRO_CUTOFF_SPEED", gyro_cutoff_speed))
+	commandRegistry.Add((new JSMAssignment<float>(gyro_cutoff_speed))
 		->SetHelp(""));
-	commandRegistry.Add((new JSMAssignment<float>("GYRO_CUTOFF_RECOVERY", gyro_cutoff_recovery))
+	commandRegistry.Add((new JSMAssignment<float>(gyro_cutoff_recovery))
 		->SetHelp(""));
-	commandRegistry.Add((new JSMAssignment<float>("STICK_ACCELERATION_RATE", stick_acceleration_rate))
+	commandRegistry.Add((new JSMAssignment<float>(stick_acceleration_rate))
 		->SetHelp(""));
-	commandRegistry.Add((new JSMAssignment<float>("STICK_ACCELERATION_CAP", stick_acceleration_cap))
+	commandRegistry.Add((new JSMAssignment<float>(stick_acceleration_cap))
 		->SetHelp(""));
-	commandRegistry.Add((new JSMAssignment<float>("STICK_DEADZONE_INNER", stick_deadzone_inner))
+	commandRegistry.Add((new JSMAssignment<float>(stick_deadzone_inner))
 		->SetHelp("Defines a radius of the stick for which all values will be null. This value can only be between 0 and 1 but it should be small."));
-	commandRegistry.Add((new JSMAssignment<float>("STICK_DEADZONE_OUTER", stick_deadzone_outer))
+	commandRegistry.Add((new JSMAssignment<float>(stick_deadzone_outer))
 		->SetHelp("Defines a distance from the stick's outer edge for which all values will be maximal. This value can only be between 0 and 1 but it should be small."));
 	commandRegistry.Add((new JSMMacro("CALCULATE_REAL_WORLD_CALIBRATION"))->SetMacro(bind(&do_CALCULATE_REAL_WORLD_CALIBRATION, placeholders::_2))
 		->SetHelp("Get JoyShockMapper to recommend you a REAL_WORLD_CALIBRATION value after performing the calibration sequence. Visit GyroWiki for details:\nhttp://gyrowiki.jibbsmart.com/blog:joyshockmapper-guide#calibrating"));
@@ -2433,17 +2457,17 @@ int main(int argc, char *argv[]) {
 		->SetHelp("Stop the calibration of the gyro of all controllers."));
 	commandRegistry.Add((new JSMMacro("RESTART_GYRO_CALIBRATION"))->SetMacro(bind(&do_RESTART_GYRO_CALIBRATION))
 		->SetHelp("Start the calibration of the gyro of all controllers."));
-	commandRegistry.Add((new JSMAssignment<GyroAxisMask>("MOUSE_X_FROM_GYRO_AXIS", mouse_x_from_gyro))
+	commandRegistry.Add((new JSMAssignment<GyroAxisMask>(mouse_x_from_gyro))
 		->SetHelp("Pick a gyro axis to operate on the mouse's X axis. Valid values are the following: X, Y and Z."));
-	commandRegistry.Add((new JSMAssignment<GyroAxisMask>("MOUSE_Y_FROM_GYRO_AXIS", mouse_y_from_gyro))
+	commandRegistry.Add((new JSMAssignment<GyroAxisMask>(mouse_y_from_gyro))
 		->SetHelp("Pick a gyro axis to operate on the mouse's Y axis. Valid values are the following: X, Y and Z."));
-	commandRegistry.Add((new JSMAssignment<TriggerMode>("ZR_MODE", zlMode))
+	commandRegistry.Add((new JSMAssignment<TriggerMode>(zlMode))
 		->SetHelp("Controllers with a right analog trigger can use one of the following dual stage trigger modes:\nNO_FULL, NO_SKIP, MAY_SKIP, MUST_SKIP, MAY_SKIP_R, MUST_SKIP_R"));
-	commandRegistry.Add((new JSMAssignment<TriggerMode>("ZL_MODE", zrMode))
+	commandRegistry.Add((new JSMAssignment<TriggerMode>(zrMode))
 		->SetHelp("Controllers with a left analog trigger can use one of the following dual stage trigger modes:\nNO_FULL, NO_SKIP, MAY_SKIP, MUST_SKIP, MAY_SKIP_R, MUST_SKIP_R"));
 	ss.clear();
 	ss << "AUTOLOAD will attempt load a file from the following folder when a window with a matching executable name enters focus:" << endl << GetCWD() << "\\AutoLoad\\";
-	commandRegistry.Add((new JSMAssignment<Switch>(magic_enum::enum_name(SettingID::AUTOLOAD).data(), autoloadSwitch))
+	commandRegistry.Add((new JSMAssignment<Switch>("AUTOLOAD", autoloadSwitch))
 		->SetHelp(ss.str()));
 	commandRegistry.Add((new JSMMacro("README"))->SetMacro(bind(&do_README))
 		->SetHelp("Open the latest JoyShockMapper README in your browser."));
@@ -2453,26 +2477,32 @@ int main(int argc, char *argv[]) {
 		->SetHelp("Add JoyShockMapper to HIDGuardian whitelisted applications."));
 	commandRegistry.Add((new JSMMacro("WHITELIST_REMOVE"))->SetMacro(bind(&do_WHITELIST_REMOVE))
 		->SetHelp("Remove JoyShockMapper from HIDGuardian whitelisted applications."));
-	commandRegistry.Add((new JSMAssignment<RingMode>("LEFT_RING_MODE", left_ring_mode))
+	commandRegistry.Add((new JSMAssignment<RingMode>(left_ring_mode))
 		->SetHelp("Pick a ring where to apply the LEFT_RING binding. Valid values are the following: INNER and OUTER."));
-	commandRegistry.Add((new JSMAssignment<RingMode>("RIGHT_RING_MODE", right_ring_mode))
+	commandRegistry.Add((new JSMAssignment<RingMode>(right_ring_mode))
 		->SetHelp("Pick a ring where to apply the RIGHT_RING binding. Valid values are the following: INNER and OUTER."));
-	commandRegistry.Add((new JSMAssignment<float>("MOUSE_RING_RADIUS", mouse_ring_radius))
+	commandRegistry.Add((new JSMAssignment<float>(mouse_ring_radius))
 		->SetHelp("Pick a radius on which the cursor will be allowed to move. This value is used for stick mode MOUSE_RING and MOUSE_AREA."));
-	commandRegistry.Add((new JSMAssignment<float>("SCREEN_RESOLUTION_X", screen_resolution_x))
+	commandRegistry.Add((new JSMAssignment<float>(screen_resolution_x))
 		->SetHelp("Indicate your monitor's horizontal resolution when using the stick mode MOUSE_RING."));
-	commandRegistry.Add((new JSMAssignment<float>("SCREEN_RESOLUTION_Y", screen_resolution_y))
+	commandRegistry.Add((new JSMAssignment<float>(screen_resolution_y))
 		->SetHelp("Indicate your monitor's vertical resolution when using the stick mode MOUSE_RING."));
-	commandRegistry.Add((new JSMAssignment<float>("ROTATE_SMOOTH_OVERRIDE", rotate_smooth_override))
+	commandRegistry.Add((new JSMAssignment<float>(rotate_smooth_override))
 		->SetHelp(""));
-	commandRegistry.Add((new JSMAssignment<FlickSnapMode>("FLICK_SNAP_MODE", flick_snap_mode))
+	commandRegistry.Add((new JSMAssignment<FlickSnapMode>(flick_snap_mode))
 		->SetHelp("Constrain flicks within cardinal directions. Valid values are the following: NONE or 0, FOUR or 4 and EIGHT or 8."));
-	commandRegistry.Add((new JSMAssignment<float>("FLICK_SNAP_STRENGTH", flick_snap_strength))
+	commandRegistry.Add((new JSMAssignment<float>(flick_snap_strength))
 		->SetHelp(""));
-	commandRegistry.Add((new JSMAssignment<float>("TRIGGER_SKIP_DELAY", trigger_skip_delay))
+	commandRegistry.Add((new JSMAssignment<float>(trigger_skip_delay))
 		->SetHelp("Sets the amount of time in milliseconds within which the user needs to reach the full press to skip the soft pull binding of the trigger."));
-	commandRegistry.Add((new JSMAssignment<float>("TURBO_PERIOD", turbo_period))
+	commandRegistry.Add((new JSMAssignment<float>(turbo_period))
 		->SetHelp("Sets the time in milliseconds to wait between each turbo activation."));
+	commandRegistry.Add((new JSMAssignment<float>(hold_press_delay))
+		->SetHelp("Sets the amount of time in milliseconds to hold a button before the hold press is enabled. Releasing the button before this time will trigger the tap press. Turbo press only starts after this delay."));
+	commandRegistry.Add((new JSMAssignment<float>("SIM_PRESS_DELAY", sim_press_delay))
+		->SetHelp("Sets the amount of time in milliseconds within which both buttons of a simultaneous press needs to be pressed before enabling the sim press mappings. This setting does not support modeshift."));
+	commandRegistry.Add((new JSMAssignment<float>("DBL_PRESS_DELAY", dbl_press_delay))
+		->SetHelp("Sets the amount of time in milliseconds within which the user needs to press a button twice before enabling the double press mappings. This setting does not support modeshift."));
 	commandRegistry.Add(new HelpCmd(commandRegistry));
 
 	bool quit = false;
