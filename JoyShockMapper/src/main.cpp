@@ -1327,7 +1327,7 @@ void connectDevices() {
 		auto type = JslGetControllerType(handle);
 		if (type == JS_TYPE_JOYCON_LEFT || type == JS_TYPE_JOYCON_RIGHT)
 		{
-			auto otherJoyCon = find_if(handle_to_joyshock.begin(), handle_to_joyshock.end(), 
+			auto otherJoyCon = find_if(handle_to_joyshock.begin(), handle_to_joyshock.end(),
 				[type](auto pair)
 				{
 					return type == JS_TYPE_JOYCON_LEFT  && pair.first == JS_TYPE_JOYCON_RIGHT ||
@@ -1454,8 +1454,8 @@ bool do_CALCULATE_REAL_WORLD_CALIBRATION(in_string argument) {
 
 bool do_FINISH_GYRO_CALIBRATION() {
 	printf("Finishing continuous calibration for all devices\n");
-	for (unordered_map<int, JoyShock*>::iterator iter = handle_to_joyshock.begin(); iter != handle_to_joyshock.end(); ++iter) {
-		JoyShock* jc = iter->second;
+	for (auto iter = handle_to_joyshock.begin(); iter != handle_to_joyshock.end(); ++iter) {
+        JoyShock* jc = iter->second.get();
 		JslPauseContinuousCalibration(jc->intHandle);
 	}
 	devicesCalibrating = false;
@@ -1464,8 +1464,8 @@ bool do_FINISH_GYRO_CALIBRATION() {
 
 bool do_RESTART_GYRO_CALIBRATION() {
 	printf("Restarting continuous calibration for all devices\n");
-	for (unordered_map<int, JoyShock*>::iterator iter = handle_to_joyshock.begin(); iter != handle_to_joyshock.end(); ++iter) {
-		JoyShock* jc = iter->second;
+	for (auto iter = handle_to_joyshock.begin(); iter != handle_to_joyshock.end(); ++iter) {
+        JoyShock* jc = iter->second.get();
 		JslResetContinuousCalibration(jc->intHandle);
 		JslStartContinuousCalibration(jc->intHandle);
 	}
@@ -1612,7 +1612,7 @@ JoyShock* getJoyShockFromHandle(int handle) {
 	auto iter = handle_to_joyshock.find(handle);
 
 	if (iter != handle_to_joyshock.end()) {
-		return iter->second;
+		return iter->second.get();
 		// iter is item pair in the map. The value will be accessible as `iter->second`.
 	}
 	return nullptr;
@@ -1828,7 +1828,7 @@ void joyShockPollCallback(int jcHandle, JOY_SHOCK_STATE state, JOY_SHOCK_STATE l
 			warpedStickLengthY *= jc->getSetting<FloatXY>(SettingID::STICK_SENS).second * jc->getSetting(SettingID::REAL_WORLD_CALIBRATION) / os_mouse_speed / jc->getSetting(SettingID::IN_GAME_SENS);
 			camSpeedX += calX / stickLength * warpedStickLengthX * jc->right_acceleration * deltaTime;
 			camSpeedY += calY / stickLength * warpedStickLengthY * jc->right_acceleration * deltaTime;
-			
+
 			if (rightPegged) {
 				jc->right_acceleration += jc->getSetting(SettingID::STICK_ACCELERATION_RATE) * deltaTime;
 				auto cap = jc->getSetting(SettingID::STICK_ACCELERATION_CAP);
@@ -1988,37 +1988,27 @@ bool AutoLoadPoll(void *param)
 	if (!windowModule.empty() && windowModule != lastModuleName && windowModule.compare("JoyShockMapper.exe") != 0)
 	{
 		lastModuleName = windowModule;
-		string cwd(GetCWD());
-		if (!cwd.empty())
+		auto files = ListDirectory(AUTOLOAD_FOLDER);
+		auto noextmodule = windowModule.substr(0, windowModule.find_first_of('.'));
+		printf("[AUTOLOAD] \"%s\" in focus: ", windowTitle.c_str()); // looking for config : " , );
+		bool success = false;
+		for (auto file : files)
 		{
-			cwd.append("\\AutoLoad\\");
-			auto files = ListDirectory(cwd);
-			auto noextmodule = windowModule.substr(0, windowModule.find_first_of('.'));
-			printf("[AUTOLOAD] \"%s\" in focus: ", windowTitle.c_str()); // looking for config : " , );
-			bool success = false;
-			for (auto file : files)
+			auto noextconfig = file.substr(0, file.find_first_of('.'));
+			if (iequals(noextconfig, noextmodule))
 			{
-				auto noextconfig = file.substr(0, file.find_first_of('.'));
-				if (iequals(noextconfig, noextmodule))
-				{
-					printf("loading \"AutoLoad\\%s.txt\".\n", noextconfig.c_str());
-					loading_lock.lock();
-					registry->processLine(cwd + file);
-					loading_lock.unlock();
-					printf("[AUTOLOAD] Loading completed\n");
-					success = true;
-					break;
-				}
-			}
-			if (!success)
-			{
-				printf("create \"AutoLoad\\%s.txt\" to autoload for this application.\n", noextmodule.c_str());
+				printf("loading \"AutoLoad\\%s.txt\".\n", noextconfig.c_str());
+				loading_lock.lock();
+                registry->processLine(std::string{ AUTOLOAD_FOLDER } + file);
+				loading_lock.unlock();
+				printf("[AUTOLOAD] Loading completed\n");
+				success = true;
+				break;
 			}
 		}
-		else
+		if (!success)
 		{
-			printf("[AUTOLOAD] ERROR could not load CWD. Disabling AUTOLOAD.");
-			return false;
+			printf("create \"AutoLoad\\%s.txt\" to autoload for this application.\n", noextmodule.c_str());
 		}
 	}
 	return true;
@@ -2061,8 +2051,7 @@ void beforeShowTrayMenu()
 			return devicesCalibrating;
 		});
 
-		//std::string cwd(GetCWD());
-		std::string autoloadFolder = "AutoLoad\\";
+		std::string autoloadFolder = AUTOLOAD_FOLDER;
 		for (auto file : ListDirectory(autoloadFolder.c_str()))
 		{
 			string fullPathName = autoloadFolder + file;
@@ -2073,7 +2062,7 @@ void beforeShowTrayMenu()
 				autoLoadThread->Stop();
 			});
 		}
-		std::string gyroConfigsFolder = "GyroConfigs\\";
+		std::string gyroConfigsFolder = GYRO_CONFIGS_FOLDER;
 		for (auto file : ListDirectory(gyroConfigsFolder.c_str()))
 		{
 			string fullPathName = gyroConfigsFolder + file;
@@ -2465,7 +2454,7 @@ int main(int argc, char *argv[]) {
 	commandRegistry.Add((new JSMAssignment<TriggerMode>("ZL_MODE", zrMode))
 		->SetHelp("Controllers with a left analog trigger can use one of the following dual stage trigger modes:\nNO_FULL, NO_SKIP, MAY_SKIP, MUST_SKIP, MAY_SKIP_R, MUST_SKIP_R"));
 	stringstream ss;
-	ss << "AUTOLOAD will attempt load a file from the following folder when a window with a matching executable name enters focus:" << endl << GetCWD() << "\\AutoLoad\\";
+	ss << "AUTOLOAD will attempt load a file from the following folder when a window with a matching executable name enters focus:" << endl << AUTOLOAD_FOLDER;
 	commandRegistry.Add((new JSMAssignment<Switch>(magic_enum::enum_name(SettingID::AUTOLOAD).data(), autoloadSwitch))
 		->SetHelp(ss.str()));
 	commandRegistry.Add((new JSMMacro("README"))->SetMacro(bind(&do_README))
