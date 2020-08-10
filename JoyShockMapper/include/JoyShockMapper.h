@@ -157,6 +157,9 @@ enum class BtnState {
 	DblPressStart, DblPressNoPress, DblPressPress, DblPressWaitHold, DblPressHold, INVALID
 };
 
+// Needs to be accessed publicly
+extern WORD nameToKey(const std::string& name);
+
 struct KeyCode
 {
 	static const KeyCode EMPTY;
@@ -178,9 +181,6 @@ struct KeyCode
 	{
 		return code != 0;
 	}
-
-private:
-	static WORD nameToKey(const std::string &name);
 };
 
 // Used for XY pair values such as sensitivity or GyroSample
