@@ -39,11 +39,17 @@ JoyShockMapper was written in C++ and is built using CMake.
 
 The project is structured into a set of platform-agnostic headers, while platform-specific source files can be found in their respective subdirectories.
 The following files are platform-agnostic:
-1. ```include/InputHelpers.h``` - This is platform agnostic declaration of wrappers for OS function calls and features.
-2. ```include/PlatformDefinitions.h``` - This is a set of declarations that create a common ground when dealing with platform-specific types and definitions.
-3. ```include/TrayIcon.h``` - This is a self contained module used to display in Windows an icon in the system tray with a contextual menu.
-4. ```include/Whitelister.h``` - This is another self contained Windows specific module that uses a socket to communicate with HIDCerberus and whitelist JSM, the Linux implementation, currently, is a stub.
-5. ```main.cpp``` - This does just about all the main logic of the application. It's perhaps a little big, but I've opted to keep the file structure simpler at the cost of having a big main file.
+1. ```include/JoyShockMapper.h``` - This header provides important type definitions that can be shared across the whole project. No variables are defined here, only constants.
+2. ```include/InputHelpers.h``` - This is platform agnostic declaration of wrappers for OS function calls and features.
+3. ```include/PlatformDefinitions.h``` - This is a set of declarations that create a common ground when dealing with platform-specific types and definitions.
+4. ```include/TrayIcon.h``` - This is a self contained module used to display in Windows an icon in the system tray with a contextual menu.
+5. ```include/Whitelister.h``` - This is another self contained Windows specific module that uses a socket to communicate with HIDCerberus and whitelist JSM, the Linux implementation, currently, is a stub.
+6. ```include/CmdRegistry.h``` - This header defines the base command type and the CmdRegistry class that processes them.
+7. ```include/JSMAssignment.hpp``` - Header for the templated class assignment commands
+8. ```include/JSMVariable.hpp``` - Header for the templated core variable class and a few derivatives.
+9. ```src/main.cpp``` - This does just about all the main logic of the application. The core processing logic should be kept in the other files as much as possible, and have the JSM specific logic in this file.
+10. ```src/CmdRegistry.cpp``` - Implementation for the command line processing entry point.
+11. ```src/operators.cpp``` - Implementation of all streaming and comparison operators for custom types declared in ```JoyShockMapper.h```
 
 The Windows implementation can be found in the following files:
 1. ```src/win32/InputHelpers.cpp```
@@ -205,7 +211,7 @@ NONE: No input
 CALIBRATE: recalibrate gyro when pressing this input
 GYRO_ON, GYRO_OFF: Enable or disable gyro
 GYRO_INVERT, GYRO_INV_X, GYRO_INV_Y: Invert gyro, or in just the x or y axes, respectively
-; ' , . / \ [ ] + - \`
+; ' , . / \ [ ] + - `
 ```
 
 For example, in a game where R is 'reload' and E is 'use’, you can do the following to map □ to 'reload' and △ to 'use':
@@ -229,7 +235,7 @@ If you want □ to 'reload' when tapped, but do nothing at all when held, you ca
 W = R NONE
 ```
 
-To change the time to hold the button before enabling the hold binding can be changed by assigning a number of milliseconds to ```HOLD_PRESS_TIME```.
+The time to hold the button before enabling the hold binding can be changed by assigning a number of milliseconds to ```HOLD_PRESS_TIME```.
 
 See the tap press and hold press event modifiers below for more details on how keybinds are applied.
 
@@ -242,11 +248,11 @@ There are two kinds of modifiers that can be applied to key bindings: action mod
 * ! Instant sends both the key press and release at the same time
 
 **Event Modifiers** come in five kinds: **tap press (')**, **hold press (_)**, **start press (\\)**, **release press (/)** and **turbo (+)**.
-* ' Tap press is the default event modifier for the first key bind when there are multiple of them. It will apply the key press when the button is released if the total press time is less than the hold time threshold. The key press is released a short time after, with that time being longer for gyro related action and calibration, unless an action modifier instructs otherwise.
-* _ Hold press is the default event modifier for the second key bind when there are multiple of them. It will apply the key only after the button is held down a short amount of time. The key is released when the button is released as well, unless an action modifier instructs otherwise.
+* ' Tap press is the default event modifier for the first key bind when there are multiple of them. It will apply the key press when the button is released if the total press time is less than the ```HOLD_PRESS_TIME```. The key press is released a short time after, with that time being longer for gyro related action and calibration, unless an action modifier instructs otherwise.
+* _ Hold press is the default event modifier for the second key bind when there are multiple of them. It will apply the key only after the button is held down for the defined amount of time. The key is released when the button is released as well, unless an action modifier instructs otherwise.
 * \\ Start press is the default event modifier when there is only a single key bind. It will apply the key press as soon as the button is pressed and releases the key when the button is released, unless an action modifier instructs otherwise. This can be useful to have a key held while other keys are being activated.
-* \/ Release press will apply the binding when the button is release. A binding on release press needs an action modifier to be valid.
-* \+ Turbo will apply a key press repeatedly (with consideration of action modifiers), resulting in a fast pulsing of the key. The turbo pulsing starts only after the button has been held for the hold time.
+* \/ Release press will apply the binding when the button is released. A binding on release press needs an action modifier to be valid.
+* \+ Turbo will apply a key press repeatedly (with consideration of action modifiers), resulting in a fast pulsing of the key. The turbo pulsing starts only after the button has been held for ```HOLD_PRESS_TIME```.
 
 These modifiers can enable you to work around in game tap and holds, or convert one form of press into another. Here's a few example of how you can make use of those modifiers.
 
@@ -295,7 +301,7 @@ L,N = F # Flashlight
 A button can be chorded with multiple other buttons. In this case, the latest chord takes precedence over previous chords. This can be understood as a stack of layers being put on top of the binding each time a chord is pressed, where only the top one is active. Notice that you don't need to have NONE as a binding. The chord binding could very well be bound to a button that brings up a weapon wheel for example.
 
 #### 1.5 Double Press
-You can also assign the double press of a button to a different binding. Double press notation is the same as chorded button notation, except the button is chorded with iteself. It supports taps and holds like all previous entries. 
+You can also assign the double press of a button to a different binding. Double press notation is the same as chorded button notation, except the button is chorded with itself. It supports taps & holds and modifiers like all previous entries. 
 
 ```
 N = SCROLLDOWN # Cycle weapon
@@ -596,7 +602,6 @@ AUTOLOAD
 JSM_DIRECTORY
 SIM_PRESS_WINDOW
 DBL_PRESS_WINDOW
-
 ```
 
 Here's some usage examples: in DOOM (2016), you can use the right stick when you bring up a weapon wheel even when using flick stick:
