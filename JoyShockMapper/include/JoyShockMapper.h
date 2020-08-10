@@ -131,9 +131,9 @@ enum class SettingID
 	FLICK_SNAP_STRENGTH,	// = 85
 	TRIGGER_SKIP_DELAY,
 	TURBO_PERIOD,
-	HOLD_PRESS_DELAY,
-	SIM_PRESS_DELAY, // Unchorded setting
-	DBL_PRESS_DELAY,// Unchorded setting
+	HOLD_PRESS_TIME,
+	SIM_PRESS_WINDOW, // Unchorded setting
+	DBL_PRESS_WINDOW,// Unchorded setting
 };
 
 // constexpr are like #define but with respect to typeness

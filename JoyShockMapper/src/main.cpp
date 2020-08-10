@@ -59,9 +59,9 @@ JSMSetting<float> rotate_smooth_override = JSMSetting<float>(SettingID::ROTATE_S
 JSMSetting<float> flick_snap_strength = JSMSetting<float>(SettingID::FLICK_SNAP_STRENGTH, 01.0f);
 JSMSetting<float> trigger_skip_delay = JSMSetting<float>(SettingID::TRIGGER_SKIP_DELAY, 150.0f);
 JSMSetting<float> turbo_period = JSMSetting<float>(SettingID::TURBO_PERIOD, 80.0f);
-JSMSetting<float> hold_press_delay = JSMSetting<float>(SettingID::HOLD_PRESS_DELAY, 150.0f);
-JSMVariable<float> sim_press_delay = JSMVariable<float>(50.0f);
-JSMVariable<float> dbl_press_delay = JSMVariable<float>(200.0f);
+JSMSetting<float> hold_press_time = JSMSetting<float>(SettingID::HOLD_PRESS_TIME, 150.0f);
+JSMVariable<float> sim_press_window = JSMVariable<float>(50.0f);
+JSMVariable<float> dbl_press_window = JSMVariable<float>(200.0f);
 JSMVariable<PathString> currentWorkingDir = JSMVariable<PathString>(GetCWD());
 JSMVariable<Switch> autoloadSwitch = JSMVariable<Switch>(Switch::ON);
 vector<JSMButton> mappings; // array enables use of for each loop and other i/f
@@ -706,10 +706,10 @@ public:
 			case SettingID::TURBO_PERIOD:
 				opt = turbo_period.get(*activeChord);
 				break;
-			case SettingID::HOLD_PRESS_DELAY:
-				opt = hold_press_delay.get(*activeChord);
+			case SettingID::HOLD_PRESS_TIME:
+				opt = hold_press_time.get(*activeChord);
 				break;
-				// SIM_PRESS_DELAY and DBL_PRESS_DELAY are not chorded, they can be accessed as is.
+				// SIM_PRESS_WINDOW and DBL_PRESS_WINDOW are not chorded, they can be accessed as is.
 			}
 			if (opt) return *opt;
 		}
@@ -900,7 +900,7 @@ public:
 			}
 			break;
 		case BtnState::BtnPress:
-			button.ProcessButtonPress(pressed, time_now, getSetting(SettingID::TURBO_PERIOD), getSetting(SettingID::HOLD_PRESS_DELAY));
+			button.ProcessButtonPress(pressed, time_now, getSetting(SettingID::TURBO_PERIOD), getSetting(SettingID::HOLD_PRESS_TIME));
 			break;
 		case BtnState::TapRelease:
 			if (pressed || button.GetPressDurationMS(time_now) > button._keyToRelease->getTapDuration())
@@ -927,7 +927,7 @@ public:
 
 				simMap->second.get().ProcessEvent(BtnEvent::OnPress, button);
 			}
-			else if (!pressed || button.GetPressDurationMS(time_now) > sim_press_delay)
+			else if (!pressed || button.GetPressDurationMS(time_now) > sim_press_window)
 			{
 				// Button was released before sim delay expired OR
 				// Button is still pressed but Sim delay did expire
@@ -955,7 +955,7 @@ public:
 			}
 			else if(!pressed || button._simPressMaster == ButtonID::NONE) // Both slave and master handle release, but only the master handles the press
 			{
-				button.ProcessButtonPress(pressed, time_now, getSetting(SettingID::TURBO_PERIOD), getSetting(SettingID::HOLD_PRESS_DELAY));
+				button.ProcessButtonPress(pressed, time_now, getSetting(SettingID::TURBO_PERIOD), getSetting(SettingID::HOLD_PRESS_TIME));
 				if (button._simPressMaster != ButtonID::NONE && button._btnState != BtnState::SimPress)
 				{
 					// The slave button has released! Change master state now!
@@ -972,7 +972,7 @@ public:
 			}
 			break;
 		case BtnState::DblPressStart:
-			if (button.GetPressDurationMS(time_now) > dbl_press_delay)
+			if (button.GetPressDurationMS(time_now) > dbl_press_window)
 			{
 				button.GetPressMapping()->ProcessEvent(BtnEvent::OnPress, button);
 				button._btnState = BtnState::BtnPress;
@@ -980,7 +980,7 @@ public:
 			}
 			else if (!pressed)
 			{
-				if (button.GetPressDurationMS(time_now) > getSetting(SettingID::HOLD_PRESS_DELAY))
+				if (button.GetPressDurationMS(time_now) > getSetting(SettingID::HOLD_PRESS_TIME))
 				{
 					button._btnState = BtnState::DblPressNoPressHold;
 				}
@@ -991,7 +991,7 @@ public:
 			}
 			break;
 		case BtnState::DblPressNoPressTap:
-			if (button.GetPressDurationMS(time_now) > dbl_press_delay)
+			if (button.GetPressDurationMS(time_now) > dbl_press_window)
 			{
 				button._btnState = BtnState::BtnPress;
 				button._press_times = time_now; // Reset Timer to raise a tap
@@ -1007,7 +1007,7 @@ public:
 			}
 			break;
 		case BtnState::DblPressNoPressHold:
-			if (button.GetPressDurationMS(time_now) > dbl_press_delay)
+			if (button.GetPressDurationMS(time_now) > dbl_press_window)
 			{
 				button._btnState = BtnState::BtnPress;
 				// Don't reset timer to preserve hold press behaviour
@@ -1023,7 +1023,7 @@ public:
 			}
 			break;
 		case BtnState::DblPressPress:
-			button.ProcessButtonPress(pressed, time_now, getSetting(SettingID::TURBO_PERIOD), getSetting(SettingID::HOLD_PRESS_DELAY));
+			button.ProcessButtonPress(pressed, time_now, getSetting(SettingID::TURBO_PERIOD), getSetting(SettingID::HOLD_PRESS_TIME));
 			break;
 		default:
 			cout << "Invalid button state " << button._btnState << ": Resetting to NoPress" << endl;
@@ -1282,9 +1282,9 @@ static void resetAllMappings() {
 	flick_snap_mode.Reset();
 	trigger_skip_delay.Reset();
 	turbo_period.Reset();
-	hold_press_delay.Reset();
-	sim_press_delay.Reset();
-	dbl_press_delay.Reset();
+	hold_press_time.Reset();
+	sim_press_window.Reset();
+	dbl_press_window.Reset();
 
 	os_mouse_speed = 1.0f;
 	last_flick_and_rotation = 0.0f;
@@ -2107,11 +2107,11 @@ FloatXY filterFloatPair(FloatXY current, FloatXY next)
 
 float filterHoldPressDelay(float c, float next)
 {
-	if (next <= sim_press_delay || next >= dbl_press_delay)
+	if (next <= sim_press_window || next >= dbl_press_window)
 	{
-		cout << SettingID::HOLD_PRESS_DELAY << " can only be set to a value between those of " <<
-			SettingID::SIM_PRESS_DELAY << " (" << sim_press_delay << "ms) and " <<
-			SettingID::DBL_PRESS_DELAY << " (" << dbl_press_delay << "ms) exclusive." << endl;
+		cout << SettingID::HOLD_PRESS_TIME << " can only be set to a value between those of " <<
+			SettingID::SIM_PRESS_WINDOW << " (" << sim_press_window << "ms) and " <<
+			SettingID::DBL_PRESS_WINDOW << " (" << dbl_press_window << "ms) exclusive." << endl;
 		return c;
 	}
 	return next;
@@ -2355,9 +2355,9 @@ int main(int argc, char *argv[]) {
 	flick_snap_strength.SetFilter(&filterClamp01);
 	trigger_skip_delay.SetFilter(&filterPositive);
 	turbo_period.SetFilter(&filterPositive);
-	sim_press_delay.SetFilter(&filterPositive);
-	dbl_press_delay.SetFilter(&filterPositive);
-	hold_press_delay.SetFilter(&filterHoldPressDelay);
+	sim_press_window.SetFilter(&filterPositive);
+	dbl_press_window.SetFilter(&filterPositive);
+	hold_press_time.SetFilter(&filterHoldPressDelay);
 	currentWorkingDir.SetFilter( [] (PathString current, PathString next) { return SetCWD(string(next)) ? next : current; });
 	autoloadSwitch.SetFilter(&filterInvalidValue<Switch, Switch::INVALID>)->AddOnChangeListener(&UpdateAutoload);
 
@@ -2490,11 +2490,11 @@ int main(int argc, char *argv[]) {
 		->SetHelp("Sets the amount of time in milliseconds within which the user needs to reach the full press to skip the soft pull binding of the trigger."));
 	commandRegistry.Add((new JSMAssignment<float>(turbo_period))
 		->SetHelp("Sets the time in milliseconds to wait between each turbo activation."));
-	commandRegistry.Add((new JSMAssignment<float>(hold_press_delay))
+	commandRegistry.Add((new JSMAssignment<float>(hold_press_time))
 		->SetHelp("Sets the amount of time in milliseconds to hold a button before the hold press is enabled. Releasing the button before this time will trigger the tap press. Turbo press only starts after this delay."));
-	commandRegistry.Add((new JSMAssignment<float>("SIM_PRESS_DELAY", sim_press_delay))
+	commandRegistry.Add((new JSMAssignment<float>("SIM_PRESS_WINDOW", sim_press_window))
 		->SetHelp("Sets the amount of time in milliseconds within which both buttons of a simultaneous press needs to be pressed before enabling the sim press mappings. This setting does not support modeshift."));
-	commandRegistry.Add((new JSMAssignment<float>("DBL_PRESS_DELAY", dbl_press_delay))
+	commandRegistry.Add((new JSMAssignment<float>("DBL_PRESS_WINDOW", dbl_press_window))
 		->SetHelp("Sets the amount of time in milliseconds within which the user needs to press a button twice before enabling the double press mappings. This setting does not support modeshift."));
 	commandRegistry.Add((new JSMAssignment<PathString>("JSM_DIRECTORY", currentWorkingDir))
 		->SetHelp("If AUTOLOAD doesn't work properly, set this value to the path to the directory holding the JoyShockMapper.exe file. Make sure a folder named \"AutoLoad\" exists there."));
