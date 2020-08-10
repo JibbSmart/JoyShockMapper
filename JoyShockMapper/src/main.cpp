@@ -1311,7 +1311,7 @@ void connectDevices() {
 		auto type = JslGetControllerType(handle);
 		if (type == JS_TYPE_JOYCON_LEFT || type == JS_TYPE_JOYCON_RIGHT)
 		{
-			auto otherJoyCon = find_if(handle_to_joyshock.begin(), handle_to_joyshock.end(), 
+			auto otherJoyCon = find_if(handle_to_joyshock.begin(), handle_to_joyshock.end(),
 				[type](auto pair)
 				{
 					return type == JS_TYPE_JOYCON_LEFT  && pair.first == JS_TYPE_JOYCON_RIGHT ||
@@ -1811,7 +1811,7 @@ void joyShockPollCallback(int jcHandle, JOY_SHOCK_STATE state, JOY_SHOCK_STATE l
 			warpedStickLengthY *= jc->getSetting<FloatXY>(SettingID::STICK_SENS).second * jc->getSetting(SettingID::REAL_WORLD_CALIBRATION) / os_mouse_speed / jc->getSetting(SettingID::IN_GAME_SENS);
 			camSpeedX += calX / stickLength * warpedStickLengthX * jc->right_acceleration * deltaTime;
 			camSpeedY += calY / stickLength * warpedStickLengthY * jc->right_acceleration * deltaTime;
-			
+
 			if (rightPegged) {
 				jc->right_acceleration += jc->getSetting(SettingID::STICK_ACCELERATION_RATE) * deltaTime;
 				auto cap = jc->getSetting(SettingID::STICK_ACCELERATION_CAP);

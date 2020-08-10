@@ -171,6 +171,7 @@ public:
 	{}
 };
 
+// Needs to be accessed publicly
 extern WORD nameToKey(const std::string& name);
 
 struct KeyCode

@@ -5,7 +5,7 @@
 #include <iostream>
 #include <memory>
 #include <regex>
-#include <sstream>
+#include <string>
 #include <fstream>
 
 JSMCommand::JSMCommand(in_string name)
@@ -57,6 +57,10 @@ CmdRegistry::CmdRegistry()
 bool CmdRegistry::loadMappings(in_string fileName) {
 	// https://stackoverflow.com/questions/2602013/read-whole-ascii-file-into-c-stdstring
 	ifstream file(fileName);
+	if (!file.is_open())
+	{
+		file.open(std::string{ BASE_JSM_CONFIG_FOLDER() } + fileName);
+	}
 	if (file)
 	{
 		printf("Loading commands from file %s\n", fileName.c_str());
