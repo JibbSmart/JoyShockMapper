@@ -144,9 +144,6 @@ constexpr int NUM_ANALOG_TRIGGERS = int(LAST_ANALOG_TRIGGER) - int(FIRST_ANALOG_
 constexpr float MAGIC_TAP_DURATION = 40.0f; // in milliseconds
 constexpr float MAGIC_EXTENDED_TAP_DURATION = 500.0f; // in milliseconds
 
-//static_assert(MAGIC_SIM_DELAY < MAGIC_HOLD_TIME, "Simultaneous press delay has to be smaller than hold delay!");
-//static_assert(MAGIC_HOLD_TIME < MAGIC_DBL_PRESS_WINDOW, "Hold delay has to be smaller than double press window!");
-
 enum class RingMode { OUTER, INNER, INVALID };
 enum class StickMode { NO_MOUSE, AIM, FLICK, FLICK_ONLY, ROTATE_ONLY, MOUSE_RING, MOUSE_AREA, OUTER_RING, INNER_RING, INVALID };
 enum class FlickSnapMode { NONE, FOUR, EIGHT, INVALID };
@@ -160,8 +157,10 @@ enum class BtnState {
 	NoPress, BtnPress, TapRelease, WaitSim, SimPress, SimRelease,
 	DblPressStart, DblPressNoPressTap, DblPressNoPressHold, DblPressPress, INVALID
 };
-enum class ButtonEvent { OnPress, OnTap, OnHold, OnTurbo, OnRelease, OnTapRelease, OnHoldRelease, INVALID };
+enum class BtnEvent { OnPress, OnTap, OnHold, OnTurbo, OnRelease, OnTapRelease, OnHoldRelease, INVALID };
+enum class Switch : char { OFF, ON, INVALID, }; // Used to parse autoload assignment
 
+// Workaround default string streaming operator
 class PathString : public string // Should be wstring
 {
 public:
@@ -244,27 +243,30 @@ typedef function<void(DigitalButton *)> OnEventAction;
 // This structure handles the mapping of a button, buy processing and action
 // to be done on tap, hold, turbo and others. It holds a map of actions to perform
 // when a specific event happens. This replaces the old Mapping structure.
-struct Mapping
+class Mapping
 {
+public:
 	enum class ActionModifier { None, Toggle, Instant, INVALID};
 	enum class EventModifier { None, StartPress, ReleasePress, TurboPress, TapPress, HoldPress, INVALID };
+
 private:
-	map<ButtonEvent, OnEventAction> eventMapping;
+	map<BtnEvent, OnEventAction> eventMapping;
 	float tapDurationMs = MAGIC_TAP_DURATION;
 	string representation;
 
-	void InsertEventMapping(ButtonEvent evt, OnEventAction action);
+	void InsertEventMapping(BtnEvent evt, OnEventAction action);
 	static void RunAllActions(DigitalButton *btn, int numEventActions, ...);
+
 public:
 	Mapping() = default;
 
 	Mapping(int dummy) : Mapping() {}
 
-	void ProcessEvent(ButtonEvent evt, DigitalButton &button) const;
+	void ProcessEvent(BtnEvent evt, DigitalButton &button) const;
 
-	bool AddMapping(KeyCode key, ButtonEvent applyEvt, ButtonEvent releaseEvt, ActionModifier actMod = ActionModifier::None, EventModifier evtMod = EventModifier::None);
+	bool AddMapping(KeyCode key, BtnEvent applyEvt, BtnEvent releaseEvt, ActionModifier actMod = ActionModifier::None, EventModifier evtMod = EventModifier::None);
 	
-	inline bool AddMapping(KeyCode key, ButtonEvent applyEvt, ButtonEvent releaseEvt, EventModifier evtMod = EventModifier::None)
+	inline bool AddMapping(KeyCode key, BtnEvent applyEvt, BtnEvent releaseEvt, EventModifier evtMod = EventModifier::None)
 	{
 		return AddMapping(key, applyEvt, releaseEvt, ActionModifier::None, evtMod);
 	}
@@ -338,8 +340,8 @@ inline bool operator !=(const GyroSettings &lhs, const GyroSettings &rhs)
 	return !(lhs == rhs);
 }
 
-ostream &operator << (ostream &out, Mapping fxy);
-istream &operator >> (istream &in, Mapping &fxy);
+istream &operator >> (istream &in, Mapping &mapping);
+ostream &operator << (ostream &out, Mapping mapping);
 bool operator ==(const Mapping &lhs, const Mapping &rhs);
 inline bool operator !=(const Mapping &lhs, const Mapping &rhs)
 {

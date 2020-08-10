@@ -63,17 +63,10 @@ JSMSetting<float> hold_press_delay = JSMSetting<float>(SettingID::HOLD_PRESS_DEL
 JSMVariable<float> sim_press_delay = JSMVariable<float>(50.0f);
 JSMVariable<float> dbl_press_delay = JSMVariable<float>(200.0f);
 JSMVariable<PathString> currentWorkingDir = JSMVariable<PathString>(GetCWD());
+JSMVariable<Switch> autoloadSwitch = JSMVariable<Switch>(Switch::ON);
 vector<JSMButton> mappings; // array enables use of for each loop and other i/f
 
 mutex loading_lock;
-
-enum class Switch : char
-{
-	OFF,
-	ON,
-	INVALID, // required on parse error
-};
-JSMVariable<Switch> autoloadSwitch = JSMVariable<Switch>(Switch::ON);
 
 float os_mouse_speed = 1.0;
 float last_flick_and_rotation = 0.0;
@@ -134,29 +127,29 @@ public:
 			{
 				if (elapsed_time > hold_ms)
 				{
-					_keyToRelease->ProcessEvent(ButtonEvent::OnHold, *this);
-					_keyToRelease->ProcessEvent(ButtonEvent::OnTurbo, *this);
+					_keyToRelease->ProcessEvent(BtnEvent::OnHold, *this);
+					_keyToRelease->ProcessEvent(BtnEvent::OnTurbo, *this);
 					_turboCount++;
 				}
 			}
 			else if (floorf( (elapsed_time - hold_ms) / turbo_ms ) >= _turboCount)
 			{
-				_keyToRelease->ProcessEvent(ButtonEvent::OnTurbo, *this);
+				_keyToRelease->ProcessEvent(BtnEvent::OnTurbo, *this);
 				_turboCount++;
 			}
 		}
 		else // not pressed
 		{
-			_keyToRelease->ProcessEvent(ButtonEvent::OnRelease, *this);
+			_keyToRelease->ProcessEvent(BtnEvent::OnRelease, *this);
 			if (_turboCount == 0)
 			{
-				_keyToRelease->ProcessEvent(ButtonEvent::OnTap, *this);
+				_keyToRelease->ProcessEvent(BtnEvent::OnTap, *this);
 				_btnState = BtnState::TapRelease;
 				_press_times = time_now; // Start counting tap duration
 			}
 			else
 			{
-				_keyToRelease->ProcessEvent(ButtonEvent::OnHoldRelease, *this);
+				_keyToRelease->ProcessEvent(BtnEvent::OnHoldRelease, *this);
 				_btnState = BtnState::NoPress;
 				ClearKey();
 			}
@@ -293,13 +286,13 @@ public:
 	}
 };
 
-ostream &operator << (ostream &out, Mapping evtmap)
+ostream &operator << (ostream &out, Mapping mapping)
 {
-	out << evtmap.toString();
+	out << mapping.toString();
 	return out;
 }
 
-istream &operator >> (istream &in, Mapping &evtmap)
+istream &operator >> (istream &in, Mapping &mapping)
 {
 	string valueName(128, '\0');
 	in.getline(&valueName[0], valueName.size());
@@ -307,7 +300,7 @@ istream &operator >> (istream &in, Mapping &evtmap)
 	smatch results;
 	int count = 0;
 
-	evtmap.setRepresentation(valueName);
+	mapping.setRepresentation(valueName);
 
 	while (regex_match(valueName, results, regex(R"(\s*([!\^]?)([^\\\/+'_\s]*)([\\\/+'_]?)\s*(.*))")) && !results[0].str().empty())
 	{
@@ -330,15 +323,15 @@ istream &operator >> (istream &in, Mapping &evtmap)
 
 		KeyCode key(keyStr);
 
-		ButtonEvent applyEvt = count == 0 ? (leftovers.empty() ?  ButtonEvent::OnPress : ButtonEvent::OnTap) : ButtonEvent::OnHold;
-		ButtonEvent releaseEvt = count == 0 ? (leftovers.empty() ? ButtonEvent::OnRelease : ButtonEvent::OnTapRelease) : ButtonEvent::OnHoldRelease;
+		BtnEvent applyEvt = count == 0 ? (leftovers.empty() ?  BtnEvent::OnPress : BtnEvent::OnTap) : BtnEvent::OnHold;
+		BtnEvent releaseEvt = count == 0 ? (leftovers.empty() ? BtnEvent::OnRelease : BtnEvent::OnTapRelease) : BtnEvent::OnHoldRelease;
 
 		if (key.code == 0 ||
 			actMod == Mapping::ActionModifier::INVALID ||
 			evtMod == Mapping::EventModifier::INVALID ||
 			evtMod == Mapping::EventModifier::None && count >= 2 ||
 			evtMod == Mapping::EventModifier::ReleasePress && actMod == Mapping::ActionModifier::None ||
-			!evtmap.AddMapping(key, applyEvt, releaseEvt, actMod, evtMod))
+			!mapping.AddMapping(key, applyEvt, releaseEvt, actMod, evtMod))
 		{
 			//error!!!
 			in.setstate(in.failbit);
@@ -357,7 +350,7 @@ bool operator ==(const Mapping &lhs, const Mapping &rhs)
 }
 
 
-void Mapping::ProcessEvent(ButtonEvent evt, DigitalButton &button) const
+void Mapping::ProcessEvent(BtnEvent evt, DigitalButton &button) const
 {
 	// cout << button._id << " processes event " << evt << endl;
 	auto entry = eventMapping.find(evt);
@@ -368,16 +361,16 @@ void Mapping::ProcessEvent(ButtonEvent evt, DigitalButton &button) const
 	}
 }
 
-void Mapping::InsertEventMapping(ButtonEvent evt, OnEventAction action)
+void Mapping::InsertEventMapping(BtnEvent evt, OnEventAction action)
 {
 	auto existingActions = eventMapping.find(evt);
 	eventMapping[evt] = existingActions == eventMapping.end() ? action :
 		bind(&RunAllActions, placeholders::_1, 2, existingActions->second, action); // Chain with already existing mapping, if any
 }
 
-bool Mapping::AddMapping(KeyCode key, ButtonEvent applyEvt, ButtonEvent releaseEvt, ActionModifier actMod, EventModifier evtMod)
+bool Mapping::AddMapping(KeyCode key, BtnEvent applyEvt, BtnEvent releaseEvt, ActionModifier actMod, EventModifier evtMod)
 {
-	bool isTap = applyEvt == ButtonEvent::OnTap && releaseEvt == ButtonEvent::OnTapRelease;
+	bool isTap = applyEvt == BtnEvent::OnTap && releaseEvt == BtnEvent::OnTapRelease;
 	OnEventAction apply, release;
 	if (key.code == CALIBRATE)
 	{
@@ -399,23 +392,23 @@ bool Mapping::AddMapping(KeyCode key, ButtonEvent applyEvt, ButtonEvent releaseE
 
 	if (evtMod == EventModifier::StartPress)
 	{
-		applyEvt = ButtonEvent::OnPress;
-		releaseEvt = ButtonEvent::OnRelease;
+		applyEvt = BtnEvent::OnPress;
+		releaseEvt = BtnEvent::OnRelease;
 	}
 	else if (evtMod == EventModifier::TapPress)
 	{
-		applyEvt = ButtonEvent::OnTap;
-		releaseEvt = ButtonEvent::OnTapRelease;
+		applyEvt = BtnEvent::OnTap;
+		releaseEvt = BtnEvent::OnTapRelease;
 	}
 	else if (evtMod == EventModifier::HoldPress)
 	{
-		applyEvt = ButtonEvent::OnHold;
-		releaseEvt = ButtonEvent::OnHoldRelease;
+		applyEvt = BtnEvent::OnHold;
+		releaseEvt = BtnEvent::OnHoldRelease;
 	}
 	else if (evtMod == EventModifier::ReleasePress)
 	{
 		// Acttion Modifier is required
-		applyEvt = ButtonEvent::OnRelease;
+		applyEvt = BtnEvent::OnRelease;
 	}
 
 	if (actMod == ActionModifier::Toggle)
@@ -428,7 +421,7 @@ bool Mapping::AddMapping(KeyCode key, ButtonEvent applyEvt, ButtonEvent releaseE
 	}
 	else
 	{
-		if (applyEvt != ButtonEvent::OnHold || evtMod != EventModifier::TurboPress)
+		if (applyEvt != BtnEvent::OnHold || evtMod != EventModifier::TurboPress)
 		{
 			InsertEventMapping(applyEvt, apply);
 		}
@@ -437,7 +430,7 @@ bool Mapping::AddMapping(KeyCode key, ButtonEvent applyEvt, ButtonEvent releaseE
 
 	if (evtMod == EventModifier::TurboPress)
 	{
-		InsertEventMapping(ButtonEvent::OnTurbo, bind(&Mapping::RunAllActions, placeholders::_1, 2,
+		InsertEventMapping(BtnEvent::OnTurbo, bind(&Mapping::RunAllActions, placeholders::_1, 2,
 			eventMapping[releaseEvt], // Perform release event, and then
 			eventMapping[applyEvt])); // Perform apply event.
 	}
@@ -714,7 +707,7 @@ public:
 				opt = turbo_period.get(*activeChord);
 				break;
 			case SettingID::HOLD_PRESS_DELAY:
-				opt = turbo_period.get(*activeChord);
+				opt = hold_press_delay.get(*activeChord);
 				break;
 				// SIM_PRESS_DELAY and DBL_PRESS_DELAY are not chorded, they can be accessed as is.
 			}
@@ -902,7 +895,7 @@ public:
 				else
 				{
 					button._btnState = BtnState::BtnPress;
-					button.GetPressMapping()->ProcessEvent(ButtonEvent::OnPress, button);
+					button.GetPressMapping()->ProcessEvent(BtnEvent::OnPress, button);
 				}
 			}
 			break;
@@ -912,7 +905,7 @@ public:
 		case BtnState::TapRelease:
 			if (pressed || button.GetPressDurationMS(time_now) > button._keyToRelease->getTapDuration())
 			{
-				button.GetPressMapping()->ProcessEvent(ButtonEvent::OnTapRelease, button);
+				button.GetPressMapping()->ProcessEvent(BtnEvent::OnTapRelease, button);
 				button._btnState = BtnState::NoPress;
 				button.ClearKey();
 			}
@@ -932,7 +925,7 @@ public:
 				buttons[int(simMap->first)]._press_times = time_now;
 				buttons[int(simMap->first)].SyncSimPress(index, *simMap);
 
-				simMap->second.get().ProcessEvent(ButtonEvent::OnPress, button);
+				simMap->second.get().ProcessEvent(BtnEvent::OnPress, button);
 			}
 			else if (!pressed || button.GetPressDurationMS(time_now) > sim_press_delay)
 			{
@@ -946,7 +939,7 @@ public:
 				else
 				{
 					button._btnState = BtnState::BtnPress;
-					button.GetPressMapping()->ProcessEvent(ButtonEvent::OnPress, button);
+					button.GetPressMapping()->ProcessEvent(BtnEvent::OnPress, button);
 					//button._press_times = time_now;
 				}
 			}
@@ -981,7 +974,7 @@ public:
 		case BtnState::DblPressStart:
 			if (button.GetPressDurationMS(time_now) > dbl_press_delay)
 			{
-				button.GetPressMapping()->ProcessEvent(ButtonEvent::OnPress, button);
+				button.GetPressMapping()->ProcessEvent(BtnEvent::OnPress, button);
 				button._btnState = BtnState::BtnPress;
 				//button._press_times = time_now; // Reset Timer
 			}
@@ -1002,7 +995,7 @@ public:
 			{
 				button._btnState = BtnState::BtnPress;
 				button._press_times = time_now; // Reset Timer to raise a tap
-				button.GetPressMapping()->ProcessEvent(ButtonEvent::OnPress, button);
+				button.GetPressMapping()->ProcessEvent(BtnEvent::OnPress, button);
 			}
 			else if (pressed)
 			{
@@ -1010,7 +1003,7 @@ public:
 				button._press_times = time_now;
 				button._keyToRelease.reset(new Mapping(button._mapping.getDblPressMap()->second));
 				button._nameToRelease = button._mapping.getName(index);
-				button._mapping.getDblPressMap()->second.get().ProcessEvent(ButtonEvent::OnPress, button);
+				button._mapping.getDblPressMap()->second.get().ProcessEvent(BtnEvent::OnPress, button);
 			}
 			break;
 		case BtnState::DblPressNoPressHold:
@@ -1018,7 +1011,7 @@ public:
 			{
 				button._btnState = BtnState::BtnPress;
 				// Don't reset timer to preserve hold press behaviour
-				button.GetPressMapping()->ProcessEvent(ButtonEvent::OnPress, button);
+				button.GetPressMapping()->ProcessEvent(BtnEvent::OnPress, button);
 			}
 			else if (pressed)
 			{
@@ -1026,7 +1019,7 @@ public:
 				button._press_times = time_now;
 				button._keyToRelease.reset(new Mapping(button._mapping.getDblPressMap()->second));
 				button._nameToRelease = button._mapping.getName(index);
-				button._mapping.getDblPressMap()->second.get().ProcessEvent(ButtonEvent::OnPress, button);
+				button._mapping.getDblPressMap()->second.get().ProcessEvent(BtnEvent::OnPress, button);
 			}
 			break;
 		case BtnState::DblPressPress:
@@ -1107,7 +1100,7 @@ public:
 				triggerState[idxState] = DstState::QuickFullPress;
 				handleButtonChange(fullIndex, true);
 			}
-			else if (buttons[int(softIndex)].GetPressDurationMS(time_now) >= getSetting(SettingID::TRIGGER_SKIP_DELAY)) { // todo: get rid of magic number -- make this a user setting )
+			else if (buttons[int(softIndex)].GetPressDurationMS(time_now) >= getSetting(SettingID::TRIGGER_SKIP_DELAY)) {
 				triggerState[idxState] = DstState::SoftPress;
 				// Reset the time for hold soft press purposes.
 				buttons[int(softIndex)]._press_times = time_now;
@@ -1130,7 +1123,7 @@ public:
 			}
 			else
 			{
-				if (buttons[int(softIndex)].GetPressDurationMS(time_now) >= getSetting(SettingID::TRIGGER_SKIP_DELAY)) { // todo: get rid of magic number -- make this a user setting )
+				if (buttons[int(softIndex)].GetPressDurationMS(time_now) >= getSetting(SettingID::TRIGGER_SKIP_DELAY)) {
 					triggerState[idxState] = DstState::SoftPress;
 				}
 				handleButtonChange(softIndex, true);
@@ -1360,7 +1353,6 @@ void SimPressCrossUpdate(ButtonID sim, ButtonID origin, Mapping newVal)
 {
 	mappings[int(sim)].AtSimPress(origin)->operator= (newVal);
 }
-
 
 bool do_NO_GYRO_BUTTON() {
 	// TODO: handle chords
@@ -1971,7 +1963,7 @@ bool AutoLoadPoll(void *param)
 	if (!windowModule.empty() && windowModule != lastModuleName && windowModule.compare("JoyShockMapper.exe") != 0)
 	{
 		lastModuleName = windowModule;
-		string path(".\\AutoLoad\\");
+		string path(AUTOLOAD_FOLDER());
 		auto files = ListDirectory(path);
 		auto noextmodule = windowModule.substr(0, windowModule.find_first_of('.'));
 		printf("[AUTOLOAD] \"%s\" in focus: ", windowTitle.c_str()); // looking for config : " , );
@@ -2111,6 +2103,18 @@ FloatXY filterFloatPair(FloatXY current, FloatXY next)
 	return (fpclassify(next.x()) == FP_NORMAL || fpclassify(next.x()) == FP_ZERO) &&
 		   (fpclassify(next.y()) == FP_NORMAL || fpclassify(next.y()) == FP_ZERO) ?
 		next : current;
+}
+
+float filterHoldPressDelay(float c, float next)
+{
+	if (next <= sim_press_delay || next >= dbl_press_delay)
+	{
+		cout << SettingID::HOLD_PRESS_DELAY << " can only be set to a value between those of " <<
+			SettingID::SIM_PRESS_DELAY << " (" << sim_press_delay << "ms) and " <<
+			SettingID::DBL_PRESS_DELAY << " (" << dbl_press_delay << "ms) exclusive." << endl;
+		return c;
+	}
+	return next;
 }
 
 TriggerMode triggerModeNotification(TriggerMode current, TriggerMode next)
@@ -2353,21 +2357,8 @@ int main(int argc, char *argv[]) {
 	turbo_period.SetFilter(&filterPositive);
 	sim_press_delay.SetFilter(&filterPositive);
 	dbl_press_delay.SetFilter(&filterPositive);
-	hold_press_delay.SetFilter( [] (float c, float next)
-		{
-			if (next <= sim_press_delay || next >= dbl_press_delay)
-			{
-				cout << SettingID::HOLD_PRESS_DELAY << " can only be set to a value between those of " << 
-					SettingID::SIM_PRESS_DELAY << " (" << sim_press_delay << "ms) and " << 
-					SettingID::DBL_PRESS_DELAY << " (" << dbl_press_delay << "ms) exclusive." << endl;
-				return c;
-			}
-			return next;
-		});
-	currentWorkingDir.SetFilter([](PathString current, PathString next)
-		{
-			return SetCWD(string(next)) ? next : current;
-		});
+	hold_press_delay.SetFilter(&filterHoldPressDelay);
+	currentWorkingDir.SetFilter( [] (PathString current, PathString next) { return SetCWD(string(next)) ? next : current; });
 	autoloadSwitch.SetFilter(&filterInvalidValue<Switch, Switch::INVALID>)->AddOnChangeListener(&UpdateAutoload);
 
 	resetAllMappings();
@@ -2381,8 +2372,7 @@ int main(int argc, char *argv[]) {
 	}
 	else printf("[AUTOLOAD] AutoLoad is unavailable\n");
 
-	auto *autoloadCmd = new JSMAssignment<Switch>("AUTOLOAD", autoloadSwitch);
-	currentWorkingDir.AddOnChangeListener(bind(&RefreshAutoloadHelp, autoloadCmd));
+
 	for (auto &mapping : mappings) // Add all button mappings as commands
 	{
 		commandRegistry.Add(new JSMAssignment<Mapping>(mapping.getName(), mapping));
@@ -2468,7 +2458,9 @@ int main(int argc, char *argv[]) {
 		->SetHelp("Controllers with a right analog trigger can use one of the following dual stage trigger modes:\nNO_FULL, NO_SKIP, MAY_SKIP, MUST_SKIP, MAY_SKIP_R, MUST_SKIP_R"));
 	commandRegistry.Add((new JSMAssignment<TriggerMode>(zrMode))
 		->SetHelp("Controllers with a left analog trigger can use one of the following dual stage trigger modes:\nNO_FULL, NO_SKIP, MAY_SKIP, MUST_SKIP, MAY_SKIP_R, MUST_SKIP_R"));
-	commandRegistry.Add(autoloadCmd);
+	auto *autoloadCmd = new JSMAssignment<Switch>("AUTOLOAD", autoloadSwitch);
+	currentWorkingDir.AddOnChangeListener(bind(&RefreshAutoloadHelp, autoloadCmd));
+    commandRegistry.Add(autoloadCmd);
 	RefreshAutoloadHelp(autoloadCmd);
 	commandRegistry.Add((new JSMMacro("README"))->SetMacro(bind(&do_README))
 		->SetHelp("Open the latest JoyShockMapper README in your browser."));

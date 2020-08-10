@@ -1,10 +1,7 @@
 #pragma once
 
 #include "JoyShockMapper.h"
-//#include <functional>
-//#include <map>
 #include <sstream>
-//#include <algorithm>
 
 // Global ID generator
 static unsigned int _delegateID = 1;

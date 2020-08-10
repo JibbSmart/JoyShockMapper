@@ -101,7 +101,7 @@ protected:
 
 	void DisplayNewValue(T newValue)
 	{
-		// See Specialization for T=EventMapping at the end of this file
+		// See Specialization for T=Mapping at the end of this file
 		cout << _displayName << " has been set to " << newValue << endl;
 	}
 
@@ -188,7 +188,7 @@ public:
 	}
 };
 
-// Specialization for EventMapping
+// Specialization for Mapping
 template<>
 void JSMAssignment<Mapping>::DisplayNewValue(Mapping newValue)
 {
