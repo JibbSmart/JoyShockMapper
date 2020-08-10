@@ -21,7 +21,7 @@ const char *BASE_JSM_CONFIG_FOLDER = []{
 /// NONE
 /// And characters: ; ' , . / \ [ ] + - `
 /// Yes, this looks slow. But it's only there to help set up faster mappings
-WORD KeyCode::nameToKey(const std::string &name)
+WORD nameToKey(const std::string &name)
 {
 	// https://msdn.microsoft.com/en-us/library/dd375731%28v=vs.85%29.aspx?f=255&MSPPError=-2147217396
 	auto length = name.length();
