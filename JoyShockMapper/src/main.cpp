@@ -62,6 +62,7 @@ JSMSetting<float> turbo_period = JSMSetting<float>(SettingID::TURBO_PERIOD, 80.0
 JSMSetting<float> hold_press_delay = JSMSetting<float>(SettingID::HOLD_PRESS_DELAY, 150.0f);
 JSMVariable<float> sim_press_delay = JSMVariable<float>(50.0f);
 JSMVariable<float> dbl_press_delay = JSMVariable<float>(200.0f);
+JSMVariable<PathString> currentWorkingDir = JSMVariable<PathString>(GetCWD());
 vector<JSMButton> mappings; // array enables use of for each loop and other i/f
 
 mutex loading_lock;
@@ -1970,37 +1971,28 @@ bool AutoLoadPoll(void *param)
 	if (!windowModule.empty() && windowModule != lastModuleName && windowModule.compare("JoyShockMapper.exe") != 0)
 	{
 		lastModuleName = windowModule;
-		string cwd(GetCWD());
-		if (!cwd.empty())
+		string path(".\\AutoLoad\\");
+		auto files = ListDirectory(path);
+		auto noextmodule = windowModule.substr(0, windowModule.find_first_of('.'));
+		printf("[AUTOLOAD] \"%s\" in focus: ", windowTitle.c_str()); // looking for config : " , );
+		bool success = false;
+		for (auto file : files)
 		{
-			cwd.append("\\AutoLoad\\");
-			auto files = ListDirectory(cwd);
-			auto noextmodule = windowModule.substr(0, windowModule.find_first_of('.'));
-			printf("[AUTOLOAD] \"%s\" in focus: ", windowTitle.c_str()); // looking for config : " , );
-			bool success = false;
-			for (auto file : files)
+			auto noextconfig = file.substr(0, file.find_first_of('.'));
+			if (iequals(noextconfig, noextmodule))
 			{
-				auto noextconfig = file.substr(0, file.find_first_of('.'));
-				if (iequals(noextconfig, noextmodule))
-				{
-					printf("loading \"AutoLoad\\%s.txt\".\n", noextconfig.c_str());
-					loading_lock.lock();
-					registry->processLine(cwd + file);
-					loading_lock.unlock();
-					printf("[AUTOLOAD] Loading completed\n");
-					success = true;
-					break;
-				}
-			}
-			if (!success)
-			{
-				printf("create \"AutoLoad\\%s.txt\" to autoload for this application.\n", noextmodule.c_str());
+				printf("loading \"AutoLoad\\%s.txt\".\n", noextconfig.c_str());
+				loading_lock.lock();
+				registry->processLine(path + file);
+				loading_lock.unlock();
+				printf("[AUTOLOAD] Loading completed\n");
+				success = true;
+				break;
 			}
 		}
-		else
+		if (!success)
 		{
-			printf("[AUTOLOAD] ERROR could not load CWD. Disabling AUTOLOAD.");
-			return false;
+			printf("create \"AutoLoad\\%s.txt\" to autoload for this application.\n", noextmodule.c_str());
 		}
 	}
 	return true;
@@ -2043,8 +2035,7 @@ void beforeShowTrayMenu()
 			return devicesCalibrating;
 		});
 
-		//std::string cwd(GetCWD());
-		std::string autoloadFolder = "AutoLoad\\";
+		string autoloadFolder{ AUTOLOAD_FOLDER() };
 		for (auto file : ListDirectory(autoloadFolder.c_str()))
 		{
 			string fullPathName = autoloadFolder + file;
@@ -2055,7 +2046,7 @@ void beforeShowTrayMenu()
 				autoLoadThread->Stop();
 			});
 		}
-		std::string gyroConfigsFolder = "GyroConfigs\\";
+		std::string gyroConfigsFolder{ GYRO_CONFIGS_FOLDER() };
 		for (auto file : ListDirectory(gyroConfigsFolder.c_str()))
 		{
 			string fullPathName = gyroConfigsFolder + file;
@@ -2145,6 +2136,13 @@ void UpdateRingModeFromStickMode(JSMVariable<RingMode> *stickRingMode, StickMode
 	{
 		*stickRingMode = RingMode::OUTER;
 	}
+}
+
+void RefreshAutoloadHelp(JSMAssignment<Switch> *autoloadCmd)
+{
+	stringstream ss;
+	ss << "AUTOLOAD will attempt load a file from the following folder when a window with a matching executable name enters focus:" << endl << AUTOLOAD_FOLDER();
+	autoloadCmd->SetHelp(ss.str());
 }
 
 class GyroSensAssignment : public JSMAssignment<FloatXY>
@@ -2353,9 +2351,11 @@ int main(int argc, char *argv[]) {
 	flick_snap_strength.SetFilter(&filterClamp01);
 	trigger_skip_delay.SetFilter(&filterPositive);
 	turbo_period.SetFilter(&filterPositive);
+	sim_press_delay.SetFilter(&filterPositive);
+	dbl_press_delay.SetFilter(&filterPositive);
 	hold_press_delay.SetFilter( [] (float c, float next)
 		{
-			if (next <= sim_press_delay || next >= hold_press_delay)
+			if (next <= sim_press_delay || next >= dbl_press_delay)
 			{
 				cout << SettingID::HOLD_PRESS_DELAY << " can only be set to a value between those of " << 
 					SettingID::SIM_PRESS_DELAY << " (" << sim_press_delay << "ms) and " << 
@@ -2364,8 +2364,10 @@ int main(int argc, char *argv[]) {
 			}
 			return next;
 		});
-	sim_press_delay.SetFilter(&filterPositive);
-	dbl_press_delay.SetFilter(&filterPositive);
+	currentWorkingDir.SetFilter([](PathString current, PathString next)
+		{
+			return SetCWD(string(next)) ? next : current;
+		});
 	autoloadSwitch.SetFilter(&filterInvalidValue<Switch, Switch::INVALID>)->AddOnChangeListener(&UpdateAutoload);
 
 	resetAllMappings();
@@ -2375,11 +2377,12 @@ int main(int argc, char *argv[]) {
 	autoLoadThread.reset(new PollingThread(&AutoLoadPoll, &commandRegistry, 1000, true)); // Start by default
 	if (autoLoadThread && autoLoadThread->isRunning())
 	{
-		printf("AutoLoad is enabled. Configurations in \"%s\" folder will get loaded when matching application is in focus.\n", AUTOLOAD_FOLDER);
+		printf("AutoLoad is enabled. Configurations in \"%s\" folder will get loaded when matching application is in focus.\n", AUTOLOAD_FOLDER());
 	}
 	else printf("[AUTOLOAD] AutoLoad is unavailable\n");
 
-
+	auto *autoloadCmd = new JSMAssignment<Switch>("AUTOLOAD", autoloadSwitch);
+	currentWorkingDir.AddOnChangeListener(bind(&RefreshAutoloadHelp, autoloadCmd));
 	for (auto &mapping : mappings) // Add all button mappings as commands
 	{
 		commandRegistry.Add(new JSMAssignment<Mapping>(mapping.getName(), mapping));
@@ -2465,10 +2468,8 @@ int main(int argc, char *argv[]) {
 		->SetHelp("Controllers with a right analog trigger can use one of the following dual stage trigger modes:\nNO_FULL, NO_SKIP, MAY_SKIP, MUST_SKIP, MAY_SKIP_R, MUST_SKIP_R"));
 	commandRegistry.Add((new JSMAssignment<TriggerMode>(zrMode))
 		->SetHelp("Controllers with a left analog trigger can use one of the following dual stage trigger modes:\nNO_FULL, NO_SKIP, MAY_SKIP, MUST_SKIP, MAY_SKIP_R, MUST_SKIP_R"));
-	ss.clear();
-	ss << "AUTOLOAD will attempt load a file from the following folder when a window with a matching executable name enters focus:" << endl << GetCWD() << "\\AutoLoad\\";
-	commandRegistry.Add((new JSMAssignment<Switch>("AUTOLOAD", autoloadSwitch))
-		->SetHelp(ss.str()));
+	commandRegistry.Add(autoloadCmd);
+	RefreshAutoloadHelp(autoloadCmd);
 	commandRegistry.Add((new JSMMacro("README"))->SetMacro(bind(&do_README))
 		->SetHelp("Open the latest JoyShockMapper README in your browser."));
 	commandRegistry.Add((new JSMMacro("WHITELIST_SHOW"))->SetMacro(bind(&do_WHITELIST_SHOW))
@@ -2503,6 +2504,8 @@ int main(int argc, char *argv[]) {
 		->SetHelp("Sets the amount of time in milliseconds within which both buttons of a simultaneous press needs to be pressed before enabling the sim press mappings. This setting does not support modeshift."));
 	commandRegistry.Add((new JSMAssignment<float>("DBL_PRESS_DELAY", dbl_press_delay))
 		->SetHelp("Sets the amount of time in milliseconds within which the user needs to press a button twice before enabling the double press mappings. This setting does not support modeshift."));
+	commandRegistry.Add((new JSMAssignment<PathString>("JSM_DIRECTORY", currentWorkingDir))
+		->SetHelp("If AUTOLOAD doesn't work properly, set this value to the path to the directory holding the JoyShockMapper.exe file. Make sure a folder named \"AutoLoad\" exists there."));
 	commandRegistry.Add(new HelpCmd(commandRegistry));
 
 	bool quit = false;

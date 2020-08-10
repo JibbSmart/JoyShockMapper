@@ -187,3 +187,12 @@ istream& operator >> (istream& in, AxisMode& am)
 	}
 	return in;
 }
+
+istream& operator >> (istream& in, PathString& fxy)
+{
+	// 260 is windows MAX_PATH length
+	fxy.resize(260, '\0');
+	in.getline(&fxy[0], fxy.size());
+	fxy.resize(strlen(fxy.c_str()));
+	return in;
+}

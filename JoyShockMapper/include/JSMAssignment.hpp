@@ -29,7 +29,7 @@ protected:
 	{
 		smatch results;
 		_ASSERT_EXPR(_parse, L"There is no function defined to parse this command.");
-		if (arguments.compare("HELP") == 0)
+		if (arguments.compare(0, 4, "HELP") == 0)
 		{
 			// Parsing has failed. Show help.
 			cout << _help << endl;
@@ -39,12 +39,15 @@ protected:
 			string fwd_args(results.empty() ? arguments : results[1].str());
 			if (!_parse(this, fwd_args))
 			{
-				// Parsing has failed. Show help.
-				cout << _help << endl;
+				cout << _help << endl; // Parsing has failed. Show help.
 			}
-			return true; // Command is completely processed
 		}
-		return false; // Error in entering the command
+		else
+		{
+			// If no if case processed the command,; it has been entered wrong.
+			return false;
+		}
+		return true; // Command is completely processed
 	}
 
 	static bool ModeshiftParser(ButtonID modeshift, JSMSetting<T> *setting, JSMCommand* cmd, in_string argument)
@@ -82,7 +85,7 @@ protected:
 
 			// The assignment won't trigger my listener DisplayNewValue if
 			// the new value after filtering is the same as the old.
-			if (oldVal == inst->_var)
+			if (oldVal == inst->_var.get())
 			{
 				// So I want to do it myself.
 				inst->DisplayNewValue(inst->_var);
@@ -90,7 +93,7 @@ protected:
 
 			// Command succeeded if the value requested was the current one
 			// or if the new value is different from the old.
-			return value == oldVal || inst->_var != oldVal; // Command processed successfully
+			return value == oldVal || inst->_var.get() != oldVal; // Command processed successfully
 		}
 		// Couldn't read the value
 		return false;

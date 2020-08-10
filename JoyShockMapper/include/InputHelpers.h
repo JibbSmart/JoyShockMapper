@@ -75,6 +75,8 @@ std::vector<std::string> ListDirectory(std::string directory);
 
 std::string GetCWD();
 
+bool SetCWD(in_string newCWD);
+
 class PollingThread
 {
 public:

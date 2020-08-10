@@ -142,7 +142,8 @@ BOOL WriteToConsole(const std::string& command)
 		ir.EventType = KEY_EVENT;
 		ir.Event.KeyEvent.bKeyDown = TRUE;
 		ir.Event.KeyEvent.wRepeatCount = 1;
-		auto vkc = char(toupper(c));
+		string name(1, c);
+		auto vkc = nameToKey(name);
 		ir.Event.KeyEvent.wVirtualKeyCode = vkc;
 		ir.Event.KeyEvent.wVirtualScanCode = MapVirtualKey(vkc, MAPVK_VK_TO_VSC);
 		ir.Event.KeyEvent.uChar.UnicodeChar = c;
@@ -272,6 +273,11 @@ std::string GetCWD()
 	GetCurrentDirectoryA(cwd.size(), &cwd[0]);
 	cwd.resize(strlen(cwd.c_str()));
 	return cwd;
+}
+
+bool SetCWD(in_string newCWD)
+{
+	return SetCurrentDirectoryA(newCWD.c_str()) == TRUE;
 }
 
 PollingThread::~PollingThread()

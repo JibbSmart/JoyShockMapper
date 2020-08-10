@@ -3,17 +3,17 @@
 #include "JoyShockMapper.h"
 #include "InputHelpers.h"
 
-const char *AUTOLOAD_FOLDER = []{
+const char *AUTOLOAD_FOLDER() {
 	return _strdup((GetCWD() + "\\Autoload\\").c_str());
-}();
+};
 
-const char *GYRO_CONFIGS_FOLDER = []{
+const char *GYRO_CONFIGS_FOLDER() {
 	return _strdup((GetCWD() + "\\GyroConfigs\\").c_str());
-}();
+};
 
-const char *BASE_JSM_CONFIG_FOLDER = []{
+const char *BASE_JSM_CONFIG_FOLDER() {
 	return _strdup((GetCWD() + "\\").c_str());
-}();
+};
 
 /// Valid inputs:
 /// 0-9, N0-N9, F1-F29, A-Z, (L, R, )CONTROL, (L, R, )ALT, (L, R, )SHIFT, TAB, ENTER
@@ -21,7 +21,7 @@ const char *BASE_JSM_CONFIG_FOLDER = []{
 /// NONE
 /// And characters: ; ' , . / \ [ ] + - `
 /// Yes, this looks slow. But it's only there to help set up faster mappings
-WORD KeyCode::nameToKey(const std::string &name)
+WORD nameToKey(const std::string &name)
 {
 	// https://msdn.microsoft.com/en-us/library/dd375731%28v=vs.85%29.aspx?f=255&MSPPError=-2147217396
 	auto length = name.length();

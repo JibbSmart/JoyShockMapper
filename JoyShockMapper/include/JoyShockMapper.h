@@ -162,6 +162,17 @@ enum class BtnState {
 };
 enum class ButtonEvent { OnPress, OnTap, OnHold, OnTurbo, OnRelease, OnTapRelease, OnHoldRelease, INVALID };
 
+class PathString : public string // Should be wstring
+{
+public:
+	PathString() = default;
+	PathString(in_string path)
+		: string(path)
+	{}
+};
+
+extern WORD nameToKey(const std::string& name);
+
 struct KeyCode
 {
 	static const KeyCode EMPTY;
@@ -193,9 +204,6 @@ struct KeyCode
 	{
 		return !operator=(rhs);
 	}
-
-private:
-	static WORD nameToKey(const std::string &name);
 };
 
 // Used for XY pair values such as sensitivity or GyroSample
@@ -347,3 +355,5 @@ inline bool operator !=(const FloatXY &lhs, const FloatXY &rhs)
 
 istream& operator >> (istream& in, AxisMode& am);
 // AxisMode can use the templated operator for writing
+
+istream& operator >> (istream& in, PathString& fxy);
