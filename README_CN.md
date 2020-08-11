@@ -579,7 +579,7 @@ JoyCons和Pro控制器只能通过蓝牙连接。即使通过USB连接，它们�
 我是 Julian "Jibb" Smart, 我制作了JoyShockMapper. 从 v1.3开始, JoyShockMapper已经从大量的社区贡献中受益。非常感谢以下贡献者::
 * Nicolas
 * Bryan Rumsey
-* Al. Lopez
+* Contributer
 * Sunny Ye
 * Romeo Calota
 

@@ -83,7 +83,7 @@ Nicolas added double press bindings, improved chorded mapping behaviour when com
 * Fixed stick directional mappings to buttons not working as they should.
 
 ## 1.4.0
-In 1.4, Nicolas added simultaneous and chorded press mappings, ring bindings, and options to map a button to inverting gyro input. He also added a HELP shortcut to the latest version of the README and a tray icon (created by Bryan and coloured by Al) that gives easy access to configs and useful commands when JSM is minimised. Jibb added Bluetooth support for the DualShock 4.
+In 1.4, Nicolas added simultaneous and chorded press mappings, ring bindings, and options to map a button to inverting gyro input. He also added a HELP shortcut to the latest version of the README and a tray icon (created by Bryan and coloured by Contributer) that gives easy access to configs and useful commands when JSM is minimised. Jibb added Bluetooth support for the DualShock 4.
 
 ### Features
 * Simultaneous press - map a pair of inputs pressed at about the same time to a unique output.

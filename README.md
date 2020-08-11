@@ -670,7 +670,7 @@ Bluetooth support for the DualShock 4 is new in JoyShockMapper, and isn't workin
 I'm Julian "Jibb" Smart, and I made JoyShockMapper. As of version 1.3, JoyShockMapper has benefited from substantial community contributions. Huge thanks to the following contributors:
 * Nicolas (code)
 * Bryan Rumsey (icon art)
-* Al. Lopez (icon art)
+* Contributer (icon art)
 * Sunny Ye (translation)
 * Romeo Calota (linux and general portability)
 
