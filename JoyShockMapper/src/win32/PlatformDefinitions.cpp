@@ -3,17 +3,17 @@
 #include "JoyShockMapper.h"
 #include "InputHelpers.h"
 
-const char *AUTOLOAD_FOLDER = []{
+const char *AUTOLOAD_FOLDER() {
 	return _strdup((GetCWD() + "\\Autoload\\").c_str());
-}();
+};
 
-const char *GYRO_CONFIGS_FOLDER = []{
+const char *GYRO_CONFIGS_FOLDER() {
 	return _strdup((GetCWD() + "\\GyroConfigs\\").c_str());
-}();
+};
 
-const char *BASE_JSM_CONFIG_FOLDER = []{
+const char *BASE_JSM_CONFIG_FOLDER() {
 	return _strdup((GetCWD() + "\\").c_str());
-}();
+};
 
 /// Valid inputs:
 /// 0-9, N0-N9, F1-F29, A-Z, (L, R, )CONTROL, (L, R, )ALT, (L, R, )SHIFT, TAB, ENTER

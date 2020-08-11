@@ -17,10 +17,11 @@ JoyShockMapper works on Windows and uses JoyShockLibrary to read inputs from con
 * **[Commands](#commands)**
   * **[Digital Inputs](#1-digital-inputs)**
     * **[Tap & Hold](#11-tap--hold)**
-	* **[Simultaneous Press](#12-simultaneous-press)**
-	* **[Chorded Press](#13-chorded-press)**
-	* **[Double Press](#14-double-press)**
-	* **[Gyro Button](#15-gyro-button)**
+	* **[Binding Modifiers](#12-binding-modifiers)**
+	* **[Simultaneous Press](#13-simultaneous-press)**
+	* **[Chorded Press](#14-chorded-press)**
+	* **[Double Press](#15-double-press)**
+	* **[Gyro Button](#16-gyro-button)**
   * **[Analog Triggers](#2-analog-triggers)**
   * **[Stick Mouse Inputs](#3-stick-mouse-inputs)**
   * **[Gyro Mouse Inputs](#4-gyro-mouse-inputs)**
@@ -38,11 +39,17 @@ JoyShockMapper was written in C++ and is built using CMake.
 
 The project is structured into a set of platform-agnostic headers, while platform-specific source files can be found in their respective subdirectories.
 The following files are platform-agnostic:
-1. ```include/InputHelpers.h``` - This is platform agnostic declaration of wrappers for OS function calls and features.
-2. ```include/PlatformDefinitions.h``` - This is a set of declarations that create a common ground when dealing with platform-specific types and definitions.
-3. ```include/TrayIcon.h``` - This is a self contained module used to display in Windows an icon in the system tray with a contextual menu.
-4. ```include/Whitelister.h``` - This is another self contained Windows specific module that uses a socket to communicate with HIDCerberus and whitelist JSM, the Linux implementation, currently, is a stub.
-5. ```main.cpp``` - This does just about all the main logic of the application. It's perhaps a little big, but I've opted to keep the file structure simpler at the cost of having a big main file.
+1. ```include/JoyShockMapper.h``` - This header provides important type definitions that can be shared across the whole project. No variables are defined here, only constants.
+2. ```include/InputHelpers.h``` - This is platform agnostic declaration of wrappers for OS function calls and features.
+3. ```include/PlatformDefinitions.h``` - This is a set of declarations that create a common ground when dealing with platform-specific types and definitions.
+4. ```include/TrayIcon.h``` - This is a self contained module used to display in Windows an icon in the system tray with a contextual menu.
+5. ```include/Whitelister.h``` - This is another self contained Windows specific module that uses a socket to communicate with HIDCerberus and whitelist JSM, the Linux implementation, currently, is a stub.
+6. ```include/CmdRegistry.h``` - This header defines the base command type and the CmdRegistry class that processes them.
+7. ```include/JSMAssignment.hpp``` - Header for the templated class assignment commands
+8. ```include/JSMVariable.hpp``` - Header for the templated core variable class and a few derivatives.
+9. ```src/main.cpp``` - This does just about all the main logic of the application. The core processing logic should be kept in the other files as much as possible, and have the JSM specific logic in this file.
+10. ```src/CmdRegistry.cpp``` - Implementation for the command line processing entry point.
+11. ```src/operators.cpp``` - Implementation of all streaming and comparison operators for custom types declared in ```JoyShockMapper.h```
 
 The Windows implementation can be found in the following files:
 1. ```src/win32/InputHelpers.cpp```
@@ -91,6 +98,9 @@ Included is a folder called GyroConfigs. This includes templates for creating ne
 
 2. Run the JoyShockMapper executable, and you should see a console window welcoming you to JoyShockMapper.
     * If you want to connect your controller after starting JoyShockMapper, you can use the command RECONNECT\_CONTROLLERS to connect these controllers.
+	* The ```HELP``` command will show you the list of all available commands. You can display help from multiple commands at once by typing ```HELP [cmd1] [cmd2] ...```
+	* All settings can display their current value by typing entering it's name, and display their help by entering ```[cmd] HELP```
+	* Bring up the latest version of this README in your browser by entering ```README```
 
 3. Drag in a configuration file and hit enter to load all the settings in that file.
     * Configuration files are just text files. Every command in a text file is a command you can type directly into the console window yourself. See "Commands" below for a comprehensive guide to JoyShockMapper's commands.
@@ -104,7 +114,7 @@ Included is a folder called GyroConfigs. This includes templates for creating ne
 
 5. A good configuration file has also been calibrated to map sensitivity settings to useful real world values. This makes it easy to have consistent settings between different games that have different scales for their own sensitivity settings. See [Real World Calibration](#4-real-world-calibration) below for more info on that.
 
-6. JoyShockMapper can automatically load a configuration file for your games each time the game window enters focus. Drop the file in the **AutoLoad** folder, next to the executable. JoyShockMapper will look for a name based on the executable name of the program that's in focus. When it goes into focus and AUTOLOAD is enabled (which it is by default), JoyShockMapper will tell you the name of the file it's looking for - case insensitive. You can turn it off by entering the command ```AUTOLOAD = OFF```. You can enable it again with ```AUTOLOAD = ON```.
+6. JoyShockMapper can automatically load a configuration file for your games each time the game window enters focus. Drop the file in the **AutoLoad** folder, next to the executable. JoyShockMapper will look for a name based on the executable name of the program that's in focus. When it goes into focus and AUTOLOAD is enabled (which it is by default), JoyShockMapper will tell you the name of the file it's looking for - case insensitive. You can turn it off by entering the command ```AUTOLOAD = OFF```. You can enable it again with ```AUTOLOAD = ON```. If your files don't seem to get picked up, you can manually set where to look for the AutoLoad folder by entering the command ```JSM_DIRECTORY = C:\Program Files\JSM``` for example
 
 7. Games that have native support for your controller, such as *Apex Legends* with DualShock 4, sometimes don't have the option to ignore your controller. Projects like HIDGuardian / HIDCerberus allow you to mask devices from all application except those that you *whitelist*. If you do have HIDCerberus installed and running, JoyShockMapper can be added to the whitelist by entering the command ```WHITELIST_ADD```, removed with the command ```WHITELIST_REMOVE```, and you can display the HIDCerberus configuration page in your browser by entering ```WHITELIST_SHOW```.
 
@@ -192,18 +202,16 @@ UP, DOWN, LEFT, RIGHT: the arrow keys
 LCONTROL, RCONTROL, CONTROL: left Ctrl, right Ctrl, generic Ctrl, respectively
 LALT, RALT, ALT: left Alt, right Alt, generic Alt, respectively
 LSHIFT, RSHIFT, SHIFT: left Shift, right Shift, generic Shift, respectively
-TAB: Tab
-ESC: Escape
-ENTER: Enter
+TAB, ESC, ENTER, SPACE, BACKSPACE
+PAGEUP, PAGEDOWN, HOME, END, INSERT, DELETE, 
 LMOUSE, MMOUSE, RMOUSE: mouse left click, middle click and right click respectively
 BMOUSE, FMOUSE: mouse back (button 4) click and mouse forward (button 5) click respectively
 SCROLLUP, SCROLLDOWN: scroll the mouse wheel up, down, respectively
-PAGEUP, PAGEDOWN, HOME, END, INSERT, DELETE, BACKSPACE
 NONE: No input
 CALIBRATE: recalibrate gyro when pressing this input
 GYRO_ON, GYRO_OFF: Enable or disable gyro
 GYRO_INVERT, GYRO_INV_X, GYRO_INV_Y: Invert gyro, or in just the x or y axes, respectively
-; ' , . / \ [ ] + -
+; ' , . / \ [ ] + - `
 ```
 
 For example, in a game where R is 'reload' and E is 'use’, you can do the following to map □ to 'reload' and △ to 'use':
@@ -227,9 +235,41 @@ If you want □ to 'reload' when tapped, but do nothing at all when held, you ca
 W = R NONE
 ```
 
-Gyro-related tap bindings will apply for about half a second from releasing the tap, but other bindings will simulate a very quick button tap.
+The time to hold the button before enabling the hold binding can be changed by assigning a number of milliseconds to ```HOLD_PRESS_TIME```.
 
-#### 1.2 Simultaneous Press
+See the tap press and hold press event modifiers below for more details on how keybinds are applied.
+
+#### 1.2 Binding Modifiers
+
+There are two kinds of modifiers that can be applied to key bindings: action modifiers and event modifiers. They are represented by symbols added before and after the key name repectively. And each binding can only ever have one of each. You can however have multiple keys bound to the same events, thus sending multiple key presses at once.
+
+**Action modifiers** come in two kinds: **toggle (^)** and **instant (!)**. Using either of these modifiers will make it so that nothing is bound to the release of the button press.
+* ^ Toggle makes it so that the key will alternate between applying and releasing the key press at each press.
+* ! Instant sends both the key press and release at the same time
+
+**Event Modifiers** come in five kinds: **tap press (')**, **hold press (_)**, **start press (\\)**, **release press (/)** and **turbo (+)**.
+* ' Tap press is the default event modifier for the first key bind when there are multiple of them. It will apply the key press when the button is released if the total press time is less than the ```HOLD_PRESS_TIME```. The key press is released a short time after, with that time being longer for gyro related action and calibration, unless an action modifier instructs otherwise.
+* _ Hold press is the default event modifier for the second key bind when there are multiple of them. It will apply the key only after the button is held down for the defined amount of time. The key is released when the button is released as well, unless an action modifier instructs otherwise.
+* \\ Start press is the default event modifier when there is only a single key bind. It will apply the key press as soon as the button is pressed and releases the key when the button is released, unless an action modifier instructs otherwise. This can be useful to have a key held while other keys are being activated.
+* \/ Release press will apply the binding when the button is released. A binding on release press needs an action modifier to be valid.
+* \+ Turbo will apply a key press repeatedly (with consideration of action modifiers), resulting in a fast pulsing of the key. The turbo pulsing starts only after the button has been held for ```HOLD_PRESS_TIME```.
+
+These modifiers can enable you to work around in game tap and holds, or convert one form of press into another. Here's a few example of how you can make use of those modifiers.
+
+```
+ZL = ^RMOUSE RMOUSE  # ADS toggle on tap
+E  = !C\ !C/         # Convert in game toggle crouch to regular press
+UP = !1\ 1           # Convert Batarang throw double press to hold press
+W  = R E\            # In Halo MCC, reload on tap but apply E right away to cover for in-game hold processing
+-,S = SPACE+         # Turbo press for button mash QTEs. No one likes to button mash :(
+R3 = !1\ LMOUSE+ !Q/ # Half life melee button
+UP,UP = !ENTER\ LSHIFT\ !G\ !L\ !SPACE\ !H\ !F\ !ENTER/ # Pre recorded message
+UP,E = BACKSPACE+    # Erase pre recorded message if I change my mind
+```
+
+Take note that the Simultaneous Press and Double Press bindings (but not Chorded Press) below introduce delays in the raising of the events until the right mapping is determined. Time windows are not added but events will be pushed together within a frame or two.
+
+#### 1.3 Simultaneous Press
 JoyShockMapper additionally allows you to map simultaneous button presses to different mappings. For example you can bind character abilities on your bumpers and an ultimate ability on both like this:
 
 ```
@@ -238,9 +278,11 @@ R = E      # Ability 2
 L+R = Q    # Ultimate Ability
 ```
 
-To enable a simultaneous binding, both buttons need to be pressed within a very short time of each other. Doing so will ignore the individual button bindings and apply the specified binding until either of the button is released. Simultaneous bindings also support tap & hold bindings just like other mappings. This feature is great to make use of the dpad diagonals, or to add JSM specific features like gyro calibration and gyro control without taking away accessible buttons.
+To enable a simultaneous binding, both buttons need to be pressed within a very short time of each other. Doing so will ignore the individual button bindings and apply the specified binding until either of the button is released. Simultaneous bindings also support tap & hold bindings as well as modifiers just like other mappings. This feature is great to make use of the dpad diagonals, or to add JSM specific features like gyro calibration and gyro control without taking away accessible buttons.
 
-#### 1.3 Chorded Press
+The time window in which both buttons need to be pressed can be changed by assigning a different number of milliseconds to ```SIM_PRESS_WINDOW```. This setting cannot be changed by modeshift (covered later).
+
+#### 1.4 Chorded Press
 Chorded press works differently from Simultaneous Press, despite being similar at first blush. A chorded press mapping allows you to override a button mapping when the chord button is down. This enables a world of different practical combinations, allowing you to have contextual bindings. Here's an example for Left 4 Dead 2, that would enable you to equip items without lifting the thumb from the left stick.
 
 ```
@@ -258,17 +300,17 @@ L,N = F # Flashlight
 
 A button can be chorded with multiple other buttons. In this case, the latest chord takes precedence over previous chords. This can be understood as a stack of layers being put on top of the binding each time a chord is pressed, where only the top one is active. Notice that you don't need to have NONE as a binding. The chord binding could very well be bound to a button that brings up a weapon wheel for example.
 
-#### 1.4 Double Press
-You can also assign the double press of a button to a different binding. Double press notation is the same as chorded button notation, except the button is chorded with iteself. It supports taps and holds like all previous entries. 
+#### 1.5 Double Press
+You can also assign the double press of a button to a different binding. Double press notation is the same as chorded button notation, except the button is chorded with itself. It supports taps & holds and modifiers like all previous entries. 
 
 ```
 N = SCROLLDOWN # Cycle weapon
 N,N = X # Cycle weapon fire mode
 ```
 
-The double press binding is applied when a down press occurs within a fifth of a second from a first down press. In that period of time no other binding can be assumed, so regular taps will have the delay introduced. At this point in time the time window cannot be changed.
+The double press binding is applied when a down press occurs within a fifth of a second from a first down press. In that period of time no other binding can be assumed, so regular taps will have the delay introduced. This binding also supports tap & hold bindings as well as modifiers. The time window in which to perform the double press can be changed by assigning a different number of milliseconds to ```DBL_PRESS_WINDOW```. This setting cannot be changed by modeshift (covered later).
 
-#### 1.5 Gyro Button
+#### 1.6 Gyro Button
 Lastly, there is one digital input that works differently, because it can overlap with any other input. Well, two inputs, but you'll use at most one of them in a given configuration:
 
 ```
@@ -322,7 +364,7 @@ TRIGGER_THRESHOLD = 0.5   #Send Trigger values at half press
 
 The same threashold value is used for both triggers. A value of 1.0 or higher makes the binding impossible to reach, and a value below 0 makes it always pressed. 
 
-JoyShockMapper can assign different bindings to the full pull of the trigger, allowing you to have up to 4 bindings on each trigger when considering the hold bindings. The way the trigger handles these bindings is set with the variables ```ZR_MODE``` and ```ZL_MODE```, for R2 and L2 triggers. Once set, you can assign keys to ```ZRF``` and ```ZLF``` to make use of the R2 and L2 full pull bindings respectively. In this context, ```ZL``` and ```ZR``` are called the soft pull binding because they activate before the full pull binding at 100%. Here is the list of all possible trigger modes.
+JoyShockMapper can assign different bindings to the full pull of the trigger, allowing you to have up to 4 bindings on each trigger when considering the hold bindings. The way the trigger handles these bindings is set with the variables ```ZR_MODE``` and ```ZL_MODE```, for R2 and L2 triggers. Once set, you can assign keys to ```ZRF``` and ```ZLF``` to make use of the R2 and L2 full pull bindings respectively. In this context, ```ZL``` and ```ZR``` are called the soft pull binding because they activate before the full pull binding do at 100%. Here is the list of all possible trigger modes.
 
 ```
 NO_FULL (default): Ignore full pull binding. This mode is enforced on controllers who have digital triggers like the Pro Controller.
@@ -398,7 +440,7 @@ Let's have a look at all the different operations modes.
 
 When using the ```AIM``` stick mode, there are a few important commands:
 
-* **STICK\_SENS** (default 360.0 degrees per second) - How fast does the stick move the camera when tilted fully? The default, when calibrated correctly, is 360 degrees per second.
+* **STICK\_SENS** (default 360.0 degrees per second) - How fast does the stick move the camera when tilted fully? The default, when calibrated correctly, is 360 degrees per second. Assign a second value if you desire a different vertical sensitivity from the horizontal sensitivity.
 * **STICK\_POWER** (default 1.0) - What is the shape of the curve used for converting stick input to camera turn velocity? 1.0 is a simple linear relationship (half-tilting the stick will turn at half the velocity given by STICK\_SENS), 0.5 for square root, 2.0 for quadratic, etc. Minimum value is 0.0, which means any input beyond STICK\_DEADZONE\_INNER will be treated as a full press as far as STICK\_SENS is concerned.
 * **STICK\_AXIS\_X** and **STICK\_AXIS\_Y** (default STANDARD) - This allows you to invert stick axes if you wish. Your options are STANDARD (default) or INVERTED (flip the axis).
 * **STICK\_ACCELERATION\_RATE** (default 0.0 multiplier increase per second) - When the stick is pressed fully, this option allows you to increase the camera turning velocity over time. The unit for this setting is a multiplier for STICK\_SENS per second. For example, 2.0 with a STICK\_SENS of 100 will cause the camera turn rate to accelerate from 100 degrees per second to 300 degrees per second over 1 second.
@@ -554,9 +596,15 @@ With such a calibrated 2D game, you can choose your GYRO\_SENS or other settings
 
 ### 6. Modeshifts 
 
-All settings described in previous sections that are assignations (i.e.: uses an equal sign '=') can be chorded like a regular button mapping. This is called a modeshift because you are reconfiguring the controller when specific buttons are enabled. The only *exceptions* are ```AUTOLOAD=[ON|OFF]``` command which is excluded since it is not related to the controller mapping, and ```NO_GYRO_BUTTON``` because it's the same as ```GYRO_OFF = NONE```.
+Almost all settings described in previous sections that are assignations (i.e.: uses an equal sign '=') can be chorded like a regular button mapping. This is called a modeshift because you are reconfiguring the controller when specific buttons are enabled. The only *exceptions* are those listed here below.
+```
+AUTOLOAD
+JSM_DIRECTORY
+SIM_PRESS_WINDOW
+DBL_PRESS_WINDOW
+```
 
-For example in DOOM (2016), this can enable you to use the right stick when you bring up a weapon wheel:
+Here's some usage examples: in DOOM (2016), you can use the right stick when you bring up a weapon wheel even when using flick stick:
 
 ```
 RIGHT_STICK_MODE = FLICK # Use flick stick

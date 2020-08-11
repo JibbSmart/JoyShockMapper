@@ -275,6 +275,11 @@ std::string GetCWD()
 	return cwd;
 }
 
+bool SetCWD(in_string newCWD)
+{
+	return SetCurrentDirectoryA(newCWD.c_str()) == TRUE;
+}
+
 PollingThread::~PollingThread()
 {
 	if (_continue)

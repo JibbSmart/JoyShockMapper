@@ -4,6 +4,9 @@
 #include "PlatformDefinitions.h"
 #include "magic_enum.hpp"
 
+#include <map>
+#include <functional>
+
 // This header file is meant to be included among all core JSM source files
 // And as such it should contain only constants, types and functions related to them
 
@@ -126,6 +129,11 @@ enum class SettingID
 	ROTATE_SMOOTH_OVERRIDE, // = 83
 	FLICK_SNAP_MODE,		// = 84
 	FLICK_SNAP_STRENGTH,	// = 85
+	TRIGGER_SKIP_DELAY,
+	TURBO_PERIOD,
+	HOLD_PRESS_TIME,
+	SIM_PRESS_WINDOW, // Unchorded setting
+	DBL_PRESS_WINDOW,// Unchorded setting
 };
 
 // constexpr are like #define but with respect to typeness
@@ -133,14 +141,8 @@ constexpr int MAPPING_SIZE = int(ButtonID::SIZE);
 constexpr int FIRST_ANALOG_TRIGGER = int(ButtonID::ZLF);
 constexpr int LAST_ANALOG_TRIGGER = int(ButtonID::ZRF);
 constexpr int NUM_ANALOG_TRIGGERS = int(LAST_ANALOG_TRIGGER) - int(FIRST_ANALOG_TRIGGER) + 1;
-constexpr float MAGIC_DST_DELAY = 150.0f; // in milliseconds
 constexpr float MAGIC_TAP_DURATION = 40.0f; // in milliseconds
-constexpr float MAGIC_GYRO_TAP_DURATION = 500.0f; // in milliseconds
-constexpr float MAGIC_HOLD_TIME = 150.0f; // in milliseconds
-constexpr float MAGIC_SIM_DELAY = 50.0f; // in milliseconds
-constexpr float MAGIC_DBL_PRESS_WINDOW = 200.0f; // in milliseconds
-static_assert(MAGIC_SIM_DELAY < MAGIC_HOLD_TIME, "Simultaneous press delay has to be smaller than hold delay!");
-static_assert(MAGIC_HOLD_TIME < MAGIC_DBL_PRESS_WINDOW, "Hold delay has to be smaller than double press window!");
+constexpr float MAGIC_EXTENDED_TAP_DURATION = 500.0f; // in milliseconds
 
 enum class RingMode { OUTER, INNER, INVALID };
 enum class StickMode { NO_MOUSE, AIM, FLICK, FLICK_ONLY, ROTATE_ONLY, MOUSE_RING, MOUSE_AREA, OUTER_RING, INNER_RING, INVALID };
@@ -150,11 +152,22 @@ enum class TriggerMode { NO_FULL, NO_SKIP, MAY_SKIP, MUST_SKIP, MAY_SKIP_R, MUST
 enum class GyroAxisMask { NONE = 0, X = 1, Y = 2, Z = 4, INVALID = 8 };
 enum class JoyconMask { USE_BOTH, IGNORE_LEFT, IGNORE_RIGHT, IGNORE_BOTH, INVALID };
 enum class GyroIgnoreMode { BUTTON, LEFT_STICK, RIGHT_STICK, INVALID };
-enum class DstState { NoPress = 0, PressStart, QuickSoftTap, QuickFullPress, QuickFullRelease, SoftPress, DelayFullPress, PressStartResp, INVALID };
+enum class DstState { NoPress, PressStart, QuickSoftTap, QuickFullPress, QuickFullRelease, SoftPress, DelayFullPress, PressStartResp, INVALID };
 enum class BtnState {
-	NoPress = 0, BtnPress, WaitHold, HoldPress, TapRelease,
-	WaitSim, SimPress, WaitSimHold, SimHold, SimTapRelease, SimRelease,
-	DblPressStart, DblPressNoPress, DblPressPress, DblPressWaitHold, DblPressHold, INVALID
+	NoPress, BtnPress, TapRelease, WaitSim, SimPress, SimRelease,
+	DblPressStart, DblPressNoPressTap, DblPressNoPressHold, DblPressPress, INVALID
+};
+enum class BtnEvent { OnPress, OnTap, OnHold, OnTurbo, OnRelease, OnTapRelease, OnHoldRelease, INVALID };
+enum class Switch : char { OFF, ON, INVALID, }; // Used to parse autoload assignment
+
+// Workaround default string streaming operator
+class PathString : public string // Should be wstring
+{
+public:
+	PathString() = default;
+	PathString(in_string path)
+		: string(path)
+	{}
 };
 
 // Needs to be accessed publicly
@@ -165,14 +178,14 @@ struct KeyCode
 	static const KeyCode EMPTY;
 
 	WORD code;
-	std::string name;
+	string name;
 
 	inline KeyCode()
 		: code(0)
 		, name()
 	{}
 
-	inline KeyCode(const std::string &keyName)
+	inline KeyCode(in_string keyName)
 		: code(nameToKey(keyName))
 		, name(code != 0 ? keyName : string())
 	{}
@@ -180,6 +193,16 @@ struct KeyCode
 	inline operator bool()
 	{
 		return code != 0;
+	}
+
+	inline bool operator ==(const KeyCode& rhs)
+	{
+		return code == rhs.code && name == rhs.name;
+	}
+
+	inline bool operator !=(const KeyCode& rhs)
+	{
+		return !operator=(rhs);
 	}
 };
 
@@ -212,22 +235,71 @@ struct GyroSettings {
 	GyroSettings(int dummy) : GyroSettings() {}
 };
 
-// This structure holds information about a simple button binding that can possibly be held.
-// It also contains all alternate values it can provide via button combination.
-// The location of this element in the overarching data structure identifies to what button
-// the binding is bound.
-struct Mapping
-{
-	KeyCode pressBind; // Press or tap binding
-	KeyCode holdBind; // Hold binding if any.
 
-	Mapping(KeyCode press = KeyCode::EMPTY, KeyCode hold = KeyCode::EMPTY)
-		: pressBind(press)
-		, holdBind(hold)
-	{}
-	// This constructor is required to make use of the default value of JSMVariable's constructor
+class DigitalButton;
+
+typedef function<void(DigitalButton *)> OnEventAction;
+
+// This structure handles the mapping of a button, buy processing and action
+// to be done on tap, hold, turbo and others. It holds a map of actions to perform
+// when a specific event happens. This replaces the old Mapping structure.
+class Mapping
+{
+public:
+	enum class ActionModifier { None, Toggle, Instant, INVALID};
+	enum class EventModifier { None, StartPress, ReleasePress, TurboPress, TapPress, HoldPress, INVALID };
+
+private:
+	map<BtnEvent, OnEventAction> eventMapping;
+	float tapDurationMs = MAGIC_TAP_DURATION;
+	string representation;
+
+	void InsertEventMapping(BtnEvent evt, OnEventAction action);
+	static void RunAllActions(DigitalButton *btn, int numEventActions, ...);
+
+public:
+	Mapping() = default;
+
 	Mapping(int dummy) : Mapping() {}
+
+	void ProcessEvent(BtnEvent evt, DigitalButton &button) const;
+
+	bool AddMapping(KeyCode key, BtnEvent applyEvt, BtnEvent releaseEvt, ActionModifier actMod = ActionModifier::None, EventModifier evtMod = EventModifier::None);
+	
+	inline bool AddMapping(KeyCode key, BtnEvent applyEvt, BtnEvent releaseEvt, EventModifier evtMod = EventModifier::None)
+	{
+		return AddMapping(key, applyEvt, releaseEvt, ActionModifier::None, evtMod);
+	}
+
+	inline void setRepresentation(in_string rep)
+	{
+		representation = rep;
+	}
+
+	inline bool isEmpty() const
+	{
+		return eventMapping.empty();
+	}
+
+	inline string toString() const
+	{
+		return representation;
+	}
+
+	inline float getTapDuration() const
+	{
+		return tapDurationMs;
+	}
+
+	inline void clear()
+	{
+		eventMapping.clear();
+		representation.clear();
+		tapDurationMs = MAGIC_TAP_DURATION;
+	}
 };
+
+static Mapping NO_MAPPING; // Used as a constant but I don't have a clean way to initialize it from constructor
 
 // This function is defined in main.cpp. It enables two sim press variables to
 // listen to each other and make sure they both hold the same values.
@@ -268,8 +340,8 @@ inline bool operator !=(const GyroSettings &lhs, const GyroSettings &rhs)
 	return !(lhs == rhs);
 }
 
-istream &operator >>(istream &in, Mapping &mapping);
-ostream &operator <<(ostream &out, Mapping mapping);
+istream &operator >> (istream &in, Mapping &mapping);
+ostream &operator << (ostream &out, Mapping mapping);
 bool operator ==(const Mapping &lhs, const Mapping &rhs);
 inline bool operator !=(const Mapping &lhs, const Mapping &rhs)
 {
@@ -286,3 +358,5 @@ inline bool operator !=(const FloatXY &lhs, const FloatXY &rhs)
 
 istream& operator >> (istream& in, AxisMode& am);
 // AxisMode can use the templated operator for writing
+
+istream& operator >> (istream& in, PathString& fxy);

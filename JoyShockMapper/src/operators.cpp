@@ -136,39 +136,6 @@ bool operator ==(const GyroSettings &lhs, const GyroSettings &rhs)
 		   lhs.ignore_mode == rhs.ignore_mode;
 }
 
-istream &operator >>(istream &in, Mapping &mapping)
-{
-	string valueName(128, '\0');
-	in.getline(&valueName[0], valueName.size());
-	valueName.resize(strlen(valueName.c_str()));
-	stringstream ss(valueName);
-	valueName.clear();
-	ss >> valueName;
-	mapping.pressBind = KeyCode(valueName);
-	valueName.clear();
-	ss >> valueName;
-	mapping.holdBind = KeyCode(valueName);
-	if (mapping.pressBind.code == NO_HOLD_MAPPED && mapping.holdBind.code == 0)
-		// Assigning none is clearing the value.
-		mapping.pressBind = KeyCode::EMPTY;
-	return in;
-}
-
-ostream &operator <<(ostream &out, Mapping mapping)
-{
-	if (mapping.pressBind || mapping.holdBind)
-		out << mapping.pressBind.name << " " << mapping.holdBind.name;
-	else
-		out << "NONE";
-	return out;
-}
-
-bool operator ==(const Mapping &lhs, const Mapping &rhs)
-{
-	return lhs.pressBind.code == rhs.pressBind.code &&
-		   lhs.holdBind.code == rhs.holdBind.code;
-}
-
 ostream &operator << (ostream &out, FloatXY fxy)
 {
 	out << fxy.first;
@@ -218,5 +185,14 @@ istream& operator >> (istream& in, AxisMode& am)
 		auto opt = magic_enum::enum_cast<AxisMode>(name);
 		am = opt ? *opt : AxisMode::INVALID;
 	}
+	return in;
+}
+
+istream& operator >> (istream& in, PathString& fxy)
+{
+	// 260 is windows MAX_PATH length
+	fxy.resize(260, '\0');
+	in.getline(&fxy[0], fxy.size());
+	fxy.resize(strlen(fxy.c_str()));
 	return in;
 }

@@ -10,7 +10,7 @@
 
 JSMCommand::JSMCommand(in_string name)
 	: _parse()
-	, _help("Error in entering the command. See README for help.")
+	, _help("Error in entering the command. Enter README to bring up the user manual.")
 	, _taskOnDestruction()
 	, _name(name)
 {}
@@ -59,7 +59,7 @@ bool CmdRegistry::loadMappings(in_string fileName) {
 	ifstream file(fileName);
 	if (!file.is_open())
 	{
-		file.open(std::string{ BASE_JSM_CONFIG_FOLDER } + fileName);
+		file.open(std::string{ BASE_JSM_CONFIG_FOLDER() } + fileName);
 	}
 	if (file)
 	{
@@ -127,6 +127,7 @@ void CmdRegistry::processLine(const string& line)
 		// Break up the line of text in its relevant parts.
 		// Pro tip: use regex101.com to develop these beautiful monstrosities. :P
 		// Also, use raw strings R"(...)" to avoid the need to escape characters
+		// I dislike having to code in exception for + and - buttons not being \w characters
 		if (regex_match(trimmedLine, results, regex(R"(^\s*([+-]?\w*)\s*([,+]\s*(\w*))?\s*([^#\n]*)(#\s*(.*))?$)")))
 		{
 			if (results[2].length() > 0)

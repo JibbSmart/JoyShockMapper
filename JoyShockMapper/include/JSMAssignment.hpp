@@ -29,18 +29,23 @@ protected:
 	{
 		smatch results;
 		_ASSERT_EXPR(_parse, L"There is no function defined to parse this command.");
-		if (arguments.compare("HELP") == 0)
+		if (arguments.compare(0, 4, "HELP") == 0)
 		{
 			// Parsing has failed. Show help.
 			cout << _help << endl;
 		}
-		else if (regex_match(arguments, results, regex(R"(\s*=?\s*([\w\s]*))")))
+		else if (arguments.empty() || regex_match(arguments, results, regex(R"(\s*=\s*(.*))")))
 		{
-			if (!_parse(this, results[1]))
+			string fwd_args(results.empty() ? arguments : results[1].str());
+			if (!_parse(this, fwd_args))
 			{
-				// Parsing has failed. Show help.
-				cout << _help << endl;
+				cout << _help << endl; // Parsing has failed. Show help.
 			}
+		}
+		else
+		{
+			// If no if case processed the command,; it has been entered wrong.
+			return false;
 		}
 		return true; // Command is completely processed
 	}
@@ -80,7 +85,7 @@ protected:
 
 			// The assignment won't trigger my listener DisplayNewValue if
 			// the new value after filtering is the same as the old.
-			if (oldVal == inst->_var)
+			if (oldVal == inst->_var.get())
 			{
 				// So I want to do it myself.
 				inst->DisplayNewValue(inst->_var);
@@ -88,7 +93,7 @@ protected:
 
 			// Command succeeded if the value requested was the current one
 			// or if the new value is different from the old.
-			return value == oldVal || inst->_var != oldVal; // Command processed successfully
+			return value == oldVal || inst->_var.get() != oldVal; // Command processed successfully
 		}
 		// Couldn't read the value
 		return false;
@@ -167,6 +172,10 @@ public:
 		: JSMAssignment(name, name, var)
 	{ }
 
+	JSMAssignment(JSMSetting<T>& var)
+		: JSMAssignment(magic_enum::enum_name(var._id).data(), var)
+	{ }
+
 	virtual ~JSMAssignment()
 	{
 		_var.RemoveOnChangeListener(_listenerId);
@@ -183,18 +192,13 @@ public:
 template<>
 void JSMAssignment<Mapping>::DisplayNewValue(Mapping newValue)
 {
-	if (newValue.holdBind)
+	if (newValue.isEmpty())
 	{
-		cout << "Tap " << _name << " mapped to " << newValue.pressBind.name << endl
-			<< "Hold " << _name << " mapped to " << newValue.holdBind.name << endl;
-	}
-	else if(newValue.pressBind)
-	{
-		// Unambiguous call to display of mapping
-		cout << _name << " mapped to " << Mapping(newValue.pressBind) << endl;
+		cout << _name << " mapped to no input" << endl;
 	}
 	else
 	{
-		cout << _name << " mapped to no input" << endl;
+		// to be elaborated
+		cout << _name << " mapped to " << newValue.toString() << endl;
 	}
 }
