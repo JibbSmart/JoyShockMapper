@@ -64,8 +64,8 @@ int pressMouse(KeyCode vkKey, bool isPressed) {
 	input.mi.time = 0;
 	input.mi.dx = 0;
 	input.mi.dy = 0;
-	input.mi.dwFlags = isPressed ? std::get<0>(mouseMaps[vkKey]) : std::get<1>(mouseMaps[vkKey]);
-	input.mi.mouseData = std::get<2>(mouseMaps[vkKey]);
+	input.mi.dwFlags = isPressed ? std::get<0>(mouseMaps[vkKey.code]) : std::get<1>(mouseMaps[vkKey.code]);
+	input.mi.mouseData = std::get<2>(mouseMaps[vkKey.code]);
 	if (input.mi.dwFlags) { // Ignore if there's no event ID (ex: "wheel release")
 		return SendInput(1, &input, sizeof(input));
 	}
