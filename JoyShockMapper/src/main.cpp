@@ -13,6 +13,7 @@
 #define PI 3.14159265359f
 
 const KeyCode KeyCode::EMPTY = KeyCode();
+const Mapping Mapping::NO_MAPPING = Mapping("NONE");
 
 class JoyShock;
 void joyShockPollCallback(int jcHandle, JOY_SHOCK_STATE state, JOY_SHOCK_STATE lastState, IMU_STATE imuState, IMU_STATE lastImuState, float deltaTime);
@@ -104,9 +105,7 @@ public:
 		, _keyToRelease()
 		, _turboCount(0)
 		, _simPressMaster(ButtonID::NONE)
-	{
-
-	}
+	{}
 
 	const ButtonID _id; // Always ID first for easy debugging
 	Common &_common;
@@ -127,29 +126,29 @@ public:
 			{
 				if (elapsed_time > hold_ms)
 				{
-					_keyToRelease->ProcessEvent(BtnEvent::OnHold, *this);
-					_keyToRelease->ProcessEvent(BtnEvent::OnTurbo, *this);
+					_keyToRelease->ProcessEvent(BtnEvent::OnHold, *this, _nameToRelease);
+					_keyToRelease->ProcessEvent(BtnEvent::OnTurbo, *this, _nameToRelease);
 					_turboCount++;
 				}
 			}
 			else if (floorf( (elapsed_time - hold_ms) / turbo_ms ) >= _turboCount)
 			{
-				_keyToRelease->ProcessEvent(BtnEvent::OnTurbo, *this);
+				_keyToRelease->ProcessEvent(BtnEvent::OnTurbo, *this, _nameToRelease);
 				_turboCount++;
 			}
 		}
 		else // not pressed
 		{
-			_keyToRelease->ProcessEvent(BtnEvent::OnRelease, *this);
+			_keyToRelease->ProcessEvent(BtnEvent::OnRelease, *this, _nameToRelease);
 			if (_turboCount == 0)
 			{
-				_keyToRelease->ProcessEvent(BtnEvent::OnTap, *this);
+				_keyToRelease->ProcessEvent(BtnEvent::OnTap, *this, _nameToRelease);
 				_btnState = BtnState::TapRelease;
 				_press_times = time_now; // Start counting tap duration
 			}
 			else
 			{
-				_keyToRelease->ProcessEvent(BtnEvent::OnHoldRelease, *this);
+				_keyToRelease->ProcessEvent(BtnEvent::OnHoldRelease, *this, _nameToRelease);
 				_btnState = BtnState::NoPress;
 				ClearKey();
 			}
@@ -211,21 +210,16 @@ public:
 		}
 	}
 
-	void ApplyBtnPress(KeyCode keyCode, bool tap)
+	void ApplyBtnPress(KeyCode keyCode)
 	{
-		cout << _nameToRelease << ": " <<  (tap ? "tapped" : "true") << endl;
 		if(keyCode.code != NO_HOLD_MAPPED)
 		{
 			pressKey(keyCode, true);
 		}
 	}
 
-	void ApplyBtnRelease(KeyCode key, bool tap)
+	void ApplyBtnRelease(KeyCode key)
 	{
-		if (!tap)
-		{
-			printf("%s: false\n", _nameToRelease.c_str());
-		}
 		if (key.code != NO_HOLD_MAPPED)
 		{
 			pressKey(key, false);
@@ -323,15 +317,18 @@ istream &operator >> (istream &in, Mapping &mapping)
 
 		KeyCode key(keyStr);
 
-		BtnEvent applyEvt = count == 0 ? (leftovers.empty() ?  BtnEvent::OnPress : BtnEvent::OnTap) : BtnEvent::OnHold;
-		BtnEvent releaseEvt = count == 0 ? (leftovers.empty() ? BtnEvent::OnRelease : BtnEvent::OnTapRelease) : BtnEvent::OnHoldRelease;
+		if (evtMod == Mapping::EventModifier::None)
+		{
+			evtMod = count == 0 ? (leftovers.empty() ? Mapping::EventModifier::StartPress : Mapping::EventModifier::TapPress) : 
+				                         (count == 1 ? Mapping::EventModifier::HoldPress  : Mapping::EventModifier::None);
+		}
 
 		if (key.code == 0 ||
 			actMod == Mapping::ActionModifier::INVALID ||
 			evtMod == Mapping::EventModifier::INVALID ||
 			evtMod == Mapping::EventModifier::None && count >= 2 ||
 			evtMod == Mapping::EventModifier::ReleasePress && actMod == Mapping::ActionModifier::None ||
-			!mapping.AddMapping(key, applyEvt, releaseEvt, actMod, evtMod))
+			!mapping.AddMapping(key, evtMod, actMod))
 		{
 			//error!!!
 			in.setstate(in.failbit);
@@ -349,13 +346,38 @@ bool operator ==(const Mapping &lhs, const Mapping &rhs)
 	return lhs.toString() == rhs.toString();
 }
 
+Mapping::Mapping(in_string mapping)
+{
+	stringstream ss(mapping);
+	ss >> *this;
+	if (ss.fail())
+	{
+		clear();
+	}
+}
 
-void Mapping::ProcessEvent(BtnEvent evt, DigitalButton &button) const
+void Mapping::ProcessEvent(BtnEvent evt, DigitalButton &button, in_string displayName) const
 {
 	// cout << button._id << " processes event " << evt << endl;
 	auto entry = eventMapping.find(evt);
 	if (entry != eventMapping.end() && entry->second) // Skip over empty entries
 	{
+		switch (evt)
+		{
+		case BtnEvent::OnPress:
+			cout << displayName << ": true" << endl;
+			break;
+		case BtnEvent::OnRelease:
+		case BtnEvent::OnHoldRelease:
+			cout << displayName << ": false" << endl;
+			break;
+		case BtnEvent::OnTap:
+			cout << displayName << ": tapped" << endl;
+			break;
+		case BtnEvent::OnHold:
+			cout << displayName << ": held" << endl;
+			break;
+		}
 		//cout << button._id << " processes event " << evt << endl;
 		entry->second(&button);
 	}
@@ -368,9 +390,8 @@ void Mapping::InsertEventMapping(BtnEvent evt, OnEventAction action)
 		bind(&RunAllActions, placeholders::_1, 2, existingActions->second, action); // Chain with already existing mapping, if any
 }
 
-bool Mapping::AddMapping(KeyCode key, BtnEvent applyEvt, BtnEvent releaseEvt, ActionModifier actMod, EventModifier evtMod)
+bool Mapping::AddMapping(KeyCode key, EventModifier evtMod, ActionModifier actMod)
 {
-	bool isTap = applyEvt == BtnEvent::OnTap && releaseEvt == BtnEvent::OnTapRelease;
 	OnEventAction apply, release;
 	if (key.code == CALIBRATE)
 	{
@@ -386,54 +407,57 @@ bool Mapping::AddMapping(KeyCode key, BtnEvent applyEvt, BtnEvent releaseEvt, Ac
 	}
 	else // if (key.code != NO_HOLD_MAPPED)
 	{
-		apply = bind(&DigitalButton::ApplyBtnPress, placeholders::_1, key, isTap);
-		release = bind(&DigitalButton::ApplyBtnRelease, placeholders::_1, key, isTap);
+		apply = bind(&DigitalButton::ApplyBtnPress, placeholders::_1, key);
+		release = bind(&DigitalButton::ApplyBtnRelease, placeholders::_1, key);
 	}
 
-	if (evtMod == EventModifier::StartPress)
+	BtnEvent applyEvt, releaseEvt;
+	switch(evtMod)
 	{
+	case EventModifier::StartPress:
 		applyEvt = BtnEvent::OnPress;
 		releaseEvt = BtnEvent::OnRelease;
-	}
-	else if (evtMod == EventModifier::TapPress)
-	{
+		break;
+	case EventModifier::TapPress:
 		applyEvt = BtnEvent::OnTap;
 		releaseEvt = BtnEvent::OnTapRelease;
-	}
-	else if (evtMod == EventModifier::HoldPress)
-	{
+		break;
+	case EventModifier::HoldPress:
 		applyEvt = BtnEvent::OnHold;
 		releaseEvt = BtnEvent::OnHoldRelease;
-	}
-	else if (evtMod == EventModifier::ReleasePress)
-	{
+		break;
+	case EventModifier::ReleasePress:
 		// Acttion Modifier is required
 		applyEvt = BtnEvent::OnRelease;
+		releaseEvt = BtnEvent::INVALID;
+		break;
+	case EventModifier::TurboPress:
+		applyEvt = BtnEvent::OnTurbo;
+		releaseEvt = BtnEvent::OnTurbo;
+		break;
+	default: // EventModifier::INVALID or None
+		return false;
 	}
 
-	if (actMod == ActionModifier::Toggle)
+	switch (actMod)
 	{
-		InsertEventMapping(applyEvt, bind(&DigitalButton::ApplyButtonToggle, placeholders::_1, key, apply, release));
-	}
-	else if (actMod == ActionModifier::Instant)
-	{
-		InsertEventMapping(applyEvt, bind(&Mapping::RunAllActions, placeholders::_1, 2, apply, release));
-	}
-	else
-	{
-		if (applyEvt != BtnEvent::OnHold || evtMod != EventModifier::TurboPress)
-		{
-			InsertEventMapping(applyEvt, apply);
-		}
-		InsertEventMapping(releaseEvt, release);
+	case ActionModifier::Toggle:
+		//InsertEventMapping(applyEvt, bind(&DigitalButton::ApplyButtonToggle, placeholders::_1, key, apply, release));
+		apply = bind(&DigitalButton::ApplyButtonToggle, placeholders::_1, key, apply, release);
+		release = OnEventAction();
+		break;
+	case ActionModifier::Instant:
+		//InsertEventMapping(applyEvt, bind(&Mapping::RunAllActions, placeholders::_1, 2, apply, release));
+		apply = bind(&Mapping::RunAllActions, placeholders::_1, 2, apply, release);
+		break;
+	case ActionModifier::INVALID:
+		return false;
+	// None applies no modification... Hey!
 	}
 
-	if (evtMod == EventModifier::TurboPress)
-	{
-		InsertEventMapping(BtnEvent::OnTurbo, bind(&Mapping::RunAllActions, placeholders::_1, 2,
-			eventMapping[releaseEvt], // Perform release event, and then
-			eventMapping[applyEvt])); // Perform apply event.
-	}
+	// Insert release first because in turbo's case apply and release are the same but we want release to apply first
+	InsertEventMapping(releaseEvt, release);
+	InsertEventMapping(applyEvt, apply);
 	return true;
 }
 
@@ -895,7 +919,7 @@ public:
 				else
 				{
 					button._btnState = BtnState::BtnPress;
-					button.GetPressMapping()->ProcessEvent(BtnEvent::OnPress, button);
+					button.GetPressMapping()->ProcessEvent(BtnEvent::OnPress, button, button._nameToRelease);
 				}
 			}
 			break;
@@ -905,7 +929,7 @@ public:
 		case BtnState::TapRelease:
 			if (pressed || button.GetPressDurationMS(time_now) > button._keyToRelease->getTapDuration())
 			{
-				button.GetPressMapping()->ProcessEvent(BtnEvent::OnTapRelease, button);
+				button.GetPressMapping()->ProcessEvent(BtnEvent::OnTapRelease, button, button._nameToRelease);
 				button._btnState = BtnState::NoPress;
 				button.ClearKey();
 			}
@@ -925,7 +949,7 @@ public:
 				buttons[int(simMap->first)]._press_times = time_now;
 				buttons[int(simMap->first)].SyncSimPress(index, *simMap);
 
-				simMap->second.get().ProcessEvent(BtnEvent::OnPress, button);
+				simMap->second.get().ProcessEvent(BtnEvent::OnPress, button, button._nameToRelease);
 			}
 			else if (!pressed || button.GetPressDurationMS(time_now) > sim_press_window)
 			{
@@ -939,7 +963,7 @@ public:
 				else
 				{
 					button._btnState = BtnState::BtnPress;
-					button.GetPressMapping()->ProcessEvent(BtnEvent::OnPress, button);
+					button.GetPressMapping()->ProcessEvent(BtnEvent::OnPress, button, button._nameToRelease);
 					//button._press_times = time_now;
 				}
 			}
@@ -974,7 +998,7 @@ public:
 		case BtnState::DblPressStart:
 			if (button.GetPressDurationMS(time_now) > dbl_press_window)
 			{
-				button.GetPressMapping()->ProcessEvent(BtnEvent::OnPress, button);
+				button.GetPressMapping()->ProcessEvent(BtnEvent::OnPress, button, button._nameToRelease);
 				button._btnState = BtnState::BtnPress;
 				//button._press_times = time_now; // Reset Timer
 			}
@@ -995,7 +1019,7 @@ public:
 			{
 				button._btnState = BtnState::BtnPress;
 				button._press_times = time_now; // Reset Timer to raise a tap
-				button.GetPressMapping()->ProcessEvent(BtnEvent::OnPress, button);
+				button.GetPressMapping()->ProcessEvent(BtnEvent::OnPress, button, button._nameToRelease);
 			}
 			else if (pressed)
 			{
@@ -1003,7 +1027,7 @@ public:
 				button._press_times = time_now;
 				button._keyToRelease.reset(new Mapping(button._mapping.getDblPressMap()->second));
 				button._nameToRelease = button._mapping.getName(index);
-				button._mapping.getDblPressMap()->second.get().ProcessEvent(BtnEvent::OnPress, button);
+				button._mapping.getDblPressMap()->second.get().ProcessEvent(BtnEvent::OnPress, button, button._nameToRelease);
 			}
 			break;
 		case BtnState::DblPressNoPressHold:
@@ -1011,7 +1035,7 @@ public:
 			{
 				button._btnState = BtnState::BtnPress;
 				// Don't reset timer to preserve hold press behaviour
-				button.GetPressMapping()->ProcessEvent(BtnEvent::OnPress, button);
+				button.GetPressMapping()->ProcessEvent(BtnEvent::OnPress, button, button._nameToRelease);
 			}
 			else if (pressed)
 			{
@@ -1019,7 +1043,7 @@ public:
 				button._press_times = time_now;
 				button._keyToRelease.reset(new Mapping(button._mapping.getDblPressMap()->second));
 				button._nameToRelease = button._mapping.getName(index);
-				button._mapping.getDblPressMap()->second.get().ProcessEvent(BtnEvent::OnPress, button);
+				button._mapping.getDblPressMap()->second.get().ProcessEvent(BtnEvent::OnPress, button, button._nameToRelease);
 			}
 			break;
 		case BtnState::DblPressPress:
@@ -2117,6 +2141,11 @@ float filterHoldPressDelay(float c, float next)
 	return next;
 }
 
+Mapping filterMapping(Mapping current, Mapping next)
+{
+	return next.isValid() ? next : current;
+}
+
 TriggerMode triggerModeNotification(TriggerMode current, TriggerMode next)
 {
 	for (auto js : handle_to_joyshock)
@@ -2289,15 +2318,14 @@ int main(int argc, char *argv[]) {
 #endif // _WIN32
 	mappings.reserve(MAPPING_SIZE);
 	Mapping calibrationDefault;
-	stringstream ss("^CALIBRATE CALIBRATE");
-	ss >> calibrationDefault;
-	ss.clear();
-	ss.str("NONE");
-	ss >> NO_MAPPING;
+	calibrationDefault.AddMapping(KeyCode("CALIBRATE"), Mapping::EventModifier::TapPress , Mapping::ActionModifier::Toggle);
+	calibrationDefault.AddMapping(KeyCode("CALIBRATE"), Mapping::EventModifier::HoldPress);
 	for (int id = 0; id < MAPPING_SIZE; ++id)
 	{
-		Mapping def = (id == int(ButtonID::HOME) || id == int(ButtonID::CAPTURE)) ? calibrationDefault : NO_MAPPING;
-		mappings.push_back(JSMButton(ButtonID(id), def));
+		Mapping def = (id == int(ButtonID::HOME) || id == int(ButtonID::CAPTURE)) ? calibrationDefault : Mapping::NO_MAPPING;
+		JSMButton newButton(ButtonID(id), def);
+		newButton.SetFilter(&filterMapping);
+		mappings.push_back(newButton);
 	}
 	tray.reset(new TrayIcon(trayIconData, &beforeShowTrayMenu ));
 	// console
