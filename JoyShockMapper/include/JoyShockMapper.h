@@ -249,6 +249,9 @@ public:
 	enum class ActionModifier { None, Toggle, Instant, INVALID};
 	enum class EventModifier { None, StartPress, ReleasePress, TurboPress, TapPress, HoldPress, INVALID };
 
+	// Identifies having no binding mapped
+	static const Mapping NO_MAPPING;
+
 private:
 	map<BtnEvent, OnEventAction> eventMapping;
 	float tapDurationMs = MAGIC_TAP_DURATION;
@@ -260,25 +263,22 @@ private:
 public:
 	Mapping() = default;
 
+	Mapping(in_string mapping);
+
 	Mapping(int dummy) : Mapping() {}
 
-	void ProcessEvent(BtnEvent evt, DigitalButton &button) const;
+	void ProcessEvent(BtnEvent evt, DigitalButton &button, in_string displayName) const;
 
-	bool AddMapping(KeyCode key, BtnEvent applyEvt, BtnEvent releaseEvt, ActionModifier actMod = ActionModifier::None, EventModifier evtMod = EventModifier::None);
-	
-	inline bool AddMapping(KeyCode key, BtnEvent applyEvt, BtnEvent releaseEvt, EventModifier evtMod = EventModifier::None)
-	{
-		return AddMapping(key, applyEvt, releaseEvt, ActionModifier::None, evtMod);
-	}
+	bool AddMapping(KeyCode key, EventModifier evtMod, ActionModifier actMod = ActionModifier::None);
 
 	inline void setRepresentation(in_string rep)
 	{
 		representation = rep;
 	}
 
-	inline bool isEmpty() const
+	inline bool isValid() const
 	{
-		return eventMapping.empty();
+		return !eventMapping.empty();
 	}
 
 	inline string toString() const
@@ -298,8 +298,6 @@ public:
 		tapDurationMs = MAGIC_TAP_DURATION;
 	}
 };
-
-static Mapping NO_MAPPING; // Used as a constant but I don't have a clean way to initialize it from constructor
 
 // This function is defined in main.cpp. It enables two sim press variables to
 // listen to each other and make sure they both hold the same values.

@@ -192,7 +192,7 @@ public:
 template<>
 void JSMAssignment<Mapping>::DisplayNewValue(Mapping newValue)
 {
-	if (newValue.isEmpty())
+	if (newValue == Mapping::NO_MAPPING)
 	{
 		cout << _name << " mapped to no input" << endl;
 	}
