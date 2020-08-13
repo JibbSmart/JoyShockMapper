@@ -290,14 +290,17 @@ public:
 	// Returns the display name of the chorded press if provided, or itself
 	string getName(ButtonID chord = ButtonID::NONE) const
 	{
+		stringstream ss;
 		if (chord > ButtonID::NONE)
 		{
-			stringstream ss;
 			ss << chord << ',' << _id;
 			return ss.str();
 		}
 		else if (chord != ButtonID::INVALID)
-			return string(magic_enum::enum_name(_id));
+		{
+			ss << _id;
+			return ss.str();
+		}
 		else
 			return string();
 	}
