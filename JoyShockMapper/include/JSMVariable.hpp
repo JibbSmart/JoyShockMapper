@@ -290,14 +290,17 @@ public:
 	// Returns the display name of the chorded press if provided, or itself
 	string getName(ButtonID chord = ButtonID::NONE) const
 	{
+		stringstream ss;
 		if (chord > ButtonID::NONE)
 		{
-			stringstream ss;
 			ss << chord << ',' << _id;
 			return ss.str();
 		}
 		else if (chord != ButtonID::INVALID)
-			return string(magic_enum::enum_name(_id));
+		{
+			ss << _id;
+			return ss.str();
+		}
 		else
 			return string();
 	}
@@ -355,7 +358,7 @@ public:
 
 	void ProcessChordRemoval(ButtonID chord, const JSMVariable<Mapping> *value)
 	{
-		if (value && value->get() == NO_MAPPING)
+		if (value && value->get() == Mapping::NO_MAPPING)
 		{
 			auto chordVar = _chordedVariables.find(chord);
 			if (chordVar != _chordedVariables.end())
@@ -367,7 +370,7 @@ public:
 
 	void ProcessSimPressRemoval(ButtonID chord, const JSMVariable<Mapping> *value)
 	{
-		if (value && value->get() == NO_MAPPING)
+		if (value && value->get() == Mapping::NO_MAPPING)
 		{
 			auto chordVar = _simMappings.find(chord);
 			if (chordVar != _simMappings.end())
