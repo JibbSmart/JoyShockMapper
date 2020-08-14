@@ -2379,7 +2379,7 @@ int main(int argc, char *argv[]) {
 	mouse_ring_radius.SetFilter([](float c, float n) { return n <= screen_resolution_y ? floorf(n) : c; });
 	screen_resolution_x.SetFilter(&filterPositive);
 	screen_resolution_y.SetFilter(&filterPositive);
-	rotate_smooth_override.SetFilter(&filterClamp01);
+	// no filtering for rotate_smooth_override
 	flick_snap_strength.SetFilter(&filterClamp01);
 	trigger_skip_delay.SetFilter(&filterPositive);
 	turbo_period.SetFilter(&filterPositive);

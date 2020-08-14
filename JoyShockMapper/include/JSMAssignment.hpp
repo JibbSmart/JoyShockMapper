@@ -107,8 +107,10 @@ protected:
 
 	virtual unique_ptr<JSMCommand> GetModifiedCmd(char op, in_string chord) override
 	{
-		auto btn = magic_enum::enum_cast<ButtonID>(chord);
-		if (btn && *btn > ButtonID::NONE)
+		stringstream ss(chord);
+		ButtonID btn;
+		ss >> btn;
+		if (btn > ButtonID::NONE)
 		{
 			if (op == ',')
 			{
@@ -117,19 +119,19 @@ protected:
 				{
 					//Create Modeshift
 					string name = chord + op + _displayName;
-					unique_ptr<JSMCommand> chordAssignment(new JSMAssignment<T>(name, *settingVar->AtChord(*btn)));
-					chordAssignment->SetHelp(_help)->SetParser(bind(&JSMAssignment<T>::ModeshiftParser, *btn, settingVar, placeholders::_1, placeholders::_2))
-						->SetTaskOnDestruction(bind(&JSMSetting<T>::ProcessModeshiftRemoval, settingVar, *btn));
+					unique_ptr<JSMCommand> chordAssignment(new JSMAssignment<T>(name, *settingVar->AtChord(btn)));
+					chordAssignment->SetHelp(_help)->SetParser(bind(&JSMAssignment<T>::ModeshiftParser, btn, settingVar, placeholders::_1, placeholders::_2))
+						->SetTaskOnDestruction(bind(&JSMSetting<T>::ProcessModeshiftRemoval, settingVar, btn));
 					return chordAssignment;
 				}
 				auto buttonVar = dynamic_cast<JSMButton*>(&_var);
-				if (buttonVar && *btn > ButtonID::NONE)
+				if (buttonVar && btn > ButtonID::NONE)
 				{
 					string name = chord + op + _displayName;
-					auto chordedVar = buttonVar->AtChord(*btn);
+					auto chordedVar = buttonVar->AtChord(btn);
 					// The reinterpret_cast is required for compilation, but settings will never run this code anyway.
 					unique_ptr<JSMCommand> chordAssignment(new JSMAssignment<T>(name, reinterpret_cast<JSMVariable<T>&>(*chordedVar)));
-					chordAssignment->SetHelp(_help)->SetParser(_parse)->SetTaskOnDestruction(bind(&JSMButton::ProcessChordRemoval, buttonVar, *btn, chordedVar));
+					chordAssignment->SetHelp(_help)->SetParser(_parse)->SetTaskOnDestruction(bind(&JSMButton::ProcessChordRemoval, buttonVar, btn, chordedVar));
 					// BE ADVISED! If a custom parser was set using bind(), the very same bound vars will
 					// be passed along.
 					return chordAssignment;
@@ -138,12 +140,12 @@ protected:
 			else if (op == '+')
 			{
 				auto buttonVar = dynamic_cast<JSMButton*>(&_var);
-				if (buttonVar && int(*btn) >= 0)
+				if (buttonVar && btn > ButtonID::NONE)
 				{
 					string name = chord + op + _displayName;
-					auto simPressVar = buttonVar->AtSimPress(*btn);
+					auto simPressVar = buttonVar->AtSimPress(btn);
 					unique_ptr<JSMCommand> simAssignment(new JSMAssignment<Mapping>(name, *simPressVar));
-					simAssignment->SetHelp(_help)->SetParser(_parse)->SetTaskOnDestruction(bind(&JSMButton::ProcessSimPressRemoval, buttonVar, *btn, simPressVar));
+					simAssignment->SetHelp(_help)->SetParser(_parse)->SetTaskOnDestruction(bind(&JSMButton::ProcessSimPressRemoval, buttonVar, btn, simPressVar));
 					// BE ADVISED! If a custom parser was set using bind(), the very same bound vars will
 					// be passed along.
 					return simAssignment;

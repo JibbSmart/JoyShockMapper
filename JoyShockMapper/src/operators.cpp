@@ -80,10 +80,12 @@ istream &operator >>(istream &in, GyroSettings &gyro_settings)
 {
 	string valueName;
 	in >> valueName;
-	auto rhsMappingIndex = magic_enum::enum_cast<ButtonID>(valueName);
-	if (rhsMappingIndex && *rhsMappingIndex >= ButtonID::NONE)
+	stringstream ss(valueName);
+	ButtonID rhsMappingIndex;
+	ss >> rhsMappingIndex;
+	if (rhsMappingIndex >= ButtonID::NONE)
 	{
-		gyro_settings.button = *rhsMappingIndex;
+		gyro_settings.button = rhsMappingIndex;
 		gyro_settings.ignore_mode = GyroIgnoreMode::BUTTON;
 	}
 	else
