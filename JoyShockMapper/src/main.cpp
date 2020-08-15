@@ -1474,7 +1474,8 @@ bool do_RESTART_GYRO_CALIBRATION() {
 
 bool do_README() {
 	printf("Opening online help in your browser\n");
-	if (auto err = ShowOnlineHelp() != 0)
+	auto err = ShowOnlineHelp();
+	if (err != 0)
 	{
 		printf("Could not open online help. Error #%d\n", err);
 	}

@@ -327,18 +327,21 @@ DWORD WINAPI PollingThread::pollFunction(void *param)
 
 DWORD ShowOnlineHelp()
 {
-	STARTUPINFOA startupInfo;
-	PROCESS_INFORMATION procInfo;
-	memset(&startupInfo, 0, sizeof(STARTUPINFOA));
-	memset(&procInfo, 0, sizeof(PROCESS_INFORMATION));
-	auto success = CreateProcessA(NULL, R"(cmd /C "start https://github.com/JibbSmart/JoyShockMapper/blob/master/README.md")", NULL, NULL, FALSE, NORMAL_PRIORITY_CLASS, NULL, NULL, &startupInfo, &procInfo);
-	if (success == TRUE)
-	{
-		CloseHandle(procInfo.hProcess);
-		CloseHandle(procInfo.hThread);
-		return 0;
-	}
-	return GetLastError();
+	printf("See the latest user manual at the web page below:\nhttps://github.com/JibbSmart/JoyShockMapper/blob/master/README.md\n");
+	return 0;
+	// SECURE CODING! https://www.oreilly.com/library/view/secure-programming-cookbook/0596003943/ch01s08.html
+	//STARTUPINFOA startupInfo;
+	//PROCESS_INFORMATION procInfo;
+	//memset(&startupInfo, 0, sizeof(STARTUPINFOA));
+	//memset(&procInfo, 0, sizeof(PROCESS_INFORMATION));
+	//auto success = CreateProcessA(NULL, R"(cmd /C "start https://github.com/JibbSmart/JoyShockMapper/blob/master/README.md")", NULL, NULL, FALSE, NORMAL_PRIORITY_CLASS, NULL, NULL, &startupInfo, &procInfo);
+	//if (success == TRUE)
+	//{
+	//	CloseHandle(procInfo.hProcess);
+	//	CloseHandle(procInfo.hThread);
+	//	return 0;
+	//}
+	//return GetLastError();
 }
 
 void HideConsole()
