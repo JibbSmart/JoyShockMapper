@@ -247,9 +247,9 @@ There are two kinds of modifiers that can be applied to key bindings: action mod
 * ^ Toggle makes it so that the key will alternate between applying and releasing the key press at each press.
 * ! Instant sends both the key press and release at the same time
 
-**Event Modifiers** come in five kinds: **tap press (')**, **hold press (_)**, **start press (\\)**, **release press (/)** and **turbo (+)**.
+**Event Modifiers** come in five kinds: **tap press (')**, **hold press (-)**, **start press (\\)**, **release press (/)** and **turbo (+)**.
 * ' Tap press is the default event modifier for the first key bind when there are multiple of them. It will apply the key press when the button is released if the total press time is less than the ```HOLD_PRESS_TIME```. The key press is released a short time after, with that time being longer for gyro related action and calibration, unless an action modifier instructs otherwise.
-* _ Hold press is the default event modifier for the second key bind when there are multiple of them. It will apply the key only after the button is held down for the defined amount of time. The key is released when the button is released as well, unless an action modifier instructs otherwise.
+* - Hold press is the default event modifier for the second key bind when there are multiple of them. It will apply the key only after the button is held down for the defined amount of time. The key is released when the button is released as well, unless an action modifier instructs otherwise.
 * \\ Start press is the default event modifier when there is only a single key bind. It will apply the key press as soon as the button is pressed and releases the key when the button is released, unless an action modifier instructs otherwise. This can be useful to have a key held while other keys are being activated.
 * \/ Release press will apply the binding when the button is released. A binding on release press needs an action modifier to be valid.
 * \+ Turbo will apply a key press repeatedly (with consideration of action modifiers), resulting in a fast pulsing of the key. The turbo pulsing starts only after the button has been held for ```HOLD_PRESS_TIME```.
