@@ -103,6 +103,7 @@ istream &operator >>(istream &in, GyroSettings &gyro_settings)
 		else
 		{
 			gyro_settings.ignore_mode = GyroIgnoreMode::INVALID;
+			in.setstate(in.failbit);
 		}
 	}
 	return in;
