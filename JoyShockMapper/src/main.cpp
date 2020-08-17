@@ -296,7 +296,7 @@ istream &operator >> (istream &in, Mapping &mapping)
 
 	mapping.setRepresentation(valueName);
 
-	while (regex_match(valueName, results, regex(R"(\s*([!\^]?)([^\\\/+'\-\s]*)([\\\/+'-]?)\s*(.*))")) && !results[0].str().empty())
+	while (regex_match(valueName, results, regex(R"(\s*([!\^]?)(\w+|\W)([\\\/+'_]?)\s*(.*))")) && !results[0].str().empty())
 	{
 		Mapping::ActionModifier actMod = results[1].str().empty() ? Mapping::ActionModifier::None :
 			results[1].str()[0] == '!' ? Mapping::ActionModifier::Instant :
@@ -310,9 +310,9 @@ istream &operator >> (istream &in, Mapping &mapping)
 			results[3].str()[0] == '+'  ? Mapping::EventModifier::TurboPress :
 			results[3].str()[0] == '/'  ? Mapping::EventModifier::ReleasePress :
 			results[3].str()[0] == '\'' ? Mapping::EventModifier::TapPress :
-			results[3].str()[0] == '-' ? Mapping::EventModifier::HoldPress :
+			results[3].str()[0] == '_' ? Mapping::EventModifier::HoldPress :
 			Mapping::EventModifier::INVALID;
-
+		
 		string leftovers(results[4]);
 
 		KeyCode key(keyStr);
@@ -1483,7 +1483,7 @@ bool do_README() {
 }
 
 bool do_WHITELIST_SHOW() {
-	printf("Launching HIDCerberus in your browser. Your PID is %lu\n", GetCurrentProcessId()); // WinAPI call!
+	printf("Your PID is %lu\n", GetCurrentProcessId()); // WinAPI call!
 	Whitelister::ShowHIDCerberus();
 	return true;
 }
