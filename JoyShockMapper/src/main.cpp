@@ -1944,8 +1944,16 @@ void joyShockPollCallback(int jcHandle, JOY_SHOCK_STATE state, JOY_SHOCK_STATE l
 	{
 		float lastCalX = jc->lastMotionCalibratedX;
 		float lastCalY = jc->lastMotionCalibratedY;
+		// normalize gravity vector
 		float calX = motion.gravX;
 		float calY = -motion.gravZ;
+		float gravLength2D = sqrtf(motion.gravX * motion.gravX + motion.gravZ * motion.gravZ);
+		float gravStickDeflection = atan2f(gravLength2D, -motion.gravY) / PI;
+		if (gravLength2D > 0)
+		{
+			calX *= gravStickDeflection / gravLength2D;
+			calY *= gravStickDeflection / gravLength2D;
+		}
 		float innerDeadzone = jc->getSetting(SettingID::MOTION_DEADZONE_INNER);
 		float outerDeadzone = 1.0f - jc->getSetting(SettingID::MOTION_DEADZONE_OUTER);
 		bool motionPegged = jc->processDeadZones(calX, calY, innerDeadzone, outerDeadzone);
