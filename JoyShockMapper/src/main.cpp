@@ -1655,9 +1655,12 @@ JoyShock* getJoyShockFromHandle(int handle) {
 void joyShockPollCallback(int jcHandle, JOY_SHOCK_STATE state, JOY_SHOCK_STATE lastState, IMU_STATE imuState, IMU_STATE lastImuState, float deltaTime) {
 	
 	//printf("DS4 accel: %.4f, %.4f, %.4f\n", imuState.accelX, imuState.accelY, imuState.accelZ);
-	//printf("DS4 gyro: %.4f, %.4f, %.4f\n", imuState.gyroX, imuState.gyroY, imuState.gyroZ);
+	//printf("\tDS4 gyro: %.4f, %.4f, %.4f\n", imuState.gyroX, imuState.gyroY, imuState.gyroZ);
 	MOTION_STATE motion = JslGetMotionState(jcHandle);
-	//printf("DS4 grav: %.4f, %.4f, %.4f\n", motion.gravX, motion.gravY, motion.gravZ);
+	//printf("\tDS4 quat: %.4f, %.4f, %.4f, %.4f | accel: %.4f, %.4f, %.4f | grav: %.4f, %.4f, %.4f\n",
+	//	motion.quatW, motion.quatX, motion.quatY, motion.quatZ,
+	//	motion.accelX, motion.accelY, motion.accelZ,
+	//	motion.gravX, motion.gravY, motion.gravZ);
 	
 	bool blockGyro = false;
 	bool lockMouse = false;
