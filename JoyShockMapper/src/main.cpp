@@ -1520,7 +1520,6 @@ static float handleFlickStick(float calX, float calY, float lastCalX, float last
 	float lastOffsetX = lastCalX;
 	float lastOffsetY = lastCalY;
 	float flickStickThreshold = 1.0f - jc->getSetting(SettingID::STICK_DEADZONE_OUTER);
-	float deadZoneAngle = jc->getSetting(SettingID::FLICK_DEADZONE_ANGLE);
 	if (isFlicking)
 	{
 		flickStickThreshold *= 0.9f;
@@ -1548,7 +1547,7 @@ static float handleFlickStick(float calX, float calY, float lastCalX, float last
 					auto flick_snap_strength = jc->getSetting(SettingID::FLICK_SNAP_STRENGTH);
 					stickAngle = stickAngle * (1.0f - flick_snap_strength) + snappedAngle * flick_snap_strength;
 				}
-				if (abs(stickAngle) * (180.0f / PI) < deadZoneAngle) {
+				if (abs(stickAngle) * (180.0f / PI) < jc->getSetting(SettingID::FLICK_DEADZONE_ANGLE)) {
 					stickAngle = 0.0f;
 				}
 
