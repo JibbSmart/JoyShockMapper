@@ -1605,10 +1605,8 @@ static float handleFlickStick(float calX, float calY, float lastCalX, float last
 	float secondsSinceFlick = ((float)chrono::duration_cast<chrono::microseconds>(jc->time_now - jc->started_flick).count()) / 1000000.0f;
 	float newPercent = secondsSinceFlick / jc->getSetting(SettingID::FLICK_TIME);
 
-	float delta_weight = abs(jc->delta_flick) * jc->getSetting(SettingID::FLICK_SPEED);
-	if (delta_weight > 0.0f) {
-		newPercent = newPercent / delta_weight;
-		// printf("Flick: %.3f delta_flick\n", abs(jc->delta_flick));
+	if (abs(jc->delta_flick) > 0.0f) {
+		newPercent = newPercent / pow(abs(jc->delta_flick) / PI, jc->getSetting(SettingID::FLICK_SPEED));
 	}
 
 	if (newPercent > 1.0f) newPercent = 1.0f;
