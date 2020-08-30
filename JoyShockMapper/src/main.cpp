@@ -53,6 +53,7 @@ JSMSetting<float> stick_acceleration_rate = JSMSetting<float>(SettingID::STICK_A
 JSMSetting<float> stick_acceleration_cap = JSMSetting<float>(SettingID::STICK_ACCELERATION_CAP, 1000000.0f);
 JSMSetting<float> stick_deadzone_inner = JSMSetting<float>(SettingID::STICK_DEADZONE_INNER, 0.15f);
 JSMSetting<float> stick_deadzone_outer = JSMSetting<float>(SettingID::STICK_DEADZONE_OUTER, 0.1f);
+JSMSetting<float> flick_deadzone_angle = JSMSetting<float>(SettingID::FLICK_DEADZONE_ANGLE, 0.0f);
 JSMSetting<float> mouse_ring_radius = JSMSetting<float>(SettingID::MOUSE_RING_RADIUS, 128.0f);
 JSMSetting<float> screen_resolution_x = JSMSetting<float>(SettingID::SCREEN_RESOLUTION_X, 1920.0f);
 JSMSetting<float> screen_resolution_y = JSMSetting<float>(SettingID::SCREEN_RESOLUTION_Y, 1080.0f);
@@ -312,14 +313,14 @@ istream &operator >> (istream &in, Mapping &mapping)
 			results[3].str()[0] == '\'' ? Mapping::EventModifier::TapPress :
 			results[3].str()[0] == '_' ? Mapping::EventModifier::HoldPress :
 			Mapping::EventModifier::INVALID;
-		
+
 		string leftovers(results[4]);
 
 		KeyCode key(keyStr);
 
 		if (evtMod == Mapping::EventModifier::None)
 		{
-			evtMod = count == 0 ? (leftovers.empty() ? Mapping::EventModifier::StartPress : Mapping::EventModifier::TapPress) : 
+			evtMod = count == 0 ? (leftovers.empty() ? Mapping::EventModifier::StartPress : Mapping::EventModifier::TapPress) :
 				                         (count == 1 ? Mapping::EventModifier::HoldPress  : Mapping::EventModifier::None);
 		}
 
@@ -337,7 +338,7 @@ istream &operator >> (istream &in, Mapping &mapping)
 		valueName = leftovers;
 		count++;
 	} // Next item
-	
+
 	return in;
 }
 
@@ -708,6 +709,9 @@ public:
 				break;
 			case SettingID::STICK_DEADZONE_OUTER:
 				opt = stick_deadzone_outer.get(*activeChord);
+				break;
+			case SettingID::FLICK_DEADZONE_ANGLE:
+				opt = flick_deadzone_angle.get(*activeChord);
 				break;
 			case SettingID::MOUSE_RING_RADIUS:
 				opt = mouse_ring_radius.get(*activeChord);
@@ -1298,6 +1302,7 @@ static void resetAllMappings() {
 	stick_acceleration_cap.Reset();
 	stick_deadzone_inner.Reset();
 	stick_deadzone_outer.Reset();
+	flick_deadzone_angle.Reset();
 	screen_resolution_x.Reset();
 	screen_resolution_y.Reset();
 	mouse_ring_radius.Reset();
@@ -1515,6 +1520,7 @@ static float handleFlickStick(float calX, float calY, float lastCalX, float last
 	float lastOffsetX = lastCalX;
 	float lastOffsetY = lastCalY;
 	float flickStickThreshold = 1.0f - jc->getSetting(SettingID::STICK_DEADZONE_OUTER);
+	float deadZoneAngle = jc->getSetting(SettingID::FLICK_DEADZONE_ANGLE);
 	if (isFlicking)
 	{
 		flickStickThreshold *= 0.9f;
@@ -1541,6 +1547,9 @@ static float handleFlickStick(float calX, float calY, float lastCalX, float last
 					// lerp by snap strength
 					auto flick_snap_strength = jc->getSetting(SettingID::FLICK_SNAP_STRENGTH);
 					stickAngle = stickAngle * (1.0f - flick_snap_strength) + snappedAngle * flick_snap_strength;
+				}
+				if (abs(stickAngle) < deadZoneAngle) {
+					stickAngle = 0.0f;
 				}
 
 				jc->started_flick = chrono::steady_clock::now();
@@ -2489,6 +2498,8 @@ int main(int argc, char *argv[]) {
 		->SetHelp("Defines a radius of the stick within which all values will be ignored. This value can only be between 0 and 1 but it should be small. Stick input out of this radius will be adjusted."));
 	commandRegistry.Add((new JSMAssignment<float>(stick_deadzone_outer))
 		->SetHelp("Defines a distance from the stick's outer edge for which the stick will be considered fully tilted. This value can only be between 0 and 1 but it should be small. Stick input out of this deadzone will be adjusted."));
+	commandRegistry.Add((new JSMAssignment<float>(flick_deadzone_angle))
+		->SetHelp("Defines a minimum angle (in radians) for the flick to be considered a flick. Helps ignore unintentional turns when tilting the stick straight forward."));
 	commandRegistry.Add((new JSMMacro("CALCULATE_REAL_WORLD_CALIBRATION"))->SetMacro(bind(&do_CALCULATE_REAL_WORLD_CALIBRATION, placeholders::_2))
 		->SetHelp("Get JoyShockMapper to recommend you a REAL_WORLD_CALIBRATION value after performing the calibration sequence. Visit GyroWiki for details:\nhttp://gyrowiki.jibbsmart.com/blog:joyshockmapper-guide#calibrating"));
 	commandRegistry.Add((new JSMMacro("FINISH_GYRO_CALIBRATION"))->SetMacro(bind(&do_FINISH_GYRO_CALIBRATION))

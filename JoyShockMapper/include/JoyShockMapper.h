@@ -134,6 +134,7 @@ enum class SettingID
 	HOLD_PRESS_TIME,
 	SIM_PRESS_WINDOW, // Unchorded setting
 	DBL_PRESS_WINDOW,// Unchorded setting
+	FLICK_DEADZONE_ANGLE,
 };
 
 // constexpr are like #define but with respect to typeness
