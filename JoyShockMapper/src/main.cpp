@@ -1525,7 +1525,6 @@ static float handleFlickStick(float calX, float calY, float lastCalX, float last
 	float lastOffsetX = lastCalX;
 	float lastOffsetY = lastCalY;
 	float flickStickThreshold = 1.0f - jc->getSetting(SettingID::STICK_DEADZONE_OUTER);
-	float deadZoneAngle = jc->getSetting(SettingID::FLICK_DEADZONE_ANGLE);
 	if (isFlicking)
 	{
 		flickStickThreshold *= 0.9f;
@@ -1553,7 +1552,7 @@ static float handleFlickStick(float calX, float calY, float lastCalX, float last
 					auto flick_snap_strength = jc->getSetting(SettingID::FLICK_SNAP_STRENGTH);
 					stickAngle = stickAngle * (1.0f - flick_snap_strength) + snappedAngle * flick_snap_strength;
 				}
-				if (abs(stickAngle) < deadZoneAngle) {
+				if (abs(stickAngle) * (180.0f / PI) < jc->getSetting(SettingID::FLICK_DEADZONE_ANGLE)) {
 					stickAngle = 0.0f;
 				}
 
@@ -2414,6 +2413,7 @@ int main(int argc, char *argv[]) {
 	stick_acceleration_cap.SetFilter(bind(&fmaxf, 1.0f, ::placeholders::_2));
 	stick_deadzone_inner.SetFilter(&filterClamp01);
 	stick_deadzone_outer.SetFilter(&filterClamp01);
+	flick_deadzone_angle.SetFilter(&filterFloat);
 	mouse_ring_radius.SetFilter([](float c, float n) { return n <= screen_resolution_y ? floorf(n) : c; });
 	screen_resolution_x.SetFilter(&filterPositive);
 	screen_resolution_y.SetFilter(&filterPositive);
@@ -2513,7 +2513,7 @@ int main(int argc, char *argv[]) {
 	commandRegistry.Add((new JSMAssignment<float>(stick_deadzone_outer))
 		->SetHelp("Defines a distance from the stick's outer edge for which the stick will be considered fully tilted. This value can only be between 0 and 1 but it should be small. Stick input out of this deadzone will be adjusted."));
 	commandRegistry.Add((new JSMAssignment<float>(flick_deadzone_angle))
-		->SetHelp("Defines a minimum angle (in radians) for the flick to be considered a flick. Helps ignore unintentional turns when tilting the stick straight forward."));
+		->SetHelp("Defines a minimum angle (in degrees) for the flick to be considered a flick. Helps ignore unintentional turns when tilting the stick straight forward."));
 	commandRegistry.Add((new JSMMacro("CALCULATE_REAL_WORLD_CALIBRATION"))->SetMacro(bind(&do_CALCULATE_REAL_WORLD_CALIBRATION, placeholders::_2))
 		->SetHelp("Get JoyShockMapper to recommend you a REAL_WORLD_CALIBRATION value after performing the calibration sequence. Visit GyroWiki for details:\nhttp://gyrowiki.jibbsmart.com/blog:joyshockmapper-guide#calibrating"));
 	commandRegistry.Add((new JSMMacro("FINISH_GYRO_CALIBRATION"))->SetMacro(bind(&do_FINISH_GYRO_CALIBRATION))

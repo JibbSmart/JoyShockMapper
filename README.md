@@ -203,7 +203,7 @@ LCONTROL, RCONTROL, CONTROL: left Ctrl, right Ctrl, generic Ctrl, respectively
 LALT, RALT, ALT: left Alt, right Alt, generic Alt, respectively
 LSHIFT, RSHIFT, SHIFT: left Shift, right Shift, generic Shift, respectively
 TAB, ESC, ENTER, SPACE, BACKSPACE
-PAGEUP, PAGEDOWN, HOME, END, INSERT, DELETE, 
+PAGEUP, PAGEDOWN, HOME, END, INSERT, DELETE,
 LMOUSE, MMOUSE, RMOUSE: mouse left click, middle click and right click respectively
 BMOUSE, FMOUSE: mouse back (button 4) click and mouse forward (button 5) click respectively
 SCROLLUP, SCROLLDOWN: scroll the mouse wheel up, down, respectively
@@ -288,7 +288,7 @@ Chorded press works differently from Simultaneous Press, despite being similar a
 ```
 W = R E # Reload / Use
 S = SPACE # Jump
-E = CONTROL # Crouch 
+E = CONTROL # Crouch
 N = T # Voice Chat
 
 L = Q NONE # Other weapon, hold to select with face button.
@@ -301,7 +301,7 @@ L,N = F # Flashlight
 A button can be chorded with multiple other buttons. In this case, the latest chord takes precedence over previous chords. This can be understood as a stack of layers being put on top of the binding each time a chord is pressed, where only the top one is active. Notice that you don't need to have NONE as a binding. The chord binding could very well be bound to a button that brings up a weapon wheel for example.
 
 #### 1.5 Double Press
-You can also assign the double press of a button to a different binding. Double press notation is the same as chorded button notation, except the button is chorded with itself. It supports taps & holds and modifiers like all previous entries. 
+You can also assign the double press of a button to a different binding. Double press notation is the same as chorded button notation, except the button is chorded with itself. It supports taps & holds and modifiers like all previous entries.
 
 ```
 N = SCROLLDOWN # Cycle weapon
@@ -348,9 +348,9 @@ Take note that taps apply gyro-related bindings for half a second. Another optio
 SL + SR = GYRO_OFF GYRO_INVERT  # Disable for .5s / Invert axis on simultaneous bumper hold
 ```
 
-Bound gyro actions like those have priority over the assigned gyro button should they conflict. 
+Bound gyro actions like those have priority over the assigned gyro button should they conflict.
 
-The command ```NO_GYRO_BUTTON``` can be used to remove the gyro-on or gyro-off mapping, making gyro always enabled. To have it always disabled, just set ```GYRO_ON = NONE``` or leave ```GYRO_SENS``` at 0. 
+The command ```NO_GYRO_BUTTON``` can be used to remove the gyro-on or gyro-off mapping, making gyro always enabled. To have it always disabled, just set ```GYRO_ON = NONE``` or leave ```GYRO_SENS``` at 0.
 
 ### 2. Analog Triggers
 
@@ -362,7 +362,7 @@ Analog triggers report a value between 0% and 100% representing how far you are 
 TRIGGER_THRESHOLD = 0.5   #Send Trigger values at half press
 ```
 
-The same threashold value is used for both triggers. A value of 1.0 or higher makes the binding impossible to reach, and a value below 0 makes it always pressed. 
+The same threashold value is used for both triggers. A value of 1.0 or higher makes the binding impossible to reach, and a value below 0 makes it always pressed.
 
 JoyShockMapper can assign different bindings to the full pull of the trigger, allowing you to have up to 4 bindings on each trigger when considering the hold bindings. The way the trigger handles these bindings is set with the variables ```ZR_MODE``` and ```ZL_MODE```, for R2 and L2 triggers. Once set, you can assign keys to ```ZRF``` and ```ZLF``` to make use of the R2 and L2 full pull bindings respectively. In this context, ```ZL``` and ```ZR``` are called the soft pull binding because they activate before the full pull binding do at 100%. Here is the list of all possible trigger modes.
 
@@ -457,7 +457,7 @@ Since *flick stick* only turns the camera horizontally, it's generally only prac
 Keep in mind that, once tilted, rotating the stick will rotate the camera instantly. There’s no need to smooth it out\*; the camera just needs to make the same movement the stick is. FLICK\_TIME only affects behaviour when you first tilt the stick.
 * **FLICK\_SNAP\_MODE** (default none) - Without practice, sometimes you'll flick to a different angle than you intended. If you want to limit the angles you can flick to, FLICK\_SNAP\_MODE gives you three options. The default, NONE, is no snapping at all. With practice, I expect players will find this most useful, as surprises can come from any angle. But your other options are 4, which snaps the flick to the nearest of directly forward, directly left, directly right, or directly backwards. These are 90° intervals. If you want to be able to snap to 45° intervals, too, you can set FLICK\_SNAP\_MODE to 8.
 * **FLICK\_SNAP\_STRENGTH** (default 1.0) - If you have a snap mode other than NONE set, this value gives you the strength of its snapping, ranging from 0 (no snapping) to 1 (full snapping).
-* **FLICK\_DEADZONE\_ANGLE** (default 0.0 rad) - Sometimes you want to prepare for turning quickly without flicking. Pushing the stick perfectly forward is near impossible so you end up turning a little, losing the angle you are trying to hold. This setting creates a deadzone for forward flicks: moving the thumbstick forward within this range will be treated as flicking at a 0 degree angle, basically putting you in the rotate mode directly. A value of 0.25 provides a deadzone of roughly 15 degrees both left and right, making for a total deadzone arc of 30 degrees forward.
+* **FLICK\_DEADZONE\_ANGLE** (default 0.0 rad) - Sometimes you want to prepare for turning quickly without flicking. Pushing the stick perfectly forward is near impossible so you end up turning a little, losing the angle you are trying to hold. This setting creates a deadzone for forward flicks: moving the thumbstick forward within this range will be treated as flicking at a 0 degree angle, basically putting you in rotation mode directly. The value is applied in both left and right directions separately: setting this to 15 creates a total deadzone arc of 30 degrees.
 
 **\*Developer note:** The DualShock 4's stick input resolution is low enough that small *flick stick* rotations can be jittery. JoyShockMapper applies some smoothing just to very small changes in the *flick stick* angle, which is very effective at covering this up. Larger movements are not smoothed at all. This is more thoroughly explained for developers to implement in their own games on [GyroWiki](http://gyrowiki.jibbsmart.com). JoyShockMapper automatically calculates different smoothing thresholds for the DualShock 4 and Switch controllers, but you can override the smoothing threshold by setting ROTATE\_SMOOTH\_OVERRIDE any small number, or to 0 to disable smoothing, or to -1 to return to the automatically calculated threshold.
 
@@ -595,7 +595,7 @@ You don't have to tell JoyShockMapper whether you're calibrating for a 2D game o
 
 With such a calibrated 2D game, you can choose your GYRO\_SENS or other settings by thinking about how much you want to turn your controller to move across the whole screen. A GYRO\_SENS of *1* would require a complete rotation of the controller to move from one side of the screen to the other, which is quite unreasonable! But a GYRO\_SENS of *8* means you only have to turn the controller one eighth of a complete rotation (45 degrees) to move from one side of the other, which is probably quite reasonable.
 
-### 6. Modeshifts 
+### 6. Modeshifts
 
 Almost all settings described in previous sections that are assignations (i.e.: uses an equal sign '=') can be chorded like a regular button mapping. This is called a modeshift because you are reconfiguring the controller when specific buttons are enabled. The only *exceptions* are those listed here below.
 ```
