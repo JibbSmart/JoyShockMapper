@@ -2493,7 +2493,7 @@ int main(int argc, char *argv[]) {
 	commandRegistry.Add((new JSMAssignment<float>(flick_time))
 		->SetHelp("Sets how long a flick takes in seconds. This value is used by stick FLICK mode."));
 	commandRegistry.Add((new JSMAssignment<float>(flick_speed))
-		->SetHelp("Divides how long a flick takes by its radian delta. This value is used by stick FLICK mode."));
+		->SetHelp("Applies delta exponent to flick_time, effectively making flick speed depending on its angle: use 0 for no effect and 1 for linear. This value is used by stick FLICK mode."));
 	commandRegistry.Add((new JSMAssignment<float>(gyro_smooth_threshold))
 		->SetHelp("When the controller's angular velocity is below this threshold (in degrees per second), smoothing will be applied."));
 	commandRegistry.Add((new JSMAssignment<float>(gyro_smooth_time))
