@@ -190,6 +190,13 @@ RDOWN: Right stick tilted down
 RLEFT: Right stick tilted left
 RRIGHT: Right stick tilted right
 RRING: Right ring binding, either inner or outer.
+MUP: Motion stick tilted forward
+MDOWN: Motion stick tilted back
+MLEFT: Motion stick tilted left
+MRIGHT: Motion stick tilted right
+MRING: Motion ring binding, either inner or outer.
+LEAN_LEFT: Tilt the controller to the left
+LEAN_RIGHT: Tilt the controller to the right
 ```
 
 These can all be mapped to the following keyboard and mouse inputs:
@@ -495,10 +502,14 @@ Using the motion sensors, you can treat your whole controller as a stick. The "M
 * **MOTION\_RING\_MODE** (default OUTER) - All the same options as LEFT\_RING\_MODE and RIGHT\_RING\_MODE.
 * **MOTION\_DEADZONE\_INNER** (default 15°) - How far the controller needs to be tilted in order to register as non-zero.
 * **MOTION\_DEADZONE\_OUTER** (default 135°) - How far from the maximum rotation will be considered a full tilt. The maximum rotation is of course 180°, so the default value of 135° means tilting at or above 45° from the **neutral position** will be considered "full tilt".
+* **MLEFT**, **MRIGHT**, **MUP**, **MDOWN** are the motion stick equivalents of left, right, forward, back mappings, respectively.
 
 The **neutral position** is approximately the position the controller is when left on a flat surface.
 
 The gyro needs to be correctly calibrated for motion stick to work best (see calibration commands below under Gyro Mouse Inputs).
+
+A common use for the motion sensors is to map left and right leans of the controller. This isn't quite the same as motion stick -- regardless of whether you hold your controller flat or upright, lean mappings should still work the same. You just need:
+* **LEAN\_THRESHOLD** (default 15°) - Leaning the controller more than this angle to the left or right will trigger the **LEAN\_LEFT** or **LEAN\_RIGHT** bindings, respectively.
 
 ### 4. Gyro Mouse Inputs
 **The first thing you need to know about gyro mouse inputs** is that a controller's gyro will often need calibrating. This just means telling the application where "zero" is. Just like a scale, the gyro needs a point of reference to compare against in order to accurately give a result. This is done by leaving the controller still, or holding it very still in your hands, and finding the average velocity over a short time of staying still. It needs to be averaged over some time because the gyro will pick up a little bit of "noise" -- tiny variations that aren't caused by any real movement -- but this noise is negligible compared to the shakiness of human hands trying to hold a controller still.

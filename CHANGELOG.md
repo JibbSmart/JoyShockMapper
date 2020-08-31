@@ -4,19 +4,26 @@ Most recent updates will appear first.
 This is a summary of new features and bugfixes. Read the README to learn how to use the features mentioned here.
 
 ## 2.0.0
-Refactored the command processing engine of JSM as well as some of the button processing logic. This enables a richer command line interface and new button mapping features.
+Nicolas refactored the command processing engine of JSM as well as some of the button processing logic. This enables a richer command line interface and new button mapping features.
 These changes will also make adding more settings less error prone and provide a more consistent feeling in the interface.
+
+Nicolas also expanded the mapping options greatly, allowing a button to map to multiple key presses, a key press on press and on release, toggling, and more. He also made hold/simultaneous/double-press times configurable, and made it so any JSM command (including file loading) can be bound to a button press by putting it in quotes. The JSM directory can be set, which should help fix problems for those accessing JSM through a shortcut.
+
+Jibb added motion stick options, exposing the orientation of the controller as a third stick. This third stick can do everything a regular stick can -- MOUSE\_AREA, FLICK\_STICK, or trigger button presses. He also added separate lean mappings so the controller can be leaned left or right to trigger key inputs.
 
 ### Features
 * All commands can now display help, or display their current value, have value filtering and notification
 * Bindings can now have an action modifier (toggle/instant) and/or an event modifier (on press/release/tap/hold/turbo)
 * A button mapping can now enable multiple key presses
-* WHITELIST_SHOW displays a link to the HIDCerberus console instead of opening iit (security risk)
+* WHITELIST\_SHOW displays a link to the HIDCerberus console instead of opening it (security risk)
 * HELP command was renamed to README (it displays a web link to the latest README)
 * New HELP command shows a list of all commands or the help of all queried commands
 * New settings added for button timings, HOLD_PRESS_TIME, SIM_PRESS_WINDOW and DBL_PRESS_WINDOW
 * New setting JSM_DIRECTORY should help solve pathfinding issues with Autoload, by making the current working directory changeable
 * Added possibility to bind any JSM command as an action by entering it within quotes. This enables the possibility to load a file on button press.
+* MOTION\_STICK\_MODE treats the whole controller's orientation as a stick, and can be set to anything LEFT\_STICK\_MODE can be set to.
+* LEAN\_LEFT and LEAN\_RIGHT can map leaning the controller left or right to key inputs.
+* LEFT\_STICK\_DEADZONE\_\* and RIGHT\_STICK\_DEADZONE\_* can be set independently.
 
 ## 1.6.1
 Lots of internal changes for developers. JSM can now be built for Linux, thanks to Romeo Calota. Since this is only developer-facing for now, this is still just a bug-fix update rather than a feature update. But if you're up for it, check out the Linux instructions in the README!

@@ -61,6 +61,7 @@ JSMSetting<float> right_stick_deadzone_inner = JSMSetting<float>(SettingID::RIGH
 JSMSetting<float> right_stick_deadzone_outer = JSMSetting<float>(SettingID::RIGHT_STICK_DEADZONE_OUTER, 0.1f);
 JSMSetting<float> motion_deadzone_inner = JSMSetting<float>(SettingID::MOTION_DEADZONE_INNER, 15.f);
 JSMSetting<float> motion_deadzone_outer = JSMSetting<float>(SettingID::MOTION_DEADZONE_OUTER, 135.f);
+JSMSetting<float> lean_threshold = JSMSetting<float>(SettingID::LEAN_THRESHOLD, 15.f);
 JSMSetting<float> mouse_ring_radius = JSMSetting<float>(SettingID::MOUSE_RING_RADIUS, 128.0f);
 JSMSetting<float> screen_resolution_x = JSMSetting<float>(SettingID::SCREEN_RESOLUTION_X, 1920.0f);
 JSMSetting<float> screen_resolution_y = JSMSetting<float>(SettingID::SCREEN_RESOLUTION_Y, 1080.0f);
@@ -774,6 +775,9 @@ public:
 			case SettingID::MOTION_DEADZONE_OUTER:
 				opt = motion_deadzone_outer.get(*activeChord);
 				break;
+			case SettingID::LEAN_THRESHOLD:
+				opt = lean_threshold.get(*activeChord);
+				break;
 			case SettingID::MOUSE_RING_RADIUS:
 				opt = mouse_ring_radius.get(*activeChord);
 				break;
@@ -1368,6 +1372,7 @@ static void resetAllMappings() {
 	right_stick_deadzone_outer.Reset();
 	motion_deadzone_inner.Reset();
 	motion_deadzone_outer.Reset();
+	lean_threshold.Reset();
 	screen_resolution_x.Reset();
 	screen_resolution_y.Reset();
 	mouse_ring_radius.Reset();
@@ -1933,6 +1938,15 @@ void joyShockPollCallback(int jcHandle, JOY_SHOCK_STATE state, JOY_SHOCK_STATE l
 			jc->getSetting<RingMode>(SettingID::MOTION_RING_MODE), jc->getSetting<StickMode>(SettingID::MOTION_STICK_MODE),
 			ButtonID::MRING, ButtonID::MLEFT, ButtonID::MRIGHT, ButtonID::MUP, ButtonID::MDOWN,
 			mouseCalibrationFactor, deltaTime, jc->motion_stick_acceleration, jc->motion_last_cal, jc->is_flicking_motion, jc->ignore_motion_stick_mode, motionAny, lockMouse, camSpeedX, camSpeedY);
+
+		float gravLength3D = sqrtf(motion.gravX * motion.gravX + motion.gravY * motion.gravY + motion.gravZ * motion.gravZ);
+		if (gravLength3D > 0)
+		{
+			float gravDirX = motion.gravX / gravLength3D;
+			float sinLeanThreshold = sin(jc->getSetting(SettingID::LEAN_THRESHOLD) * PI / 180.f);
+			jc->handleButtonChange(ButtonID::LEAN_LEFT, gravDirX < -sinLeanThreshold);
+			jc->handleButtonChange(ButtonID::LEAN_RIGHT, gravDirX > sinLeanThreshold);
+		}
 	}
 
 	// button mappings
@@ -2453,6 +2467,7 @@ int main(int argc, char *argv[]) {
 	right_stick_deadzone_outer.SetFilter(&filterClamp01);
 	motion_deadzone_inner.SetFilter(&filterPositive);
 	motion_deadzone_outer.SetFilter(&filterPositive);
+	lean_threshold.SetFilter(&filterPositive);
 	mouse_ring_radius.SetFilter([](float c, float n) { return n <= screen_resolution_y ? floorf(n) : c; });
 	screen_resolution_x.SetFilter(&filterPositive);
 	screen_resolution_y.SetFilter(&filterPositive);
@@ -2567,6 +2582,8 @@ int main(int argc, char *argv[]) {
 	    ->SetHelp("Defines a radius of the motion-stick within which all values will be ignored. This value can only be between 0 and 1 but it should be small. Stick input out of this radius will be adjusted."));
 	commandRegistry.Add((new JSMAssignment<float>(motion_deadzone_outer))
 	    ->SetHelp("Defines a distance from the motion-stick's outer edge for which the stick will be considered fully tilted. Stick input out of this deadzone will be adjusted."));
+	commandRegistry.Add((new JSMAssignment<float>(lean_threshold))
+	    ->SetHelp("How far the controller must be leaned left or right to trigger a LEAN_LEFT or LEAN_RIGHT binding."));
 	commandRegistry.Add((new JSMMacro("CALCULATE_REAL_WORLD_CALIBRATION"))->SetMacro(bind(&do_CALCULATE_REAL_WORLD_CALIBRATION, placeholders::_2))
 		->SetHelp("Get JoyShockMapper to recommend you a REAL_WORLD_CALIBRATION value after performing the calibration sequence. Visit GyroWiki for details:\nhttp://gyrowiki.jibbsmart.com/blog:joyshockmapper-guide#calibrating"));
 	commandRegistry.Add((new JSMMacro("FINISH_GYRO_CALIBRATION"))->SetMacro(bind(&do_FINISH_GYRO_CALIBRATION))
