@@ -14,6 +14,7 @@
 
 const KeyCode KeyCode::EMPTY = KeyCode();
 const Mapping Mapping::NO_MAPPING = Mapping("NONE");
+function<bool(in_string)> Mapping::_isCommandValid = function<bool(in_string)>();
 
 class JoyShock;
 void joyShockPollCallback(int jcHandle, JOY_SHOCK_STATE state, JOY_SHOCK_STATE lastState, IMU_STATE imuState, IMU_STATE lastImuState, float deltaTime);
@@ -100,6 +101,12 @@ public:
 		deque<ButtonID> chordStack; // Represents the current active buttons in order from most recent to latest
 		int intHandle;
 	};
+
+	static bool findQueueItem(pair<ButtonID, KeyCode> &pair, ButtonID btn)
+	{
+		return btn == pair.first;
+	}
+
 
 	DigitalButton(DigitalButton::Common &btnCommon, ButtonID id)
 		: _id(id)
@@ -301,7 +308,7 @@ istream &operator >> (istream &in, Mapping &mapping)
 
 	mapping.setRepresentation(valueName);
 
-	while (regex_match(valueName, results, regex(R"(\s*([!\^]?)(\w+|\W)([\\\/+'_]?)\s*(.*))")) && !results[0].str().empty())
+	while (regex_match(valueName, results, regex(R"(\s*([!\^]?)(\".*?\"|\w+|\W)([\\\/+'_]?)\s*(.*))")) && !results[0].str().empty())
 	{
 		Mapping::ActionModifier actMod = results[1].str().empty() ? Mapping::ActionModifier::None :
 			results[1].str()[0] == '!' ? Mapping::ActionModifier::Instant :
@@ -322,6 +329,11 @@ istream &operator >> (istream &in, Mapping &mapping)
 
 		KeyCode key(keyStr);
 
+		if (key.code == COMMAND_ACTION && actMod == Mapping::ActionModifier::None)
+		{
+			// Any command actions are instant by default
+			actMod = Mapping::ActionModifier::Instant;
+		}
 		if (evtMod == Mapping::EventModifier::None)
 		{
 			evtMod = count == 0 ? (leftovers.empty() ? Mapping::EventModifier::StartPress : Mapping::EventModifier::TapPress) : 
@@ -329,6 +341,7 @@ istream &operator >> (istream &in, Mapping &mapping)
 		}
 
 		if (key.code == 0 ||
+			key.code == COMMAND_ACTION && actMod != Mapping::ActionModifier::Instant ||
 			actMod == Mapping::ActionModifier::INVALID ||
 			evtMod == Mapping::EventModifier::INVALID ||
 			evtMod == Mapping::EventModifier::None && count >= 2 ||
@@ -384,7 +397,8 @@ void Mapping::ProcessEvent(BtnEvent evt, DigitalButton &button, in_string displa
 			break;
 		}
 		//cout << button._id << " processes event " << evt << endl;
-		entry->second(&button);
+		if(entry->second)
+			entry->second(&button);
 	}
 }
 
@@ -409,6 +423,17 @@ bool Mapping::AddMapping(KeyCode key, EventModifier evtMod, ActionModifier actMo
 		apply = bind(&DigitalButton::ApplyGyroAction, placeholders::_1, key);
 		release = bind(&DigitalButton::RemoveGyroAction, placeholders::_1);
 		tapDurationMs = MAGIC_EXTENDED_TAP_DURATION; // Unused in regular press
+	}
+	else if (key.code == COMMAND_ACTION)
+	{
+		_ASSERT_EXPR(Mapping::_isCommandValid, "You need to assign a function to this field. It should be a function that validates the command line.");
+		if (!Mapping::_isCommandValid(key.name))
+		{
+			cout << "Error: \"" << key.name << "\" is not a valid command" << endl;
+			return false;
+		}
+		apply = bind(&WriteToConsole, key.name);
+		release = OnEventAction();
 	}
 	else // if (key.code != NO_HOLD_MAPPED)
 	{
@@ -473,7 +498,8 @@ void Mapping::RunAllActions(DigitalButton *btn, int numEventActions, ...)
 	for (int x = 0; x < numEventActions; x++)
 	{
 		auto action = va_arg(arguments, OnEventAction);
-		action(btn);
+		if(action)
+			action(btn);
 	}
 	va_end(arguments);
 	return;
@@ -2575,10 +2601,7 @@ int main(int argc, char *argv[]) {
 		->SetHelp("Close the application.")
 	);
 
-	map<int, float> toto;
-	toto[5] = 0.8f;
-	auto found = toto.find(5);
-	toto.erase(found);
+	Mapping::_isCommandValid = bind(&CmdRegistry::isCommandValid, &commandRegistry, placeholders::_1);
 
 	// The main loop is simple and reads like pseudocode
 	string enteredCommand;

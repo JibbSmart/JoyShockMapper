@@ -5,17 +5,18 @@ This is a summary of new features and bugfixes. Read the README to learn how to 
 
 ## 2.0.0
 Refactored the command processing engine of JSM as well as some of the button processing logic. This enables a richer command line interface and new button mapping features.
-These changes will also make adding more settings less error prone and provide a more consistent feeling in the interface. Notification system also enables GUI possibility.
+These changes will also make adding more settings less error prone and provide a more consistent feeling in the interface.
 
 ### Features
 * All commands can now display help, or display their current value, have value filtering and notification
 * Bindings can now have an action modifier (toggle/instant) and/or an event modifier (on press/release/tap/hold/turbo)
 * A button mapping can now enable multiple key presses
-* HELP command was renamed to README (it displays the latest README)
+* WHITELIST_SHOW displays a link to the HIDCerberus console instead of opening iit (security risk)
+* HELP command was renamed to README (it displays a web link to the latest README)
 * New HELP command shows a list of all commands or the help of all queried commands
 * New settings added for button timings, HOLD_PRESS_TIME, SIM_PRESS_WINDOW and DBL_PRESS_WINDOW
-* New setting to workaround pathfinding issues with Autoload, by making the current working directory changeable: JSM_DIRECTORY
-
+* New setting JSM_DIRECTORY should help solve pathfinding issues with Autoload, by making the current working directory changeable
+* Added possibility to bind any JSM command as an action by entering it within quotes. This enables the possibility to load a file on button press.
 
 ## 1.6.1
 Lots of internal changes for developers. JSM can now be built for Linux, thanks to Romeo Calota. Since this is only developer-facing for now, this is still just a bug-fix update rather than a feature update. But if you're up for it, check out the Linux instructions in the README!

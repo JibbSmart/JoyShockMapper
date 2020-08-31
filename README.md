@@ -212,6 +212,7 @@ CALIBRATE: recalibrate gyro when pressing this input
 GYRO_ON, GYRO_OFF: Enable or disable gyro
 GYRO_INVERT, GYRO_INV_X, GYRO_INV_Y: Invert gyro, or in just the x or y axes, respectively
 ; ' , . / \ [ ] + - `
+"any console command": Any console command can be run on button press, including loading a file
 ```
 
 For example, in a game where R is 'reload' and E is 'use’, you can do the following to map □ to 'reload' and △ to 'use':
@@ -220,6 +221,15 @@ For example, in a game where R is 'reload' and E is 'use’, you can do the foll
 W = R
 N = E
 ```
+
+Those familiar with Steam Input can implement Action Layers and Action Sets using the quotation marks to load a file on demand. That file can contain partial or full remapping of the controller bindings. This is very useful for having a different scheme for vehicles, menus or characters.
+
+```
+HOME = "GTA_driving.txt"  # Load the driving control scheme. That file should bind home to loading the walking scheme file!
+```
+
+Take note that the command bound in this way cannot contain quotation marks, and thus cannot contain the binding of a command itself. In this case, you should put the command in a file and load that file.
+
 
 #### 1.1 Tap & Hold
 
