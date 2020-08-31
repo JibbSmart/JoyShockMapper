@@ -145,13 +145,13 @@ enum class SettingID
 	RIGHT_STICK_DEADZONE_INNER,
 	RIGHT_STICK_DEADZONE_OUTER,
 	LEAN_THRESHOLD,
+	FLICK_DEADZONE_ANGLE,
 	CONTROLLER_ORIENTATION,
 	TRIGGER_SKIP_DELAY,
 	TURBO_PERIOD,
 	HOLD_PRESS_TIME,
 	SIM_PRESS_WINDOW, // Unchorded setting
-	DBL_PRESS_WINDOW,// Unchorded setting
-	FLICK_DEADZONE_ANGLE,
+	DBL_PRESS_WINDOW  // Unchorded setting
 };
 
 // constexpr are like #define but with respect to typeness
