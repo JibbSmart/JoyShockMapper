@@ -135,7 +135,7 @@ enum class SettingID
 	SIM_PRESS_WINDOW, // Unchorded setting
 	DBL_PRESS_WINDOW,// Unchorded setting
 	FLICK_DEADZONE_ANGLE,
-	FLICK_SPEED,
+	FLICK_TIME_EXPONENT,
 };
 
 // constexpr are like #define but with respect to typeness

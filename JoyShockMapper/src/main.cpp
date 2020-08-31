@@ -45,7 +45,7 @@ JSMSetting<AxisMode> aim_y_sign = JSMSetting<AxisMode>(SettingID::STICK_AXIS_Y, 
 JSMSetting<AxisMode> gyro_y_sign = JSMSetting<AxisMode>(SettingID::GYRO_AXIS_Y, AxisMode::STANDARD);
 JSMSetting<AxisMode> gyro_x_sign = JSMSetting<AxisMode>(SettingID::GYRO_AXIS_X, AxisMode::STANDARD);
 JSMSetting<float> flick_time = JSMSetting<float>(SettingID::FLICK_TIME, 0.1f);
-JSMSetting<float> flick_speed = JSMSetting<float>(SettingID::FLICK_SPEED, 0.0f);
+JSMSetting<float> flick_time_exponent = JSMSetting<float>(SettingID::FLICK_TIME_EXPONENT, 0.0f);
 JSMSetting<float> gyro_smooth_time = JSMSetting<float>(SettingID::GYRO_SMOOTH_TIME, 0.125f);
 JSMSetting<float> gyro_smooth_threshold = JSMSetting<float>(SettingID::GYRO_SMOOTH_THRESHOLD, 0.0f);
 JSMSetting<float> gyro_cutoff_speed = JSMSetting<float>(SettingID::GYRO_CUTOFF_SPEED, 0.0f);
@@ -687,8 +687,8 @@ public:
 			case SettingID::FLICK_TIME:
 				opt = flick_time.get(*activeChord);
 				break;
-			case SettingID::FLICK_SPEED:
-				opt = flick_speed.get(*activeChord);
+			case SettingID::FLICK_TIME_EXPONENT:
+				opt = flick_time_exponent.get(*activeChord);
 				break;
 			case SettingID::GYRO_SMOOTH_THRESHOLD:
 				opt = gyro_smooth_threshold.get(*activeChord);
@@ -1298,7 +1298,7 @@ static void resetAllMappings() {
 	gyro_y_sign.Reset();
 	gyro_x_sign.Reset();
 	flick_time.Reset();
-	flick_speed.Reset();
+	flick_time_exponent.Reset();
 	gyro_smooth_time.Reset();
 	gyro_smooth_threshold.Reset();
 	gyro_cutoff_speed.Reset();
@@ -1607,7 +1607,7 @@ static float handleFlickStick(float calX, float calY, float lastCalX, float last
 
 	// don't divide by zero
 	if (abs(jc->delta_flick) > 0.0f) {
-		newPercent = newPercent / pow(abs(jc->delta_flick) / PI, jc->getSetting(SettingID::FLICK_SPEED));
+		newPercent = newPercent / pow(abs(jc->delta_flick) / PI, jc->getSetting(SettingID::FLICK_TIME_EXPONENT));
 	}
 
 	if (newPercent > 1.0f) newPercent = 1.0f;
@@ -2493,8 +2493,8 @@ int main(int argc, char *argv[]) {
 	commandRegistry.Add((new GyroSensAssignment("GYRO_SENS", max_gyro_sens))->SetHelp(""));
 	commandRegistry.Add((new JSMAssignment<float>(flick_time))
 		->SetHelp("Sets how long a flick takes in seconds. This value is used by stick FLICK mode."));
-	commandRegistry.Add((new JSMAssignment<float>(flick_speed))
-		->SetHelp("Applies delta exponent to flick_time, effectively making flick speed depending on its angle: use 0 for no effect and 1 for linear. This value is used by stick FLICK mode."));
+	commandRegistry.Add((new JSMAssignment<float>(flick_time_exponent))
+		->SetHelp("Applies a delta exponent to flick_time, effectively making flick speed depend on the flick angle: use 0 for no effect and 1 for linear. This value is used by stick FLICK mode."));
 	commandRegistry.Add((new JSMAssignment<float>(gyro_smooth_threshold))
 		->SetHelp("When the controller's angular velocity is below this threshold (in degrees per second), smoothing will be applied."));
 	commandRegistry.Add((new JSMAssignment<float>(gyro_smooth_time))
