@@ -4,6 +4,7 @@
 #include "Whitelister.h"
 #include "TrayIcon.h"
 #include "JSMAssignment.hpp"
+#include "quatMaths.cpp"
 
 #include <mutex>
 #include <deque>
@@ -612,6 +613,13 @@ public:
 
 	float lastMotionStickX = 0.0f;
 	float lastMotionStickY = 0.0f;
+
+	float neutralQuatW = 1.0f;
+	float neutralQuatX = 0.0f;
+	float neutralQuatY = 0.0f;
+	float neutralQuatZ = 0.0f;
+
+	bool set_neutral_quat = false;
 
 	JoyShock(int uniqueHandle, float pollRate, int controllerSplitType, float stickStepSize)
 		: intHandle(uniqueHandle)
@@ -1552,6 +1560,16 @@ bool do_RESTART_GYRO_CALIBRATION() {
 	return true;
 }
 
+bool do_SET_MOTION_STICK_NEUTRAL()
+{
+	printf("Setting neutral motion stick orientation...\n");
+	for (auto iter = handle_to_joyshock.begin(); iter != handle_to_joyshock.end(); ++iter)
+	{
+		iter->second->set_neutral_quat = true;
+	}
+	return true;
+}
+
 bool do_README() {
 	printf("Opening online help in your browser\n");
 	auto err = ShowOnlineHelp();
@@ -1857,6 +1875,15 @@ void joyShockPollCallback(int jcHandle, JOY_SHOCK_STATE state, JOY_SHOCK_STATE l
 	//printf("Controller %d\n", jcHandle);
 	if (jc == nullptr) return;
 	jc->callback_lock.lock();
+	if (jc->set_neutral_quat)
+	{
+		jc->neutralQuatW = motion.quatW;
+		jc->neutralQuatX = motion.quatX;
+		jc->neutralQuatY = motion.quatY;
+		jc->neutralQuatZ = motion.quatZ;
+		jc->set_neutral_quat = false;
+		printf("Neutral orientation for device %d set...\n", jc->intHandle);
+	}
 	jc->controller_type = JslGetControllerSplitType(jcHandle); // Reassign at each call? :( Low impact function
 	//printf("Found a match for %d\n", jcHandle);
 	float gyroX = 0.0;
@@ -1951,13 +1978,16 @@ void joyShockPollCallback(int jcHandle, JOY_SHOCK_STATE state, JOY_SHOCK_STATE l
 	if (jc->controller_type == JS_SPLIT_TYPE_FULL ||
 		(jc->controller_type & (int)jc->getSetting<JoyconMask>(SettingID::JOYCON_MOTION_MASK)) == 0)
 	{
+		Quat neutralQuat = Quat(jc->neutralQuatW, jc->neutralQuatX, jc->neutralQuatY, jc->neutralQuatZ);
+		Vec grav = Vec(motion.gravX, motion.gravY, motion.gravZ) * neutralQuat;
+
 		float lastCalX = jc->lastMotionStickX;
 		float lastCalY = jc->lastMotionStickY;
 		// use gravity vector deflection
-		float calX = motion.gravX;
-		float calY = -motion.gravZ;
-		float gravLength2D = sqrtf(motion.gravX * motion.gravX + motion.gravZ * motion.gravZ);
-		float gravStickDeflection = atan2f(gravLength2D, -motion.gravY) / PI;
+		float calX = grav.x;
+		float calY = -grav.z;
+		float gravLength2D = sqrtf(grav.x * grav.x + grav.z * grav.z);
+		float gravStickDeflection = atan2f(gravLength2D, -grav.y) / PI;
 		if (gravLength2D > 0)
 		{
 			calX *= gravStickDeflection / gravLength2D;
@@ -1972,23 +2002,23 @@ void joyShockPollCallback(int jcHandle, JOY_SHOCK_STATE state, JOY_SHOCK_STATE l
 			ButtonID::MRING, ButtonID::MLEFT, ButtonID::MRIGHT, ButtonID::MUP, ButtonID::MDOWN, controllerOrientation,
 			mouseCalibrationFactor, deltaTime, jc->motion_stick_acceleration, jc->motion_last_cal, jc->is_flicking_motion, jc->ignore_motion_stick_mode, motionAny, lockMouse, camSpeedX, camSpeedY);
 
-		float gravLength3D = sqrtf(motion.gravX * motion.gravX + motion.gravY * motion.gravY + motion.gravZ * motion.gravZ);
+		float gravLength3D = grav.Length();
 		if (gravLength3D > 0)
 		{
 			float gravSideDir;
 			switch (controllerOrientation)
 			{
 			case ControllerOrientation::FORWARD:
-				gravSideDir = motion.gravX;
+				gravSideDir = grav.x;
 				break;
 			case ControllerOrientation::LEFT:
-				gravSideDir = motion.gravZ;
+				gravSideDir = grav.z;
 				break;
 			case ControllerOrientation::RIGHT:
-				gravSideDir = -motion.gravZ;
+				gravSideDir = -grav.z;
 				break;
 			case ControllerOrientation::BACKWARD:
-				gravSideDir = -motion.gravX;
+				gravSideDir = -grav.x;
 				break;
 			}
 			float gravDirX = gravSideDir / gravLength3D;
@@ -2640,6 +2670,8 @@ int main(int argc, char *argv[]) {
 		->SetHelp("Finish calibrating the gyro in all controllers."));
 	commandRegistry.Add((new JSMMacro("RESTART_GYRO_CALIBRATION"))->SetMacro(bind(&do_RESTART_GYRO_CALIBRATION))
 		->SetHelp("Start calibrating the gyro in all controllers."));
+	commandRegistry.Add((new JSMMacro("SET_MOTION_STICK_NEUTRAL"))->SetMacro(bind(&do_SET_MOTION_STICK_NEUTRAL))
+		->SetHelp("Set the neutral orientation for motion stick to whatever the orientation of the controller is."));
 	commandRegistry.Add((new JSMAssignment<GyroAxisMask>(mouse_x_from_gyro))
 		->SetHelp("Pick a gyro axis to operate on the mouse's X axis. Valid values are the following: X, Y and Z."));
 	commandRegistry.Add((new JSMAssignment<GyroAxisMask>(mouse_y_from_gyro))

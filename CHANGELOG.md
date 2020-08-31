@@ -23,7 +23,7 @@ Jibb added motion stick options, exposing the orientation of the controller as a
 * Added possibility to bind any JSM command as an action by entering it within quotes. This enables the possibility to load a file on button press.
 * MOTION\_STICK\_MODE treats the whole controller's orientation as a stick, and can be set to anything LEFT\_STICK\_MODE can be set to.
 * LEAN\_LEFT and LEAN\_RIGHT can map leaning the controller left or right to key inputs.
-* LEFT\_STICK\_DEADZONE\_\* and RIGHT\_STICK\_DEADZONE\_* can be set independently.
+* LEFT\_STICK\_DEADZONE\_\* and RIGHT\_STICK\_DEADZONE\_\* can be set independently.
 * CONTROLLER\_ORIENTATION changes the behaviour of sticks to work correctly when holding the controller sideways or backwards.
 * If a file called *ini* (no file extension) is found next to JoyShockMapper.exe, its contents will be loaded on startup. Use this for disabling AutoLoad or automatically whitelist and reconnect controllers.
 

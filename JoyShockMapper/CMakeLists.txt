@@ -18,6 +18,7 @@ add_executable (
     src/main.cpp
     src/operators.cpp
     src/CmdRegistry.cpp
+    src/quatMaths.cpp
     include/InputHelpers.h
     include/PlatformDefinitions.h
     include/TrayIcon.h

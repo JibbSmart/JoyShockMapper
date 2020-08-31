@@ -513,9 +513,9 @@ Using the motion sensors, you can treat your whole controller as a stick. The "M
 * **MLEFT**, **MRIGHT**, **MUP**, **MDOWN** are the motion stick equivalents of left, right, forward, back mappings, respectively.
 * This is also affected by **CONTROLLER\_ORIENTATION** described at the end of the previous section.
 
-The **neutral position** is approximately the position the controller is when left on a flat surface.
-
 The gyro needs to be correctly calibrated for motion stick to work best (see calibration commands below under Gyro Mouse Inputs).
+
+By default, the **neutral position** is approximately the position the controller is when left on a flat surface. You can set a different neutral position by entering the command ```SET_MOTION_STICK_NEUTRAL```. When this command is executed, however you're holding the controller at the time will be considered the "neutral" orientation.
 
 A common use for the motion sensors is to map left and right leans of the controller. This isn't quite the same as motion stick -- regardless of whether you hold your controller flat or upright, lean mappings should still work the same. You just need:
 * **LEAN\_THRESHOLD** (default 15°) - Leaning the controller more than this angle to the left or right will trigger the **LEAN\_LEFT** or **LEAN\_RIGHT** bindings, respectively.
