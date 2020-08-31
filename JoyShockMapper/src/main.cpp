@@ -58,6 +58,7 @@ JSMSetting<float> stick_acceleration_rate = JSMSetting<float>(SettingID::STICK_A
 JSMSetting<float> stick_acceleration_cap = JSMSetting<float>(SettingID::STICK_ACCELERATION_CAP, 1000000.0f);
 JSMSetting<float> left_stick_deadzone_inner = JSMSetting<float>(SettingID::LEFT_STICK_DEADZONE_INNER, 0.15f);
 JSMSetting<float> left_stick_deadzone_outer = JSMSetting<float>(SettingID::LEFT_STICK_DEADZONE_OUTER, 0.1f);
+JSMSetting<float> flick_deadzone_angle = JSMSetting<float>(SettingID::FLICK_DEADZONE_ANGLE, 0.0f);
 JSMSetting<float> right_stick_deadzone_inner = JSMSetting<float>(SettingID::RIGHT_STICK_DEADZONE_INNER, 0.15f);
 JSMSetting<float> right_stick_deadzone_outer = JSMSetting<float>(SettingID::RIGHT_STICK_DEADZONE_OUTER, 0.1f);
 JSMSetting<float> motion_deadzone_inner = JSMSetting<float>(SettingID::MOTION_DEADZONE_INNER, 15.f);
@@ -329,7 +330,7 @@ istream &operator >> (istream &in, Mapping &mapping)
 			results[3].str()[0] == '\'' ? Mapping::EventModifier::TapPress :
 			results[3].str()[0] == '_' ? Mapping::EventModifier::HoldPress :
 			Mapping::EventModifier::INVALID;
-		
+
 		string leftovers(results[4]);
 
 		KeyCode key(keyStr);
@@ -341,7 +342,7 @@ istream &operator >> (istream &in, Mapping &mapping)
 		}
 		if (evtMod == Mapping::EventModifier::None)
 		{
-			evtMod = count == 0 ? (leftovers.empty() ? Mapping::EventModifier::StartPress : Mapping::EventModifier::TapPress) : 
+			evtMod = count == 0 ? (leftovers.empty() ? Mapping::EventModifier::StartPress : Mapping::EventModifier::TapPress) :
 				                         (count == 1 ? Mapping::EventModifier::HoldPress  : Mapping::EventModifier::None);
 		}
 
@@ -360,7 +361,7 @@ istream &operator >> (istream &in, Mapping &mapping)
 		valueName = leftovers;
 		count++;
 	} // Next item
-	
+
 	return in;
 }
 
@@ -789,6 +790,9 @@ public:
 				break;
 			case SettingID::LEAN_THRESHOLD:
 				opt = lean_threshold.get(*activeChord);
+				break;
+			case SettingID::FLICK_DEADZONE_ANGLE:
+				opt = flick_deadzone_angle.get(*activeChord);
 				break;
 			case SettingID::MOUSE_RING_RADIUS:
 				opt = mouse_ring_radius.get(*activeChord);
@@ -1380,6 +1384,7 @@ static void resetAllMappings() {
 	stick_acceleration_cap.Reset();
 	left_stick_deadzone_inner.Reset();
 	left_stick_deadzone_outer.Reset();
+	flick_deadzone_angle.Reset();
 	right_stick_deadzone_inner.Reset();
 	right_stick_deadzone_outer.Reset();
 	motion_deadzone_inner.Reset();
@@ -1674,6 +1679,9 @@ static float handleFlickStick(float calX, float calY, float lastCalX, float last
 					// lerp by snap strength
 					auto flick_snap_strength = jc->getSetting(SettingID::FLICK_SNAP_STRENGTH);
 					stickAngle = stickAngle * (1.0f - flick_snap_strength) + snappedAngle * flick_snap_strength;
+				}
+				if (abs(stickAngle) * (180.0f / PI) < jc->getSetting(SettingID::FLICK_DEADZONE_ANGLE)) {
+					stickAngle = 0.0f;
 				}
 
 				jc->started_flick = chrono::steady_clock::now();
@@ -2578,6 +2586,7 @@ int main(int argc, char *argv[]) {
 	stick_acceleration_cap.SetFilter(bind(&fmaxf, 1.0f, ::placeholders::_2));
 	left_stick_deadzone_inner.SetFilter(&filterClamp01);
 	left_stick_deadzone_outer.SetFilter(&filterClamp01);
+	flick_deadzone_angle.SetFilter(&filterPositive);
 	right_stick_deadzone_inner.SetFilter(&filterClamp01);
 	right_stick_deadzone_outer.SetFilter(&filterClamp01);
 	motion_deadzone_inner.SetFilter(&filterPositive);
@@ -2683,22 +2692,24 @@ int main(int argc, char *argv[]) {
 		->SetHelp("Defines a radius of the left stick within which all values will be ignored. This value can only be between 0 and 1 but it should be small. Stick input out of this radius will be adjusted."));
 	commandRegistry.Add((new JSMAssignment<float>(left_stick_deadzone_outer))
 		->SetHelp("Defines a distance from the left stick's outer edge for which the stick will be considered fully tilted. This value can only be between 0 and 1 but it should be small. Stick input out of this deadzone will be adjusted."));
+	commandRegistry.Add((new JSMAssignment<float>(flick_deadzone_angle))
+		->SetHelp("Defines a minimum angle (in degrees) for the flick to be considered a flick. Helps ignore unintentional turns when tilting the stick straight forward."));
 	commandRegistry.Add((new JSMAssignment<float>(right_stick_deadzone_inner))
-	    ->SetHelp("Defines a radius of the right stick within which all values will be ignored. This value can only be between 0 and 1 but it should be small. Stick input out of this radius will be adjusted."));
+		->SetHelp("Defines a radius of the right stick within which all values will be ignored. This value can only be between 0 and 1 but it should be small. Stick input out of this radius will be adjusted."));->SetHelp("Defines a radius of the right stick within which all values will be ignored. This value can only be between 0 and 1 but it should be small. Stick input out of this radius will be adjusted."));		    ->SetHelp("Defines a radius of the right stick within which all values will be ignored. This value can only be between 0 and 1 but it should be small. Stick input out of this radius will be adjusted."));->SetHelp("Defines a radius of the right stick within which all values will be ignored. This value can only be between 0 and 1 but it should be small. Stick input out of this radius will be adjusted."));
 	commandRegistry.Add((new JSMAssignment<float>(right_stick_deadzone_outer))
-	    ->SetHelp("Defines a distance from the right stick's outer edge for which the stick will be considered fully tilted. This value can only be between 0 and 1 but it should be small. Stick input out of this deadzone will be adjusted."));
+		->SetHelp("Defines a distance from the right stick's outer edge for which the stick will be considered fully tilted. This value can only be between 0 and 1 but it should be small. Stick input out of this deadzone will be adjusted."));
 	commandRegistry.Add((new StickDeadzoneAssignment("STICK_DEADZONE_INNER", left_stick_deadzone_inner))
-	    ->SetHelp("Defines a radius of the both left and right sticks within which all values will be ignored. This value can only be between 0 and 1 but it should be small. Stick input out of this radius will be adjusted."));
+		->SetHelp("Defines a radius of the both left and right sticks within which all values will be ignored. This value can only be between 0 and 1 but it should be small. Stick input out of this radius will be adjusted."));
 	commandRegistry.Add((new StickDeadzoneAssignment("STICK_DEADZONE_INNER", right_stick_deadzone_inner))->SetHelp(""));
 	commandRegistry.Add((new StickDeadzoneAssignment("STICK_DEADZONE_OUTER", left_stick_deadzone_outer))
-	    ->SetHelp("Defines a distance from both sticks' outer edge for which the stick will be considered fully tilted. This value can only be between 0 and 1 but it should be small. Stick input out of this deadzone will be adjusted."));
+		->SetHelp("Defines a distance from both sticks' outer edge for which the stick will be considered fully tilted. This value can only be between 0 and 1 but it should be small. Stick input out of this deadzone will be adjusted."));
 	commandRegistry.Add((new StickDeadzoneAssignment("STICK_DEADZONE_OUTER", right_stick_deadzone_outer))->SetHelp(""));
 	commandRegistry.Add((new JSMAssignment<float>(motion_deadzone_inner))
-	    ->SetHelp("Defines a radius of the motion-stick within which all values will be ignored. This value can only be between 0 and 1 but it should be small. Stick input out of this radius will be adjusted."));
+		->SetHelp("Defines a radius of the motion-stick within which all values will be ignored. This value can only be between 0 and 1 but it should be small. Stick input out of this radius will be adjusted."));
 	commandRegistry.Add((new JSMAssignment<float>(motion_deadzone_outer))
-	    ->SetHelp("Defines a distance from the motion-stick's outer edge for which the stick will be considered fully tilted. Stick input out of this deadzone will be adjusted."));
+		->SetHelp("Defines a distance from the motion-stick's outer edge for which the stick will be considered fully tilted. Stick input out of this deadzone will be adjusted."));
 	commandRegistry.Add((new JSMAssignment<float>(lean_threshold))
-	    ->SetHelp("How far the controller must be leaned left or right to trigger a LEAN_LEFT or LEAN_RIGHT binding."));
+		->SetHelp("How far the controller must be leaned left or right to trigger a LEAN_LEFT or LEAN_RIGHT binding."));
 	commandRegistry.Add((new JSMMacro("CALCULATE_REAL_WORLD_CALIBRATION"))->SetMacro(bind(&do_CALCULATE_REAL_WORLD_CALIBRATION, placeholders::_2))
 		->SetHelp("Get JoyShockMapper to recommend you a REAL_WORLD_CALIBRATION value after performing the calibration sequence. Visit GyroWiki for details:\nhttp://gyrowiki.jibbsmart.com/blog:joyshockmapper-guide#calibrating"));
 	commandRegistry.Add((new JSMMacro("SLEEP"))->SetMacro(bind(&do_SLEEP, placeholders::_2))
