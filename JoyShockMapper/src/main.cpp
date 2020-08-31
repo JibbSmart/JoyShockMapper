@@ -2404,6 +2404,7 @@ int main(int argc, char *argv[]) {
 	gyro_x_sign.SetFilter(&filterInvalidValue<AxisMode, AxisMode::INVALID>);
 	gyro_y_sign.SetFilter(&filterInvalidValue<AxisMode, AxisMode::INVALID>);
 	flick_time.SetFilter(bind(&fmaxf, 0.0001f, ::placeholders::_2));
+	flick_time_exponent.SetFilter(&filterFloat);
 	gyro_smooth_time.SetFilter(bind(&fmaxf, 0.0001f, ::placeholders::_2));
 	gyro_smooth_threshold.SetFilter(&filterPositive);
 	gyro_cutoff_speed.SetFilter(&filterPositive);
