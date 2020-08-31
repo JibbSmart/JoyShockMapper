@@ -1570,6 +1570,41 @@ bool do_SET_MOTION_STICK_NEUTRAL()
 	return true;
 }
 
+bool do_SLEEP(in_string argument)
+{
+	// first, check for a parameter
+	float sleepTime = 1.0;
+	if (argument.length() > 0)
+	{
+		try
+		{
+			sleepTime = stof(argument);
+		}
+		catch (invalid_argument ia)
+		{
+			printf("Can't convert \"%s\" to a number\n", argument.c_str());
+			return false;
+		}
+	}
+
+	if (sleepTime <= 0)
+	{
+		printf("Sleep time must be greater than 0 and less than or equal to 10\n");
+		return false;
+	}
+
+	if (sleepTime > 10)
+	{
+		printf("Sleep is capped at 10s per command\n");
+		sleepTime = 10.f;
+	}
+	printf("Sleeping for %.3f second(s)...\n", sleepTime);
+	std::this_thread::sleep_for(std::chrono::milliseconds((int)(sleepTime * 1000)));
+	printf("Finished sleeping.\n");
+	
+	return true;
+}
+
 bool do_README() {
 	printf("Opening online help in your browser\n");
 	auto err = ShowOnlineHelp();
@@ -1858,7 +1893,7 @@ void processStick(JoyShock* jc, float stickX, float stickY, float lastX, float l
 void joyShockPollCallback(int jcHandle, JOY_SHOCK_STATE state, JOY_SHOCK_STATE lastState, IMU_STATE imuState, IMU_STATE lastImuState, float deltaTime) {
 	
 	//printf("DS4 accel: %.4f, %.4f, %.4f\n", imuState.accelX, imuState.accelY, imuState.accelZ);
-	//printf("\tDS4 gyro: %.4f, %.4f, %.4f\n", imuState.gyroX, imuState.gyroY, imuState.gyroZ);
+	printf("\tDS4 gyro: %.4f, %.4f, %.4f\n", imuState.gyroX, imuState.gyroY, imuState.gyroZ);
 	MOTION_STATE motion = JslGetMotionState(jcHandle);
 	//printf("\tDS4 quat: %.4f, %.4f, %.4f, %.4f | accel: %.4f, %.4f, %.4f | grav: %.4f, %.4f, %.4f\n",
 	//	motion.quatW, motion.quatX, motion.quatY, motion.quatZ,
@@ -2666,6 +2701,8 @@ int main(int argc, char *argv[]) {
 	    ->SetHelp("How far the controller must be leaned left or right to trigger a LEAN_LEFT or LEAN_RIGHT binding."));
 	commandRegistry.Add((new JSMMacro("CALCULATE_REAL_WORLD_CALIBRATION"))->SetMacro(bind(&do_CALCULATE_REAL_WORLD_CALIBRATION, placeholders::_2))
 		->SetHelp("Get JoyShockMapper to recommend you a REAL_WORLD_CALIBRATION value after performing the calibration sequence. Visit GyroWiki for details:\nhttp://gyrowiki.jibbsmart.com/blog:joyshockmapper-guide#calibrating"));
+	commandRegistry.Add((new JSMMacro("SLEEP"))->SetMacro(bind(&do_SLEEP, placeholders::_2))
+		->SetHelp("Sleep for the given number of seconds, or one second if no number is given. Can't sleep more than 10 seconds per command."));
 	commandRegistry.Add((new JSMMacro("FINISH_GYRO_CALIBRATION"))->SetMacro(bind(&do_FINISH_GYRO_CALIBRATION))
 		->SetHelp("Finish calibrating the gyro in all controllers."));
 	commandRegistry.Add((new JSMMacro("RESTART_GYRO_CALIBRATION"))->SetMacro(bind(&do_RESTART_GYRO_CALIBRATION))
@@ -2742,7 +2779,7 @@ int main(int argc, char *argv[]) {
 	{
 		printf("Loading ini file...\n");
 		commandRegistry.processLine("ini");
-		printf("ini file loaded.\n");
+		printf("Finished executing ini file.\n");
 	}
 
 	// The main loop is simple and reads like pseudocode
