@@ -7,7 +7,6 @@
 #include <memory>
 #include <string_view>
 
-
 // This is a base class for any Command line operation. It binds a command name to a parser function
 // Derivatives from this class have a default parser function and performs specific operations.
 class JSMCommand {
@@ -88,6 +87,8 @@ private:
 
 	static string_view strtrim(std::string_view str);
 
+	static bool findCommandWithName(in_string name, CmdMap::value_type& pair);
+
 public:
 	CmdRegistry();
 
@@ -96,7 +97,7 @@ public:
 	// accepted.
 	bool Add(JSMCommand* newCommand);
 
-	static bool findCommandWithName(in_string name, CmdMap::value_type& pair);
+	bool isCommandValid(in_string line);
 
 	// Process a command entered by the user
 	// intentionally dont't use const ref

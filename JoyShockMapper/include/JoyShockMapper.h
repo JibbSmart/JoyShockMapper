@@ -30,6 +30,7 @@ constexpr WORD GYRO_INV_Y = 0x89;
 constexpr WORD GYRO_INVERT = 0x8A;
 constexpr WORD GYRO_OFF_BIND = 0x8B; // Not to be confused with settings GYRO_ON and GYRO_OFF
 constexpr WORD GYRO_ON_BIND = 0x8C;  // Those here are bindings
+constexpr WORD COMMAND_ACTION = 0x8D; // Run command
 
 // All enums should have an INVALID field for proper use with templated << and >> operators
 
@@ -187,8 +188,13 @@ struct KeyCode
 
 	inline KeyCode(in_string keyName)
 		: code(nameToKey(keyName))
-		, name(code != 0 ? keyName : string())
-	{}
+		, name()
+	{
+		if (code == COMMAND_ACTION)
+			name = keyName.substr(1, keyName.size() - 2); // Remove opening and closing quotation marks
+		else if (code != 0)
+			name = keyName;
+	}
 
 	inline operator bool()
 	{
@@ -251,6 +257,9 @@ public:
 
 	// Identifies having no binding mapped
 	static const Mapping NO_MAPPING;
+
+	// This functor nees to be set to way to validate a command line string;
+	static function<bool(in_string)> _isCommandValid;
 
 private:
 	map<BtnEvent, OnEventAction> eventMapping;

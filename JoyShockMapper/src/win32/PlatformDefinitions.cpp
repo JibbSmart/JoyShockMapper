@@ -119,6 +119,10 @@ WORD nameToKey(const std::string &name)
 			}
 		}
 	}
+	if (length > 2 && name[0] == '"' && name[length - 1] == '"')
+	{
+		return COMMAND_ACTION;
+	}
 	if (name.compare("LEFT") == 0)
 	{
 		return VK_LEFT;
