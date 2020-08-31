@@ -56,8 +56,8 @@ JSMSetting<float> stick_acceleration_rate = JSMSetting<float>(SettingID::STICK_A
 JSMSetting<float> stick_acceleration_cap = JSMSetting<float>(SettingID::STICK_ACCELERATION_CAP, 1000000.0f);
 JSMSetting<float> stick_deadzone_inner = JSMSetting<float>(SettingID::STICK_DEADZONE_INNER, 0.15f);
 JSMSetting<float> stick_deadzone_outer = JSMSetting<float>(SettingID::STICK_DEADZONE_OUTER, 0.1f);
-JSMSetting<float> motion_deadzone_inner = JSMSetting<float>(SettingID::MOTION_DEADZONE_INNER, 0.15f);
-JSMSetting<float> motion_deadzone_outer = JSMSetting<float>(SettingID::MOTION_DEADZONE_OUTER, 0.1f);
+JSMSetting<float> motion_deadzone_inner = JSMSetting<float>(SettingID::MOTION_DEADZONE_INNER, 15.f);
+JSMSetting<float> motion_deadzone_outer = JSMSetting<float>(SettingID::MOTION_DEADZONE_OUTER, 135.f);
 JSMSetting<float> mouse_ring_radius = JSMSetting<float>(SettingID::MOUSE_RING_RADIUS, 128.0f);
 JSMSetting<float> screen_resolution_x = JSMSetting<float>(SettingID::SCREEN_RESOLUTION_X, 1920.0f);
 JSMSetting<float> screen_resolution_y = JSMSetting<float>(SettingID::SCREEN_RESOLUTION_Y, 1080.0f);
@@ -580,8 +580,8 @@ public:
 	bool ignore_right_stick_mode = false;
 	bool ignore_motion_stick_mode = false;
 
-	float lastMotionCalibratedX = 0.0f;
-	float lastMotionCalibratedY = 0.0f;
+	float lastMotionStickX = 0.0f;
+	float lastMotionStickY = 0.0f;
 
 	JoyShock(int uniqueHandle, float pollRate, int controllerSplitType, float stickStepSize)
 		: intHandle(uniqueHandle)
@@ -1652,6 +1652,118 @@ JoyShock* getJoyShockFromHandle(int handle) {
 	return nullptr;
 }
 
+void processStick(JoyShock* jc, float stickX, float stickY, float lastX, float lastY, float innerDeadzone, float outerDeadzone, RingMode ringMode, StickMode stickMode,
+	ButtonID ringId, ButtonID leftId, ButtonID rightId, ButtonID upId, ButtonID downId,
+	float mouseCalibrationFactor, float deltaTime, float &acceleration, FloatXY &lastAreaCal, bool& isFlicking, bool &ignoreStickMode,
+	bool &anyStickInput, bool &lockMouse, float &camSpeedX, float &camSpeedY)
+{
+	outerDeadzone = 1.0f - outerDeadzone;
+	jc->processDeadZones(lastX, lastY, innerDeadzone, outerDeadzone);
+	bool pegged = jc->processDeadZones(stickX, stickY, innerDeadzone, outerDeadzone);
+	float absX = abs(stickX);
+	float absY = abs(stickY);
+	bool left = stickX < -0.5f * absY;
+	bool right = stickX > 0.5f * absY;
+	bool down = stickY < -0.5f * absX;
+	bool up = stickY > 0.5f * absX;
+	float stickLength = sqrt(stickX * stickX + stickY * stickY);
+	bool ring = ringMode == RingMode::INNER && stickLength > 0.0f && stickLength < 0.7f ||
+	  ringMode == RingMode::OUTER && stickLength > 0.7f;
+	jc->handleButtonChange(ringId, ring);
+
+	bool rotateOnly = stickMode == StickMode::ROTATE_ONLY;
+	bool flickOnly = stickMode == StickMode::FLICK_ONLY;
+	if (ignoreStickMode && stickMode == StickMode::INVALID && stickX == 0 && stickY == 0)
+	{
+		// clear ignore flag when stick is back at neutral
+		ignoreStickMode = false;
+	}
+	else if (stickMode == StickMode::FLICK || flickOnly || rotateOnly)
+	{
+		camSpeedX += handleFlickStick(stickX, stickY, lastX, lastY, stickLength, isFlicking, jc, mouseCalibrationFactor, flickOnly, rotateOnly);
+		anyStickInput = pegged;
+	}
+	else if (stickMode == StickMode::AIM)
+	{
+		// camera movement
+		if (!pegged)
+		{
+			acceleration = 1.0f; // reset
+		}
+		float stickLength = sqrt(stickX * stickX + stickY * stickY);
+		if (stickLength != 0.0f)
+		{
+			anyStickInput = true;
+			float warpedStickLengthX = pow(stickLength, jc->getSetting(SettingID::STICK_POWER));
+			float warpedStickLengthY = warpedStickLengthX;
+			warpedStickLengthX *= jc->getSetting<FloatXY>(SettingID::STICK_SENS).first * jc->getSetting(SettingID::REAL_WORLD_CALIBRATION) / os_mouse_speed / jc->getSetting(SettingID::IN_GAME_SENS);
+			warpedStickLengthY *= jc->getSetting<FloatXY>(SettingID::STICK_SENS).second * jc->getSetting(SettingID::REAL_WORLD_CALIBRATION) / os_mouse_speed / jc->getSetting(SettingID::IN_GAME_SENS);
+			camSpeedX += stickX / stickLength * warpedStickLengthX * acceleration * deltaTime;
+			camSpeedY += stickY / stickLength * warpedStickLengthY * acceleration * deltaTime;
+			if (pegged)
+			{
+				acceleration += jc->getSetting(SettingID::STICK_ACCELERATION_RATE) * deltaTime;
+				auto cap = jc->getSetting(SettingID::STICK_ACCELERATION_CAP);
+				if (acceleration > cap)
+				{
+					acceleration = cap;
+				}
+			}
+		}
+	}
+	else if (stickMode == StickMode::MOUSE_AREA)
+	{
+		auto mouse_ring_radius = jc->getSetting(SettingID::MOUSE_RING_RADIUS);
+		if (stickX != 0.0f || stickY != 0.0f)
+		{
+			// use difference with last cal values
+			float mouseX = (stickX - lastAreaCal.x()) * mouse_ring_radius;
+			float mouseY = (stickY - lastAreaCal.y()) * -1 * mouse_ring_radius;
+			// do it!
+			moveMouse(mouseX, mouseY);
+			lastAreaCal = { stickX, stickY };
+		}
+		else
+		{
+			// Return to center
+			moveMouse(lastAreaCal.x() * -1 * mouse_ring_radius, lastAreaCal.y() * mouse_ring_radius);
+			lastAreaCal = { 0, 0 };
+		}
+	}
+	else if (stickMode == StickMode::MOUSE_RING)
+	{
+		if (stickX != 0.0f || stickY != 0.0f)
+		{
+			auto mouse_ring_radius = jc->getSetting(SettingID::MOUSE_RING_RADIUS);
+			float stickLength = sqrt(stickX * stickX + stickY * stickY);
+			float normX = stickX / stickLength;
+			float normY = stickY / stickLength;
+			// use screen resolution
+			float mouseX = (float)jc->getSetting(SettingID::SCREEN_RESOLUTION_X) * 0.5f + 0.5f + normX * mouse_ring_radius;
+			float mouseY = (float)jc->getSetting(SettingID::SCREEN_RESOLUTION_Y) * 0.5f + 0.5f - normY * mouse_ring_radius;
+			// normalize
+			mouseX = mouseX / jc->getSetting(SettingID::SCREEN_RESOLUTION_X);
+			mouseY = mouseY / jc->getSetting(SettingID::SCREEN_RESOLUTION_Y);
+			// do it!
+			setMouseNorm(mouseX, mouseY);
+			lockMouse = true;
+		}
+	}
+	else if (stickMode == StickMode::NO_MOUSE)
+	{ // Do not do if invalid
+		// left!
+		jc->handleButtonChange(leftId, left);
+		// right!
+		jc->handleButtonChange(rightId, right);
+		// up!
+		jc->handleButtonChange(upId, up);
+		// down!
+		jc->handleButtonChange(downId, down);
+
+		anyStickInput = left | right | up | down; // ring doesn't count
+	}
+}
+
 void joyShockPollCallback(int jcHandle, JOY_SHOCK_STATE state, JOY_SHOCK_STATE lastState, IMU_STATE imuState, IMU_STATE lastImuState, float deltaTime) {
 	
 	//printf("DS4 accel: %.4f, %.4f, %.4f\n", imuState.accelX, imuState.accelY, imuState.accelZ);
@@ -1742,101 +1854,11 @@ void joyShockPollCallback(int jcHandle, JOY_SHOCK_STATE state, JOY_SHOCK_STATE l
 		float lastCalY = lastState.stickLY;
 		float calX = state.stickLX;
 		float calY = state.stickLY;
-		float innerDeadzone = jc->getSetting(SettingID::STICK_DEADZONE_INNER);
-		float outerDeadzone = 1.0f - jc->getSetting(SettingID::STICK_DEADZONE_OUTER);
-		bool leftPegged = jc->processDeadZones(calX, calY, innerDeadzone, outerDeadzone);
-		float absX = abs(calX);
-		float absY = abs(calY);
-		bool left = calX < -0.5f * absY;
-		bool right = calX > 0.5f * absY;
-		bool down = calY < -0.5f * absX;
-		bool up = calY > 0.5f * absX;
-		float stickLength = sqrt(calX * calX + calY * calY);
-		bool ring = jc->getSetting<RingMode>(SettingID::LEFT_RING_MODE) == RingMode::INNER && stickLength > 0.0f && stickLength < 0.7f ||
-			jc->getSetting<RingMode>(SettingID::LEFT_RING_MODE) == RingMode::OUTER && stickLength > 0.7f;
-		jc->handleButtonChange(ButtonID::LRING, ring);
 
-		bool rotateOnly = jc->getSetting<StickMode>(SettingID::LEFT_STICK_MODE) == StickMode::ROTATE_ONLY;
-		bool flickOnly = jc->getSetting<StickMode>(SettingID::LEFT_STICK_MODE) == StickMode::FLICK_ONLY;
-		if (jc->ignore_left_stick_mode && jc->getSetting<StickMode>(SettingID::LEFT_STICK_MODE) == StickMode::INVALID && calX == 0 && calY == 0)
-		{
-			// clear ignore flag when stick is back at neutral
-			jc->ignore_left_stick_mode = false;
-		}
-		else if (jc->getSetting<StickMode>(SettingID::LEFT_STICK_MODE) == StickMode::FLICK || flickOnly || rotateOnly) {
-			camSpeedX += handleFlickStick(calX, calY, lastCalX, lastCalY, stickLength, jc->is_flicking_left, jc, mouseCalibrationFactor, flickOnly, rotateOnly);
-			leftAny = leftPegged;
-		}
-		else if (jc->getSetting<StickMode>(SettingID::LEFT_STICK_MODE) == StickMode::AIM) {
-			// camera movement
-			if (!leftPegged) {
-				jc->left_acceleration = 1.0f; // reset
-			}
-			float stickLength = sqrt(calX * calX + calY * calY);
-			if (stickLength != 0.0f) {
-				leftAny = true;
-				float warpedStickLengthX = pow(stickLength, jc->getSetting(SettingID::STICK_POWER));
-				float warpedStickLengthY = warpedStickLengthX;
-				warpedStickLengthX *= jc->getSetting<FloatXY>(SettingID::STICK_SENS).first * jc->getSetting(SettingID::REAL_WORLD_CALIBRATION) / os_mouse_speed / jc->getSetting(SettingID::IN_GAME_SENS);
-				warpedStickLengthY *= jc->getSetting<FloatXY>(SettingID::STICK_SENS).second * jc->getSetting(SettingID::REAL_WORLD_CALIBRATION) / os_mouse_speed / jc->getSetting(SettingID::IN_GAME_SENS);
-				camSpeedX += calX / stickLength * warpedStickLengthX * jc->left_acceleration * deltaTime;
-				camSpeedY += calY / stickLength * warpedStickLengthY * jc->left_acceleration * deltaTime;
-				if (leftPegged) {
-					jc->left_acceleration += jc->getSetting(SettingID::STICK_ACCELERATION_RATE) * deltaTime;
-					auto cap = jc->getSetting(SettingID::STICK_ACCELERATION_CAP);
-					if (jc->left_acceleration > cap) {
-						jc->left_acceleration = cap;
-					}
-				}
-			}
-		}
-		else if (jc->getSetting<StickMode>(SettingID::LEFT_STICK_MODE) == StickMode::MOUSE_AREA) {
-
-			auto mouse_ring_radius = jc->getSetting(SettingID::MOUSE_RING_RADIUS);
-			if (calX != 0.0f || calY != 0.0f) {
-				// use difference with last cal values
-				float mouseX = (calX - jc->left_last_cal.x()) * mouse_ring_radius;
-				float mouseY = (calY - jc->left_last_cal.y()) * -1 * mouse_ring_radius;
-				// do it!
-				moveMouse(mouseX, mouseY);
-				jc->left_last_cal = { calX, calY };
-			}
-			else
-			{
-				// Return to center
-				moveMouse(jc->left_last_cal.x() * -1 * mouse_ring_radius, jc->left_last_cal.y() * mouse_ring_radius);
-				jc->left_last_cal = { 0, 0 };
-			}
-		}
-		else if (jc->getSetting<StickMode>(SettingID::LEFT_STICK_MODE) == StickMode::MOUSE_RING) {
-			if (calX != 0.0f || calY != 0.0f) {
-				auto mouse_ring_radius = jc->getSetting(SettingID::MOUSE_RING_RADIUS);
-				float stickLength = sqrt(calX * calX + calY * calY);
-				float normX = calX / stickLength;
-				float normY = calY / stickLength;
-				// use screen resolution
-				float mouseX = (float)jc->getSetting(SettingID::SCREEN_RESOLUTION_X) * 0.5f + 0.5f + normX * mouse_ring_radius;
-				float mouseY = (float)jc->getSetting(SettingID::SCREEN_RESOLUTION_Y) * 0.5f + 0.5f - normY * mouse_ring_radius;
-				// normalize
-				mouseX = mouseX / jc->getSetting(SettingID::SCREEN_RESOLUTION_X);
-				mouseY = mouseY / jc->getSetting(SettingID::SCREEN_RESOLUTION_Y);
-				// do it!
-				setMouseNorm(mouseX, mouseY);
-				lockMouse = true;
-			}
-		}
-		else if (jc->getSetting<StickMode>(SettingID::LEFT_STICK_MODE) == StickMode::NO_MOUSE) { // Do not do if invalid
-			// left!
-			jc->handleButtonChange(ButtonID::LLEFT, left);
-			// right!
-			jc->handleButtonChange(ButtonID::LRIGHT, right);
-			// up!
-			jc->handleButtonChange(ButtonID::LUP, up);
-			// down!
-			jc->handleButtonChange(ButtonID::LDOWN, down);
-
-			leftAny = left | right | up | down; // ring doesn't count
-		}
+		processStick(jc, calX, calY, lastCalX, lastCalY, jc->getSetting(SettingID::STICK_DEADZONE_INNER), jc->getSetting(SettingID::STICK_DEADZONE_OUTER),
+			jc->getSetting<RingMode>(SettingID::LEFT_RING_MODE), jc->getSetting<StickMode>(SettingID::LEFT_STICK_MODE),
+			ButtonID::LRING, ButtonID::LLEFT, ButtonID::LRIGHT, ButtonID::LUP, ButtonID::LDOWN,
+			mouseCalibrationFactor, deltaTime, jc->left_acceleration, jc->left_last_cal, jc->is_flicking_left, jc->ignore_left_stick_mode, leftAny, lockMouse, camSpeedX, camSpeedY);
 	}
 
 	if (jc->controller_type != JS_SPLIT_TYPE_LEFT)
@@ -1845,109 +1867,19 @@ void joyShockPollCallback(int jcHandle, JOY_SHOCK_STATE state, JOY_SHOCK_STATE l
 		float lastCalY = lastState.stickRY;
 		float calX = state.stickRX;
 		float calY = state.stickRY;
-		float innerDeadzone = jc->getSetting(SettingID::STICK_DEADZONE_INNER);
-		float outerDeadzone = 1.0f - jc->getSetting(SettingID::STICK_DEADZONE_OUTER);
-		bool rightPegged = jc->processDeadZones(calX, calY, innerDeadzone, outerDeadzone);
-		float absX = abs(calX);
-		float absY = abs(calY);
-		bool left = calX < -0.5f * absY;
-		bool right = calX > 0.5f * absY;
-		bool down = calY < -0.5f * absX;
-		bool up = calY > 0.5f * absX;
-		float stickLength = sqrt(calX * calX + calY * calY);
-		bool ring = jc->getSetting<RingMode>(SettingID::RIGHT_RING_MODE) == RingMode::INNER && stickLength > 0.0f && stickLength < 0.7f ||
-			jc->getSetting<RingMode>(SettingID::RIGHT_RING_MODE) == RingMode::OUTER && stickLength > 0.7f;
-		jc->handleButtonChange(ButtonID::RRING, ring);
 
-		bool rotateOnly = jc->getSetting<StickMode>(SettingID::RIGHT_STICK_MODE) == StickMode::ROTATE_ONLY;
-		bool flickOnly = jc->getSetting<StickMode>(SettingID::RIGHT_STICK_MODE) == StickMode::FLICK_ONLY;
-		if (jc->ignore_right_stick_mode && jc->getSetting<StickMode>(SettingID::RIGHT_STICK_MODE) == StickMode::INVALID && calX == 0 && calY == 0)
-		{
-			// clear ignore flag when stick is back at neutral
-			jc->ignore_right_stick_mode = false;
-		}
-		else if (jc->getSetting<StickMode>(SettingID::RIGHT_STICK_MODE) == StickMode::FLICK || rotateOnly || flickOnly) {
-			camSpeedX += handleFlickStick(calX, calY, lastCalX, lastCalY, stickLength, jc->is_flicking_right, jc, mouseCalibrationFactor, flickOnly, rotateOnly);
-			rightAny = rightPegged;
-		}
-		else if (jc->getSetting<StickMode>(SettingID::RIGHT_STICK_MODE) == StickMode::AIM) {
-			// camera movement
-			if (!rightPegged) {
-				jc->right_acceleration = 1.0f; // reset
-			}
-			float stickLength = sqrt(calX * calX + calY * calY);
-			if (stickLength > 0.0f) {
-				rightAny = true;
-				float warpedStickLengthX = pow(stickLength, jc->getSetting(SettingID::STICK_POWER));
-				float warpedStickLengthY = warpedStickLengthX;
-				warpedStickLengthX *= jc->getSetting<FloatXY>(SettingID::STICK_SENS).first * jc->getSetting(SettingID::REAL_WORLD_CALIBRATION) / os_mouse_speed / jc->getSetting(SettingID::IN_GAME_SENS);
-				warpedStickLengthY *= jc->getSetting<FloatXY>(SettingID::STICK_SENS).second * jc->getSetting(SettingID::REAL_WORLD_CALIBRATION) / os_mouse_speed / jc->getSetting(SettingID::IN_GAME_SENS);
-				camSpeedX += calX / stickLength * warpedStickLengthX * jc->right_acceleration * deltaTime;
-				camSpeedY += calY / stickLength * warpedStickLengthY * jc->right_acceleration * deltaTime;
-
-				if (rightPegged) {
-					jc->right_acceleration += jc->getSetting(SettingID::STICK_ACCELERATION_RATE) * deltaTime;
-					auto cap = jc->getSetting(SettingID::STICK_ACCELERATION_CAP);
-					if (jc->right_acceleration > cap) {
-						jc->right_acceleration = cap;
-					}
-				}
-			}
-		}
-		else if (jc->getSetting<StickMode>(SettingID::RIGHT_STICK_MODE) == StickMode::MOUSE_AREA) {
-			auto mouse_ring_radius = jc->getSetting(SettingID::MOUSE_RING_RADIUS);
-			if (calX != 0.0f || calY != 0.0f) {
-				// use difference with last cal values
-				float mouseX = (calX - jc->right_last_cal.x()) * mouse_ring_radius;
-				float mouseY = (calY - jc->right_last_cal.y()) * -1 * mouse_ring_radius;
-				// do it!
-				moveMouse(mouseX, mouseY);
-				jc->right_last_cal = { calX, calY };
-			}
-			else
-			{
-				// return to center
-				moveMouse(jc->right_last_cal.x() * -1 * mouse_ring_radius, jc->right_last_cal.y() * mouse_ring_radius);
-				jc->right_last_cal = { 0, 0 };
-			}
-		}
-		else if (jc->getSetting<StickMode>(SettingID::RIGHT_STICK_MODE) == StickMode::MOUSE_RING) {
-			if (calX != 0.0f || calY != 0.0f) {
-				auto mouse_ring_radius = jc->getSetting(SettingID::MOUSE_RING_RADIUS);
-				float stickLength = sqrt(calX * calX + calY * calY);
-				float normX = calX / stickLength;
-				float normY = calY / stickLength;
-				// use screen resolution
-				float mouseX = (float)jc->getSetting(SettingID::SCREEN_RESOLUTION_X) * 0.5f + 0.5f + normX * mouse_ring_radius;
-				float mouseY = (float)jc->getSetting(SettingID::SCREEN_RESOLUTION_Y) * 0.5f + 0.5f - normY * mouse_ring_radius;
-				// normalize
-				mouseX = mouseX / jc->getSetting(SettingID::SCREEN_RESOLUTION_X);
-				mouseY = mouseY / jc->getSetting(SettingID::SCREEN_RESOLUTION_Y);
-				// do it!
-				setMouseNorm(mouseX, mouseY);
-				lockMouse = true;
-			}
-		}
-		else if (jc->getSetting<StickMode>(SettingID::RIGHT_STICK_MODE) == StickMode::NO_MOUSE) { // Do not do if invalid
-			// left!
-			jc->handleButtonChange(ButtonID::RLEFT, left);
-			// right!
-			jc->handleButtonChange(ButtonID::RRIGHT, right);
-			// up!
-			jc->handleButtonChange(ButtonID::RUP, up);
-			// down!
-			jc->handleButtonChange(ButtonID::RDOWN, down);
-
-			rightAny = left | right | up | down; // ring doesn't count
-		}
+		processStick(jc, calX, calY, lastCalX, lastCalY, jc->getSetting(SettingID::STICK_DEADZONE_INNER), jc->getSetting(SettingID::STICK_DEADZONE_OUTER),
+			jc->getSetting<RingMode>(SettingID::RIGHT_RING_MODE), jc->getSetting<StickMode>(SettingID::RIGHT_STICK_MODE),
+			ButtonID::RRING, ButtonID::RLEFT, ButtonID::RRIGHT, ButtonID::RUP, ButtonID::RDOWN,
+			mouseCalibrationFactor, deltaTime, jc->right_acceleration, jc->right_last_cal, jc->is_flicking_right, jc->ignore_right_stick_mode, rightAny, lockMouse, camSpeedX, camSpeedY);
 	}
 
 	if (jc->controller_type == JS_SPLIT_TYPE_FULL ||
 		(jc->controller_type & (int)jc->getSetting<JoyconMask>(SettingID::JOYCON_MOTION_MASK)) == 0)
 	{
-		float lastCalX = jc->lastMotionCalibratedX;
-		float lastCalY = jc->lastMotionCalibratedY;
-		// normalize gravity vector
+		float lastCalX = jc->lastMotionStickX;
+		float lastCalY = jc->lastMotionStickY;
+		// use gravity vector deflection
 		float calX = motion.gravX;
 		float calY = -motion.gravZ;
 		float gravLength2D = sqrtf(motion.gravX * motion.gravX + motion.gravZ * motion.gravZ);
@@ -1957,115 +1889,14 @@ void joyShockPollCallback(int jcHandle, JOY_SHOCK_STATE state, JOY_SHOCK_STATE l
 			calX *= gravStickDeflection / gravLength2D;
 			calY *= gravStickDeflection / gravLength2D;
 		}
-		float innerDeadzone = jc->getSetting(SettingID::MOTION_DEADZONE_INNER);
-		float outerDeadzone = 1.0f - jc->getSetting(SettingID::MOTION_DEADZONE_OUTER);
-		bool motionPegged = jc->processDeadZones(calX, calY, innerDeadzone, outerDeadzone);
-		float absX = abs(calX);
-		float absY = abs(calY);
-		bool left = calX < -0.5f * absY;
-		bool right = calX > 0.5f * absY;
-		bool down = calY < -0.5f * absX;
-		bool up = calY > 0.5f * absX;
-		float stickLength = sqrt(calX * calX + calY * calY);
-		bool ring = jc->getSetting<RingMode>(SettingID::MOTION_RING_MODE) == RingMode::INNER && stickLength > 0.0f && stickLength < 0.7f ||
-		  jc->getSetting<RingMode>(SettingID::MOTION_RING_MODE) == RingMode::OUTER && stickLength > 0.7f;
-		jc->handleButtonChange(ButtonID::MRING, ring);
 
-		bool rotateOnly = jc->getSetting<StickMode>(SettingID::MOTION_STICK_MODE) == StickMode::ROTATE_ONLY;
-		bool flickOnly = jc->getSetting<StickMode>(SettingID::MOTION_STICK_MODE) == StickMode::FLICK_ONLY;
-		if (jc->ignore_motion_stick_mode && jc->getSetting<StickMode>(SettingID::MOTION_STICK_MODE) == StickMode::INVALID && calX == 0 && calY == 0)
-		{
-			// clear ignore flag when stick is back at neutral
-			jc->ignore_motion_stick_mode = false;
-		}
-		else if (jc->getSetting<StickMode>(SettingID::MOTION_STICK_MODE) == StickMode::FLICK || rotateOnly || flickOnly)
-		{
-			camSpeedX += handleFlickStick(calX, calY, lastCalX, lastCalY, stickLength, jc->is_flicking_motion, jc, mouseCalibrationFactor, flickOnly, rotateOnly);
-			motionAny = motionPegged;
-		}
-		else if (jc->getSetting<StickMode>(SettingID::MOTION_STICK_MODE) == StickMode::AIM)
-		{
-			// camera movement
-			if (!motionPegged)
-			{
-				jc->motion_stick_acceleration = 1.0f; // reset
-			}
-			float stickLength = sqrt(calX * calX + calY * calY);
-			if (stickLength > 0.0f)
-			{
-				motionAny = true;
-				float warpedStickLengthX = pow(stickLength, jc->getSetting(SettingID::STICK_POWER));
-				float warpedStickLengthY = warpedStickLengthX;
-				warpedStickLengthX *= jc->getSetting<FloatXY>(SettingID::STICK_SENS).first * jc->getSetting(SettingID::REAL_WORLD_CALIBRATION) / os_mouse_speed / jc->getSetting(SettingID::IN_GAME_SENS);
-				warpedStickLengthY *= jc->getSetting<FloatXY>(SettingID::STICK_SENS).second * jc->getSetting(SettingID::REAL_WORLD_CALIBRATION) / os_mouse_speed / jc->getSetting(SettingID::IN_GAME_SENS);
-				camSpeedX += calX / stickLength * warpedStickLengthX * jc->motion_stick_acceleration * deltaTime;
-				camSpeedY += calY / stickLength * warpedStickLengthY * jc->motion_stick_acceleration * deltaTime;
+		jc->lastMotionStickX = calX;
+		jc->lastMotionStickY = calY;
 
-				if (motionPegged)
-				{
-					jc->motion_stick_acceleration += jc->getSetting(SettingID::STICK_ACCELERATION_RATE) * deltaTime;
-					auto cap = jc->getSetting(SettingID::STICK_ACCELERATION_CAP);
-					if (jc->motion_stick_acceleration > cap)
-					{
-						jc->motion_stick_acceleration = cap;
-					}
-				}
-			}
-		}
-		else if (jc->getSetting<StickMode>(SettingID::MOTION_STICK_MODE) == StickMode::MOUSE_AREA)
-		{
-			auto mouse_ring_radius = jc->getSetting(SettingID::MOUSE_RING_RADIUS);
-			if (calX != 0.0f || calY != 0.0f)
-			{
-				// use difference with last cal values
-				float mouseX = (calX - jc->motion_last_cal.x()) * mouse_ring_radius;
-				float mouseY = (calY - jc->motion_last_cal.y()) * -1 * mouse_ring_radius;
-				// do it!
-				moveMouse(mouseX, mouseY);
-				jc->motion_last_cal = { calX, calY };
-			}
-			else
-			{
-				// return to center
-				moveMouse(jc->motion_last_cal.x() * -1 * mouse_ring_radius, jc->motion_last_cal.y() * mouse_ring_radius);
-				jc->motion_last_cal = { 0, 0 };
-			}
-		}
-		else if (jc->getSetting<StickMode>(SettingID::MOTION_STICK_MODE) == StickMode::MOUSE_RING)
-		{
-			if (calX != 0.0f || calY != 0.0f)
-			{
-				auto mouse_ring_radius = jc->getSetting(SettingID::MOUSE_RING_RADIUS);
-				float stickLength = sqrt(calX * calX + calY * calY);
-				float normX = calX / stickLength;
-				float normY = calY / stickLength;
-				// use screen resolution
-				float mouseX = (float)jc->getSetting(SettingID::SCREEN_RESOLUTION_X) * 0.5f + 0.5f + normX * mouse_ring_radius;
-				float mouseY = (float)jc->getSetting(SettingID::SCREEN_RESOLUTION_Y) * 0.5f + 0.5f - normY * mouse_ring_radius;
-				// normalize
-				mouseX = mouseX / jc->getSetting(SettingID::SCREEN_RESOLUTION_X);
-				mouseY = mouseY / jc->getSetting(SettingID::SCREEN_RESOLUTION_Y);
-				// do it!
-				setMouseNorm(mouseX, mouseY);
-				lockMouse = true;
-			}
-		}
-		else if (jc->getSetting<StickMode>(SettingID::MOTION_STICK_MODE) == StickMode::NO_MOUSE)
-		{ // Do not do if invalid
-			// left!
-			jc->handleButtonChange(ButtonID::MLEFT, left);
-			// right!
-			jc->handleButtonChange(ButtonID::MRIGHT, right);
-			// up!
-			jc->handleButtonChange(ButtonID::MUP, up);
-			// down!
-			jc->handleButtonChange(ButtonID::MDOWN, down);
-
-			motionAny = left | right | up | down; // ring doesn't count
-		}
-
-		jc->lastMotionCalibratedX = calX;
-		jc->lastMotionCalibratedY = calY;
+		processStick(jc, calX, calY, lastCalX, lastCalY, jc->getSetting(SettingID::MOTION_DEADZONE_INNER) / 180.f, jc->getSetting(SettingID::MOTION_DEADZONE_OUTER) / 180.f,
+			jc->getSetting<RingMode>(SettingID::MOTION_RING_MODE), jc->getSetting<StickMode>(SettingID::MOTION_STICK_MODE),
+			ButtonID::MRING, ButtonID::MLEFT, ButtonID::MRIGHT, ButtonID::MUP, ButtonID::MDOWN,
+			mouseCalibrationFactor, deltaTime, jc->motion_stick_acceleration, jc->motion_last_cal, jc->is_flicking_motion, jc->ignore_motion_stick_mode, motionAny, lockMouse, camSpeedX, camSpeedY);
 	}
 
 	// button mappings
@@ -2571,6 +2402,8 @@ int main(int argc, char *argv[]) {
 	stick_acceleration_cap.SetFilter(bind(&fmaxf, 1.0f, ::placeholders::_2));
 	stick_deadzone_inner.SetFilter(&filterClamp01);
 	stick_deadzone_outer.SetFilter(&filterClamp01);
+	motion_deadzone_inner.SetFilter(&filterPositive);
+	motion_deadzone_outer.SetFilter(&filterPositive);
 	mouse_ring_radius.SetFilter([](float c, float n) { return n <= screen_resolution_y ? floorf(n) : c; });
 	screen_resolution_x.SetFilter(&filterPositive);
 	screen_resolution_y.SetFilter(&filterPositive);
