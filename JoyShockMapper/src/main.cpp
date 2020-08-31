@@ -2705,6 +2705,14 @@ int main(int argc, char *argv[]) {
 
 	Mapping::_isCommandValid = bind(&CmdRegistry::isCommandValid, &commandRegistry, placeholders::_1);
 
+	// ini file
+	if (commandRegistry.isCommandValid("ini"))
+	{
+		printf("Loading ini file...\n");
+		commandRegistry.processLine("ini");
+		printf("ini file loaded.\n");
+	}
+
 	// The main loop is simple and reads like pseudocode
 	string enteredCommand;
 	while (!quit)
