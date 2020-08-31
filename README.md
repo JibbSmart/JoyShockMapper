@@ -685,6 +685,7 @@ There are a few other useful commands that don't fall under the above categories
 * **RECONNECT\_CONTROLLERS** - Controllers connected after JoyShockMapper starts will be ignored until you tell it to RECONNECT\_CONTROLLERS. When this happens, all gyro calibration will reset on all controllers.
 * **JOYCON\_GYRO\_MASK** (default IGNORE\_LEFT) - Most games that use gyro controls on Switch ignore the left JoyCon's gyro to avoid confusing behaviour when the JoyCons are held separately while playing. This is the default behaviour in JoyShockMapper. But you can also choose to IGNORE\_RIGHT, IGNORE\_BOTH, or USE\_BOTH.
 * **\# comments** - Any line or part of a line that begins with '\#' will be ignored. Use this to organise/annotate your configuration files, or to temporarily remove commands that you may want to add later.
+* **SLEEP** - Cause the program to sleep (or wait) for a given number of seconds. The given value must be greater than 0 and less than or equal to 10. Or, omit the value and it will sleep for one second. This command may help automate calibration.
 * ***ini*** - This is not a command. But if a file called '*ini*' is found in the current working directory on startup, its contents will be loaded and executed right away. If you prefer that AutoLoad is disabled, put ```AUTOLOAD = OFF``` in here to have it disabled at startup. If you use HIDGuardian / HIDCerberus and always want to whitelist JSM and then reconnect controllers, just put ```WHITELIST_ADD``` and ```RECONNECT_CONTROLLERS``` in the ini.
 
 ## Troubleshooting

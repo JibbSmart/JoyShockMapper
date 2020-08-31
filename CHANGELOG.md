@@ -9,7 +9,7 @@ These changes will also make adding more settings less error prone and provide a
 
 Nicolas also expanded the mapping options greatly, allowing a button to map to multiple key presses, a key press on press and on release, toggling, and more. He also made hold/simultaneous/double-press times configurable, and made it so any JSM command (including file loading) can be bound to a button press by putting it in quotes. The JSM directory can be set, which should help fix problems for those accessing JSM through a shortcut.
 
-Jibb added motion stick options, exposing the orientation of the controller as a third stick. This third stick can do everything a regular stick can -- MOUSE\_AREA, FLICK\_STICK, or trigger button presses. He also added separate lean mappings so the controller can be leaned left or right to trigger key inputs. Stick modes can be made to work correctly when holding the controller sideways or backwards, and an *ini* file can be automatically loaded with preferred settings.
+Jibb added motion stick options, exposing the orientation of the controller as a third stick. This third stick can do everything a regular stick can -- MOUSE\_AREA, FLICK\_STICK, or trigger key presses. He also added separate lean mappings so the controller can be leaned left or right to trigger key inputs. Stick modes can be made to work correctly when holding the controller sideways or backwards, and an *ini* file can be automatically loaded with preferred settings. Also, a SLEEP command can help automate calibration.
 
 ### Features
 * All commands can now display help, or display their current value, have value filtering and notification
@@ -26,6 +26,7 @@ Jibb added motion stick options, exposing the orientation of the controller as a
 * LEFT\_STICK\_DEADZONE\_\* and RIGHT\_STICK\_DEADZONE\_\* can be set independently.
 * CONTROLLER\_ORIENTATION changes the behaviour of sticks to work correctly when holding the controller sideways or backwards.
 * If a file called *ini* (no file extension) is found next to JoyShockMapper.exe, its contents will be loaded on startup. Use this for disabling AutoLoad or automatically whitelist and reconnect controllers.
+* SLEEP will wait for a given number of seconds (up to 10).
 
 ## 1.6.1
 Lots of internal changes for developers. JSM can now be built for Linux, thanks to Romeo Calota. Since this is only developer-facing for now, this is still just a bug-fix update rather than a feature update. But if you're up for it, check out the Linux instructions in the README!
