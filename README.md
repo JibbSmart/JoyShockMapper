@@ -496,6 +496,14 @@ LEFT_RING_MODE = INNER
 LRING = LALT # Walk
 ```
 
+If you're holding the controller in an unusual orientation (such as for comfort reasons or when using a single JoyCon), you can set **CONTROLLER\_ORIENTATION** to reflect how you're holding the controller:
+* **FORWARD** is the default.
+* **LEFT** is for when you're holding the controller rotated to its left.
+* **RIGHT** is for when you're holding the controller rotated to its right.
+* **BACKWARD** is for when you're holding teh controller rotated 180°.
+
+CONTROLLER\_ORIENTATION only affects sticks (including motion stick). It doesn't affect the arrangement of the face buttons, d-pad, etc.
+
 #### 3.1 Motion Stick
 Using the motion sensors, you can treat your whole controller as a stick. The "Motion Stick" can do everything that a regular stick can do:
 * **MOTION\_STICK\_MODE** (default NO\_MOUSE) - All the same options as LEFT\_STICK\_MODE and RIGHT\_STICK\_MODE.
@@ -503,6 +511,7 @@ Using the motion sensors, you can treat your whole controller as a stick. The "M
 * **MOTION\_DEADZONE\_INNER** (default 15°) - How far the controller needs to be tilted in order to register as non-zero.
 * **MOTION\_DEADZONE\_OUTER** (default 135°) - How far from the maximum rotation will be considered a full tilt. The maximum rotation is of course 180°, so the default value of 135° means tilting at or above 45° from the **neutral position** will be considered "full tilt".
 * **MLEFT**, **MRIGHT**, **MUP**, **MDOWN** are the motion stick equivalents of left, right, forward, back mappings, respectively.
+* This is also affected by **CONTROLLER\_ORIENTATION** described at the end of the previous section.
 
 The **neutral position** is approximately the position the controller is when left on a flat surface.
 

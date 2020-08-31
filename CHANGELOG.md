@@ -24,6 +24,7 @@ Jibb added motion stick options, exposing the orientation of the controller as a
 * MOTION\_STICK\_MODE treats the whole controller's orientation as a stick, and can be set to anything LEFT\_STICK\_MODE can be set to.
 * LEAN\_LEFT and LEAN\_RIGHT can map leaning the controller left or right to key inputs.
 * LEFT\_STICK\_DEADZONE\_\* and RIGHT\_STICK\_DEADZONE\_* can be set independently.
+* CONTROLLER\_ORIENTATION changes the behaviour of sticks to work correctly when holding the controller sideways or backwards.
 
 ## 1.6.1
 Lots of internal changes for developers. JSM can now be built for Linux, thanks to Romeo Calota. Since this is only developer-facing for now, this is still just a bug-fix update rather than a feature update. But if you're up for it, check out the Linux instructions in the README!

@@ -62,6 +62,7 @@ JSMSetting<float> right_stick_deadzone_outer = JSMSetting<float>(SettingID::RIGH
 JSMSetting<float> motion_deadzone_inner = JSMSetting<float>(SettingID::MOTION_DEADZONE_INNER, 15.f);
 JSMSetting<float> motion_deadzone_outer = JSMSetting<float>(SettingID::MOTION_DEADZONE_OUTER, 135.f);
 JSMSetting<float> lean_threshold = JSMSetting<float>(SettingID::LEAN_THRESHOLD, 15.f);
+JSMSetting<ControllerOrientation> controller_orientation = JSMSetting<ControllerOrientation>(SettingID::CONTROLLER_ORIENTATION, ControllerOrientation::FORWARD);
 JSMSetting<float> mouse_ring_radius = JSMSetting<float>(SettingID::MOUSE_RING_RADIUS, 128.0f);
 JSMSetting<float> screen_resolution_x = JSMSetting<float>(SettingID::SCREEN_RESOLUTION_X, 1920.0f);
 JSMSetting<float> screen_resolution_y = JSMSetting<float>(SettingID::SCREEN_RESOLUTION_Y, 1080.0f);
@@ -680,6 +681,9 @@ public:
 				break;
 			case SettingID::JOYCON_MOTION_MASK:
 				opt = GetOptionalSetting<E>(joycon_motion_mask, *activeChord);
+				break;
+			case SettingID::CONTROLLER_ORIENTATION:
+				opt = GetOptionalSetting<E>(controller_orientation, *activeChord);
 				break;
 			case SettingID::ZR_MODE:
 				opt = GetOptionalSetting<E>(zrMode, *activeChord);
@@ -1373,6 +1377,7 @@ static void resetAllMappings() {
 	motion_deadzone_inner.Reset();
 	motion_deadzone_outer.Reset();
 	lean_threshold.Reset();
+	controller_orientation.Reset();
 	screen_resolution_x.Reset();
 	screen_resolution_y.Reset();
 	mouse_ring_radius.Reset();
@@ -1694,10 +1699,37 @@ JoyShock* getJoyShockFromHandle(int handle) {
 }
 
 void processStick(JoyShock* jc, float stickX, float stickY, float lastX, float lastY, float innerDeadzone, float outerDeadzone, RingMode ringMode, StickMode stickMode,
-	ButtonID ringId, ButtonID leftId, ButtonID rightId, ButtonID upId, ButtonID downId,
+	ButtonID ringId, ButtonID leftId, ButtonID rightId, ButtonID upId, ButtonID downId, ControllerOrientation controllerOrientation,
 	float mouseCalibrationFactor, float deltaTime, float &acceleration, FloatXY &lastAreaCal, bool& isFlicking, bool &ignoreStickMode,
 	bool &anyStickInput, bool &lockMouse, float &camSpeedX, float &camSpeedY)
 {
+	float temp;
+	switch (controllerOrientation)
+	{
+	case ControllerOrientation::LEFT:
+		temp = stickX;
+		stickX = -stickY;
+		stickY = temp;
+		temp = lastX;
+		lastX = -lastY;
+		lastY = temp;
+		break;
+	case ControllerOrientation::RIGHT:
+		temp = stickX;
+		stickX = stickY;
+		stickY = -temp;
+		temp = lastX;
+		lastX = lastY;
+		lastY = -temp;
+		break;
+	case ControllerOrientation::BACKWARD:
+		stickX = -stickX;
+		stickY = -stickY;
+		lastX = -lastX;
+		lastY = -lastY;
+		break;
+	}
+
 	outerDeadzone = 1.0f - outerDeadzone;
 	jc->processDeadZones(lastX, lastY, innerDeadzone, outerDeadzone);
 	bool pegged = jc->processDeadZones(stickX, stickY, innerDeadzone, outerDeadzone);
@@ -1884,6 +1916,7 @@ void joyShockPollCallback(int jcHandle, JOY_SHOCK_STATE state, JOY_SHOCK_STATE l
 	jc->time_now = std::chrono::steady_clock::now();
 
 	// sticks!
+	ControllerOrientation controllerOrientation = jc->getSetting<ControllerOrientation>(SettingID::CONTROLLER_ORIENTATION);
 	float camSpeedX = 0.0f;
 	float camSpeedY = 0.0f;
 	// account for os mouse speed and convert from radians to degrees because gyro reports in degrees per second
@@ -1898,7 +1931,7 @@ void joyShockPollCallback(int jcHandle, JOY_SHOCK_STATE state, JOY_SHOCK_STATE l
 
 		processStick(jc, calX, calY, lastCalX, lastCalY, jc->getSetting(SettingID::LEFT_STICK_DEADZONE_INNER), jc->getSetting(SettingID::LEFT_STICK_DEADZONE_OUTER),
 			jc->getSetting<RingMode>(SettingID::LEFT_RING_MODE), jc->getSetting<StickMode>(SettingID::LEFT_STICK_MODE),
-			ButtonID::LRING, ButtonID::LLEFT, ButtonID::LRIGHT, ButtonID::LUP, ButtonID::LDOWN,
+			ButtonID::LRING, ButtonID::LLEFT, ButtonID::LRIGHT, ButtonID::LUP, ButtonID::LDOWN, controllerOrientation,
 			mouseCalibrationFactor, deltaTime, jc->left_acceleration, jc->left_last_cal, jc->is_flicking_left, jc->ignore_left_stick_mode, leftAny, lockMouse, camSpeedX, camSpeedY);
 	}
 
@@ -1911,7 +1944,7 @@ void joyShockPollCallback(int jcHandle, JOY_SHOCK_STATE state, JOY_SHOCK_STATE l
 
 		processStick(jc, calX, calY, lastCalX, lastCalY, jc->getSetting(SettingID::RIGHT_STICK_DEADZONE_INNER), jc->getSetting(SettingID::RIGHT_STICK_DEADZONE_OUTER),
 			jc->getSetting<RingMode>(SettingID::RIGHT_RING_MODE), jc->getSetting<StickMode>(SettingID::RIGHT_STICK_MODE),
-			ButtonID::RRING, ButtonID::RLEFT, ButtonID::RRIGHT, ButtonID::RUP, ButtonID::RDOWN,
+			ButtonID::RRING, ButtonID::RLEFT, ButtonID::RRIGHT, ButtonID::RUP, ButtonID::RDOWN, controllerOrientation,
 			mouseCalibrationFactor, deltaTime, jc->right_acceleration, jc->right_last_cal, jc->is_flicking_right, jc->ignore_right_stick_mode, rightAny, lockMouse, camSpeedX, camSpeedY);
 	}
 
@@ -1936,13 +1969,29 @@ void joyShockPollCallback(int jcHandle, JOY_SHOCK_STATE state, JOY_SHOCK_STATE l
 
 		processStick(jc, calX, calY, lastCalX, lastCalY, jc->getSetting(SettingID::MOTION_DEADZONE_INNER) / 180.f, jc->getSetting(SettingID::MOTION_DEADZONE_OUTER) / 180.f,
 			jc->getSetting<RingMode>(SettingID::MOTION_RING_MODE), jc->getSetting<StickMode>(SettingID::MOTION_STICK_MODE),
-			ButtonID::MRING, ButtonID::MLEFT, ButtonID::MRIGHT, ButtonID::MUP, ButtonID::MDOWN,
+			ButtonID::MRING, ButtonID::MLEFT, ButtonID::MRIGHT, ButtonID::MUP, ButtonID::MDOWN, controllerOrientation,
 			mouseCalibrationFactor, deltaTime, jc->motion_stick_acceleration, jc->motion_last_cal, jc->is_flicking_motion, jc->ignore_motion_stick_mode, motionAny, lockMouse, camSpeedX, camSpeedY);
 
 		float gravLength3D = sqrtf(motion.gravX * motion.gravX + motion.gravY * motion.gravY + motion.gravZ * motion.gravZ);
 		if (gravLength3D > 0)
 		{
-			float gravDirX = motion.gravX / gravLength3D;
+			float gravSideDir;
+			switch (controllerOrientation)
+			{
+			case ControllerOrientation::FORWARD:
+				gravSideDir = motion.gravX;
+				break;
+			case ControllerOrientation::LEFT:
+				gravSideDir = motion.gravZ;
+				break;
+			case ControllerOrientation::RIGHT:
+				gravSideDir = -motion.gravZ;
+				break;
+			case ControllerOrientation::BACKWARD:
+				gravSideDir = -motion.gravX;
+				break;
+			}
+			float gravDirX = gravSideDir / gravLength3D;
 			float sinLeanThreshold = sin(jc->getSetting(SettingID::LEAN_THRESHOLD) * PI / 180.f);
 			jc->handleButtonChange(ButtonID::LEAN_LEFT, gravDirX < -sinLeanThreshold);
 			jc->handleButtonChange(ButtonID::LEAN_RIGHT, gravDirX > sinLeanThreshold);
@@ -2437,6 +2486,7 @@ int main(int argc, char *argv[]) {
 		});
 	joycon_gyro_mask.SetFilter(&filterInvalidValue<JoyconMask, JoyconMask::INVALID>);
 	joycon_motion_mask.SetFilter(&filterInvalidValue<JoyconMask, JoyconMask::INVALID>);
+	controller_orientation.SetFilter(&filterInvalidValue<ControllerOrientation, ControllerOrientation::INVALID>);
 	zlMode.SetFilter(&filterInvalidValue<TriggerMode, TriggerMode::INVALID>);
 	zrMode.SetFilter(&filterInvalidValue<TriggerMode, TriggerMode::INVALID>);
 	zlMode.SetFilter(&triggerModeNotification);
@@ -2594,6 +2644,8 @@ int main(int argc, char *argv[]) {
 		->SetHelp("Pick a gyro axis to operate on the mouse's X axis. Valid values are the following: X, Y and Z."));
 	commandRegistry.Add((new JSMAssignment<GyroAxisMask>(mouse_y_from_gyro))
 		->SetHelp("Pick a gyro axis to operate on the mouse's Y axis. Valid values are the following: X, Y and Z."));
+	commandRegistry.Add((new JSMAssignment<ControllerOrientation>(controller_orientation))
+	    ->SetHelp("Let the stick modes account for how you're holding the controller:\nFORWARD, LEFT, RIGHT, BACKWARD"));
 	commandRegistry.Add((new JSMAssignment<TriggerMode>(zlMode))
 		->SetHelp("Controllers with a right analog trigger can use one of the following dual stage trigger modes:\nNO_FULL, NO_SKIP, MAY_SKIP, MUST_SKIP, MAY_SKIP_R, MUST_SKIP_R"));
 	commandRegistry.Add((new JSMAssignment<TriggerMode>(zrMode))
