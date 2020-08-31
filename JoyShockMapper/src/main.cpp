@@ -55,8 +55,10 @@ JSMSetting<float> gyro_cutoff_speed = JSMSetting<float>(SettingID::GYRO_CUTOFF_S
 JSMSetting<float> gyro_cutoff_recovery = JSMSetting<float>(SettingID::GYRO_CUTOFF_RECOVERY, 0.0f);
 JSMSetting<float> stick_acceleration_rate = JSMSetting<float>(SettingID::STICK_ACCELERATION_RATE, 0.0f);
 JSMSetting<float> stick_acceleration_cap = JSMSetting<float>(SettingID::STICK_ACCELERATION_CAP, 1000000.0f);
-JSMSetting<float> stick_deadzone_inner = JSMSetting<float>(SettingID::STICK_DEADZONE_INNER, 0.15f);
-JSMSetting<float> stick_deadzone_outer = JSMSetting<float>(SettingID::STICK_DEADZONE_OUTER, 0.1f);
+JSMSetting<float> left_stick_deadzone_inner = JSMSetting<float>(SettingID::LEFT_STICK_DEADZONE_INNER, 0.15f);
+JSMSetting<float> left_stick_deadzone_outer = JSMSetting<float>(SettingID::LEFT_STICK_DEADZONE_OUTER, 0.1f);
+JSMSetting<float> right_stick_deadzone_inner = JSMSetting<float>(SettingID::RIGHT_STICK_DEADZONE_INNER, 0.15f);
+JSMSetting<float> right_stick_deadzone_outer = JSMSetting<float>(SettingID::RIGHT_STICK_DEADZONE_OUTER, 0.1f);
 JSMSetting<float> motion_deadzone_inner = JSMSetting<float>(SettingID::MOTION_DEADZONE_INNER, 15.f);
 JSMSetting<float> motion_deadzone_outer = JSMSetting<float>(SettingID::MOTION_DEADZONE_OUTER, 135.f);
 JSMSetting<float> mouse_ring_radius = JSMSetting<float>(SettingID::MOUSE_RING_RADIUS, 128.0f);
@@ -754,11 +756,17 @@ public:
 			case SettingID::STICK_ACCELERATION_CAP:
 				opt = stick_acceleration_cap.get(*activeChord);
 				break;
-			case SettingID::STICK_DEADZONE_INNER:
-				opt = stick_deadzone_inner.get(*activeChord);
+			case SettingID::LEFT_STICK_DEADZONE_INNER:
+				opt = left_stick_deadzone_inner.get(*activeChord);
 				break;
-			case SettingID::STICK_DEADZONE_OUTER:
-				opt = stick_deadzone_outer.get(*activeChord);
+			case SettingID::LEFT_STICK_DEADZONE_OUTER:
+				opt = left_stick_deadzone_outer.get(*activeChord);
+				break;
+			case SettingID::RIGHT_STICK_DEADZONE_INNER:
+				opt = right_stick_deadzone_inner.get(*activeChord);
+				break;
+			case SettingID::RIGHT_STICK_DEADZONE_OUTER:
+				opt = right_stick_deadzone_outer.get(*activeChord);
 				break;
 			case SettingID::MOTION_DEADZONE_INNER:
 				opt = motion_deadzone_inner.get(*activeChord);
@@ -1354,8 +1362,10 @@ static void resetAllMappings() {
 	gyro_cutoff_recovery.Reset();
 	stick_acceleration_rate.Reset();
 	stick_acceleration_cap.Reset();
-	stick_deadzone_inner.Reset();
-	stick_deadzone_outer.Reset();
+	left_stick_deadzone_inner.Reset();
+	left_stick_deadzone_outer.Reset();
+	right_stick_deadzone_inner.Reset();
+	right_stick_deadzone_outer.Reset();
 	motion_deadzone_inner.Reset();
 	motion_deadzone_outer.Reset();
 	screen_resolution_x.Reset();
@@ -1574,7 +1584,7 @@ static float handleFlickStick(float calX, float calY, float lastCalX, float last
 	float offsetY = calY;
 	float lastOffsetX = lastCalX;
 	float lastOffsetY = lastCalY;
-	float flickStickThreshold = 1.0f - jc->getSetting(SettingID::STICK_DEADZONE_OUTER);
+	float flickStickThreshold = 0.995f;
 	if (isFlicking)
 	{
 		flickStickThreshold *= 0.9f;
@@ -1881,7 +1891,7 @@ void joyShockPollCallback(int jcHandle, JOY_SHOCK_STATE state, JOY_SHOCK_STATE l
 		float calX = state.stickLX;
 		float calY = state.stickLY;
 
-		processStick(jc, calX, calY, lastCalX, lastCalY, jc->getSetting(SettingID::STICK_DEADZONE_INNER), jc->getSetting(SettingID::STICK_DEADZONE_OUTER),
+		processStick(jc, calX, calY, lastCalX, lastCalY, jc->getSetting(SettingID::LEFT_STICK_DEADZONE_INNER), jc->getSetting(SettingID::LEFT_STICK_DEADZONE_OUTER),
 			jc->getSetting<RingMode>(SettingID::LEFT_RING_MODE), jc->getSetting<StickMode>(SettingID::LEFT_STICK_MODE),
 			ButtonID::LRING, ButtonID::LLEFT, ButtonID::LRIGHT, ButtonID::LUP, ButtonID::LDOWN,
 			mouseCalibrationFactor, deltaTime, jc->left_acceleration, jc->left_last_cal, jc->is_flicking_left, jc->ignore_left_stick_mode, leftAny, lockMouse, camSpeedX, camSpeedY);
@@ -1894,7 +1904,7 @@ void joyShockPollCallback(int jcHandle, JOY_SHOCK_STATE state, JOY_SHOCK_STATE l
 		float calX = state.stickRX;
 		float calY = state.stickRY;
 
-		processStick(jc, calX, calY, lastCalX, lastCalY, jc->getSetting(SettingID::STICK_DEADZONE_INNER), jc->getSetting(SettingID::STICK_DEADZONE_OUTER),
+		processStick(jc, calX, calY, lastCalX, lastCalY, jc->getSetting(SettingID::RIGHT_STICK_DEADZONE_INNER), jc->getSetting(SettingID::RIGHT_STICK_DEADZONE_OUTER),
 			jc->getSetting<RingMode>(SettingID::RIGHT_RING_MODE), jc->getSetting<StickMode>(SettingID::RIGHT_STICK_MODE),
 			ButtonID::RRING, ButtonID::RLEFT, ButtonID::RRIGHT, ButtonID::RUP, ButtonID::RDOWN,
 			mouseCalibrationFactor, deltaTime, jc->right_acceleration, jc->right_last_cal, jc->is_flicking_right, jc->ignore_right_stick_mode, rightAny, lockMouse, camSpeedX, camSpeedY);
@@ -2237,6 +2247,17 @@ public:
 	}
 };
 
+class StickDeadzoneAssignment : public JSMAssignment<float>
+{
+public:
+	StickDeadzoneAssignment(in_string name, JSMSetting<float> &stickDeadzone)
+	  : JSMAssignment(name, string(magic_enum::enum_name(stickDeadzone._id)), stickDeadzone)
+	{
+		// min and max gyro sens already have a listener
+		stickDeadzone.RemoveOnChangeListener(_listenerId);
+	}
+};
+
 class GyroButtonAssignment : public JSMAssignment<GyroSettings>
 {
 private:
@@ -2426,8 +2447,10 @@ int main(int argc, char *argv[]) {
 	gyro_cutoff_recovery.SetFilter(&filterPositive);
 	stick_acceleration_rate.SetFilter(&filterPositive);
 	stick_acceleration_cap.SetFilter(bind(&fmaxf, 1.0f, ::placeholders::_2));
-	stick_deadzone_inner.SetFilter(&filterClamp01);
-	stick_deadzone_outer.SetFilter(&filterClamp01);
+	left_stick_deadzone_inner.SetFilter(&filterClamp01);
+	left_stick_deadzone_outer.SetFilter(&filterClamp01);
+	right_stick_deadzone_inner.SetFilter(&filterClamp01);
+	right_stick_deadzone_outer.SetFilter(&filterClamp01);
 	motion_deadzone_inner.SetFilter(&filterPositive);
 	motion_deadzone_outer.SetFilter(&filterPositive);
 	mouse_ring_radius.SetFilter([](float c, float n) { return n <= screen_resolution_y ? floorf(n) : c; });
@@ -2526,10 +2549,20 @@ int main(int argc, char *argv[]) {
 		->SetHelp("When in AIM mode and the stick is fully tilted, stick sensitivity increases over time. This is a multiplier starting at 1x and increasing this by this value per second."));
 	commandRegistry.Add((new JSMAssignment<float>(stick_acceleration_cap))
 		->SetHelp("When in AIM mode and the stick is fully tilted, stick sensitivity increases over time. This value is the maximum sensitivity multiplier."));
-	commandRegistry.Add((new JSMAssignment<float>(stick_deadzone_inner))
-		->SetHelp("Defines a radius of the stick within which all values will be ignored. This value can only be between 0 and 1 but it should be small. Stick input out of this radius will be adjusted."));
-	commandRegistry.Add((new JSMAssignment<float>(stick_deadzone_outer))
-		->SetHelp("Defines a distance from the stick's outer edge for which the stick will be considered fully tilted. This value can only be between 0 and 1 but it should be small. Stick input out of this deadzone will be adjusted."));
+	commandRegistry.Add((new JSMAssignment<float>(left_stick_deadzone_inner))
+		->SetHelp("Defines a radius of the left stick within which all values will be ignored. This value can only be between 0 and 1 but it should be small. Stick input out of this radius will be adjusted."));
+	commandRegistry.Add((new JSMAssignment<float>(left_stick_deadzone_outer))
+		->SetHelp("Defines a distance from the left stick's outer edge for which the stick will be considered fully tilted. This value can only be between 0 and 1 but it should be small. Stick input out of this deadzone will be adjusted."));
+	commandRegistry.Add((new JSMAssignment<float>(right_stick_deadzone_inner))
+	    ->SetHelp("Defines a radius of the right stick within which all values will be ignored. This value can only be between 0 and 1 but it should be small. Stick input out of this radius will be adjusted."));
+	commandRegistry.Add((new JSMAssignment<float>(right_stick_deadzone_outer))
+	    ->SetHelp("Defines a distance from the right stick's outer edge for which the stick will be considered fully tilted. This value can only be between 0 and 1 but it should be small. Stick input out of this deadzone will be adjusted."));
+	commandRegistry.Add((new StickDeadzoneAssignment("STICK_DEADZONE_INNER", left_stick_deadzone_inner))
+	    ->SetHelp("Defines a radius of the both left and right sticks within which all values will be ignored. This value can only be between 0 and 1 but it should be small. Stick input out of this radius will be adjusted."));
+	commandRegistry.Add((new StickDeadzoneAssignment("STICK_DEADZONE_INNER", right_stick_deadzone_inner))->SetHelp(""));
+	commandRegistry.Add((new StickDeadzoneAssignment("STICK_DEADZONE_OUTER", left_stick_deadzone_outer))
+	    ->SetHelp("Defines a distance from both sticks' outer edge for which the stick will be considered fully tilted. This value can only be between 0 and 1 but it should be small. Stick input out of this deadzone will be adjusted."));
+	commandRegistry.Add((new StickDeadzoneAssignment("STICK_DEADZONE_OUTER", right_stick_deadzone_outer))->SetHelp(""));
 	commandRegistry.Add((new JSMAssignment<float>(motion_deadzone_inner))
 	    ->SetHelp("Defines a radius of the motion-stick within which all values will be ignored. This value can only be between 0 and 1 but it should be small. Stick input out of this radius will be adjusted."));
 	commandRegistry.Add((new JSMAssignment<float>(motion_deadzone_outer))
