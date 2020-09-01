@@ -219,6 +219,7 @@ NONE: No input
 CALIBRATE: recalibrate gyro when pressing this input
 GYRO_ON, GYRO_OFF: Enable or disable gyro
 GYRO_INVERT, GYRO_INV_X, GYRO_INV_Y: Invert gyro, or in just the x or y axes, respectively
+GYRO_TRACKBALL, GYRO_TRACK_X, GYRO_TRACK_Y: Keep last gyro input, or in just the x or y axes, respectively
 ; ' , . / \ [ ] + - `
 "any console command": Any console command can be run on button press, including loading a file
 ```
@@ -369,6 +370,8 @@ SL + SR = GYRO_OFF GYRO_INVERT  # Disable for .5s / Invert axis on simultaneous 
 Bound gyro actions like those have priority over the assigned gyro button should they conflict.
 
 The command ```NO_GYRO_BUTTON``` can be used to remove the gyro-on or gyro-off mapping, making gyro always enabled. To have it always disabled, just set ```GYRO_ON = NONE``` or leave ```GYRO_SENS``` at 0.
+
+If you're using ```GYRO_TRACKBALL``` or its single-axis variants, you can use **TRACKBALL\_DECAY** to choose how quickly the trackball effect loses momentum. It can be set to 0 for no decay. Its default value of 1 halves the gyro trackball's momentum over each second. 2 will halve it in 1/2 seconds, 3 in 1/3 seconds, and so on.
 
 ### 2. Analog Triggers
 

@@ -30,7 +30,10 @@ constexpr WORD GYRO_INV_Y = 0x89;
 constexpr WORD GYRO_INVERT = 0x8A;
 constexpr WORD GYRO_OFF_BIND = 0x8B; // Not to be confused with settings GYRO_ON and GYRO_OFF
 constexpr WORD GYRO_ON_BIND = 0x8C;  // Those here are bindings
-constexpr WORD COMMAND_ACTION = 0x8D; // Run command
+constexpr WORD GYRO_TRACK_X = 0x8D;
+constexpr WORD GYRO_TRACK_Y = 0x8E;
+constexpr WORD GYRO_TRACKBALL = 0x8F;
+constexpr WORD COMMAND_ACTION = 0x97; // Run command
 
 // All enums should have an INVALID field for proper use with templated << and >> operators
 
@@ -147,6 +150,7 @@ enum class SettingID
 	LEAN_THRESHOLD,
 	FLICK_DEADZONE_ANGLE,
 	CONTROLLER_ORIENTATION,
+	TRACKBALL_DECAY,
 	TRIGGER_SKIP_DELAY,
 	TURBO_PERIOD,
 	HOLD_PRESS_TIME,

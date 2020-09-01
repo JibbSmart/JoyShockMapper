@@ -267,6 +267,18 @@ WORD nameToKey(const std::string &name)
 	{
 		return GYRO_INVERT;
 	}
+	if (name.compare("GYRO_TRACK_X") == 0)
+	{
+		return GYRO_TRACK_X;
+	}
+	if (name.compare("GYRO_TRACK_Y") == 0)
+	{
+		return GYRO_TRACK_Y;
+	}
+	if (name.compare("GYRO_TRACKBALL") == 0)
+	{
+		return GYRO_TRACKBALL;
+	}
 	if (name.compare("GYRO_ON") == 0)
 	{
 		return GYRO_ON_BIND;

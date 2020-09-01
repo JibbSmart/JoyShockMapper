@@ -9,7 +9,7 @@ These changes will also make adding more settings less error prone and provide a
 
 Nicolas also expanded the mapping options greatly, allowing a button to map to multiple key presses, a key press on press and on release, toggling, and more. He also made hold/simultaneous/double-press times configurable, and made it so any JSM command (including file loading) can be bound to a button press by putting it in quotes. The JSM directory can be set, which should help fix problems for those accessing JSM through a shortcut.
 
-Jibb added motion stick options, exposing the orientation of the controller as a third stick. This third stick can do everything a regular stick can -- MOUSE\_AREA, FLICK\_STICK, or trigger key presses. He also added separate lean mappings so the controller can be leaned left or right to trigger key inputs. Stick modes can be made to work correctly when holding the controller sideways or backwards, and an *ini* file can be automatically loaded with preferred settings. Also, a SLEEP command can help automate calibration.
+Jibb added motion stick options, exposing the orientation of the controller as a third stick. This third stick can do everything a regular stick can -- MOUSE\_AREA, FLICK\_STICK, or trigger key presses. He also added separate lean mappings so the controller can be leaned left or right to trigger key inputs. Stick modes can be made to work correctly when holding the controller sideways or backwards, and there's a new trackball binding option to help reset controller position. An *ini* file can be automatically loaded with preferred settings, and a SLEEP command can help automate calibration.
 
 Roy Straver added an optional forward deadzone for flick stick to help with engaging the stick for rotation when no flick is desired.
 
@@ -29,6 +29,7 @@ Roy Straver added an optional forward deadzone for flick stick to help with enga
 * CONTROLLER\_ORIENTATION changes the behaviour of sticks to work correctly when holding the controller sideways or backwards.
 * If a file called *ini* (no file extension) is found next to JoyShockMapper.exe, its contents will be loaded on startup. Use this for disabling AutoLoad or automatically whitelist and reconnect controllers.
 * SLEEP will wait for a given number of seconds (up to 10).
+* GYRO\_TRACKBALL can be bound as an alternative to GYRO\_OFF, GYRO\_INVERT, etc. This will maintain the gyro's last momentum (with a little smoothing) while held, and will decay according to the TRACKBALL\_DECAY setting.
 * FLICK\_DEADZONE\_ANGLE defines a no-flick zone at the front of the stick for flick stick.
 
 ### Bugfixes

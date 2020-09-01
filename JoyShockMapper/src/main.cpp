@@ -65,6 +65,7 @@ JSMSetting<float> motion_deadzone_inner = JSMSetting<float>(SettingID::MOTION_DE
 JSMSetting<float> motion_deadzone_outer = JSMSetting<float>(SettingID::MOTION_DEADZONE_OUTER, 135.f);
 JSMSetting<float> lean_threshold = JSMSetting<float>(SettingID::LEAN_THRESHOLD, 15.f);
 JSMSetting<ControllerOrientation> controller_orientation = JSMSetting<ControllerOrientation>(SettingID::CONTROLLER_ORIENTATION, ControllerOrientation::FORWARD);
+JSMSetting<float> trackball_decay = JSMSetting<float>(SettingID::TRACKBALL_DECAY, 1.0f);
 JSMSetting<float> mouse_ring_radius = JSMSetting<float>(SettingID::MOUSE_RING_RADIUS, 128.0f);
 JSMSetting<float> screen_resolution_x = JSMSetting<float>(SettingID::SCREEN_RESOLUTION_X, 1920.0f);
 JSMSetting<float> screen_resolution_y = JSMSetting<float>(SettingID::SCREEN_RESOLUTION_Y, 1080.0f);
@@ -424,7 +425,7 @@ bool Mapping::AddMapping(KeyCode key, EventModifier evtMod, ActionModifier actMo
 		release = bind(&DigitalButton::FinishCalibration, placeholders::_1);
 		tapDurationMs = MAGIC_EXTENDED_TAP_DURATION; // Unused in regular press
 	}
-	else if (key.code >= GYRO_INV_X && key.code <= GYRO_ON_BIND)
+	else if (key.code >= GYRO_INV_X && key.code <= GYRO_TRACKBALL)
 	{
 		apply = bind(&DigitalButton::ApplyGyroAction, placeholders::_1, key);
 		release = bind(&DigitalButton::RemoveGyroAction, placeholders::_1);
@@ -622,6 +623,12 @@ public:
 
 	bool set_neutral_quat = false;
 
+	int numLastGyroSamples = 100;
+	float lastGyroX[100] = { 0.f };
+	float lastGyroY[100] = { 0.f };
+	int lastGyroIndexX = 0;
+	int lastGyroIndexY = 0;
+
 	JoyShock(int uniqueHandle, float pollRate, int controllerSplitType, float stickStepSize)
 		: intHandle(uniqueHandle)
 		, poll_rate(pollRate)
@@ -793,6 +800,9 @@ public:
 				break;
 			case SettingID::FLICK_DEADZONE_ANGLE:
 				opt = flick_deadzone_angle.get(*activeChord);
+				break;
+			case SettingID::TRACKBALL_DECAY:
+				opt = trackball_decay.get(*activeChord);
 				break;
 			case SettingID::MOUSE_RING_RADIUS:
 				opt = mouse_ring_radius.get(*activeChord);
@@ -1394,6 +1404,7 @@ static void resetAllMappings() {
 	screen_resolution_x.Reset();
 	screen_resolution_y.Reset();
 	mouse_ring_radius.Reset();
+	trackball_decay.Reset();
 	rotate_smooth_override.Reset();
 	flick_snap_strength.Reset();
 	flick_snap_mode.Reset();
@@ -2115,6 +2126,9 @@ void joyShockPollCallback(int jcHandle, JOY_SHOCK_STATE state, JOY_SHOCK_STATE l
 	float gyro_x_sign_to_use = jc->getSetting(SettingID::GYRO_AXIS_X);
 	float gyro_y_sign_to_use = jc->getSetting(SettingID::GYRO_AXIS_Y);
 
+	bool trackball_x_pressed = false;
+	bool trackball_y_pressed = false;
+
 	// Apply gyro modifiers in the queue from oldest to newest (thus giving priority to most recent)
 	for (auto pair : jc->btnCommon.gyroActionQueue)
 	{
@@ -2133,6 +2147,51 @@ void joyShockPollCallback(int jcHandle, JOY_SHOCK_STATE state, JOY_SHOCK_STATE l
 			gyro_x_sign_to_use = jc->getSetting(SettingID::GYRO_AXIS_X) * -1;
 			gyro_y_sign_to_use = jc->getSetting(SettingID::GYRO_AXIS_Y) * -1;
 		}
+		else if (pair.second.code == GYRO_TRACK_X)
+			trackball_x_pressed = true;
+		else if (pair.second.code == GYRO_TRACK_Y)
+			trackball_y_pressed = true;
+		else if (pair.second.code == GYRO_TRACKBALL)
+		{
+			trackball_x_pressed = true;
+			trackball_y_pressed = true;
+		}
+	}
+
+	float decay = exp2f(-deltaTime * jc->getSetting(SettingID::TRACKBALL_DECAY));
+	int maxTrackballSamples = min(jc->numLastGyroSamples, (int)(1.f / deltaTime * 0.125f));
+
+	if (!trackball_x_pressed)
+	{
+		int gyroSampleIndex = jc->lastGyroIndexX = (jc->lastGyroIndexX + 1) % maxTrackballSamples;
+		jc->lastGyroX[gyroSampleIndex] = gyroX;
+	}
+	else
+	{
+		float lastGyroX = 0.f;
+		for (int gyroAverageIdx = 0; gyroAverageIdx < maxTrackballSamples; gyroAverageIdx++)
+		{
+			lastGyroX += jc->lastGyroX[gyroAverageIdx];
+			jc->lastGyroX[gyroAverageIdx] *= decay;
+		}
+		lastGyroX /= maxTrackballSamples;
+		gyroX = lastGyroX;
+	}
+	if (!trackball_y_pressed)
+	{
+		int gyroSampleIndex = jc->lastGyroIndexY = (jc->lastGyroIndexY + 1) % maxTrackballSamples;
+		jc->lastGyroY[gyroSampleIndex] = gyroY;
+	}
+	else
+	{
+		float lastGyroY = 0.f;
+		for (int gyroAverageIdx = 0; gyroAverageIdx < maxTrackballSamples; gyroAverageIdx++)
+		{
+			lastGyroY += jc->lastGyroY[gyroAverageIdx];
+			jc->lastGyroY[gyroAverageIdx] *= decay;
+		}
+		lastGyroY /= maxTrackballSamples;
+		gyroY = lastGyroY;
 	}
 
 	if (blockGyro) {
@@ -2593,6 +2652,7 @@ int main(int argc, char *argv[]) {
 	motion_deadzone_outer.SetFilter(&filterPositive);
 	lean_threshold.SetFilter(&filterPositive);
 	mouse_ring_radius.SetFilter([](float c, float n) { return n <= screen_resolution_y ? floorf(n) : c; });
+	trackball_decay.SetFilter(&filterPositive);
 	screen_resolution_x.SetFilter(&filterPositive);
 	screen_resolution_y.SetFilter(&filterPositive);
 	// no filtering for rotate_smooth_override
@@ -2750,6 +2810,8 @@ int main(int argc, char *argv[]) {
 	    ->SetHelp("Pick a ring where to apply the MOTION_RING binding. Valid values are the following: INNER and OUTER."));
 	commandRegistry.Add((new JSMAssignment<float>(mouse_ring_radius))
 		->SetHelp("Pick a radius on which the cursor will be allowed to move. This value is used for stick mode MOUSE_RING and MOUSE_AREA."));
+	commandRegistry.Add((new JSMAssignment<float>(trackball_decay))
+		->SetHelp("Choose the rate at which trackball gyro slows down. 0 means no decay, 1 means it'll halve each second, 2 to halve each 1/2 seconds, etc."));
 	commandRegistry.Add((new JSMAssignment<float>(screen_resolution_x))
 		->SetHelp("Indicate your monitor's horizontal resolution when using the stick mode MOUSE_RING."));
 	commandRegistry.Add((new JSMAssignment<float>(screen_resolution_y))
