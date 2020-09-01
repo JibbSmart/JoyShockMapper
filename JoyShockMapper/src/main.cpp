@@ -2848,11 +2848,11 @@ int main(int argc, char *argv[]) {
 	Mapping::_isCommandValid = bind(&CmdRegistry::isCommandValid, &commandRegistry, placeholders::_1);
 
 	// ini file
-	if (commandRegistry.isCommandValid("ini"))
+	if (commandRegistry.isCommandValid("onstartup.txt"))
 	{
-		printf("Loading ini file...\n");
-		commandRegistry.processLine("ini");
-		printf("Finished executing ini file.\n");
+		printf("Loading startup file...\n");
+		commandRegistry.processLine("onstartup.txt");
+		printf("Finished executing startup file.\n");
 	}
 
 	// The main loop is simple and reads like pseudocode
