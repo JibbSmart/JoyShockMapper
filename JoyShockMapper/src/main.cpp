@@ -1493,9 +1493,16 @@ bool do_NO_GYRO_BUTTON() {
 	return true;
 }
 
-bool do_RESET_MAPPINGS() {
+bool do_RESET_MAPPINGS(CmdRegistry *registry) {
 	printf("Resetting all mappings to defaults\n");
 	resetAllMappings();
+	if (registry)
+	{
+		if (!registry->loadConfigFile("onreset.txt"))
+		{
+			cout << "There is no onreset.txt file to load." << endl;
+		}
+	}
 	return true;
 }
 
@@ -2592,13 +2599,9 @@ int main(int argc, char *argv[]) {
 	void *trayIconData = nullptr;
 #endif // _WIN32
 	mappings.reserve(MAPPING_SIZE);
-	Mapping calibrationDefault;
-	calibrationDefault.AddMapping(KeyCode("CALIBRATE"), Mapping::EventModifier::TapPress , Mapping::ActionModifier::Toggle);
-	calibrationDefault.AddMapping(KeyCode("CALIBRATE"), Mapping::EventModifier::HoldPress);
 	for (int id = 0; id < MAPPING_SIZE; ++id)
 	{
-		Mapping def = (id == int(ButtonID::HOME) || id == int(ButtonID::CAPTURE)) ? calibrationDefault : Mapping::NO_MAPPING;
-		JSMButton newButton(ButtonID(id), def);
+		JSMButton newButton(ButtonID(id), Mapping::NO_MAPPING);
 		newButton.SetFilter(&filterMapping);
 		mappings.push_back(newButton);
 	}
@@ -2677,8 +2680,7 @@ int main(int argc, char *argv[]) {
 	currentWorkingDir.SetFilter( [] (PathString current, PathString next) { return SetCWD(string(next)) ? next : current; });
 	autoloadSwitch.SetFilter(&filterInvalidValue<Switch, Switch::INVALID>)->AddOnChangeListener(&UpdateAutoload);
 
-	resetAllMappings();
-
+	currentWorkingDir = string(&cmdLine[0], &cmdLine[wcslen(cmdLine)]);
 	CmdRegistry commandRegistry;
 
 	autoLoadThread.reset(new PollingThread(&AutoLoadPoll, &commandRegistry, 1000, true)); // Start by default
@@ -2711,7 +2713,7 @@ int main(int argc, char *argv[]) {
 		->SetHelp("Set this value to the sensitivity you use in game. It is used by stick FLICK and AIM modes as well as GYRO aiming."));
 	commandRegistry.Add((new JSMAssignment<float>(trigger_threshold))
 		->SetHelp("Set this to a value between 0 and 1. This is the threshold at which a soft press binding is triggered."));
-	commandRegistry.Add((new JSMMacro("RESET_MAPPINGS"))->SetMacro(bind(&do_RESET_MAPPINGS))
+	commandRegistry.Add((new JSMMacro("RESET_MAPPINGS"))->SetMacro(bind(&do_RESET_MAPPINGS, &commandRegistry))
 		->SetHelp("Delete all custom bindings and reset to default.\nHOME and CAPTURE are set to CALIBRATE on both tap and hold by default."));
 	commandRegistry.Add((new JSMMacro("NO_GYRO_BUTTON"))->SetMacro(bind(&do_NO_GYRO_BUTTON))
 		->SetHelp("Enable gyro at all times, without any GYRO_OFF binding."));
@@ -2861,13 +2863,12 @@ int main(int argc, char *argv[]) {
 
 	Mapping::_isCommandValid = bind(&CmdRegistry::isCommandValid, &commandRegistry, placeholders::_1);
 
-	// ini file
-	if (commandRegistry.isCommandValid("onstartup.txt"))
+	if (commandRegistry.loadConfigFile("onstartup.txt"))
 	{
-		printf("Loading startup file...\n");
-		commandRegistry.processLine("onstartup.txt");
 		printf("Finished executing startup file.\n");
 	}
+	do_RESET_MAPPINGS(&commandRegistry);
+
 
 	// The main loop is simple and reads like pseudocode
 	string enteredCommand;
