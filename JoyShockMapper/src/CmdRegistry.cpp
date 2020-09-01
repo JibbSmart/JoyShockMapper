@@ -115,6 +115,39 @@ bool CmdRegistry::findCommandWithName(in_string name, CmdMap::value_type& pair)
 	return name == pair.first;
 }
 
+bool CmdRegistry::isCommandValid(in_string line)
+{
+	ifstream file(line);
+	if (file.is_open())
+	{
+		file.close();
+		return true;
+	}
+	smatch results;
+	string combo, name, arguments, label;
+	char op = '\0';
+	if (regex_match(line, results, regex(R"(^\s*([+-]?\w*)\s*([,+]\s*([+-]?\w*))?\s*([^#\n]*)(#\s*(.*))?$)")))
+	{
+		if (results[2].length() > 0)
+		{
+			combo = results[1];
+			op = results[2].str()[0];
+			name = results[3];
+		}
+		else
+		{
+			name = results[1];
+		}
+
+		arguments = results[4];
+		label = results[6];
+	}
+
+	bool hasProcessed = false;
+	CmdMap::iterator cmd = find_if(_registry.begin(), _registry.end(), bind(&CmdRegistry::findCommandWithName, name, placeholders::_1));
+	return cmd != _registry.end();
+}
+
 void CmdRegistry::processLine(const string& line)
 {
 	auto trimmedLine = std::string{ strtrim(line) };

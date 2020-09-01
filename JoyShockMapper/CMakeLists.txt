@@ -18,6 +18,7 @@ add_executable (
     src/main.cpp
     src/operators.cpp
     src/CmdRegistry.cpp
+    src/quatMaths.cpp
     include/InputHelpers.h
     include/PlatformDefinitions.h
     include/TrayIcon.h
@@ -88,7 +89,7 @@ target_include_directories (
 CPMAddPackage (
     NAME JoyShockLibrary
     GITHUB_REPOSITORY JibbSmart/JoyShockLibrary
-    VERSION 1.2.1
+    VERSION 2.0.0
 )
 
 target_link_libraries (

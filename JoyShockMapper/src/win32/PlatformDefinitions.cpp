@@ -119,6 +119,10 @@ WORD nameToKey(const std::string &name)
 			}
 		}
 	}
+	if (length > 2 && name[0] == '"' && name[length - 1] == '"')
+	{
+		return COMMAND_ACTION;
+	}
 	if (name.compare("LEFT") == 0)
 	{
 		return VK_LEFT;
@@ -262,6 +266,18 @@ WORD nameToKey(const std::string &name)
 	if (name.compare("GYRO_INVERT") == 0)
 	{
 		return GYRO_INVERT;
+	}
+	if (name.compare("GYRO_TRACK_X") == 0)
+	{
+		return GYRO_TRACK_X;
+	}
+	if (name.compare("GYRO_TRACK_Y") == 0)
+	{
+		return GYRO_TRACK_Y;
+	}
+	if (name.compare("GYRO_TRACKBALL") == 0)
+	{
+		return GYRO_TRACKBALL;
 	}
 	if (name.compare("GYRO_ON") == 0)
 	{

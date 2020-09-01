@@ -4,18 +4,36 @@ Most recent updates will appear first.
 This is a summary of new features and bugfixes. Read the README to learn how to use the features mentioned here.
 
 ## 2.0.0
-Refactored the command processing engine of JSM as well as some of the button processing logic. This enables a richer command line interface and new button mapping features.
-These changes will also make adding more settings less error prone and provide a more consistent feeling in the interface. Notification system also enables GUI possibility.
+Nicolas refactored the command processing engine of JSM as well as some of the button processing logic. This enables a richer command line interface and new button mapping features.
+These changes will also make adding more settings less error prone and provide a more consistent feeling in the interface.
+
+Nicolas also expanded the mapping options greatly, allowing a button to map to multiple key presses, a key press on press and on release, toggling, and more. He also made hold/simultaneous/double-press times configurable, and made it so any JSM command (including file loading) can be bound to a button press by putting it in quotes. The JSM directory can be set, which should help fix problems for those accessing JSM through a shortcut.
+
+Jibb added motion stick options, exposing the orientation of the controller as a third stick. This third stick can do everything a regular stick can -- MOUSE\_AREA, FLICK\_STICK, or trigger key presses. He also added separate lean mappings so the controller can be leaned left or right to trigger key inputs. Stick modes can be made to work correctly when holding the controller sideways or backwards, and there's a new trackball binding option to help reset controller position. A *onstartup.txt* file can be automatically loaded with preferred settings, and a SLEEP command can help automate calibration.
+
+Roy Straver added an optional forward deadzone for flick stick to help with engaging the stick for rotation when no flick is desired.
 
 ### Features
-* All commands can now display help, or display their current value, have value filtering and notification
-* Bindings can now have an action modifier (toggle/instant) and/or an event modifier (on press/release/tap/hold/turbo)
-* A button mapping can now enable multiple key presses
-* HELP command was renamed to README (it displays the latest README)
-* New HELP command shows a list of all commands or the help of all queried commands
-* New settings added for button timings, HOLD_PRESS_TIME, SIM_PRESS_WINDOW and DBL_PRESS_WINDOW
-* New setting to workaround pathfinding issues with Autoload, by making the current working directory changeable: JSM_DIRECTORY
+* All commands can now display help, or display their current value, have value filtering and notification.
+* Bindings can now have an action modifier (toggle/instant) and/or an event modifier (on press/release/tap/hold/turbo).
+* A button mapping can now enable multiple key presses.
+* WHITELIST\_SHOW displays a link to the HIDCerberus console instead of opening it (security risk).
+* HELP command was renamed to README (it displays a web link to the latest README).
+* New HELP command shows a list of all commands or the help of all queried commands.
+* New settings added for button timings, HOLD_PRESS_TIME, SIM_PRESS_WINDOW and DBL_PRESS_WINDOW.
+* New setting JSM_DIRECTORY should help solve pathfinding issues with AutoLoad, by making the current working directory changeable.
+* Added possibility to bind any JSM command as an action by entering it within quotes. This enables the possibility to load a file on button press.
+* MOTION\_STICK\_MODE treats the whole controller's orientation as a stick, and can be set to anything LEFT\_STICK\_MODE can be set to.
+* LEAN\_LEFT and LEAN\_RIGHT can map leaning the controller left or right to key inputs.
+* LEFT\_STICK\_DEADZONE\_\* and RIGHT\_STICK\_DEADZONE\_\* can be set independently.
+* CONTROLLER\_ORIENTATION changes the behaviour of sticks to work correctly when holding the controller sideways or backwards.
+* If a file called *onstartup.txt* is found next to JoyShockMapper.exe, its contents will be loaded on startup. Use this for disabling AutoLoad or automatically whitelist and reconnect controllers.
+* SLEEP will wait for a given number of seconds (up to 10).
+* GYRO\_TRACKBALL can be bound as an alternative to GYRO\_OFF, GYRO\_INVERT, etc. This will maintain the gyro's last momentum (with a little smoothing) while held, and will decay according to the TRACKBALL\_DECAY setting.
+* FLICK\_DEADZONE\_ANGLE defines a no-flick zone at the front of the stick for flick stick.
 
+### Bugfixes
+* JSM should no longer sometimes get the mouse stuck on the side or top of the screen.
 
 ## 1.6.1
 Lots of internal changes for developers. JSM can now be built for Linux, thanks to Romeo Calota. Since this is only developer-facing for now, this is still just a bug-fix update rather than a feature update. But if you're up for it, check out the Linux instructions in the README!

@@ -30,6 +30,10 @@ constexpr WORD GYRO_INV_Y = 0x89;
 constexpr WORD GYRO_INVERT = 0x8A;
 constexpr WORD GYRO_OFF_BIND = 0x8B; // Not to be confused with settings GYRO_ON and GYRO_OFF
 constexpr WORD GYRO_ON_BIND = 0x8C;  // Those here are bindings
+constexpr WORD GYRO_TRACK_X = 0x8D;
+constexpr WORD GYRO_TRACK_Y = 0x8E;
+constexpr WORD GYRO_TRACKBALL = 0x8F;
+constexpr WORD COMMAND_ACTION = 0x97; // Run command
 
 // All enums should have an INVALID field for proper use with templated << and >> operators
 
@@ -67,75 +71,92 @@ enum class ButtonID
 	RLEFT,		// = 27
 	RRIGHT,		// = 28
 	RRING,		// = 29
-	ZLF,		// = 30  FIRST_ANALOG_TRIGGER
+	MUP,        // = 30
+	MDOWN,		// = 31
+	MLEFT,		// = 32
+	MRIGHT,		// = 33
+	MRING,		// = 34
+	LEAN_LEFT,   // = 35
+	LEAN_RIGHT,  // = 36
+	ZLF,		// = 37  FIRST_ANALOG_TRIGGER
 				// insert more analog triggers here
-	ZRF,		// = 31 // LAST_ANALOG_TRIGGER
-	SIZE,		// = 32
+	ZRF,		// = 38 // LAST_ANALOG_TRIGGER
+	SIZE,		// = 39
 };
 
 enum class SettingID
 {
 	INVALID = -2,			// Represents an error in user input
-	MIN_GYRO_SENS = int(ButtonID::SIZE) + 1,
-	MAX_GYRO_SENS,			// = 34
-	MIN_GYRO_THRESHOLD,		// = 35
-	MAX_GYRO_THRESHOLD,		// = 36
-	STICK_POWER,			// = 37
-	STICK_SENS,				// = 38
-	REAL_WORLD_CALIBRATION, // = 39
-	IN_GAME_SENS,			// = 40
-	TRIGGER_THRESHOLD,		// = 41
-	RESET_MAPPINGS,			// = 42
-	NO_GYRO_BUTTON,			// = 43
-	LEFT_STICK_MODE,		// = 44
-	RIGHT_STICK_MODE,		// = 45
-	GYRO_OFF,				// = 46
-	GYRO_ON,				// = 47
-	STICK_AXIS_X,			// = 48
-	STICK_AXIS_Y,			// = 49
-	GYRO_AXIS_X,			// = 50
-	GYRO_AXIS_Y,			// = 51
-	RECONNECT_CONTROLLERS,	// = 52
-	COUNTER_OS_MOUSE_SPEED, // = 53
-	IGNORE_OS_MOUSE_SPEED,	// = 54
-	JOYCON_GYRO_MASK,		// = 55
-	GYRO_SENS,				// = 56
-	FLICK_TIME,				// = 57
-	GYRO_SMOOTH_THRESHOLD,	// = 58
-	GYRO_SMOOTH_TIME,		// = 59
-	GYRO_CUTOFF_SPEED,		// = 60
-	GYRO_CUTOFF_RECOVERY,	// = 61
-	STICK_ACCELERATION_RATE, // = 62
-	STICK_ACCELERATION_CAP, // = 63
-	STICK_DEADZONE_INNER,	// = 64
-	STICK_DEADZONE_OUTER,	// = 65
-	CALCULATE_REAL_WORLD_CALIBRATION, // = 66
-	FINISH_GYRO_CALIBRATION, // = 67
-	RESTART_GYRO_CALIBRATION, // = 68
-	MOUSE_X_FROM_GYRO_AXIS, // = 69
-	MOUSE_Y_FROM_GYRO_AXIS, // = 70
-	ZR_MODE,				// = 71
-	ZL_MODE,				// = 72
-	AUTOLOAD,				// = 73
-	HELP,					// = 74
-	WHITELIST_SHOW,			// = 75
-	WHITELIST_ADD,			// = 76
-	WHITELIST_REMOVE,		// = 77
-	LEFT_RING_MODE,			// = 78
-	RIGHT_RING_MODE,		// = 79
-	MOUSE_RING_RADIUS,		// = 80
-	SCREEN_RESOLUTION_X,	// = 81
-	SCREEN_RESOLUTION_Y,	// = 82
-	ROTATE_SMOOTH_OVERRIDE, // = 83
-	FLICK_SNAP_MODE,		// = 84
-	FLICK_SNAP_STRENGTH,	// = 85
+	MIN_GYRO_SENS = int(ButtonID::SIZE) + 1, // 40
+	MAX_GYRO_SENS,
+	MIN_GYRO_THRESHOLD,
+	MAX_GYRO_THRESHOLD,
+	STICK_POWER,
+	STICK_SENS,
+	REAL_WORLD_CALIBRATION,
+	IN_GAME_SENS,
+	TRIGGER_THRESHOLD,
+	RESET_MAPPINGS,
+	NO_GYRO_BUTTON,
+	LEFT_STICK_MODE,
+	RIGHT_STICK_MODE,
+	MOTION_STICK_MODE,
+	GYRO_OFF,
+	GYRO_ON,
+	STICK_AXIS_X,
+	STICK_AXIS_Y,
+	GYRO_AXIS_X,
+	GYRO_AXIS_Y,
+	RECONNECT_CONTROLLERS,
+	COUNTER_OS_MOUSE_SPEED,
+	IGNORE_OS_MOUSE_SPEED,
+	JOYCON_GYRO_MASK,
+	JOYCON_MOTION_MASK,
+	GYRO_SENS,
+	FLICK_TIME,
+	GYRO_SMOOTH_THRESHOLD,
+	GYRO_SMOOTH_TIME,
+	GYRO_CUTOFF_SPEED,
+	GYRO_CUTOFF_RECOVERY,
+	STICK_ACCELERATION_RATE,
+	STICK_ACCELERATION_CAP, 
+	LEFT_STICK_DEADZONE_INNER,
+	LEFT_STICK_DEADZONE_OUTER,
+	CALCULATE_REAL_WORLD_CALIBRATION,
+	FINISH_GYRO_CALIBRATION,
+	RESTART_GYRO_CALIBRATION,
+	MOUSE_X_FROM_GYRO_AXIS,
+	MOUSE_Y_FROM_GYRO_AXIS,
+	ZR_MODE,
+	ZL_MODE,
+	AUTOLOAD,
+	HELP,
+	WHITELIST_SHOW,
+	WHITELIST_ADD,
+	WHITELIST_REMOVE,
+	LEFT_RING_MODE,
+	RIGHT_RING_MODE,
+	MOTION_RING_MODE,
+	MOUSE_RING_RADIUS,
+	SCREEN_RESOLUTION_X,
+	SCREEN_RESOLUTION_Y,
+	ROTATE_SMOOTH_OVERRIDE,
+	FLICK_SNAP_MODE,
+	FLICK_SNAP_STRENGTH,
+	MOTION_DEADZONE_INNER,
+	MOTION_DEADZONE_OUTER,
+	RIGHT_STICK_DEADZONE_INNER,
+	RIGHT_STICK_DEADZONE_OUTER,
+	LEAN_THRESHOLD,
+	FLICK_DEADZONE_ANGLE,
+  FLICK_TIME_EXPONENT,
+	CONTROLLER_ORIENTATION,
+	TRACKBALL_DECAY,
 	TRIGGER_SKIP_DELAY,
 	TURBO_PERIOD,
 	HOLD_PRESS_TIME,
 	SIM_PRESS_WINDOW, // Unchorded setting
-	DBL_PRESS_WINDOW,// Unchorded setting
-	FLICK_DEADZONE_ANGLE,
-	FLICK_TIME_EXPONENT,
+	DBL_PRESS_WINDOW  // Unchorded setting
 };
 
 // constexpr are like #define but with respect to typeness
@@ -146,6 +167,7 @@ constexpr int NUM_ANALOG_TRIGGERS = int(LAST_ANALOG_TRIGGER) - int(FIRST_ANALOG_
 constexpr float MAGIC_TAP_DURATION = 40.0f; // in milliseconds
 constexpr float MAGIC_EXTENDED_TAP_DURATION = 500.0f; // in milliseconds
 
+enum class ControllerOrientation { FORWARD, LEFT, RIGHT, BACKWARD, INVALID };
 enum class RingMode { OUTER, INNER, INVALID };
 enum class StickMode { NO_MOUSE, AIM, FLICK, FLICK_ONLY, ROTATE_ONLY, MOUSE_RING, MOUSE_AREA, OUTER_RING, INNER_RING, INVALID };
 enum class FlickSnapMode { NONE, FOUR, EIGHT, INVALID };
@@ -189,8 +211,13 @@ struct KeyCode
 
 	inline KeyCode(in_string keyName)
 		: code(nameToKey(keyName))
-		, name(code != 0 ? keyName : string())
-	{}
+		, name()
+	{
+		if (code == COMMAND_ACTION)
+			name = keyName.substr(1, keyName.size() - 2); // Remove opening and closing quotation marks
+		else if (code != 0)
+			name = keyName;
+	}
 
 	inline operator bool()
 	{
@@ -253,6 +280,9 @@ public:
 
 	// Identifies having no binding mapped
 	static const Mapping NO_MAPPING;
+
+	// This functor nees to be set to way to validate a command line string;
+	static function<bool(in_string)> _isCommandValid;
 
 private:
 	map<BtnEvent, OnEventAction> eventMapping;

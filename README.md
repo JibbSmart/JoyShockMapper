@@ -24,6 +24,7 @@ JoyShockMapper works on Windows and uses JoyShockLibrary to read inputs from con
 	* **[Gyro Button](#16-gyro-button)**
   * **[Analog Triggers](#2-analog-triggers)**
   * **[Stick Mouse Inputs](#3-stick-mouse-inputs)**
+    * **[Motion Stick](#31-motion-stick)**
   * **[Gyro Mouse Inputs](#4-gyro-mouse-inputs)**
   * **[Real World Calibration](#5-real-world-calibration)**
   * **[Modeshifts](#6-modeshifts)**
@@ -189,6 +190,13 @@ RDOWN: Right stick tilted down
 RLEFT: Right stick tilted left
 RRIGHT: Right stick tilted right
 RRING: Right ring binding, either inner or outer.
+MUP: Motion stick tilted forward
+MDOWN: Motion stick tilted back
+MLEFT: Motion stick tilted left
+MRIGHT: Motion stick tilted right
+MRING: Motion ring binding, either inner or outer.
+LEAN_LEFT: Tilt the controller to the left
+LEAN_RIGHT: Tilt the controller to the right
 ```
 
 These can all be mapped to the following keyboard and mouse inputs:
@@ -211,7 +219,9 @@ NONE: No input
 CALIBRATE: recalibrate gyro when pressing this input
 GYRO_ON, GYRO_OFF: Enable or disable gyro
 GYRO_INVERT, GYRO_INV_X, GYRO_INV_Y: Invert gyro, or in just the x or y axes, respectively
+GYRO_TRACKBALL, GYRO_TRACK_X, GYRO_TRACK_Y: Keep last gyro input, or in just the x or y axes, respectively
 ; ' , . / \ [ ] + - `
+"any console command": Any console command can be run on button press, including loading a file
 ```
 
 For example, in a game where R is 'reload' and E is 'use’, you can do the following to map □ to 'reload' and △ to 'use':
@@ -220,6 +230,15 @@ For example, in a game where R is 'reload' and E is 'use’, you can do the foll
 W = R
 N = E
 ```
+
+Those familiar with Steam Input can implement Action Layers and Action Sets using the quotation marks to load a file on demand. That file can contain partial or full remapping of the controller bindings. This is very useful for having a different scheme for vehicles, menus or characters.
+
+```
+HOME = "GTA_driving.txt"  # Load the driving control scheme. That file should bind home to loading the walking scheme file!
+```
+
+Take note that the command bound in this way cannot contain quotation marks, and thus cannot contain the binding of a command itself. In this case, you should put the command in a file and load that file.
+
 
 #### 1.1 Tap & Hold
 
@@ -352,6 +371,8 @@ Bound gyro actions like those have priority over the assigned gyro button should
 
 The command ```NO_GYRO_BUTTON``` can be used to remove the gyro-on or gyro-off mapping, making gyro always enabled. To have it always disabled, just set ```GYRO_ON = NONE``` or leave ```GYRO_SENS``` at 0.
 
+If you're using ```GYRO_TRACKBALL``` or its single-axis variants, you can use **TRACKBALL\_DECAY** to choose how quickly the trackball effect loses momentum. It can be set to 0 for no decay. Its default value of 1 halves the gyro trackball's momentum over each second. 2 will halve it in 1/2 seconds, 3 in 1/3 seconds, and so on.
+
 ### 2. Analog Triggers
 
 The following section only applies to the DS4 controller because it is the only supported controller that has analog triggers.
@@ -445,7 +466,7 @@ When using the ```AIM``` stick mode, there are a few important commands:
 * **STICK\_AXIS\_X** and **STICK\_AXIS\_Y** (default STANDARD) - This allows you to invert stick axes if you wish. Your options are STANDARD (default) or INVERTED (flip the axis).
 * **STICK\_ACCELERATION\_RATE** (default 0.0 multiplier increase per second) - When the stick is pressed fully, this option allows you to increase the camera turning velocity over time. The unit for this setting is a multiplier for STICK\_SENS per second. For example, 2.0 with a STICK\_SENS of 100 will cause the camera turn rate to accelerate from 100 degrees per second to 300 degrees per second over 1 second.
 * **STICK\_ACCELERATION\_CAP** (default 1000000.0 multiplier) - You may want to set a limit on the camera turn velocity when STICK\_ACCELERATION\_RATE is non-zero. For example, setting STICK\_ACCELERATION\_CAP to 2.0 will mean that your camera turn speed won't accelerate past double the STICK\_SENS setting. This has no effect when STICK\_ACCELERATION\_RATE is zero.
-* **STICK\_DEADZONE\_INNER** and **STICK\_DEADZONE\_OUTER** (default 0.15 and 0.1, respectively) - Controller thumbsticks can be a little imprecise. When you release the stick, it probably won't return exactly to the centre. STICK\_DEADZONE\_INNER lets you say how much of the stick's range will be considered "centre". If the stick position is within this distance from the centre, it'll be considered to have no stick input. STICK\_DEADZONE\_OUTER does the same for the outer edge. If the stick position is within this distance from the outer edge, it'll be considered fully pressed. Everything in-between is scaled accordingly.
+* **STICK\_DEADZONE\_INNER** and **STICK\_DEADZONE\_OUTER** (default 0.15 and 0.1, respectively) - Controller thumbsticks can be a little imprecise. When you release the stick, it probably won't return exactly to the centre. STICK\_DEADZONE\_INNER lets you say how much of the stick's range will be considered "centre". If the stick position is within this distance from the centre, it'll be considered to have no stick input. STICK\_DEADZONE\_OUTER does the same for the outer edge. If the stick position is within this distance from the outer edge, it'll be considered fully pressed. Everything in-between is scaled accordingly. You can set the deadzones individually for each stick with **LEFT\_STICK\_DEADZONE\_INNER**, **LEFT\_STICK\_DEADZONE\_OUTER**, **RIGHT\_STICK\_DEADZONE\_INNER**, **RIGHT\_STICK\_DEADZONE\_OUTER**.
 
 When using the ```FLICK``` stick mode, there is less to configure. There are no deadzones and no sensitivity. When you press the stick in a direction, JoyShockMapper just takes the angle of the stick input and translates it into the same in-game direction relative to where your camera is already facing, before smoothly moving the camera to point in that direction in a small fraction of a second. Once already pressed, rotating the *flick stick* X degrees will then instantly turn the in-game camera X degrees. This provides a very natural way to quickly turn around, respond to gun-fire from off-screen, or make gradual turns without moving the controller.
 
@@ -458,7 +479,7 @@ Keep in mind that, once tilted, rotating the stick will rotate the camera instan
 * **FLICK\_TIME\_EXPONENT** (default 0.0) - Some people prefer the actual flick time to match the flick angle, and some games don't handle extreme flicks in a short timespan well. This setting scales the FLICK\_TIME based on the flick angle. For any value here, FLICK\_TIME will always match a 180 degree flick, but the mapping between 0 to 180 degrees is affected: a value of 0.0 means no scaling at all (any flick takes FLICK\_TIME seconds), while a value of 1.0 causes a 1:1 mapping between flick angle and flick time (a 90 degree flick takes 0.5 * FLICK\_TIME seconds). Higher values (over)dramatize the differences between small and large flicks.
 * **FLICK\_SNAP\_MODE** (default none) - Without practice, sometimes you'll flick to a different angle than you intended. If you want to limit the angles you can flick to, FLICK\_SNAP\_MODE gives you three options. The default, NONE, is no snapping at all. With practice, I expect players will find this most useful, as surprises can come from any angle. But your other options are 4, which snaps the flick to the nearest of directly forward, directly left, directly right, or directly backwards. These are 90° intervals. If you want to be able to snap to 45° intervals, too, you can set FLICK\_SNAP\_MODE to 8.
 * **FLICK\_SNAP\_STRENGTH** (default 1.0) - If you have a snap mode other than NONE set, this value gives you the strength of its snapping, ranging from 0 (no snapping) to 1 (full snapping).
-* **FLICK\_DEADZONE\_ANGLE** (default 0.0 rad) - Sometimes you want to prepare for turning quickly without flicking. Pushing the stick perfectly forward is near impossible so you end up turning a little, losing the angle you are trying to hold. This setting creates a deadzone for forward flicks: moving the thumbstick forward within this range will be treated as flicking at a 0 degree angle, basically putting you in rotation mode directly. The value is applied in both left and right directions separately: setting this to 15 creates a total deadzone arc of 30 degrees.
+* **FLICK\_DEADZONE\_ANGLE** (default 0.0 degrees) - Sometimes you want to prepare for turning quickly without flicking. Pushing the stick perfectly forward is near impossible so you end up turning a little, losing the angle you are trying to hold. This setting creates a deadzone for forward flicks: moving the thumbstick forward within this range will be treated as flicking at a 0 degree angle, basically putting you in rotation mode directly. The value is applied in both left and right directions separately: setting this to 15 creates a total deadzone arc of 30 degrees.
 
 **\*Developer note:** The DualShock 4's stick input resolution is low enough that small *flick stick* rotations can be jittery. JoyShockMapper applies some smoothing just to very small changes in the *flick stick* angle, which is very effective at covering this up. Larger movements are not smoothed at all. This is more thoroughly explained for developers to implement in their own games on [GyroWiki](http://gyrowiki.jibbsmart.com). JoyShockMapper automatically calculates different smoothing thresholds for the DualShock 4 and Switch controllers, but you can override the smoothing threshold by setting ROTATE\_SMOOTH\_OVERRIDE any small number, or to 0 to disable smoothing, or to -1 to return to the automatically calculated threshold.
 
@@ -479,6 +500,30 @@ LDOWN = S
 LEFT_RING_MODE = INNER
 LRING = LALT # Walk
 ```
+
+If you're holding the controller in an unusual orientation (such as for comfort reasons or when using a single JoyCon), you can set **CONTROLLER\_ORIENTATION** to reflect how you're holding the controller:
+* **FORWARD** is the default.
+* **LEFT** is for when you're holding the controller rotated to its left.
+* **RIGHT** is for when you're holding the controller rotated to its right.
+* **BACKWARD** is for when you're holding teh controller rotated 180°.
+
+CONTROLLER\_ORIENTATION only affects sticks (including motion stick). It doesn't affect the arrangement of the face buttons, d-pad, etc.
+
+#### 3.1 Motion Stick
+Using the motion sensors, you can treat your whole controller as a stick. The "Motion Stick" can do everything that a regular stick can do:
+* **MOTION\_STICK\_MODE** (default NO\_MOUSE) - All the same options as LEFT\_STICK\_MODE and RIGHT\_STICK\_MODE.
+* **MOTION\_RING\_MODE** (default OUTER) - All the same options as LEFT\_RING\_MODE and RIGHT\_RING\_MODE.
+* **MOTION\_DEADZONE\_INNER** (default 15°) - How far the controller needs to be tilted in order to register as non-zero.
+* **MOTION\_DEADZONE\_OUTER** (default 135°) - How far from the maximum rotation will be considered a full tilt. The maximum rotation is of course 180°, so the default value of 135° means tilting at or above 45° from the **neutral position** will be considered "full tilt".
+* **MLEFT**, **MRIGHT**, **MUP**, **MDOWN** are the motion stick equivalents of left, right, forward, back mappings, respectively.
+* This is also affected by **CONTROLLER\_ORIENTATION** described at the end of the previous section.
+
+The gyro needs to be correctly calibrated for motion stick to work best (see calibration commands below under Gyro Mouse Inputs).
+
+By default, the **neutral position** is approximately the position the controller is when left on a flat surface. You can set a different neutral position by entering the command ```SET_MOTION_STICK_NEUTRAL```. When this command is executed, however you're holding the controller at the time will be considered the "neutral" orientation.
+
+A common use for the motion sensors is to map left and right leans of the controller. This isn't quite the same as motion stick -- regardless of whether you hold your controller flat or upright, lean mappings should still work the same. You just need:
+* **LEAN\_THRESHOLD** (default 15°) - Leaning the controller more than this angle to the left or right will trigger the **LEAN\_LEFT** or **LEAN\_RIGHT** bindings, respectively.
 
 ### 4. Gyro Mouse Inputs
 **The first thing you need to know about gyro mouse inputs** is that a controller's gyro will often need calibrating. This just means telling the application where "zero" is. Just like a scale, the gyro needs a point of reference to compare against in order to accurately give a result. This is done by leaving the controller still, or holding it very still in your hands, and finding the average velocity over a short time of staying still. It needs to be averaged over some time because the gyro will pick up a little bit of "noise" -- tiny variations that aren't caused by any real movement -- but this noise is negligible compared to the shakiness of human hands trying to hold a controller still.
@@ -645,6 +690,8 @@ There are a few other useful commands that don't fall under the above categories
 * **RECONNECT\_CONTROLLERS** - Controllers connected after JoyShockMapper starts will be ignored until you tell it to RECONNECT\_CONTROLLERS. When this happens, all gyro calibration will reset on all controllers.
 * **JOYCON\_GYRO\_MASK** (default IGNORE\_LEFT) - Most games that use gyro controls on Switch ignore the left JoyCon's gyro to avoid confusing behaviour when the JoyCons are held separately while playing. This is the default behaviour in JoyShockMapper. But you can also choose to IGNORE\_RIGHT, IGNORE\_BOTH, or USE\_BOTH.
 * **\# comments** - Any line or part of a line that begins with '\#' will be ignored. Use this to organise/annotate your configuration files, or to temporarily remove commands that you may want to add later.
+* **SLEEP** - Cause the program to sleep (or wait) for a given number of seconds. The given value must be greater than 0 and less than or equal to 10. Or, omit the value and it will sleep for one second. This command may help automate calibration.
+* ***onstartup.txt*** - This is not a command. But if a file called '*onstartup.txt*' is found in the current working directory on startup, its contents will be loaded and executed right away. If you prefer that AutoLoad is disabled, put ```AUTOLOAD = OFF``` in here to have it disabled at startup. If you use HIDGuardian / HIDCerberus and always want to whitelist JSM and then reconnect controllers, just put ```WHITELIST_ADD``` and ```RECONNECT_CONTROLLERS``` in the startup file.
 
 ## Troubleshooting
 Some third-party devices that work as controllers on Switch or PS4 may not work with JoyShockMapper. It only _officially_ supports first-party controllers. Issues may still arise with those, though. Reach out, and hopefully we can figure out where the problem is.
