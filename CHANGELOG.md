@@ -27,11 +27,12 @@ Roy Straver added an optional forward deadzone for flick stick to help with enga
 * LEAN\_LEFT and LEAN\_RIGHT can map leaning the controller left or right to key inputs.
 * LEFT\_STICK\_DEADZONE\_\* and RIGHT\_STICK\_DEADZONE\_\* can be set independently.
 * CONTROLLER\_ORIENTATION changes the behaviour of sticks to work correctly when holding the controller sideways or backwards.
-* If a file called *onstartup.txt* is found next to JoyShockMapper.exe, its contents will be loaded on startup. Use this for disabling AutoLoad or automatically whitelist and reconnect controllers.
-* SLEEP will wait for a given number of seconds (up to 10).
 * GYRO\_TRACKBALL can be bound as an alternative to GYRO\_OFF, GYRO\_INVERT, etc. This will maintain the gyro's last velocity while held, and will decay according to the TRACKBALL\_DECAY setting.
 * FLICK\_DEADZONE\_ANGLE defines a no-flick zone at the front of the stick for flick stick.
 * FLICK\_TIME\_EXPONENT determines how the size of the flick angle affects the time it takes to complete a flick.
+* If a file called *onstartup.txt* is found in the working directory, its contents will be loaded on startup. Use this for disabling AutoLoad or automatically whitelist and reconnect controllers.
+* If a file called *onreset.txt* is found in the working directory, its contents will be loaded right after startup and whenever RESET_MAPPINGS is called.
+* SLEEP will wait for a given number of seconds (up to 10).
 
 ### Bugfixes
 * JSM should no longer sometimes get the mouse stuck on the side or top of the screen.
