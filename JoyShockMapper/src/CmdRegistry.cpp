@@ -54,7 +54,7 @@ CmdRegistry::CmdRegistry()
 }
 
 
-bool CmdRegistry::loadMappings(in_string fileName) {
+bool CmdRegistry::loadConfigFile(in_string fileName) {
 	// https://stackoverflow.com/questions/2602013/read-whole-ascii-file-into-c-stdstring
 	ifstream file(fileName);
 	if (!file.is_open())
@@ -152,7 +152,7 @@ void CmdRegistry::processLine(const string& line)
 {
 	auto trimmedLine = std::string{ strtrim(line) };
 
-	if (!trimmedLine.empty() && trimmedLine.front() != '#' && !loadMappings(trimmedLine))
+	if (!trimmedLine.empty() && trimmedLine.front() != '#' && !loadConfigFile(trimmedLine))
 	{
 		smatch results;
 		string combo, name, arguments, label;

@@ -61,6 +61,8 @@ if (WINDOWS)
             "$<TARGET_FILE:JoyShockLibrary>"
             "$<TARGET_FILE_DIR:${PROJECT_NAME}>/$<TARGET_FILE_NAME:JoyShockLibrary>"
     )
+
+	 add_definitions(/bigobj)
 endif ()
 
 if (LINUX)

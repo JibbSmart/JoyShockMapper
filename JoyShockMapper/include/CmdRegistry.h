@@ -83,7 +83,6 @@ private:
 	// multimap allows multiple entries with the same keys
 	CmdMap _registry;
 
-	bool loadMappings(in_string fileName);
 
 	static string_view strtrim(std::string_view str);
 
@@ -91,6 +90,8 @@ private:
 
 public:
 	CmdRegistry();
+
+	bool loadConfigFile(in_string fileName);
 
 	// Add a command to the registry. The regisrty takes ownership of the memory of this pointer.
 	// You can use _ASSERT() on the return value of this function to make sure the commands are
