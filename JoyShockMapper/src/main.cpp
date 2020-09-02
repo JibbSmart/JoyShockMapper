@@ -2680,6 +2680,7 @@ int main(int argc, char *argv[]) {
 	currentWorkingDir.SetFilter( [] (PathString current, PathString next) { return SetCWD(string(next)) ? next : current; });
 	autoloadSwitch.SetFilter(&filterInvalidValue<Switch, Switch::INVALID>)->AddOnChangeListener(&UpdateAutoload);
 
+	printf("Working directory: %s\n", string(&cmdLine[0], &cmdLine[wcslen(cmdLine)]));
 	currentWorkingDir = string(&cmdLine[0], &cmdLine[wcslen(cmdLine)]);
 	CmdRegistry commandRegistry;
 
