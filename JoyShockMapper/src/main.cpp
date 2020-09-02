@@ -627,6 +627,8 @@ public:
 	int numLastGyroSamples = 100;
 	float lastGyroX[100] = { 0.f };
 	float lastGyroY[100] = { 0.f };
+	float lastGyroAbsX = 0.f;
+	float lastGyroAbsY = 0.f;
 	int lastGyroIndexX = 0;
 	int lastGyroIndexY = 0;
 
@@ -2179,6 +2181,12 @@ void joyShockPollCallback(int jcHandle, JOY_SHOCK_STATE state, JOY_SHOCK_STATE l
 	float decay = exp2f(-deltaTime * jc->getSetting(SettingID::TRACKBALL_DECAY));
 	int maxTrackballSamples = min(jc->numLastGyroSamples, (int)(1.f / deltaTime * 0.125f));
 
+	if (!trackball_x_pressed && !trackball_y_pressed)
+	{
+		jc->lastGyroAbsX = abs(gyroX);
+		jc->lastGyroAbsY = abs(gyroY);
+	}
+
 	if (!trackball_x_pressed)
 	{
 		int gyroSampleIndex = jc->lastGyroIndexX = (jc->lastGyroIndexX + 1) % maxTrackballSamples;
@@ -2193,6 +2201,11 @@ void joyShockPollCallback(int jcHandle, JOY_SHOCK_STATE state, JOY_SHOCK_STATE l
 			jc->lastGyroX[gyroAverageIdx] *= decay;
 		}
 		lastGyroX /= maxTrackballSamples;
+		float lastGyroAbsX = abs(lastGyroX);
+		if (lastGyroAbsX > jc->lastGyroAbsX)
+		{
+			lastGyroX *= jc->lastGyroAbsX / lastGyroAbsX;
+		}
 		gyroX = lastGyroX;
 	}
 	if (!trackball_y_pressed)
@@ -2209,6 +2222,11 @@ void joyShockPollCallback(int jcHandle, JOY_SHOCK_STATE state, JOY_SHOCK_STATE l
 			jc->lastGyroY[gyroAverageIdx] *= decay;
 		}
 		lastGyroY /= maxTrackballSamples;
+		float lastGyroAbsY = abs(lastGyroY);
+		if (lastGyroAbsY > jc->lastGyroAbsY)
+		{
+			lastGyroY *= jc->lastGyroAbsY / lastGyroAbsY;
+		}
 		gyroY = lastGyroY;
 	}
 
