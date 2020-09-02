@@ -2863,12 +2863,11 @@ int main(int argc, char *argv[]) {
 
 	Mapping::_isCommandValid = bind(&CmdRegistry::isCommandValid, &commandRegistry, placeholders::_1);
 
+	do_RESET_MAPPINGS(&commandRegistry);
 	if (commandRegistry.loadConfigFile("onstartup.txt"))
 	{
 		printf("Finished executing startup file.\n");
 	}
-	do_RESET_MAPPINGS(&commandRegistry);
-
 
 	// The main loop is simple and reads like pseudocode
 	string enteredCommand;
