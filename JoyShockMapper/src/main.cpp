@@ -646,6 +646,7 @@ public:
 		{
 			buttons.push_back( DigitalButton(btnCommon, ButtonID(i)) );
 		}
+		ResetSmoothSample();
 	}
 
 	~JoyShock() {}
@@ -1631,7 +1632,7 @@ bool do_SLEEP(in_string argument)
 	printf("Sleeping for %.3f second(s)...\n", sleepTime);
 	std::this_thread::sleep_for(std::chrono::milliseconds((int)(sleepTime * 1000)));
 	printf("Finished sleeping.\n");
-	
+
 	return true;
 }
 
@@ -1930,7 +1931,7 @@ void processStick(JoyShock* jc, float stickX, float stickY, float lastX, float l
 }
 
 void joyShockPollCallback(int jcHandle, JOY_SHOCK_STATE state, JOY_SHOCK_STATE lastState, IMU_STATE imuState, IMU_STATE lastImuState, float deltaTime) {
-	
+
 	//printf("DS4 accel: %.4f, %.4f, %.4f\n", imuState.accelX, imuState.accelY, imuState.accelZ);
 	//printf("\tDS4 gyro: %.4f, %.4f, %.4f\n", imuState.gyroX, imuState.gyroY, imuState.gyroZ);
 	MOTION_STATE motion = JslGetMotionState(jcHandle);
@@ -1938,7 +1939,7 @@ void joyShockPollCallback(int jcHandle, JOY_SHOCK_STATE state, JOY_SHOCK_STATE l
 	//	motion.quatW, motion.quatX, motion.quatY, motion.quatZ,
 	//	motion.accelX, motion.accelY, motion.accelZ,
 	//	motion.gravX, motion.gravY, motion.gravZ);
-	
+
 	bool blockGyro = false;
 	bool lockMouse = false;
 	bool leftAny = false;
