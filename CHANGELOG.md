@@ -33,6 +33,7 @@ Roy Straver added an optional forward deadzone for flick stick to help with enga
 * If a file called *onstartup.txt* is found in the working directory, its contents will be loaded on startup. Use this for disabling AutoLoad or automatically whitelist and reconnect controllers.
 * If a file called *onreset.txt* is found in the working directory, its contents will be loaded right after startup and whenever RESET_MAPPINGS is called.
 * SLEEP will wait for a given number of seconds (up to 10).
+* Added support for the keypad's operator keys, decimal key and caps lock key.
 
 ### Bugfixes
 * JSM should no longer sometimes get the mouse stuck on the side or top of the screen.
