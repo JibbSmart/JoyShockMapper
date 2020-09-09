@@ -247,6 +247,30 @@ WORD nameToKey(const std::string &name)
 	{
 		return VK_BACK;
 	}
+	if (name.compare("MULTIPLY") == 0)
+	{
+		return VK_MULTIPLY;
+	}
+	if (name.compare("ADD") == 0)
+	{
+		return VK_ADD;
+	}
+	if (name.compare("SUBSTRACT") == 0)
+	{
+		return VK_SUBTRACT;
+	}
+	if (name.compare("DIVIDE") == 0)
+	{
+		return VK_DIVIDE;
+	}
+	if (name.compare("DECIMAL") == 0)
+	{
+		return VK_DECIMAL;
+	}
+	if (name.compare("CAPS_LOCK") == 0)
+	{
+		return VK_CAPITAL;
+	}
 	if (name.compare("NONE") == 0)
 	{
 		return NO_HOLD_MAPPED;
