@@ -1638,7 +1638,7 @@ bool do_CALCULATE_REAL_WORLD_CALIBRATION(in_string argument) {
 bool do_FINISH_GYRO_CALIBRATION() {
 	printf("Finishing continuous calibration for all devices\n");
 	for (auto iter = handle_to_joyshock.begin(); iter != handle_to_joyshock.end(); ++iter) {
-		JslPauseContinuousCalibration(iter->second->intHandle);
+		JslPauseContinuousCalibration(iter->first);
 	}
 	devicesCalibrating = false;
 	return true;
@@ -1647,8 +1647,8 @@ bool do_FINISH_GYRO_CALIBRATION() {
 bool do_RESTART_GYRO_CALIBRATION() {
 	printf("Restarting continuous calibration for all devices\n");
 	for (auto iter = handle_to_joyshock.begin(); iter != handle_to_joyshock.end(); ++iter) {
-		JslResetContinuousCalibration(iter->second->intHandle);
-		JslStartContinuousCalibration(iter->second->intHandle);
+		JslResetContinuousCalibration(iter->first);
+		JslStartContinuousCalibration(iter->first);
 	}
 	devicesCalibrating = true;
 	return true;
@@ -2274,7 +2274,7 @@ void joyShockPollCallback(int jcHandle, JOY_SHOCK_STATE state, JOY_SHOCK_STATE l
 	}
 	if (!trackball_y_pressed)
 	{
-		int gyroSampleIndex = jc->lastGyroIndexY = (jc->lastGyroIndexY + 1) % maxTrackballSamples;
+		int gyroSampleIndex = jc->lastGyroIndexY = (jc->lastGyroIndexY + 1) % max(maxTrackballSamples, 1);
 		jc->lastGyroY[gyroSampleIndex] = gyroY;
 	}
 	else
