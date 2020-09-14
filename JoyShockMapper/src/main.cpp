@@ -97,17 +97,36 @@ class DigitalButton
 {
 public:
 	// All digital buttons need a reference to the same instance of a the common structure within the same controller.
-	// It enables the buttons to synchroonize and be aware of the state of the whole controller.
+	// It enables the buttons to synchronize and be aware of the state of the whole controller.
 	struct Common {
-		Common(int handle = 0)
-			: intHandle(handle)
+		Common()
 		{
 			chordStack.push_front(ButtonID::NONE); //Always hold mapping none at the end to handle modeshifts and chords
+			_referenceCount++;
 		}
 		deque<pair<ButtonID, KeyCode>> gyroActionQueue; // Queue of gyro control actions currently in effect
 		deque<pair<ButtonID, KeyCode>> activeTogglesQueue;
 		deque<ButtonID> chordStack; // Represents the current active buttons in order from most recent to latest
-		int intHandle;
+
+		private:
+		int _referenceCount;
+
+		public:
+		void IncrementReferenceCounter()
+		{
+			_referenceCount++;
+		}
+
+		bool DecrementReferenceCounter()
+		{
+			_referenceCount--;
+			if (_referenceCount == 0)
+			{
+				delete this;
+				return false;
+			}
+			return true;
+		}
 	};
 
 	static bool findQueueItem(pair<ButtonID, KeyCode> &pair, ButtonID btn)
@@ -116,7 +135,7 @@ public:
 	}
 
 
-	DigitalButton(DigitalButton::Common &btnCommon, ButtonID id)
+	DigitalButton(DigitalButton::Common* btnCommon, ButtonID id, int deviceHandle)
 		: _id(id)
 		, _common(btnCommon)
 		, _mapping(mappings[int(_id)])
@@ -126,10 +145,11 @@ public:
 		, _turboCount(0)
 		, _simPressMaster(ButtonID::NONE)
 		, _instantReleaseQueue(2)
+		, _deviceHandle(deviceHandle)
 	{}
 
 	const ButtonID _id; // Always ID first for easy debugging
-	Common &_common;
+	Common* _common;
 	const JSMButton &_mapping;
 	chrono::steady_clock::time_point _press_times;
 	BtnState _btnState = BtnState::NoPress;
@@ -138,6 +158,7 @@ public:
 	unsigned int _turboCount;
 	ButtonID _simPressMaster;
 	vector<BtnEvent> _instantReleaseQueue;
+	int _deviceHandle;
 
 	bool CheckInstantRelease(BtnEvent instantEvent)
 	{
@@ -217,7 +238,7 @@ public:
 		if (!_keyToRelease)
 		{
 			// Look at active chord mappings starting with the latest activates chord
-			for (auto activeChord = _common.chordStack.cbegin(); activeChord != _common.chordStack.cend(); activeChord++)
+			for (auto activeChord = _common->chordStack.cbegin(); activeChord != _common->chordStack.cend(); activeChord++)
 			{
 				auto binding = _mapping.get(*activeChord);
 				if (binding && *activeChord != _id)
@@ -236,34 +257,34 @@ public:
 	void StartCalibration()
 	{
 		printf("Starting continuous calibration\n");
-		JslResetContinuousCalibration(_common.intHandle);
-		JslStartContinuousCalibration(_common.intHandle);
+		JslResetContinuousCalibration(_deviceHandle);
+		JslStartContinuousCalibration(_deviceHandle);
 	}
 
 	void FinishCalibration()
 	{
-		JslPauseContinuousCalibration(_common.intHandle);
+		JslPauseContinuousCalibration(_deviceHandle);
 		printf("Gyro calibration set\n");
 		ClearAnyActiveToggle(KeyCode("CALIBRATE"));
 	}
 
 	void ApplyGyroAction(KeyCode gyroAction) // TODO: Keycode should be WORD here
 	{
-		_common.gyroActionQueue.push_back({ _id, gyroAction });
+		_common->gyroActionQueue.push_back({ _id, gyroAction });
 	}
 
 	void RemoveGyroAction()
 	{
-		auto gyroAction = find_if(_common.gyroActionQueue.begin(), _common.gyroActionQueue.end(),
+		auto gyroAction = find_if(_common->gyroActionQueue.begin(), _common->gyroActionQueue.end(),
 			[this](auto pair)
 			{
 				// On a sim press, release the master button (the one who triggered the press)
 				return pair.first == (_simPressMaster != ButtonID::NONE ? _simPressMaster : _id);
 			});
-		if (gyroAction != _common.gyroActionQueue.end())
+		if (gyroAction != _common->gyroActionQueue.end())
 		{
 			ClearAnyActiveToggle(gyroAction->second);
-			_common.gyroActionQueue.erase(gyroAction);
+			_common->gyroActionQueue.erase(gyroAction);
 		}
 	}
 
@@ -286,15 +307,15 @@ public:
 
 	void ApplyButtonToggle(KeyCode key, function<void(DigitalButton *)> apply, function<void(DigitalButton *)> release)
 	{
-		auto currentlyActive = find_if(_common.activeTogglesQueue.begin(), _common.activeTogglesQueue.end(),
+		auto currentlyActive = find_if(_common->activeTogglesQueue.begin(), _common->activeTogglesQueue.end(),
 			[this](pair<ButtonID, KeyCode> pair)
 			{
 				return pair.first == _id;
 			});
-		if (currentlyActive == _common.activeTogglesQueue.end())
+		if (currentlyActive == _common->activeTogglesQueue.end())
 		{
 			apply(this);
-			_common.activeTogglesQueue.push_front( { _id, key } );
+			_common->activeTogglesQueue.push_front( { _id, key } );
 		}
 		else
 		{
@@ -309,14 +330,14 @@ public:
 
 	void ClearAnyActiveToggle(KeyCode key)
 	{
-		auto currentlyActive = find_if(_common.activeTogglesQueue.begin(), _common.activeTogglesQueue.end(),
+		auto currentlyActive = find_if(_common->activeTogglesQueue.begin(), _common->activeTogglesQueue.end(),
 			[key](pair<ButtonID, KeyCode> pair)
 			{
 				return pair.second == key;
 			});
-		if (currentlyActive != _common.activeTogglesQueue.end())
+		if (currentlyActive != _common->activeTogglesQueue.end())
 		{
-			_common.activeTogglesQueue.erase(currentlyActive);
+			_common->activeTogglesQueue.erase(currentlyActive);
 		}
 	}
 
@@ -650,7 +671,7 @@ public:
 	float right_acceleration = 1.0;
 	float motion_stick_acceleration = 1.0;
 	vector<DstState> triggerState; // State of analog triggers when skip mode is active
-	DigitalButton::Common btnCommon;
+	DigitalButton::Common* btnCommon;
 
 	// Modeshifting the stick mode can create quirky behaviours on transition. These flags
 	// will be set upon returning to standard mode and ignore stick inputs until the stick
@@ -683,25 +704,46 @@ public:
 		, controller_type(controllerSplitType)
 		, stick_step_size(stickStepSize)
 		, triggerState(NUM_ANALOG_TRIGGERS, DstState::NoPress)
-		, btnCommon(intHandle)
 		, buttons()
 	{
+		btnCommon = new DigitalButton::Common();
 		buttons.reserve(MAPPING_SIZE);
 		for (int i = 0; i < MAPPING_SIZE; ++i)
 		{
-			buttons.push_back( DigitalButton(btnCommon, ButtonID(i)) );
+			buttons.push_back( DigitalButton(btnCommon, ButtonID(i), uniqueHandle) );
 		}
 		ResetSmoothSample();
 	}
 
-	~JoyShock() {}
+	JoyShock(int uniqueHandle, float pollRate, int controllerSplitType, float stickStepSize, DigitalButton::Common* sharedButtonCommon)
+	  : intHandle(uniqueHandle)
+	  , poll_rate(pollRate)
+	  , controller_type(controllerSplitType)
+	  , stick_step_size(stickStepSize)
+	  , triggerState(NUM_ANALOG_TRIGGERS, DstState::NoPress)
+	  , btnCommon(sharedButtonCommon)
+	  , buttons()
+	{
+		btnCommon->IncrementReferenceCounter();
+		buttons.reserve(MAPPING_SIZE);
+		for (int i = 0; i < MAPPING_SIZE; ++i)
+		{
+			buttons.push_back(DigitalButton(btnCommon, ButtonID(i), uniqueHandle));
+		}
+		ResetSmoothSample();
+	}
+
+	~JoyShock()
+	{
+		btnCommon->DecrementReferenceCounter();
+	}
 
 	template<typename E>
 	E getSetting(SettingID index)
 	{
 		static_assert(is_enum<E>::value, "Parameter of JoyShock::getSetting<E> has to be an enum type");
 		// Look at active chord mappings starting with the latest activates chord
-		for (auto activeChord = btnCommon.chordStack.begin(); activeChord != btnCommon.chordStack.end(); activeChord++)
+		for (auto activeChord = btnCommon->chordStack.begin(); activeChord != btnCommon->chordStack.end(); activeChord++)
 		{
 			optional<E> opt;
 			switch (index) {
@@ -770,7 +812,7 @@ public:
 	float getSetting(SettingID index)
 	{
 		// Look at active chord mappings starting with the latest activates chord
-		for (auto activeChord = btnCommon.chordStack.begin(); activeChord != btnCommon.chordStack.end(); activeChord++)
+		for (auto activeChord = btnCommon->chordStack.begin(); activeChord != btnCommon->chordStack.end(); activeChord++)
 		{
 			optional<float> opt;
 			switch (index)
@@ -894,7 +936,7 @@ public:
 	FloatXY getSetting<FloatXY>(SettingID index)
 	{
 		// Look at active chord mappings starting with the latest activates chord
-		for (auto activeChord = btnCommon.chordStack.begin(); activeChord != btnCommon.chordStack.end(); activeChord++)
+		for (auto activeChord = btnCommon->chordStack.begin(); activeChord != btnCommon->chordStack.end(); activeChord++)
 		{
 			optional<FloatXY> opt;
 			switch (index)
@@ -923,7 +965,7 @@ public:
 		if (index == SettingID::GYRO_ON || index == SettingID::GYRO_OFF)
 		{
 			// Look at active chord mappings starting with the latest activates chord
-			for (auto activeChord = btnCommon.chordStack.begin(); activeChord != btnCommon.chordStack.end(); activeChord++)
+			for (auto activeChord = btnCommon->chordStack.begin(); activeChord != btnCommon->chordStack.end(); activeChord++)
 			{
 				auto opt = gyro_settings.get(*activeChord);
 				if (opt) return *opt;
@@ -1032,18 +1074,18 @@ public:
 
 	void handleButtonChange(ButtonID index, bool pressed)
 	{
-		auto foundChord = find(btnCommon.chordStack.begin(), btnCommon.chordStack.end(), index);
+		auto foundChord = find(btnCommon->chordStack.begin(), btnCommon->chordStack.end(), index);
 		if (!pressed)
 		{
-			if (foundChord != btnCommon.chordStack.end())
+			if (foundChord != btnCommon->chordStack.end())
 			{
 				//cout << "Button " << index << " is released!" << endl;
-				btnCommon.chordStack.erase(foundChord); // The chord is released
+				btnCommon->chordStack.erase(foundChord); // The chord is released
 			}
 		}
-		else if (foundChord == btnCommon.chordStack.end()) {
+		else if (foundChord == btnCommon->chordStack.end()) {
 			//cout << "Button " << index << " is pressed!" << endl;
-			btnCommon.chordStack.push_front(index); // Always push at the fromt to make it a stack
+			btnCommon->chordStack.push_front(index); // Always push at the fromt to make it a stack
 		}
 
 		DigitalButton &button = buttons[int(index)];
@@ -1511,9 +1553,14 @@ void connectDevices() {
 				});
 			if (otherJoyCon != handle_to_joyshock.end())
 			{
-				// The second JC points to the same instance of JoyShock as the other one.
-				handle_to_joyshock.emplace(handle, otherJoyCon->second);
-				continue; // next loop iteration
+				// The second JC points to the same common buttons as the other one.
+				JoyShock *js = new JoyShock(handle,
+					JslGetPollRate(handle),
+					JslGetControllerSplitType(handle),
+					JslGetStickStep(handle),
+					otherJoyCon->second->btnCommon);
+				handle_to_joyshock.emplace(deviceHandles[i], js);
+				continue;
 			}
 		}
 		JoyShock* js = new JoyShock(handle,
@@ -2214,7 +2261,7 @@ void joyShockPollCallback(int jcHandle, JOY_SHOCK_STATE state, JOY_SHOCK_STATE l
 	bool trackball_y_pressed = false;
 
 	// Apply gyro modifiers in the queue from oldest to newest (thus giving priority to most recent)
-	for (auto pair : jc->btnCommon.gyroActionQueue)
+	for (auto pair : jc->btnCommon->gyroActionQueue)
 	{
 		// TODO: logic optimization
 		if (pair.second.code == GYRO_ON_BIND)
@@ -2253,7 +2300,7 @@ void joyShockPollCallback(int jcHandle, JOY_SHOCK_STATE state, JOY_SHOCK_STATE l
 
 	if (!trackball_x_pressed)
 	{
-		int gyroSampleIndex = jc->lastGyroIndexX = (jc->lastGyroIndexX + 1) % max(maxTrackballSamples, 1);
+		int gyroSampleIndex = jc->lastGyroIndexX = (jc->lastGyroIndexX + 1) % maxTrackballSamples;
 		jc->lastGyroX[gyroSampleIndex] = gyroX;
 	}
 	else
