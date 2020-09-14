@@ -1694,7 +1694,7 @@ static float handleFlickStick(float calX, float calY, float lastCalX, float last
 				auto flick_snap_mode = jc->getSetting<FlickSnapMode>(SettingID::FLICK_SNAP_MODE);
 				if (flick_snap_mode != FlickSnapMode::NONE) {
 					// handle snapping
-					float snapInterval;
+					float snapInterval = PI;
 					if (flick_snap_mode == FlickSnapMode::FOUR) {
 						snapInterval = PI / 2.0f; // 90 degrees
 					}
@@ -1716,7 +1716,7 @@ static float handleFlickStick(float calX, float calY, float lastCalX, float last
 				jc->ResetSmoothSample();
 				jc->flick_rotation_counter = stickAngle; // track all rotation for this flick
 				// TODO: All these printfs should be hidden behind a setting. User might not want them.
-				printf("Flick: %.3f degrees\n", stickAngle * (180.0f / PI));
+				printf("Flick: %.3f degrees\n", stickAngle * (180.0f / (float)PI));
 			}
 		}
 		else {
@@ -2180,7 +2180,7 @@ void joyShockPollCallback(int jcHandle, JOY_SHOCK_STATE state, JOY_SHOCK_STATE l
 	}
 
 	float decay = exp2f(-deltaTime * jc->getSetting(SettingID::TRACKBALL_DECAY));
-	int maxTrackballSamples = min(jc->numLastGyroSamples, (int)(1.f / deltaTime * 0.125f));
+	int maxTrackballSamples = max(1, min(jc->numLastGyroSamples, (int)(1.f / deltaTime * 0.125f)));
 
 	if (!trackball_x_pressed && !trackball_y_pressed)
 	{

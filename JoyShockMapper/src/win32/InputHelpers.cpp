@@ -45,32 +45,56 @@ float getMouseSpeed() {
 	return 1.0;
 }
 
+// Map a VK id to mouse event id press (0) or release (1) and mouseData (2) complementary info
+std::unordered_map<WORD, std::tuple<DWORD, DWORD, DWORD>> mouseMaps = {
+	{ VK_LBUTTON, {MOUSEEVENTF_LEFTDOWN, MOUSEEVENTF_LEFTUP, 0} },
+	{ VK_RBUTTON, {MOUSEEVENTF_RIGHTDOWN, MOUSEEVENTF_RIGHTUP, 0} },
+	{ VK_MBUTTON, {MOUSEEVENTF_MIDDLEDOWN, MOUSEEVENTF_MIDDLEUP, 0} },
+	{ VK_XBUTTON1, {MOUSEEVENTF_XDOWN, MOUSEEVENTF_XUP, XBUTTON1} },
+	{ VK_XBUTTON2, {MOUSEEVENTF_XDOWN, MOUSEEVENTF_XUP, XBUTTON2} },
+	{ V_WHEEL_UP, {MOUSEEVENTF_WHEEL, 0, WHEEL_DELTA} },
+	{ V_WHEEL_DOWN, {MOUSEEVENTF_WHEEL, 0, -WHEEL_DELTA} },
+};
+
 // send mouse button
 int pressMouse(KeyCode vkKey, bool isPressed) {
 	// https://docs.microsoft.com/en-us/windows/win32/api/winuser/ns-winuser-mouseinput
-	// Map a VK id to mouse event id press (0) or release (1) and mouseData (2) complementary info
-	static std::unordered_map<WORD, std::tuple<DWORD, DWORD, DWORD>> mouseMaps = {
-		{ VK_LBUTTON, {MOUSEEVENTF_LEFTDOWN, MOUSEEVENTF_LEFTUP, 0} },
-		{ VK_RBUTTON, {MOUSEEVENTF_RIGHTDOWN, MOUSEEVENTF_RIGHTUP, 0} },
-		{ VK_MBUTTON, {MOUSEEVENTF_MIDDLEDOWN, MOUSEEVENTF_MIDDLEUP, 0} },
-		{ VK_XBUTTON1, {MOUSEEVENTF_XDOWN, MOUSEEVENTF_XUP, XBUTTON1} },
-		{ VK_XBUTTON2, {MOUSEEVENTF_XDOWN, MOUSEEVENTF_XUP, XBUTTON2} },
-		{ V_WHEEL_UP, {MOUSEEVENTF_WHEEL, 0, WHEEL_DELTA} },
-		{ V_WHEEL_DOWN, {MOUSEEVENTF_WHEEL, 0, -WHEEL_DELTA} },
-	};
-
+	auto val = mouseMaps[vkKey.code];
+	
 	INPUT input;
 	input.type = INPUT_MOUSE;
 	input.mi.time = 0;
 	input.mi.dx = 0;
 	input.mi.dy = 0;
-	input.mi.dwFlags = isPressed ? std::get<0>(mouseMaps[vkKey.code]) : std::get<1>(mouseMaps[vkKey.code]);
-	input.mi.mouseData = std::get<2>(mouseMaps[vkKey.code]);
+	input.mi.dwFlags = isPressed ? std::get<0>(val) : std::get<1>(val);
+	input.mi.mouseData = std::get<2>(val);
 	if (input.mi.dwFlags) { // Ignore if there's no event ID (ex: "wheel release")
-		return SendInput(1, &input, sizeof(input));
+		auto result = SendInput(1, &input, sizeof(input));
+		//printf("%s\n", vkKey.name);
+		//printf("\t%d\n", vkKey.code);
+		return result;
 	}
 	return 0;
 }
+
+//// send mouse button
+//int pressMouse(KeyCode vkKey, bool isPressed)
+//{
+//	INPUT input;
+//	input.type = INPUT_MOUSE;
+//	if (vkKey == VK_LBUTTON)
+//	{
+//		input.mi.dwFlags = isPressed ? MOUSEEVENTF_LEFTDOWN : MOUSEEVENTF_LEFTUP;
+//	}
+//	else {
+//		input.mi.dwFlags = isPressed ? MOUSEEVENTF_RIGHTDOWN : MOUSEEVENTF_RIGHTUP;
+//	}
+//	input.mi.mouseData = 0;
+//	input.mi.time = 0;
+//	input.mi.dx = 0;
+//	input.mi.dy = 0;
+//	return SendInput(1, &input, sizeof(input));
+//}
 
 // send key press
 int pressKey(KeyCode vkKey, bool pressed) {
