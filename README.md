@@ -204,13 +204,14 @@ These can all be mapped to the following keyboard and mouse inputs:
 ```
 0-9: number keys across the top of the keyboard
 N0-N9: numpad number keys
+ADD, SUBSTRACT, DIVIDE, MULTIPLY, DECIMAL: numpad operator and decimal keys
 F1-F29: F1, F2, F3... etc
 A-Z: letter keys
 UP, DOWN, LEFT, RIGHT: the arrow keys
 LCONTROL, RCONTROL, CONTROL: left Ctrl, right Ctrl, generic Ctrl, respectively
 LALT, RALT, ALT: left Alt, right Alt, generic Alt, respectively
 LSHIFT, RSHIFT, SHIFT: left Shift, right Shift, generic Shift, respectively
-TAB, ESC, ENTER, SPACE, BACKSPACE
+TAB, ESC, ENTER, SPACE, BACKSPACE, CAPS_LOCK
 PAGEUP, PAGEDOWN, HOME, END, INSERT, DELETE,
 LMOUSE, MMOUSE, RMOUSE: mouse left click, middle click and right click respectively
 BMOUSE, FMOUSE: mouse back (button 4) click and mouse forward (button 5) click respectively

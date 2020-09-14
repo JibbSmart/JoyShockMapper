@@ -164,7 +164,8 @@ constexpr int MAPPING_SIZE = int(ButtonID::SIZE);
 constexpr int FIRST_ANALOG_TRIGGER = int(ButtonID::ZLF);
 constexpr int LAST_ANALOG_TRIGGER = int(ButtonID::ZRF);
 constexpr int NUM_ANALOG_TRIGGERS = int(LAST_ANALOG_TRIGGER) - int(FIRST_ANALOG_TRIGGER) + 1;
-constexpr float MAGIC_TAP_DURATION = 40.0f; // in milliseconds
+constexpr float MAGIC_TAP_DURATION = 40.0f; // in milliseconds.
+constexpr float MAGIC_INSTANT_DURATION = 40.0f; // in milliseconds
 constexpr float MAGIC_EXTENDED_TAP_DURATION = 500.0f; // in milliseconds
 
 enum class ControllerOrientation { FORWARD, LEFT, RIGHT, BACKWARD, INVALID };
@@ -179,9 +180,9 @@ enum class GyroIgnoreMode { BUTTON, LEFT_STICK, RIGHT_STICK, INVALID };
 enum class DstState { NoPress, PressStart, QuickSoftTap, QuickFullPress, QuickFullRelease, SoftPress, DelayFullPress, PressStartResp, INVALID };
 enum class BtnState {
 	NoPress, BtnPress, TapRelease, WaitSim, SimPress, SimRelease,
-	DblPressStart, DblPressNoPressTap, DblPressNoPressHold, DblPressPress, INVALID
+	DblPressStart, DblPressNoPressTap, DblPressNoPressHold, DblPressPress, InstRelease, INVALID
 };
-enum class BtnEvent { OnPress, OnTap, OnHold, OnTurbo, OnRelease, OnTapRelease, OnHoldRelease, INVALID };
+enum class BtnEvent { OnPress, OnTap, OnHold, OnTurbo, OnRelease, OnTapRelease, OnHoldRelease, OnInstantRelease, INVALID };
 enum class Switch : char { OFF, ON, INVALID, }; // Used to parse autoload assignment
 
 // Workaround default string streaming operator

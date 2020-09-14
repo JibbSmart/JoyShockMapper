@@ -125,6 +125,7 @@ public:
 		, _keyToRelease()
 		, _turboCount(0)
 		, _simPressMaster(ButtonID::NONE)
+		, _instantReleaseQueue(2)
 	{}
 
 	const ButtonID _id; // Always ID first for easy debugging
@@ -136,6 +137,19 @@ public:
 	string _nameToRelease;
 	unsigned int _turboCount;
 	ButtonID _simPressMaster;
+	vector<BtnEvent> _instantReleaseQueue;
+
+	bool CheckInstantRelease(BtnEvent instantEvent)
+	{
+		auto instant = find(_instantReleaseQueue.begin(), _instantReleaseQueue.end(), instantEvent);
+		if (instant != _instantReleaseQueue.end())
+		{
+			_keyToRelease->ProcessEvent(BtnEvent::OnInstantRelease, *this, _nameToRelease);
+			_instantReleaseQueue.erase(instant);
+			return true;
+		}
+		return false;
+	}
 
 	void ProcessButtonPress(bool pressed, chrono::steady_clock::time_point time_now, float turbo_ms, float hold_ms)
 	{
@@ -144,6 +158,10 @@ public:
 		{
 			if (_turboCount == 0)
 			{
+				if (elapsed_time > MAGIC_INSTANT_DURATION)
+				{
+					CheckInstantRelease(BtnEvent::OnPress);
+				}
 				if (elapsed_time > hold_ms)
 				{
 					_keyToRelease->ProcessEvent(BtnEvent::OnHold, *this, _nameToRelease);
@@ -151,10 +169,21 @@ public:
 					_turboCount++;
 				}
 			}
-			else if (floorf( (elapsed_time - hold_ms) / turbo_ms ) >= _turboCount)
+			else
 			{
-				_keyToRelease->ProcessEvent(BtnEvent::OnTurbo, *this, _nameToRelease);
-				_turboCount++;
+				if (elapsed_time > hold_ms + MAGIC_INSTANT_DURATION)
+				{
+					CheckInstantRelease(BtnEvent::OnHold);
+				}
+				if (floorf((elapsed_time - hold_ms) / turbo_ms) >= _turboCount)
+				{
+					_keyToRelease->ProcessEvent(BtnEvent::OnTurbo, *this, _nameToRelease);
+					_turboCount++;
+				}
+				if (elapsed_time > hold_ms + _turboCount * turbo_ms + MAGIC_INSTANT_DURATION)
+				{
+					CheckInstantRelease(BtnEvent::OnTurbo);
+				}
 			}
 		}
 		else // not pressed
@@ -169,8 +198,16 @@ public:
 			else
 			{
 				_keyToRelease->ProcessEvent(BtnEvent::OnHoldRelease, *this, _nameToRelease);
-				_btnState = BtnState::NoPress;
-				ClearKey();
+				if (_instantReleaseQueue.empty())
+				{
+					_btnState = BtnState::NoPress;
+					ClearKey();
+				}
+				else
+				{
+					_btnState = BtnState::InstRelease;
+					_press_times = time_now; // Start counting tap duration
+				}
 			}
 		}
 	}
@@ -265,6 +302,11 @@ public:
 		}
 	}
 
+	void RegisterInstant(BtnEvent evt)
+	{
+		_instantReleaseQueue.push_back(evt);
+	}
+
 	void ClearAnyActiveToggle(KeyCode key)
 	{
 		auto currentlyActive = find_if(_common.activeTogglesQueue.begin(), _common.activeTogglesQueue.end(),
@@ -289,6 +331,7 @@ public:
 	void ClearKey()
 	{
 		_keyToRelease.reset();
+		_instantReleaseQueue.clear();
 		_nameToRelease.clear();
 		_turboCount = 0;
 	}
@@ -480,14 +523,16 @@ bool Mapping::AddMapping(KeyCode key, EventModifier evtMod, ActionModifier actMo
 	switch (actMod)
 	{
 	case ActionModifier::Toggle:
-		//InsertEventMapping(applyEvt, bind(&DigitalButton::ApplyButtonToggle, placeholders::_1, key, apply, release));
 		apply = bind(&DigitalButton::ApplyButtonToggle, placeholders::_1, key, apply, release);
 		release = OnEventAction();
 		break;
 	case ActionModifier::Instant:
-		//InsertEventMapping(applyEvt, bind(&Mapping::RunAllActions, placeholders::_1, 2, apply, release));
-		apply = bind(&Mapping::RunAllActions, placeholders::_1, 2, apply, release);
+	{
+		OnEventAction action2 = bind(&DigitalButton::RegisterInstant, placeholders::_1, applyEvt);
+		apply = bind(&Mapping::RunAllActions, placeholders::_1, 2, apply, action2);
+		releaseEvt = BtnEvent::OnInstantRelease;
 		break;
+	}
 	case ActionModifier::INVALID:
 		return false;
 	// None applies no modification... Hey!
@@ -1029,6 +1074,12 @@ public:
 			button.ProcessButtonPress(pressed, time_now, getSetting(SettingID::TURBO_PERIOD), getSetting(SettingID::HOLD_PRESS_TIME));
 			break;
 		case BtnState::TapRelease:
+		{
+			if (pressed || button.GetPressDurationMS(time_now) > MAGIC_INSTANT_DURATION)
+			{
+				button.CheckInstantRelease(BtnEvent::OnRelease);
+				button.CheckInstantRelease(BtnEvent::OnTap);
+			}
 			if (pressed || button.GetPressDurationMS(time_now) > button._keyToRelease->getTapDuration())
 			{
 				button.GetPressMapping()->ProcessEvent(BtnEvent::OnTapRelease, button, button._nameToRelease);
@@ -1036,6 +1087,7 @@ public:
 				button.ClearKey();
 			}
 			break;
+		}
 		case BtnState::WaitSim:
 		{
 			// Is there a sim mapping on this button where the other button is in WaitSim state too?
@@ -1079,7 +1131,7 @@ public:
 				button._btnState = BtnState::SimRelease;
 				button._simPressMaster = ButtonID::NONE;
 			}
-			else if(!pressed || button._simPressMaster == ButtonID::NONE) // Both slave and master handle release, but only the master handles the press
+			else if (!pressed || button._simPressMaster == ButtonID::NONE) // Both slave and master handle release, but only the master handles the press
 			{
 				button.ProcessButtonPress(pressed, time_now, getSetting(SettingID::TURBO_PERIOD), getSetting(SettingID::HOLD_PRESS_TIME));
 				if (button._simPressMaster != ButtonID::NONE && button._btnState != BtnState::SimPress)
@@ -1151,6 +1203,17 @@ public:
 		case BtnState::DblPressPress:
 			button.ProcessButtonPress(pressed, time_now, getSetting(SettingID::TURBO_PERIOD), getSetting(SettingID::HOLD_PRESS_TIME));
 			break;
+		case BtnState::InstRelease:
+		{
+			auto instantOnRelease = find(button._instantReleaseQueue.begin(), button._instantReleaseQueue.end(), BtnEvent::OnRelease);
+			if (instantOnRelease != button._instantReleaseQueue.end() &&
+				button.GetPressDurationMS(time_now) > MAGIC_TAP_DURATION)
+			{
+				button._keyToRelease->ProcessEvent(BtnEvent::OnInstantRelease, button, button._nameToRelease);
+				button._instantReleaseQueue.erase(instantOnRelease);
+			}
+			break;
+		}
 		default:
 			cout << "Invalid button state " << button._btnState << ": Resetting to NoPress" << endl;
 			button._btnState = BtnState::NoPress;
@@ -2190,7 +2253,7 @@ void joyShockPollCallback(int jcHandle, JOY_SHOCK_STATE state, JOY_SHOCK_STATE l
 
 	if (!trackball_x_pressed)
 	{
-		int gyroSampleIndex = jc->lastGyroIndexX = (jc->lastGyroIndexX + 1) % maxTrackballSamples;
+		int gyroSampleIndex = jc->lastGyroIndexX = (jc->lastGyroIndexX + 1) % max(maxTrackballSamples, 1);
 		jc->lastGyroX[gyroSampleIndex] = gyroX;
 	}
 	else
