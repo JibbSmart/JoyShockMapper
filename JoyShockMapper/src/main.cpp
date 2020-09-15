@@ -144,9 +144,11 @@ public:
 		, _keyToRelease()
 		, _turboCount(0)
 		, _simPressMaster(ButtonID::NONE)
-		, _instantReleaseQueue(2)
+		, _instantReleaseQueue()
 		, _deviceHandle(deviceHandle)
-	{}
+	{
+		_instantReleaseQueue.reserve(2);
+	}
 
 	const ButtonID _id; // Always ID first for easy debugging
 	Common* _common;
@@ -165,6 +167,7 @@ public:
 		auto instant = find(_instantReleaseQueue.begin(), _instantReleaseQueue.end(), instantEvent);
 		if (instant != _instantReleaseQueue.end())
 		{
+			//cout << "Button " << _id << " releases instant " << instantEvent << endl;
 			_keyToRelease->ProcessEvent(BtnEvent::OnInstantRelease, *this, _nameToRelease);
 			_instantReleaseQueue.erase(instant);
 			return true;
@@ -325,6 +328,7 @@ public:
 
 	void RegisterInstant(BtnEvent evt)
 	{
+		//cout << "Button " << _id << " registers instant " << evt << endl;
 		_instantReleaseQueue.push_back(evt);
 	}
 
@@ -552,8 +556,7 @@ bool Mapping::AddMapping(KeyCode key, EventModifier evtMod, ActionModifier actMo
 		OnEventAction action2 = bind(&DigitalButton::RegisterInstant, placeholders::_1, applyEvt);
 		apply = bind(&Mapping::RunAllActions, placeholders::_1, 2, apply, action2);
 		releaseEvt = BtnEvent::OnInstantRelease;
-		break;
-	}
+	} break;
 	case ActionModifier::INVALID:
 		return false;
 	// None applies no modification... Hey!
@@ -1247,12 +1250,11 @@ public:
 			break;
 		case BtnState::InstRelease:
 		{
-			auto instantOnRelease = find(button._instantReleaseQueue.begin(), button._instantReleaseQueue.end(), BtnEvent::OnRelease);
-			if (instantOnRelease != button._instantReleaseQueue.end() &&
-				button.GetPressDurationMS(time_now) > MAGIC_TAP_DURATION)
+			if (button.GetPressDurationMS(time_now) > MAGIC_INSTANT_DURATION)
 			{
-				button._keyToRelease->ProcessEvent(BtnEvent::OnInstantRelease, button, button._nameToRelease);
-				button._instantReleaseQueue.erase(instantOnRelease);
+				button.CheckInstantRelease(BtnEvent::OnRelease);
+				button._btnState = BtnState::NoPress;
+				button.ClearKey();
 			}
 			break;
 		}
