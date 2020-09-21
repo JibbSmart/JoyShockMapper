@@ -384,7 +384,7 @@ istream &operator >> (istream &in, Mapping &mapping)
 
 	mapping.setRepresentation(valueName);
 
-	while (regex_match(valueName, results, regex(R"(\s*([!\^]?)(\".*?\"|\w+|\W)([\\\/+'_]?)\s*(.*))")) && !results[0].str().empty())
+	while (regex_match(valueName, results, regex(R"(\s*([!\^]?)((\".*?\")|\w*[0-9A-Z]|\W)([\\\/+'_]?)\s*(.*))")) && !results[0].str().empty())
 	{
 		Mapping::ActionModifier actMod = results[1].str().empty() ? Mapping::ActionModifier::None :
 			results[1].str()[0] == '!' ? Mapping::ActionModifier::Instant :
@@ -393,15 +393,15 @@ istream &operator >> (istream &in, Mapping &mapping)
 
 		string keyStr(results[2]);
 
-		Mapping::EventModifier evtMod = results[3].str().empty() ? Mapping::EventModifier::None :
-			results[3].str()[0] == '\\' ? Mapping::EventModifier::StartPress :
-			results[3].str()[0] == '+'  ? Mapping::EventModifier::TurboPress :
-			results[3].str()[0] == '/'  ? Mapping::EventModifier::ReleasePress :
-			results[3].str()[0] == '\'' ? Mapping::EventModifier::TapPress :
-			results[3].str()[0] == '_' ? Mapping::EventModifier::HoldPress :
+		Mapping::EventModifier evtMod = results[4].str().empty() ? Mapping::EventModifier::None :
+			results[4].str()[0] == '\\' ? Mapping::EventModifier::StartPress :
+			results[4].str()[0] == '+'  ? Mapping::EventModifier::TurboPress :
+			results[4].str()[0] == '/'  ? Mapping::EventModifier::ReleasePress :
+			results[4].str()[0] == '\'' ? Mapping::EventModifier::TapPress :
+			results[4].str()[0] == '_' ? Mapping::EventModifier::HoldPress :
 			Mapping::EventModifier::INVALID;
 
-		string leftovers(results[4]);
+		string leftovers(results[5]);
 
 		KeyCode key(keyStr);
 
