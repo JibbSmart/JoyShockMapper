@@ -2835,7 +2835,7 @@ int main(int argc, char *argv[]) {
 	commandRegistry.Add((new JSMAssignment<float>(max_gyro_threshold))
 		->SetHelp("Degrees per second at and above which to apply maximum gyro sensitivity."));
 	commandRegistry.Add((new JSMAssignment<float>(stick_power))
-		->SetHelp(""));
+		->SetHelp("Power curve for stick input when in AIM mode. 1 for linear, 0 for no curve (full strength once out of deadzone). Higher numbers make more of the stick's range appear like a very slight tilt."));
 	commandRegistry.Add((new JSMAssignment<FloatXY>(stick_sens))
 		->SetHelp("Stick sensitivity when using classic AIM mode."));
 	commandRegistry.Add((new JSMAssignment<float>(real_world_calibration))
