@@ -382,10 +382,11 @@ istream &operator >> (istream &in, Mapping &mapping)
 	smatch results;
 	int count = 0;
 
-	mapping.setRepresentation(valueName);
+	stringstream ss;
 
 	while (regex_match(valueName, results, regex(R"(\s*([!\^]?)((\".*?\")|\w*[0-9A-Z]|\W)([\\\/+'_]?)\s*(.*))")) && !results[0].str().empty())
 	{
+		if (count > 0) ss << " and ";
 		Mapping::ActionModifier actMod = results[1].str().empty() ? Mapping::ActionModifier::None :
 			results[1].str()[0] == '!' ? Mapping::ActionModifier::Instant :
 			results[1].str()[0] == '^' ? Mapping::ActionModifier::Toggle :
@@ -404,16 +405,23 @@ istream &operator >> (istream &in, Mapping &mapping)
 		string leftovers(results[5]);
 
 		KeyCode key(keyStr);
+		if (evtMod == Mapping::EventModifier::None)
+		{
+			evtMod = count == 0 ? (leftovers.empty() ? Mapping::EventModifier::StartPress : Mapping::EventModifier::TapPress) :
+				                         (count == 1 ? Mapping::EventModifier::HoldPress  : Mapping::EventModifier::None);
+		}
 
+		// Some exceptions :(
 		if (key.code == COMMAND_ACTION && actMod == Mapping::ActionModifier::None)
 		{
 			// Any command actions are instant by default
 			actMod = Mapping::ActionModifier::Instant;
 		}
-		if (evtMod == Mapping::EventModifier::None)
+		else if (key.code == CALIBRATE && actMod == Mapping::ActionModifier::None &&
+			(evtMod == Mapping::EventModifier::TapPress || evtMod == Mapping::EventModifier::ReleasePress) )
 		{
-			evtMod = count == 0 ? (leftovers.empty() ? Mapping::EventModifier::StartPress : Mapping::EventModifier::TapPress) :
-				                         (count == 1 ? Mapping::EventModifier::HoldPress  : Mapping::EventModifier::None);
+			// Calibrate only makes sense on tap or release if it toggles. Also preserves legacy.
+			actMod = Mapping::ActionModifier::Toggle;
 		}
 
 		if (key.code == 0 ||
@@ -428,9 +436,24 @@ istream &operator >> (istream &in, Mapping &mapping)
 			in.setstate(in.failbit);
 			break;
 		}
+		else
+		{
+			// build string rep
+			if (actMod != Mapping::ActionModifier::None)
+			{
+				ss << actMod << " ";
+			}
+			ss << key.name;
+			if (!leftovers.empty() || evtMod != Mapping::EventModifier::StartPress)
+			{
+				ss << " on " << evtMod;
+			}
+		}
 		valueName = leftovers;
 		count++;
 	} // Next item
+
+	mapping.setRepresentation(ss.str());
 
 	return in;
 }
