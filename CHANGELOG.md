@@ -3,6 +3,13 @@
 Most recent updates will appear first.
 This is a summary of new features and bugfixes. Read the README to learn how to use the features mentioned here.
 
+## 2.0.1
+Nicolas fixed some small hiccups with the new binding modifiers.
+
+### Bugfixes
+* The hold binding modifier should now be recognised correctly.
+* Restored CALIBRATE automatically working as a toggle when a tap modifier is used.
+
 ## 2.0.0
 Nicolas refactored the command processing engine of JSM as well as some of the button processing logic. This enables a richer command line interface and new button mapping features.
 These changes will also make adding more settings less error prone and provide a more consistent feeling in the interface.
