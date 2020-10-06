@@ -2695,6 +2695,7 @@ private:
 			_macro(this, arguments);
 			ss >> arg;
 		} while (!ss.fail());
+		arg.clear();
 		return true;
 	}
 
