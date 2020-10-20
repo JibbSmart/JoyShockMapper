@@ -1455,18 +1455,11 @@ public:
 		}
 	}
 
-	bool IsPressed(const JOY_SHOCK_STATE& state, ButtonID mappingIndex)
+	bool IsPressed(ButtonID btn)
 	{
-		if (mappingIndex > ButtonID::NONE)
-		{
-			if (mappingIndex == ButtonID::ZLF) return state.lTrigger == 1.0;
-			else if (mappingIndex == ButtonID::ZRF) return state.rTrigger == 1.0;
-			// Is it better to consider trigger_threshold for GYRO_ON/OFF on ZL/ZR?
-			else if (mappingIndex == ButtonID::ZL) return state.lTrigger > getSetting(SettingID::TRIGGER_THRESHOLD);
-			else if (mappingIndex == ButtonID::ZR) return state.rTrigger > getSetting(SettingID::TRIGGER_THRESHOLD);
-			else return state.buttons & (1 << keyToBitOffset(mappingIndex));
-		}
-		return false;
+		// Use chord stack to know if a button is pressed, because the state from the callback 
+		// only holds half the information when it comes to a joycon pair.
+		return std::find(btnCommon->chordStack.begin(), btnCommon->chordStack.end(), btn) != btnCommon->chordStack.end();
 	}
 
 	// return true if it hits the outer deadzone
@@ -2270,7 +2263,7 @@ void joyShockPollCallback(int jcHandle, JOY_SHOCK_STATE state, JOY_SHOCK_STATE l
 	auto gyro = jc->getSetting<GyroSettings>(SettingID::GYRO_ON); // same result as getting GYRO_OFF
 	switch (gyro.ignore_mode) {
 	case GyroIgnoreMode::BUTTON:
-		blockGyro = gyro.always_off ^ jc->IsPressed(state, gyro.button);
+		blockGyro = gyro.always_off ^ jc->IsPressed(gyro.button);
 		break;
 	case GyroIgnoreMode::LEFT_STICK:
 		blockGyro = (gyro.always_off ^ leftAny);
