@@ -40,54 +40,88 @@ constexpr WORD COMMAND_ACTION = 0x97; // Run command
 enum class ButtonID
 {
 	INVALID =		-2, // Represents an error in user input
-	NONE,		// = -1  Represents no button when explicitely stated by the user. Not to be confused with NO_HOLD_MAPPED which is no action bound.
-	UP,			// = 0
-	DOWN,		// = 1
-	LEFT,		// = 2
-	RIGHT,		// = 3
-	L,			// = 4
-	ZL,			// = 5
-	MINUS,		// = 6
-	CAPTURE,	// = 7
-	E,			// = 8
-	S,			// = 9
-	N,			// = 10
-	W,			// = 11
-	R,			// = 12
-	ZR,			// = 13
-	PLUS,		// = 14
-	HOME,		// = 15
-	SL,			// = 16
-	SR,			// = 17
-	L3,			// = 18
-	R3,			// = 19
-	LUP,		// = 20
-	LDOWN,		// = 21
-	LLEFT,		// = 22
-	LRIGHT,		// = 23
-	LRING,		// = 24
-	RUP,		// = 25
-	RDOWN,		// = 26
-	RLEFT,		// = 27
-	RRIGHT,		// = 28
-	RRING,		// = 29
-	MUP,        // = 30
-	MDOWN,		// = 31
-	MLEFT,		// = 32
-	MRIGHT,		// = 33
-	MRING,		// = 34
-	LEAN_LEFT,   // = 35
-	LEAN_RIGHT,  // = 36
-	ZLF,		// = 37  FIRST_ANALOG_TRIGGER
+	NONE,		//  Represents no button when explicitely stated by the user. Not to be confused with NO_HOLD_MAPPED which is no action bound.
+	UP,			// = 0 as the first index
+	DOWN,		
+	LEFT,		
+	RIGHT,		
+	L,			
+	ZL,			
+	MINUS,		
+	CAPTURE,	
+	E,			
+	S,			
+	N,			
+	W,			
+	R,			
+	ZR,			
+	PLUS,		
+	HOME,		
+	SL,			
+	SR,			
+	L3,			
+	R3,			
+	LUP,		
+	LDOWN,		
+	LLEFT,		
+	LRIGHT,		
+	LRING,		
+	RUP,		
+	RDOWN,		
+	RLEFT,		
+	RRIGHT,		
+	RRING,		
+	MUP,        
+	MDOWN,		
+	MLEFT,		
+	MRIGHT,		
+	MRING,		
+	LEAN_LEFT,  
+	LEAN_RIGHT, 
+	TOUCH,		// Touch anywhere on the touchpad
+	// TUP,
+	// TDOWN,
+	// TLEFT,
+	// TRIGHT,
+	// TRING,
+	ZLF,		// = FIRST_ANALOG_TRIGGER
 				// insert more analog triggers here
-	ZRF,		// = 38 // LAST_ANALOG_TRIGGER
-	SIZE,		// = 39
+	ZRF,		// =  LAST_ANALOG_TRIGGER
+	SIZE,		// Not a button
+
+	// Virtual buttons configured on the touchpad. The number of buttons vary dynamically, but they each need a different ID
+	T1, // FIRST_TOUCH_BUTTON
+	T2,
+	T3,
+	T4,
+	T5,
+	T6,
+	T7,
+	T8,
+	T9,
+	T10,
+	T11,
+	T12,
+	T13,
+	T14,
+	T15,
+	T16,
+	T17,
+	T18,
+	T19,
+	T20,
+	T21,
+	T22,
+	T23,
+	T24,
+	T25,
+	// Add as necessary...
 };
 
 enum class SettingID
 {
 	INVALID = -2,			// Represents an error in user input
-	MIN_GYRO_SENS = int(ButtonID::SIZE) + 1, // 40
+	MIN_GYRO_SENS = int(ButtonID::SIZE) + 1, // Legacy but int value not used
 	MAX_GYRO_SENS,
 	MIN_GYRO_THRESHOLD,
 	MAX_GYRO_THRESHOLD,
@@ -156,13 +190,17 @@ enum class SettingID
 	TURBO_PERIOD,
 	HOLD_PRESS_TIME,
 	SIM_PRESS_WINDOW, // Unchorded setting
-	DBL_PRESS_WINDOW  // Unchorded setting
+	DBL_PRESS_WINDOW,  // Unchorded setting
+	TOUCHPAD_MODE,
+	TOUCH_STICK_MODE,
 };
 
 // constexpr are like #define but with respect to typeness
+constexpr size_t MAX_NO_OF_TOUCH = 2; // Could be obtained from JSL?
 constexpr int MAPPING_SIZE = int(ButtonID::SIZE);
 constexpr int FIRST_ANALOG_TRIGGER = int(ButtonID::ZLF);
 constexpr int LAST_ANALOG_TRIGGER = int(ButtonID::ZRF);
+constexpr int FIRST_TOUCH_BUTTON = int(ButtonID::T1);
 constexpr int NUM_ANALOG_TRIGGERS = int(LAST_ANALOG_TRIGGER) - int(FIRST_ANALOG_TRIGGER) + 1;
 constexpr float MAGIC_TAP_DURATION = 40.0f; // in milliseconds.
 constexpr float MAGIC_INSTANT_DURATION = 40.0f; // in milliseconds
@@ -185,6 +223,13 @@ enum class BtnState {
 enum class BtnEvent { OnPress, OnTap, OnHold, OnTurbo, OnRelease, OnTapRelease, OnHoldRelease, OnInstantRelease, INVALID };
 enum class Switch : char { OFF, ON, INVALID, }; // Used to parse autoload assignment
 
+enum class TouchpadMode
+{
+	GRID,		// Grid and Stick ?
+	MOUSE, // gestures to be added as part of this mode
+	INVALID
+};
+
 // Workaround default string streaming operator
 class PathString : public string // Should be wstring
 {
@@ -193,6 +238,20 @@ public:
 	PathString(in_string path)
 		: string(path)
 	{}
+};
+
+union Color
+{
+	Color(uint32_t color = 0x00ffffff)
+		: raw (color) {}
+	uint32_t raw;
+	struct RGB_t
+	{
+		uint8_t b;
+		uint8_t g;
+		uint8_t r;
+		uint8_t a; // unused. animation? (blink, pulse, etc)
+	} rgb;
 };
 
 // Needs to be accessed publicly
@@ -374,6 +433,15 @@ ostream &operator << (ostream &out, FloatXY fxy);
 istream &operator >> (istream &in, FloatXY &fxy);
 bool operator ==(const FloatXY &lhs, const FloatXY &rhs);
 inline bool operator !=(const FloatXY &lhs, const FloatXY &rhs)
+{
+	return !(lhs == rhs);
+}
+
+
+istream &operator >> (istream &in, Color &color);
+ostream &operator << (ostream &out, Color color);
+bool operator ==(const Color &lhs, const Color &rhs);
+inline bool operator !=(const Color &lhs, const Color &rhs)
 {
 	return !(lhs == rhs);
 }

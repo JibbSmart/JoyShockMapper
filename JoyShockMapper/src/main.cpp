@@ -77,9 +77,14 @@ JSMSetting<float> turbo_period = JSMSetting<float>(SettingID::TURBO_PERIOD, 80.0
 JSMSetting<float> hold_press_time = JSMSetting<float>(SettingID::HOLD_PRESS_TIME, 150.0f);
 JSMVariable<float> sim_press_window = JSMVariable<float>(50.0f);
 JSMVariable<float> dbl_press_window = JSMVariable<float>(200.0f);
+JSMVariable<Color> color = JSMVariable<Color>({0x00ffffff});
 JSMVariable<PathString> currentWorkingDir = JSMVariable<PathString>(GetCWD());
 JSMVariable<Switch> autoloadSwitch = JSMVariable<Switch>(Switch::ON);
 vector<JSMButton> mappings; // array enables use of for each loop and other i/f
+vector<JSMButton> touch_buttons; // array of virtual buttons on the touchpad grid
+JSMVariable<pair<uint16_t, uint16_t>> grid_dims = JSMVariable(pair<uint16_t, uint16_t>( 1, 2 ) ); // Default left side and right side button
+JSMSetting<TouchpadMode> touchpad_mode = JSMSetting<TouchpadMode>(SettingID::TOUCHPAD_MODE, TouchpadMode::GRID);
+//JSMSetting<StickMode> touch_stick_mode = JSMSetting<StickMode>(SettingID::TOUCH_STICK_MODE, StickMode::NO_MOUSE);
 
 mutex loading_lock;
 
@@ -90,6 +95,14 @@ unique_ptr<TrayIcon> tray;
 bool devicesCalibrating = false;
 Whitelister whitelister(false);
 unordered_map<int, shared_ptr<JoyShock>> handle_to_joyshock;
+
+class Touchpad
+{
+	// Handle a single touch related action. On per touch point
+public:
+	Touchpad()
+	{}
+};
 
 // This class holds all the logic related to a single digital button. It does not hold the mapping but only a reference
 // to it. It also contains it's various states, flags and data.
@@ -137,10 +150,10 @@ public:
 
 	DigitalButton(DigitalButton::Common* btnCommon, ButtonID id, int deviceHandle)
 		: _id(id)
-		, _common(btnCommon)
-		, _mapping(mappings[int(_id)])
-		, _press_times()
 		, _btnState(BtnState::NoPress)
+		, _common(btnCommon)
+		, _mapping(id < ButtonID::SIZE ? mappings[int(id)] : touch_buttons[int(id) - FIRST_TOUCH_BUTTON])
+		, _press_times()
 		, _keyToRelease()
 		, _turboCount(0)
 		, _simPressMaster(ButtonID::NONE)
@@ -151,10 +164,10 @@ public:
 	}
 
 	const ButtonID _id; // Always ID first for easy debugging
+	BtnState _btnState = BtnState::NoPress;
 	Common* _common;
 	const JSMButton &_mapping;
 	chrono::steady_clock::time_point _press_times;
-	BtnState _btnState = BtnState::NoPress;
 	unique_ptr<Mapping> _keyToRelease; // At key press, remember what to release
 	string _nameToRelease;
 	unsigned int _turboCount;
@@ -680,6 +693,8 @@ public:
 	mutex callback_lock;
 
 	vector<DigitalButton> buttons;
+	vector<DigitalButton> touchButtons;
+	vector<Touchpad> touchpads;
 	chrono::steady_clock::time_point started_flick;
 	chrono::steady_clock::time_point time_now;
 	// tap_release_queue has been replaced with button states *TapRelease. The hold time of the tap is effectively quantized to the polling period of the device.
@@ -735,6 +750,7 @@ public:
 		, stick_step_size(stickStepSize)
 		, triggerState(NUM_ANALOG_TRIGGERS, DstState::NoPress)
 		, buttons()
+		, touchpads()
 	{
 		btnCommon = new DigitalButton::Common();
 		buttons.reserve(MAPPING_SIZE);
@@ -743,6 +759,7 @@ public:
 			buttons.push_back( DigitalButton(btnCommon, ButtonID(i), uniqueHandle) );
 		}
 		ResetSmoothSample();
+		touchpads.assign(MAX_NO_OF_TOUCH, Touchpad());
 	}
 
 	JoyShock(int uniqueHandle, float pollRate, int controllerSplitType, float stickStepSize, DigitalButton::Common* sharedButtonCommon)
@@ -831,6 +848,12 @@ public:
 			case SettingID::FLICK_SNAP_MODE:
 				opt = GetOptionalSetting<E>(flick_snap_mode, *activeChord);
 				break;
+			case SettingID::TOUCHPAD_MODE:
+				opt = GetOptionalSetting<E>(touchpad_mode, *activeChord);
+				break;
+			//case SettingID::TOUCH_STICK_MODE:
+			//	opt = GetOptionalSetting<E>(touch_stick_mode, *activeChord);
+			//	break;
 			}
 			if (opt) return *opt;
 		}
@@ -1118,7 +1141,7 @@ public:
 			btnCommon->chordStack.push_front(index); // Always push at the fromt to make it a stack
 		}
 
-		DigitalButton &button = buttons[int(index)];
+		DigitalButton &button = index < ButtonID::SIZE ? buttons[int(index)] : touchButtons[int(index) - FIRST_TOUCH_BUTTON];
 
 		switch (button._btnState)
 		{
@@ -1549,6 +1572,10 @@ static void resetAllMappings() {
 	hold_press_time.Reset();
 	sim_press_window.Reset();
 	dbl_press_window.Reset();
+	touchpad_mode.Reset();
+	grid_dims.Reset();
+	for_each(touch_buttons.begin(), touch_buttons.end(), [] (auto &map) { map.Reset(); });
+	//touch_stick_mode.Reset();
 
 	os_mouse_speed = 1.0f;
 	last_flick_and_rotation = 0.0f;
@@ -2061,6 +2088,98 @@ void processStick(JoyShock* jc, float stickX, float stickY, float lastX, float l
 
 		anyStickInput = left | right | up | down; // ring doesn't count
 	}
+}
+
+void DisplayTouchInfo(int id, optional<FloatXY> xy, optional<FloatXY> prevXY = nullopt)
+{
+	if (xy)
+	{
+		if (!prevXY)
+		{
+			cout << "New touch " << id << " at " << *xy << endl;
+		}
+		else if (fabsf(xy->x() - prevXY->x()) > FLT_EPSILON || fabsf(xy->y() - prevXY->y()) > FLT_EPSILON)
+		{
+			cout << "Touch " << id << " moved to " << *xy << endl;
+		}
+	}
+	else if (prevXY)
+	{
+		cout << "Touch " << id << " has been released" << endl;
+	}
+}
+
+void TouchCallback(int jcHandle, TOUCH_POINT point0, TOUCH_POINT point1, float delta_time)
+{
+	//if (current.t0Down || previous.t0Down)
+	//{
+	//	DisplayTouchInfo(current.t0Down ? current.t0Id : previous.t0Id, 
+	//		current.t0Down ? optional<FloatXY>({ current.t0X, current.t0Y }) : nullopt,
+	//		previous.t0Down ? optional<FloatXY>({ previous.t0X, previous.t0Y }) : nullopt);
+	//}
+
+	//if (current.t1Down || previous.t1Down)
+	//{
+	//	DisplayTouchInfo(current.t1Down ? current.t1Id : previous.t1Id,
+	//		current.t1Down ? optional<FloatXY>({ current.t1X, current.t1Y }) : nullopt,
+	//		previous.t1Down ? optional<FloatXY>({ previous.t1X, previous.t1Y }) : nullopt);
+	//}
+
+	JoyShock *js = getJoyShockFromHandle(jcHandle);
+	js->callback_lock.lock();
+
+	auto mode = js->getSetting<TouchpadMode>(SettingID::TOUCHPAD_MODE);
+	js->handleButtonChange(ButtonID::TOUCH, point0.isDown() || point1.isDown());
+	if (!point0.isDown() && !point1.isDown())
+	{
+		
+		std::function<bool(ButtonID)> isTouchButton = [] (ButtonID id)
+		{
+			return id >= ButtonID::T1;
+		};
+
+		for (auto currentlyActive = find_if(js->btnCommon->chordStack.begin(), js->btnCommon->chordStack.end(), isTouchButton);
+			currentlyActive != js->btnCommon->chordStack.end();
+			currentlyActive = find_if(js->btnCommon->chordStack.begin(), js->btnCommon->chordStack.end(), isTouchButton))
+		{
+			js->btnCommon->chordStack.erase(currentlyActive);
+		}
+	}
+	if (mode == TouchpadMode::GRID)
+	{
+		int index0 = -1, index1 = -1;
+		if (point0.isDown())
+		{
+			float row = floorf(point0.posY * grid_dims.get().first);
+			float col = floorf(point0.posX * grid_dims.get().second);
+			//cout << "I should be in button " << row << " " << col << endl;
+			index0 = int(row*grid_dims.get().second + col);
+		}
+
+		if (point1.isDown())
+		{
+			float row = floorf(point1.posY * grid_dims.get().first);
+			float col = floorf(point1.posX * grid_dims.get().second);
+			//cout << "I should be in button " << row << " " << col << endl;
+			index1 = int(row*grid_dims.get().second + col);
+		}
+
+		for (int i = 0; i <= touch_buttons.size(); ++i)
+		{
+			auto optId = magic_enum::enum_cast<ButtonID>(FIRST_TOUCH_BUTTON + i);
+
+			// JSM can get touch button callbacks before the grid buttons are setup at startup. Just skip then.
+			if (optId && i < js->touchButtons.size())
+				js->handleButtonChange(*optId, i == index0 || i == index1);
+		}
+	}
+	else if (mode == TouchpadMode::MOUSE && point0.isDown())
+	{
+		//cout << "Moving the cursor by " << point0.movX << " h and " << point0.movY << " v" << endl;
+		moveMouse(point0.movX, point0.movY);
+		// Ignore second touch point in this mode for now until gestures gets handled here
+	}
+	js->callback_lock.unlock();
 }
 
 void joyShockPollCallback(int jcHandle, JOY_SHOCK_STATE state, JOY_SHOCK_STATE lastState, IMU_STATE imuState, IMU_STATE lastImuState, float deltaTime) {
@@ -2601,6 +2720,155 @@ void RefreshAutoloadHelp(JSMAssignment<Switch> *autoloadCmd)
 	autoloadCmd->SetHelp(ss.str());
 }
 
+void OnNewGridDimensions(CmdRegistry *registry, pair<uint16_t, uint16_t> newGridDims)
+{
+	_ASSERT_EXPR(registry, U("You forgot to bind the command registry properly!"));
+	auto numberOfButtons = newGridDims.first*newGridDims.second;
+
+	if (numberOfButtons < touch_buttons.size())
+	{
+		// Remove all extra touch button commands
+		bool successfulRemove = true;
+		for(int id = FIRST_TOUCH_BUTTON + numberOfButtons; successfulRemove ; ++id)
+		{
+			string name(magic_enum::enum_name(*magic_enum::enum_cast<ButtonID>(id)));
+			successfulRemove = registry->Remove(name);
+		}
+
+		// For all joyshocks, remove extra touch DigitalButtons
+		for (auto js : handle_to_joyshock)
+		{
+			js.second->callback_lock.lock();
+			while (js.second->touchButtons.size() > numberOfButtons)
+				js.second->touchButtons.pop_back();
+			js.second->callback_lock.unlock();
+		}
+
+		// Remove extra touch button variables
+		while (touch_buttons.size() > numberOfButtons)
+			touch_buttons.pop_back();
+	}
+	else if (numberOfButtons > touch_buttons.size())
+	{
+		// Add new touch button variables and commands
+		for (int id = FIRST_TOUCH_BUTTON + int(touch_buttons.size()); touch_buttons.size() < numberOfButtons; ++id)
+		{
+			JSMButton touchButton(*magic_enum::enum_cast<ButtonID>(id), Mapping::NO_MAPPING);
+			touchButton.SetFilter(&filterMapping);
+			touch_buttons.push_back(touchButton);
+			registry->Add(new JSMAssignment<Mapping>(touch_buttons.back()));
+		}
+
+		// For all joyshocks, remove extra touch DigitalButtons
+		for (auto js : handle_to_joyshock)
+		{
+			js.second->callback_lock.lock();
+			for (int i = FIRST_TOUCH_BUTTON + int(js.second->touchButtons.size()); js.second->touchButtons.size() < numberOfButtons; ++i)
+				js.second->touchButtons.push_back(DigitalButton(js.second->btnCommon, ButtonID(i), js.first));
+			js.second->callback_lock.unlock();
+		}
+	}
+	// Else numbers are the same, possibly just reconfigured
+}
+
+// Specialization for TouchpadMode
+template<>
+void JSMAssignment<TouchpadMode>::DisplayNewValue(TouchpadMode newValue)
+{
+	cout << _name << " has been set to a " << newValue;
+	if (newValue == TouchpadMode::GRID)
+	{
+		cout << " of " << grid_dims.get().first << " rows and " << grid_dims.get().second << " columns";
+	}
+	cout << endl;
+}
+
+class TouchpadModeAssignment : public JSMAssignment<TouchpadMode>
+{
+	static pair<uint16_t, uint16_t> _nextGridDims;
+public:
+	TouchpadModeAssignment(in_string name, JSMVariable<TouchpadMode> &mode)
+		: JSMAssignment(name, mode)
+	{
+		_nextGridDims = { 0,0 };
+		SetParser(&TouchpadModeAssignment::ParseTouchpadMode);
+		touchpad_mode.SetFilter(bind(&TouchpadModeAssignment::filterTouchpadMode, this, placeholders::_1, placeholders::_2));
+	}
+protected:
+
+	TouchpadMode filterTouchpadMode(TouchpadMode current, TouchpadMode next)
+	{
+		return (next != TouchpadMode::INVALID) ? next : current;
+	}
+
+	static bool ParseTouchpadMode(JSMCommand *cmd, in_string &data)
+	{
+		auto inst = dynamic_cast<TouchpadModeAssignment*>(cmd);
+		if (data.empty())
+		{
+			//No assignment? Display current assignment
+			cout << inst->_displayName << " = " << inst->_var.get();
+			if (inst->_var.get() == TouchpadMode::GRID)
+				cout << " " << grid_dims.get().first << " " << grid_dims.get().second;
+			cout << endl;
+			return true;
+		}
+
+		stringstream ss(data);
+		// Read the value
+		TouchpadMode value = TouchpadMode();
+		ss >> value;
+
+		if (ss.fail())
+			return false;
+
+		if(value == TouchpadMode::GRID)
+			ss >> _nextGridDims.first >> _nextGridDims.second;
+		else
+			_nextGridDims = grid_dims.get();
+
+		if (ss.fail() || value == TouchpadMode::INVALID)
+			return false;
+
+		TouchpadMode oldVal = inst->_var;
+		pair<uint16_t, uint16_t> oldDims = grid_dims.get();
+		grid_dims = _nextGridDims;
+		inst->_var = value;
+		// Previous command should update grid dimensions
+
+		// The assignment won't trigger my listener DisplayNewValue if
+		// the new value after filtering is the same as the old.
+		if (oldVal == inst->_var.get())
+		{
+			// So I want to do it myself.
+			inst->DisplayNewValue(inst->_var);
+		}
+
+		// Command succeeded if the value requested was the current one
+		// or if the new value is different from the old.
+		return (value == oldVal || inst->_var.get() != oldVal) && 
+			( _nextGridDims == oldDims || oldDims != grid_dims.get()); // Command processed successfully
+	}
+
+	virtual unique_ptr<JSMCommand> GetModifiedCmd(char op, in_string chord) override
+	{
+		auto optBtn = magic_enum::enum_cast<ButtonID>(chord);
+		auto settingVar = dynamic_cast<JSMSetting<TouchpadMode>*>(&_var);
+		if (optBtn > ButtonID::NONE && op == ',' && settingVar)
+		{
+			//Create Modeshift
+			string name = chord + op + _displayName;
+			unique_ptr<JSMCommand> chordAssignment(new TouchpadModeAssignment(name, *settingVar->AtChord(*optBtn)));
+			chordAssignment->SetHelp(_help)->SetParser(bind(&TouchpadModeAssignment::ModeshiftParser, *optBtn, settingVar, _parse, placeholders::_1, placeholders::_2))
+				->SetTaskOnDestruction(bind(&JSMSetting<TouchpadMode>::ProcessModeshiftRemoval, settingVar, *optBtn));
+			return chordAssignment;
+		}
+		return JSMCommand::GetModifiedCmd(op, chord);
+	}
+};
+
+pair<uint16_t, uint16_t> TouchpadModeAssignment::_nextGridDims = { 0,0 };
+
 class GyroSensAssignment : public JSMAssignment<FloatXY>
 {
 public:
@@ -2628,11 +2896,12 @@ class GyroButtonAssignment : public JSMAssignment<GyroSettings>
 private:
 	const bool _always_off;
 
-	bool GyroParser(in_string data)
+	static bool GyroParser(JSMCommand *cmd, in_string data)
 	{
+		auto inst = dynamic_cast<GyroButtonAssignment*>(cmd);
 		if (data.empty())
 		{
-			GyroSettings value(_var);
+			GyroSettings value(inst->_var);
 			//No assignment? Display current assignment
 			cout << (value.always_off ? string("GYRO_ON") : string("GYRO_OFF")) << " = " << value << endl;;
 		}
@@ -2641,15 +2910,15 @@ private:
 			stringstream ss(data);
 			// Read the value
 			GyroSettings value;
-			value.always_off = _always_off; // Added line from DefaultParser
+			value.always_off = inst->_always_off; // Added line from DefaultParser
 			ss >> value;
 			if (!ss.fail())
 			{
-				GyroSettings oldVal = _var;
-				_var = value;
+				GyroSettings oldVal = inst->_var;
+				inst->_var = value;
 				// Command succeeded if the value requested was the current one
 				// or if the new value is different from the old.
-				return value == oldVal || _var != oldVal; // Command processed successfully
+				return value == oldVal || inst->_var != oldVal; // Command processed successfully
 			}
 			// Couldn't read the value
 		}
@@ -2662,11 +2931,11 @@ private:
 		cout << (value.always_off ? string("GYRO_ON") : string("GYRO_OFF")) << " is set to " << value << endl;;
 	}
 public:
-	GyroButtonAssignment(in_string name, bool always_off)
-		: JSMAssignment(name, gyro_settings)
+	GyroButtonAssignment(in_string name, JSMVariable<GyroSettings> &setting, bool always_off)
+		: JSMAssignment(name, setting)
 		, _always_off(always_off)
 	{
-		SetParser(bind(&GyroButtonAssignment::GyroParser, this, placeholders::_2));
+		SetParser(&GyroButtonAssignment::GyroParser);
 		_var.RemoveOnChangeListener(_listenerId);
 	}
 
@@ -2674,6 +2943,22 @@ public:
 	{
 		_listenerId = _var.AddOnChangeListener(bind(&GyroButtonAssignment::DisplayGyroSettingValue, this, placeholders::_1));
 		return this;
+	}
+
+	virtual unique_ptr<JSMCommand> GetModifiedCmd(char op, in_string chord) override
+	{
+		auto optBtn = magic_enum::enum_cast<ButtonID>(chord);
+		auto settingVar = dynamic_cast<JSMSetting<GyroSettings>*>(&_var);
+		if (optBtn > ButtonID::NONE && op == ',' && settingVar)
+		{
+			//Create Modeshift
+			string name = chord + op + _displayName;
+			unique_ptr<JSMCommand> chordAssignment(new GyroButtonAssignment(name, *settingVar->AtChord(*optBtn), _always_off));
+			chordAssignment->SetHelp(_help)->SetParser(bind(&GyroButtonAssignment::ModeshiftParser, *optBtn, settingVar, _parse, placeholders::_1, placeholders::_2))
+				->SetTaskOnDestruction(bind(&JSMSetting<GyroSettings>::ProcessModeshiftRemoval, settingVar, *optBtn));
+			return chordAssignment;
+		}
+		return JSMCommand::GetModifiedCmd(op, chord);
 	}
 
 	virtual ~GyroButtonAssignment() = default;
@@ -2751,6 +3036,7 @@ int main(int argc, char *argv[]) {
 	static_cast<void>(argv);
 	void *trayIconData = nullptr;
 #endif // _WIN32
+	touch_buttons.reserve(25); // This makes sure the items will never get copied and cause crashes
 	mappings.reserve(MAPPING_SIZE);
 	for (int id = 0; id < MAPPING_SIZE; ++id)
 	{
@@ -2758,6 +3044,7 @@ int main(int argc, char *argv[]) {
 		newButton.SetFilter(&filterMapping);
 		mappings.push_back(newButton);
 	}
+	
 	tray.reset(new TrayIcon(trayIconData, &beforeShowTrayMenu ));
 	// console
 	initConsole(&CleanUp);
@@ -2766,6 +3053,7 @@ int main(int argc, char *argv[]) {
 	// prepare for input
 	connectDevices();
 	JslSetCallback(&joyShockPollCallback);
+	JslSetTouchCallback(&TouchCallback);
 	tray->Show();
 
 	left_stick_mode.SetFilter(&filterInvalidValue<StickMode, StickMode::INVALID>)->
@@ -2819,7 +3107,7 @@ int main(int argc, char *argv[]) {
 	motion_deadzone_inner.SetFilter(&filterPositive);
 	motion_deadzone_outer.SetFilter(&filterPositive);
 	lean_threshold.SetFilter(&filterPositive);
-	mouse_ring_radius.SetFilter([](float c, float n) { return n <= screen_resolution_y ? floorf(n) : c; });
+	mouse_ring_radius.SetFilter([] (float c, float n) { return n <= screen_resolution_y ? floorf(n) : c; });
 	trackball_decay.SetFilter(&filterPositive);
 	screen_resolution_x.SetFilter(&filterPositive);
 	screen_resolution_y.SetFilter(&filterPositive);
@@ -2832,6 +3120,17 @@ int main(int argc, char *argv[]) {
 	hold_press_time.SetFilter(&filterHoldPressDelay);
 	currentWorkingDir.SetFilter( [] (PathString current, PathString next) { return SetCWD(string(next)) ? next : current; });
 	autoloadSwitch.SetFilter(&filterInvalidValue<Switch, Switch::INVALID>)->AddOnChangeListener(&UpdateAutoload);
+	grid_dims.SetFilter([] (auto current, auto next) {
+			return next.first * next.second >= 1 && next.first * next.second <= 25 ? next : current;
+		});
+	touchpad_mode.SetFilter(&filterInvalidValue<TouchpadMode, TouchpadMode::INVALID>);
+	color.AddOnChangeListener([](Color newColor)
+		{
+			for (auto devicePair : handle_to_joyshock)
+			{
+				JslSetLightColour(devicePair.first, newColor.raw);
+			}
+		});
 
 	currentWorkingDir = string(&cmdLine[0], &cmdLine[wcslen(cmdLine)]);
 	CmdRegistry commandRegistry;
@@ -2846,7 +3145,7 @@ int main(int argc, char *argv[]) {
 
 	for (auto &mapping : mappings) // Add all button mappings as commands
 	{
-		commandRegistry.Add(new JSMAssignment<Mapping>(mapping.getName(), mapping));
+		commandRegistry.Add(new JSMAssignment<Mapping>(mapping));
 	}
 	commandRegistry.Add((new JSMAssignment<FloatXY>(min_gyro_sens))
 		->SetHelp("Minimum gyro sensitivity when turning controller at or below MIN_GYRO_THRESHOLD.\nYou can assign a second value as a different vertical sensitivity."));
@@ -2876,9 +3175,9 @@ int main(int argc, char *argv[]) {
 		->SetHelp("Set a mouse mode for the right stick. Valid values are the following:\nNO_MOUSE, AIM, FLICK, FLICK_ONLY, ROTATE_ONLY, MOUSE_RING, MOUSE_AREA, OUTER_RING, INNER_RING"));
 	commandRegistry.Add((new JSMAssignment<StickMode>(motion_stick_mode))
 	    ->SetHelp("Set a mouse mode for the motion-stick -- the whole controller is treated as a stick. Valid values are the following:\nNO_MOUSE, AIM, FLICK, FLICK_ONLY, ROTATE_ONLY, MOUSE_RING, MOUSE_AREA, OUTER_RING, INNER_RING"));
-	commandRegistry.Add((new GyroButtonAssignment("GYRO_OFF", false))
+	commandRegistry.Add((new GyroButtonAssignment("GYRO_OFF", gyro_settings, false))
 		->SetHelp("Assign a controller button to disable the gyro when pressed."));
-	commandRegistry.Add((new GyroButtonAssignment("GYRO_ON", true))->SetListener() // Set only one listener
+	commandRegistry.Add((new GyroButtonAssignment("GYRO_ON", gyro_settings, true))->SetListener() // Set only one listener
 		->SetHelp("Assign a controller button to enable the gyro when pressed."));
 	commandRegistry.Add((new JSMAssignment<AxisMode>(aim_x_sign))
 		->SetHelp("When in AIM mode, set stick X axis inversion. Valid values are the following:\nSTANDARD or 1, and INVERTED or -1"));
@@ -3003,7 +3302,12 @@ int main(int argc, char *argv[]) {
 		->SetHelp("Sets the amount of time in milliseconds within which the user needs to press a button twice before enabling the double press mappings. This setting does not support modeshift."));
 	commandRegistry.Add((new JSMAssignment<PathString>("JSM_DIRECTORY", currentWorkingDir))
 		->SetHelp("If AUTOLOAD doesn't work properly, set this value to the path to the directory holding the JoyShockMapper.exe file. Make sure a folder named \"AutoLoad\" exists there."));
+	commandRegistry.Add((new TouchpadModeAssignment("TOUCHPAD_MODE", touchpad_mode))->SetHelp("Assign a mode to the touchpad. If you use GRID, you need to follow up with the number of rows and columns, the product of which need to be between 1 and 25."));
+	//commandRegistry.Add((new JSMAssignment<StickMode>(touch_stick_mode))->SetHelp("TODO"));
+	grid_dims.AddOnChangeListener(bind(&OnNewGridDimensions, &commandRegistry, placeholders::_1));
+	OnNewGridDimensions(&commandRegistry, grid_dims.get()); // Call to create touch buttons
 	commandRegistry.Add(new HelpCmd(commandRegistry));
+	commandRegistry.Add((new JSMAssignment<Color>("COLOR_BAR", color))->SetHelp("Changes the color bar of the DS4. Either enter as a hex code (xRRGGBB) or as three decimal values between 0 and 255 (RRR GGG BBB)."));
 
 	bool quit = false;
 	commandRegistry.Add((new JSMMacro("QUIT"))

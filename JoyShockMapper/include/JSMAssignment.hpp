@@ -178,6 +178,10 @@ public:
 		: JSMAssignment(magic_enum::enum_name(var._id).data(), var)
 	{ }
 
+	JSMAssignment(JSMButton& var)
+		: JSMAssignment(magic_enum::enum_name(var._id).data(), var)
+	{ }
+
 	virtual ~JSMAssignment()
 	{
 		_var.RemoveOnChangeListener(_listenerId);

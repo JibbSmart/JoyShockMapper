@@ -28,7 +28,8 @@ JoyShockMapper works on Windows and uses JoyShockLibrary to read inputs from con
   * **[Gyro Mouse Inputs](#4-gyro-mouse-inputs)**
   * **[Real World Calibration](#5-real-world-calibration)**
   * **[Modeshifts](#6-modeshifts)**
-  * **[Miscellaneous Commands](#7-miscellaneous-commands)**
+  * **[Touchpad](#7-touchpad)**
+  * **[Miscellaneous Commands](#8-miscellaneous-commands)**
 * **[Known and Perceived Issues](#known-and-perceived-issues)**
 * **[Troubleshooting](#troubleshooting)**
 * **[Credits](#credits)**
@@ -134,7 +135,8 @@ Commands can *mostly* be split into 4 categories:
 4. **[Gyro Mouse Inputs](#4-gyro-mouse-inputs)**. Controlling the mouse with gyro generally provides far more precision than controlling it with a stick. Think of a gyro as a mouse on an invisible, frictionless mousepad. The mousepad extends however far you're comfortable rotating the controller. For games where you control the camera directly, stick mouse inputs provide convenient ways to complete big turns with little precision, while gyro mouse inputs allow you to make more precise, quick movements within a relatively limited range.
 5. **[Real World Calibration](#5-real-world-calibration)**. Calibrating correctly makes it possible for *flick stick* to work correctly, for the gyro and aim stick settings to have meaningful real-life values, and for players to share the same settings between different games.
 6. **[Modeshifts](#6-modeshifts)**. Various settings can be reconfigured depending on the controller's current button presses, in a way akin to chorded presses. This is handy to handle weapon wheels for example. These are called modeshifts to echo the Steam Input naming convention.
-7. **[Miscellaneous Commands](#7-miscellaneous-commands)**. These don't fit in the above categories, but are nevertheless useful.
+7. **[Touchpad](#7-touchpad)**. The DS4 touchpad can be configured to perform many different functionalities, such as a button grid, cursor and gesture or even joystick mode.
+8. **[Miscellaneous Commands](#8-miscellaneous-commands)**. These don't fit in the above categories, but are nevertheless useful.
 
 So let's dig into the available commands.
 
@@ -158,10 +160,7 @@ So the best solution, in my opinion, is to use *neither* layout, and use an unam
 So, here's the complete list of digital inputs:
 
 ```
-UP: Up on the d-pad
-DOWN: Down on the d-pad
-LEFT: Left on the d-pad
-RIGHT: Right on the d-pad
+UP, DOWN, LEFT, RIGHT: D-pad directional buttons
 L: L1 or L, the top left shoulder button
 ZL: L2 or ZL, the bottom left shoulder button (or trigger)
 R: R1 or R, the top right shoulder button
@@ -180,23 +179,15 @@ N: The North face button, △ or X
 E: The East face button, ○ or A
 S: The South face button, ⨉ or B
 W: The West face button, □ or Y
-LUP: Left stick tilted up
-LDOWN: Left stick tilted down
-LLEFT: Left stick tilted left
-LRIGHT: Left stick tilted right
+LUP, LDOWN, LLEFT, LRIGHT: Left stick tilted up, down left or right
 LRING: Left ring binding, either inner or outer.
-RUP: Right stick tilted up
-RDOWN: Right stick tilted down
-RLEFT: Right stick tilted left
-RRIGHT: Right stick tilted right
+RUP, RDOWN, RLEFT, RRIGHT: Right stick tilted up, down, left or right
 RRING: Right ring binding, either inner or outer.
-MUP: Motion stick tilted forward
-MDOWN: Motion stick tilted back
-MLEFT: Motion stick tilted left
-MRIGHT: Motion stick tilted right
+MUP, MDOWN, MLEFT, MRIGHT: Motion stick tilted forward, back, left or right
 MRING: Motion ring binding, either inner or outer.
-LEAN_LEFT: Tilt the controller to the left
-LEAN_RIGHT: Tilt the controller to the right
+LEAN_LEFT, LEAN_RIGHT: Tilt the controller to the left or right
+TOUCH : The DS4 touchpad is being touched
+T1-T16: Up to 16 configurable touch buttons layed out in a grid
 ```
 
 These can all be mapped to the following keyboard and mouse inputs:
@@ -687,16 +678,22 @@ To remove an existing modeshift you have to assign ```NONE``` to the chord.
 ```
 ZLF,GYRO_SENS = NONE
 ```
+### 7. Touchpad
 
-### 7. Miscellaneous Commands
+The touchpad always offers the ```TOUCH``` button binding. It will be active if there is any touch point active. This binding will overlap with other touch buttons and can be useful to disable gyro for example, or bring up the game map.
+
+The most important setting for the touchpad is simply ```TOUCHPAD\_MODE``` which will determine the primary functionality of the touchpad. Here are th possible values:
+* **GRID r c** - Grid will create a button grid of equally sized buttons on the touch pad. You have to also pass a number of rows and columns to the grid. The product of the two cannot be greater than 25. Touch buttons T1-TN will then become available for assignment. They are layed out from left to right, from top to bottom.
+* **CURSOR** - Cursor mode turns the touchpad into a familiar laptop touchpad. Gestures will be added to this mode in a future release, such as double touch, pinch and rotation. Taps and double taps are already usable via ```TOUCH```.
+
+### 8. Miscellaneous Commands
 There are a few other useful commands that don't fall under the above categories:
 
 * **RESET\_MAPPINGS** - This will reset all JoyShockMapper's settings to their default values. This way you don't have to manually unset button mappings or other settings when making a big change. It can be useful to always start your configuration files with the RESET\_MAPPINGS command. The only exceptions to this are the calibration state and AUTOLOAD.
 * **RECONNECT\_CONTROLLERS** - Controllers connected after JoyShockMapper starts will be ignored until you tell it to RECONNECT\_CONTROLLERS. When this happens, all gyro calibration will reset on all controllers.
+* **\# comments** - Any line or part of a line that begins with '\#' will be ignored. Use this to organise/annotate your configuration files, or to temporarily remove commands that you may want to add later.
 * **JOYCON\_GYRO\_MASK** (default IGNORE\_LEFT) - Most games that use gyro controls on Switch ignore the left JoyCon's gyro to avoid confusing behaviour when the JoyCons are held separately while playing. This is the default behaviour in JoyShockMapper. But you can also choose to IGNORE\_RIGHT, IGNORE\_BOTH, or USE\_BOTH.
-* **\# comments** - Any line or part of a line that begins with '\#' will be ignored. Use this to organise/annotate your configuration files, or to temporarily remove commands that you may want to add later.
 * **JOYCON\_MOTION\_MASK** (default IGNORE\_RIGHT) - To avoid confusing behaviour when the JoyCons are held separately while playing, you can have one JoyCon ignored for MOTION\_STICK related functions. Since we ignore the left JoyCon by default for gyro, we ignore the right JoyCon by default for motion stick. But you can also choose to IGNORE\_RIGHT, IGNORE\_BOTH, or USE\_BOTH.
-* **\# comments** - Any line or part of a line that begins with '\#' will be ignored. Use this to organise/annotate your configuration files, or to temporarily remove commands that you may want to add later.
 * **SLEEP** - Cause the program to sleep (or wait) for a given number of seconds. The given value must be greater than 0 and less than or equal to 10. Or, omit the value and it will sleep for one second. This command may help automate calibration.
 * ***onstartup.txt*** - This is not a command. But if a file called '*onstartup.txt*' is found in the current working directory on startup, its contents will be loaded and executed right away. If you prefer that AutoLoad is disabled, put ```AUTOLOAD = OFF``` in here to have it disabled at startup. If you use HIDGuardian / HIDCerberus and always want to whitelist JSM and then reconnect controllers, just put ```WHITELIST_ADD``` and ```RECONNECT_CONTROLLERS``` in the startup file.
 * ***onreset.txt*** - This is also not a command. But if a file called '*onreset.txt*' is found in the current working directory when the ```RESET_MAPPINGS``` command is called, this config will be loaded and executed right afterwards.

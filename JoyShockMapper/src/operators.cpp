@@ -199,3 +199,32 @@ istream& operator >> (istream& in, PathString& fxy)
 	fxy.resize(strlen(fxy.c_str()));
 	return in;
 }
+
+istream &operator >> (istream &in, Color &color)
+{
+	if (in.peek() == 'x')
+	{
+		char pound;
+		in >> pound >> std::hex >> color.raw;
+	}
+	else
+	{
+		int16_t r, g, b;
+		in >> r >> g >> b;
+		color.rgb.r = r;
+		color.rgb.g = g;
+		color.rgb.b = b;
+	}
+	return in;
+}
+
+ostream &operator << (ostream &out, Color color)
+{
+	out << 'x' << std::hex << int(color.rgb.r) << int(color.rgb.g) << int(color.rgb.b);
+	return out;
+}
+
+bool operator ==(const Color &lhs, const Color &rhs)
+{
+	return lhs.raw == rhs.raw;
+}

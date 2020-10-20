@@ -98,6 +98,8 @@ public:
 	// accepted.
 	bool Add(JSMCommand* newCommand);
 
+	bool Remove(in_string name);
+
 	bool isCommandValid(in_string line);
 
 	// Process a command entered by the user
