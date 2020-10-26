@@ -3,6 +3,13 @@
 Most recent updates will appear first.
 This is a summary of new features and bugfixes. Read the README to learn how to use the features mentioned here.
 
+## 2.0.3
+
+More bugfixes for bugs introduced by bugfixes, thanks to Nicolas. :P
+
+### Bugfixes
+* Gyro button fix. Bug was introduced by joycon fix. Sorry about that.
+
 ## 2.0.2
 More bugfixes thanks to Nicolas.
 
