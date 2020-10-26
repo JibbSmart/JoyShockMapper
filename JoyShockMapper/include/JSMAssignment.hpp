@@ -50,7 +50,7 @@ protected:
 		return true; // Command is completely processed
 	}
 
-	static bool ModeshiftParser(ButtonID modeshift, JSMSetting<T> *setting, JSMCommand* cmd, in_string argument)
+	static bool ModeshiftParser(ButtonID modeshift, JSMSetting<T> *setting, JSMCommand::ParseDelegate parser, JSMCommand* cmd, in_string argument)
 	{
 		if (setting && argument.compare("NONE") == 0)
 		{
@@ -58,7 +58,7 @@ protected:
 			cout << "Modeshift " << modeshift << "," << setting->_id << " has been removed." << endl;
 			return true;
 		}
-		return DefaultParser(cmd, argument);
+		return parser(cmd, argument);
 	}
 
 	// The default parser uses the overloaded >> operator to parse
@@ -120,7 +120,7 @@ protected:
 					//Create Modeshift
 					string name = chord + op + _displayName;
 					unique_ptr<JSMCommand> chordAssignment(new JSMAssignment<T>(name, *settingVar->AtChord(btn)));
-					chordAssignment->SetHelp(_help)->SetParser(bind(&JSMAssignment<T>::ModeshiftParser, btn, settingVar, placeholders::_1, placeholders::_2))
+					chordAssignment->SetHelp(_help)->SetParser(bind(&JSMAssignment<T>::ModeshiftParser, btn, settingVar, _parse, placeholders::_1, placeholders::_2))
 						->SetTaskOnDestruction(bind(&JSMSetting<T>::ProcessModeshiftRemoval, settingVar, btn));
 					return chordAssignment;
 				}
@@ -194,13 +194,5 @@ public:
 template<>
 void JSMAssignment<Mapping>::DisplayNewValue(Mapping newValue)
 {
-	if (newValue == Mapping::NO_MAPPING)
-	{
-		cout << _name << " mapped to no input" << endl;
-	}
-	else
-	{
-		// to be elaborated
-		cout << _name << " mapped to " << newValue.toString() << endl;
-	}
+	cout << _name << " mapped to " << newValue.description << endl;
 }
