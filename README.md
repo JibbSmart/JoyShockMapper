@@ -726,6 +726,7 @@ I'm Julian "Jibb" Smart, and I made JoyShockMapper. As of version 1.3, JoyShockM
 * Contributer (icon art)
 * Sunny Ye (translation)
 * Romeo Calota (linux and general portability)
+* Garrett (code)
 
 Have a look at the CHANGELOG for a better idea of who contributed what. Nicolas, in particular, regularly contributes a lot of work. He is responsible for a lot of the cool quality-of-life and advanced mapping features.
 

@@ -8,8 +8,9 @@ This is a summary of new features and bugfixes. Read the README to learn how to 
 ### Bugfixes
 * The HELP command will now work correctly even after looking at the HELP for a specific command.
 * GYRO\_ON / GYRO\_OFF behaviour with split Joy-Cons has been improved.
-* Fix display of descriptive Mappings
-* Fix issue where multiple toggles on a single button wouldn't work properly
+* Fix display of descriptive Mappings.
+* Fix issue where multiple toggles on a single button wouldn't work properly.
+* Updated the "2.0.0" section of the CHANGELOG to show that stick sensitivity can be set separately in each axis.
 
 ## 2.0.1
 Nicolas fixed some small hiccups with the new binding modifiers.
@@ -27,6 +28,8 @@ Nicolas also expanded the mapping options greatly, allowing a button to map to m
 Jibb added motion stick options, exposing the orientation of the controller as a third stick. This third stick can do everything a regular stick can -- MOUSE\_AREA, FLICK\_STICK, or trigger key presses. He also added separate lean mappings so the controller can be leaned left or right to trigger key inputs. Stick modes can be made to work correctly when holding the controller sideways or backwards, and there's a new trackball binding option to help reset controller position. A *onstartup.txt* file can be automatically loaded with preferred settings, and a SLEEP command can help automate calibration.
 
 Roy Straver added an optional forward deadzone for flick stick to help with engaging the stick for rotation when no flick is desired, and the option to make flick time proportional to the size of the flick when using flick stick.
+
+Garrett added separate X and Y sensitivities for traditional stick aiming.
 
 ### Features
 * All commands can now display help, or display their current value, have value filtering and notification.
@@ -49,6 +52,7 @@ Roy Straver added an optional forward deadzone for flick stick to help with enga
 * If a file called *onreset.txt* is found in the working directory, its contents will be loaded right after startup and whenever RESET_MAPPINGS is called.
 * SLEEP will wait for a given number of seconds (up to 10).
 * Added support for the keypad's operator keys, decimal key and caps lock key.
+* STICK\_SENS can accept two different sensitivities to set X and Y to different sensitivities.
 
 ### Bugfixes
 * JSM should no longer sometimes get the mouse stuck on the side or top of the screen.
