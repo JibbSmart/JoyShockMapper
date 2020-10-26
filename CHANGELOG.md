@@ -8,6 +8,8 @@ This is a summary of new features and bugfixes. Read the README to learn how to 
 ### Bugfixes
 * The HELP command will now work correctly even after looking at the HELP for a specific command.
 * GYRO\_ON / GYRO\_OFF behaviour with split Joy-Cons has been improved.
+* Fix display of descriptive Mappings
+* Fix issue where multiple toggles on a single button wouldn't work properly
 
 ## 2.0.1
 Nicolas fixed some small hiccups with the new binding modifiers.

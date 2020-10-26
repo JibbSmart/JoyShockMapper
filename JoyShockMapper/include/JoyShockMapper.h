@@ -285,11 +285,12 @@ public:
 	// This functor nees to be set to way to validate a command line string;
 	static function<bool(in_string)> _isCommandValid;
 
+	string description = "no input";
+	string command;
+
 private:
 	map<BtnEvent, OnEventAction> eventMapping;
 	float tapDurationMs = MAGIC_TAP_DURATION;
-	string representation;
-
 	void InsertEventMapping(BtnEvent evt, OnEventAction action);
 	static void RunAllActions(DigitalButton *btn, int numEventActions, ...);
 
@@ -304,19 +305,9 @@ public:
 
 	bool AddMapping(KeyCode key, EventModifier evtMod, ActionModifier actMod = ActionModifier::None);
 
-	inline void setRepresentation(in_string rep)
-	{
-		representation = rep;
-	}
-
 	inline bool isValid() const
 	{
 		return !eventMapping.empty();
-	}
-
-	inline string toString() const
-	{
-		return representation;
 	}
 
 	inline float getTapDuration() const
@@ -327,7 +318,7 @@ public:
 	inline void clear()
 	{
 		eventMapping.clear();
-		representation.clear();
+		description.clear();
 		tapDurationMs = MAGIC_TAP_DURATION;
 	}
 };

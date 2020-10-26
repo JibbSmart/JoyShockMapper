@@ -268,7 +268,7 @@ public:
 	{
 		JslPauseContinuousCalibration(_deviceHandle);
 		printf("Gyro calibration set\n");
-		ClearAnyActiveToggle(KeyCode("CALIBRATE"));
+		ClearAllActiveToggle(KeyCode("CALIBRATE"));
 	}
 
 	void ApplyGyroAction(KeyCode gyroAction) // TODO: Keycode should be WORD here
@@ -286,7 +286,7 @@ public:
 			});
 		if (gyroAction != _common->gyroActionQueue.end())
 		{
-			ClearAnyActiveToggle(gyroAction->second);
+			ClearAllActiveToggle(gyroAction->second);
 			_common->gyroActionQueue.erase(gyroAction);
 		}
 	}
@@ -304,16 +304,16 @@ public:
 		if (key.code != NO_HOLD_MAPPED)
 		{
 			pressKey(key, false);
-			ClearAnyActiveToggle(key);
+			ClearAllActiveToggle(key);
 		}
 	}
 
 	void ApplyButtonToggle(KeyCode key, function<void(DigitalButton *)> apply, function<void(DigitalButton *)> release)
 	{
 		auto currentlyActive = find_if(_common->activeTogglesQueue.begin(), _common->activeTogglesQueue.end(),
-			[this](pair<ButtonID, KeyCode> pair)
+			[this, key](pair<ButtonID, KeyCode> pair)
 			{
-				return pair.first == _id;
+				return pair.first == _id && pair.second == key;
 			});
 		if (currentlyActive == _common->activeTogglesQueue.end())
 		{
@@ -332,14 +332,16 @@ public:
 		_instantReleaseQueue.push_back(evt);
 	}
 
-	void ClearAnyActiveToggle(KeyCode key)
+	void ClearAllActiveToggle(KeyCode key)
 	{
-		auto currentlyActive = find_if(_common->activeTogglesQueue.begin(), _common->activeTogglesQueue.end(),
-			[key](pair<ButtonID, KeyCode> pair)
-			{
-				return pair.second == key;
-			});
-		if (currentlyActive != _common->activeTogglesQueue.end())
+		std::function<bool(pair<ButtonID, KeyCode>)> isSameKey = [key](pair<ButtonID, KeyCode> pair)
+		{
+			return pair.second == key;
+		};
+
+		for(auto currentlyActive = find_if(_common->activeTogglesQueue.begin(), _common->activeTogglesQueue.end(), isSameKey);
+			currentlyActive != _common->activeTogglesQueue.end();
+			currentlyActive = find_if(_common->activeTogglesQueue.begin(), _common->activeTogglesQueue.end(), isSameKey))
 		{
 			_common->activeTogglesQueue.erase(currentlyActive);
 		}
@@ -370,7 +372,7 @@ public:
 
 ostream &operator << (ostream &out, Mapping mapping)
 {
-	out << mapping.toString();
+	out << mapping.command;
 	return out;
 }
 
@@ -382,6 +384,7 @@ istream &operator >> (istream &in, Mapping &mapping)
 	smatch results;
 	int count = 0;
 
+	mapping.command = valueName;
 	stringstream ss;
 
 	while (regex_match(valueName, results, regex(R"(\s*([!\^]?)((\".*?\")|\w*[0-9A-Z]|\W)([\\\/+'_]?)\s*(.*))")) && !results[0].str().empty())
@@ -444,7 +447,7 @@ istream &operator >> (istream &in, Mapping &mapping)
 				ss << actMod << " ";
 			}
 			ss << key.name;
-			if (!leftovers.empty() || evtMod != Mapping::EventModifier::StartPress)
+			if (count != 0 || !leftovers.empty() || evtMod != Mapping::EventModifier::StartPress) // Don't display event modifier when using default binding on single key
 			{
 				ss << " on " << evtMod;
 			}
@@ -453,14 +456,15 @@ istream &operator >> (istream &in, Mapping &mapping)
 		count++;
 	} // Next item
 
-	mapping.setRepresentation(ss.str());
+	mapping.description = ss.str();
 
 	return in;
 }
 
 bool operator ==(const Mapping &lhs, const Mapping &rhs)
 {
-	return lhs.toString() == rhs.toString();
+	// Very flawfull :(
+	return lhs.command == rhs.command;
 }
 
 Mapping::Mapping(in_string mapping)
