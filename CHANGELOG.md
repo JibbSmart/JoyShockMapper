@@ -3,6 +3,12 @@
 Most recent updates will appear first.
 This is a summary of new features and bugfixes. Read the README to learn how to use the features mentioned here.
 
+## 2.0.2
+
+### Bugfixes
+* The HELP command will now work correctly even after looking at the HELP for a specific command.
+* GYRO\_ON / GYRO\_OFF behaviour with split Joy-Cons has been improved.
+
 ## 2.0.1
 Nicolas fixed some small hiccups with the new binding modifiers.
 
