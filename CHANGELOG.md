@@ -4,7 +4,6 @@ Most recent updates will appear first.
 This is a summary of new features and bugfixes. Read the README to learn how to use the features mentioned here.
 
 ## 2.0.3
-
 More bugfixes for bugs introduced by bugfixes, thanks to Nicolas. :P
 
 ### Bugfixes
