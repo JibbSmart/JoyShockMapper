@@ -1463,7 +1463,8 @@ public:
 	{
 		// Use chord stack to know if a button is pressed, because the state from the callback 
 		// only holds half the information when it comes to a joycon pair.
-		return std::find(btnCommon->chordStack.begin(), btnCommon->chordStack.end(), btn) != btnCommon->chordStack.end();
+		// Also, NONE is always part of the stack (for chord handling) but NONE is never pressed.
+		return btn != ButtonID::NONE && find(btnCommon->chordStack.begin(), btnCommon->chordStack.end(), btn) != btnCommon->chordStack.end();
 	}
 
 	// return true if it hits the outer deadzone
