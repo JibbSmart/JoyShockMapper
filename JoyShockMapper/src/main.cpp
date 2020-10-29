@@ -82,7 +82,7 @@ JSMVariable<PathString> currentWorkingDir = JSMVariable<PathString>(GetCWD());
 JSMVariable<Switch> autoloadSwitch = JSMVariable<Switch>(Switch::ON);
 vector<JSMButton> mappings; // array enables use of for each loop and other i/f
 vector<JSMButton> touch_buttons; // array of virtual buttons on the touchpad grid
-JSMVariable<pair<uint16_t, uint16_t>> grid_dims = JSMVariable(pair<uint16_t, uint16_t>( 1, 2 ) ); // Default left side and right side button
+JSMVariable<FloatXY> grid_size = JSMVariable(FloatXY{ 2.f, 1.f }); // Default left side and right side button
 JSMSetting<TouchpadMode> touchpad_mode = JSMSetting<TouchpadMode>(SettingID::TOUCHPAD_MODE, TouchpadMode::GRID);
 //JSMSetting<StickMode> touch_stick_mode = JSMSetting<StickMode>(SettingID::TOUCH_STICK_MODE, StickMode::NO_MOUSE);
 
@@ -750,6 +750,7 @@ public:
 		, stick_step_size(stickStepSize)
 		, triggerState(NUM_ANALOG_TRIGGERS, DstState::NoPress)
 		, buttons()
+		, touchButtons()
 		, touchpads()
 	{
 		btnCommon = new DigitalButton::Common();
@@ -760,6 +761,7 @@ public:
 		}
 		ResetSmoothSample();
 		touchpads.assign(MAX_NO_OF_TOUCH, Touchpad());
+		updateGridSize(grid_size.get().x() * grid_size.get().y());
 	}
 
 	JoyShock(int uniqueHandle, float pollRate, int controllerSplitType, float stickStepSize, DigitalButton::Common* sharedButtonCommon)
@@ -778,6 +780,8 @@ public:
 			buttons.push_back(DigitalButton(btnCommon, ButtonID(i), uniqueHandle));
 		}
 		ResetSmoothSample();
+		touchpads.assign(MAX_NO_OF_TOUCH, Touchpad());
+		updateGridSize(grid_size.get().x() * grid_size.get().y());
 	}
 
 	~JoyShock()
@@ -1512,6 +1516,15 @@ public:
 		}
 		return false;
 	}
+
+	void updateGridSize(size_t numberOfButtons)
+	{
+		while (touchButtons.size() > numberOfButtons)
+				touchButtons.pop_back();
+
+		for (int i = FIRST_TOUCH_BUTTON + int(touchButtons.size()); touchButtons.size() < numberOfButtons; ++i)
+			touchButtons.push_back(DigitalButton(btnCommon, ButtonID(i), intHandle));
+	}
 };
 
 static void resetAllMappings() {
@@ -1573,7 +1586,7 @@ static void resetAllMappings() {
 	sim_press_window.Reset();
 	dbl_press_window.Reset();
 	touchpad_mode.Reset();
-	grid_dims.Reset();
+	grid_size.Reset();
 	for_each(touch_buttons.begin(), touch_buttons.end(), [] (auto &map) { map.Reset(); });
 	//touch_stick_mode.Reset();
 
@@ -2150,18 +2163,18 @@ void TouchCallback(int jcHandle, TOUCH_POINT point0, TOUCH_POINT point1, float d
 		int index0 = -1, index1 = -1;
 		if (point0.isDown())
 		{
-			float row = floorf(point0.posY * grid_dims.get().first);
-			float col = floorf(point0.posX * grid_dims.get().second);
+			float row = floorf(point0.posY * grid_size.get().y());
+			float col = floorf(point0.posX * grid_size.get().x());
 			//cout << "I should be in button " << row << " " << col << endl;
-			index0 = int(row*grid_dims.get().second + col);
+			index0 = int(row*grid_size.get().x() + col);
 		}
 
 		if (point1.isDown())
 		{
-			float row = floorf(point1.posY * grid_dims.get().first);
-			float col = floorf(point1.posX * grid_dims.get().second);
+			float row = floorf(point1.posY * grid_size.get().y());
+			float col = floorf(point1.posX * grid_size.get().x());
 			//cout << "I should be in button " << row << " " << col << endl;
-			index1 = int(row*grid_dims.get().second + col);
+			index1 = int(row*grid_size.get().x() + col);
 		}
 
 		for (int i = 0; i <= touch_buttons.size(); ++i)
@@ -2720,10 +2733,10 @@ void RefreshAutoloadHelp(JSMAssignment<Switch> *autoloadCmd)
 	autoloadCmd->SetHelp(ss.str());
 }
 
-void OnNewGridDimensions(CmdRegistry *registry, pair<uint16_t, uint16_t> newGridDims)
+void OnNewGridDimensions(CmdRegistry *registry, FloatXY newGridDims)
 {
 	_ASSERT_EXPR(registry, U("You forgot to bind the command registry properly!"));
-	auto numberOfButtons = newGridDims.first*newGridDims.second;
+	auto numberOfButtons = size_t(newGridDims.first*newGridDims.second);
 
 	if (numberOfButtons < touch_buttons.size())
 	{
@@ -2739,8 +2752,7 @@ void OnNewGridDimensions(CmdRegistry *registry, pair<uint16_t, uint16_t> newGrid
 		for (auto js : handle_to_joyshock)
 		{
 			js.second->callback_lock.lock();
-			while (js.second->touchButtons.size() > numberOfButtons)
-				js.second->touchButtons.pop_back();
+			js.second->updateGridSize(numberOfButtons);
 			js.second->callback_lock.unlock();
 		}
 
@@ -2763,111 +2775,12 @@ void OnNewGridDimensions(CmdRegistry *registry, pair<uint16_t, uint16_t> newGrid
 		for (auto js : handle_to_joyshock)
 		{
 			js.second->callback_lock.lock();
-			for (int i = FIRST_TOUCH_BUTTON + int(js.second->touchButtons.size()); js.second->touchButtons.size() < numberOfButtons; ++i)
-				js.second->touchButtons.push_back(DigitalButton(js.second->btnCommon, ButtonID(i), js.first));
+			js.second->updateGridSize(numberOfButtons);
 			js.second->callback_lock.unlock();
 		}
 	}
 	// Else numbers are the same, possibly just reconfigured
 }
-
-// Specialization for TouchpadMode
-template<>
-void JSMAssignment<TouchpadMode>::DisplayNewValue(TouchpadMode newValue)
-{
-	cout << _name << " has been set to a " << newValue;
-	if (newValue == TouchpadMode::GRID)
-	{
-		cout << " of " << grid_dims.get().first << " rows and " << grid_dims.get().second << " columns";
-	}
-	cout << endl;
-}
-
-class TouchpadModeAssignment : public JSMAssignment<TouchpadMode>
-{
-	static pair<uint16_t, uint16_t> _nextGridDims;
-public:
-	TouchpadModeAssignment(in_string name, JSMVariable<TouchpadMode> &mode)
-		: JSMAssignment(name, mode)
-	{
-		_nextGridDims = { 0,0 };
-		SetParser(&TouchpadModeAssignment::ParseTouchpadMode);
-		touchpad_mode.SetFilter(bind(&TouchpadModeAssignment::filterTouchpadMode, this, placeholders::_1, placeholders::_2));
-	}
-protected:
-
-	TouchpadMode filterTouchpadMode(TouchpadMode current, TouchpadMode next)
-	{
-		return (next != TouchpadMode::INVALID) ? next : current;
-	}
-
-	static bool ParseTouchpadMode(JSMCommand *cmd, in_string &data)
-	{
-		auto inst = dynamic_cast<TouchpadModeAssignment*>(cmd);
-		if (data.empty())
-		{
-			//No assignment? Display current assignment
-			cout << inst->_displayName << " = " << inst->_var.get();
-			if (inst->_var.get() == TouchpadMode::GRID)
-				cout << " " << grid_dims.get().first << " " << grid_dims.get().second;
-			cout << endl;
-			return true;
-		}
-
-		stringstream ss(data);
-		// Read the value
-		TouchpadMode value = TouchpadMode();
-		ss >> value;
-
-		if (ss.fail())
-			return false;
-
-		if(value == TouchpadMode::GRID)
-			ss >> _nextGridDims.first >> _nextGridDims.second;
-		else
-			_nextGridDims = grid_dims.get();
-
-		if (ss.fail() || value == TouchpadMode::INVALID)
-			return false;
-
-		TouchpadMode oldVal = inst->_var;
-		pair<uint16_t, uint16_t> oldDims = grid_dims.get();
-		grid_dims = _nextGridDims;
-		inst->_var = value;
-		// Previous command should update grid dimensions
-
-		// The assignment won't trigger my listener DisplayNewValue if
-		// the new value after filtering is the same as the old.
-		if (oldVal == inst->_var.get())
-		{
-			// So I want to do it myself.
-			inst->DisplayNewValue(inst->_var);
-		}
-
-		// Command succeeded if the value requested was the current one
-		// or if the new value is different from the old.
-		return (value == oldVal || inst->_var.get() != oldVal) && 
-			( _nextGridDims == oldDims || oldDims != grid_dims.get()); // Command processed successfully
-	}
-
-	virtual unique_ptr<JSMCommand> GetModifiedCmd(char op, in_string chord) override
-	{
-		auto optBtn = magic_enum::enum_cast<ButtonID>(chord);
-		auto settingVar = dynamic_cast<JSMSetting<TouchpadMode>*>(&_var);
-		if (optBtn > ButtonID::NONE && op == ',' && settingVar)
-		{
-			//Create Modeshift
-			string name = chord + op + _displayName;
-			unique_ptr<JSMCommand> chordAssignment(new TouchpadModeAssignment(name, *settingVar->AtChord(*optBtn)));
-			chordAssignment->SetHelp(_help)->SetParser(bind(&TouchpadModeAssignment::ModeshiftParser, *optBtn, settingVar, _parse, placeholders::_1, placeholders::_2))
-				->SetTaskOnDestruction(bind(&JSMSetting<TouchpadMode>::ProcessModeshiftRemoval, settingVar, *optBtn));
-			return chordAssignment;
-		}
-		return JSMCommand::GetModifiedCmd(op, chord);
-	}
-};
-
-pair<uint16_t, uint16_t> TouchpadModeAssignment::_nextGridDims = { 0,0 };
 
 class GyroSensAssignment : public JSMAssignment<FloatXY>
 {
@@ -3030,6 +2943,8 @@ public:
 #ifdef _WIN32
 int __stdcall wWinMain(HINSTANCE hInstance, HINSTANCE prevInstance, LPWSTR cmdLine, int cmdShow) {
 	auto trayIconData = hInstance;
+	CmdRegistry commandRegistry;
+
 #else
 int main(int argc, char *argv[]) {
 	static_cast<void>(argc);
@@ -3049,12 +2964,6 @@ int main(int argc, char *argv[]) {
 	// console
 	initConsole(&CleanUp);
 	printf("Welcome to JoyShockMapper version %s!\n", version);
-	//if (whitelister) printf("JoyShockMapper was successfully whitelisted!\n");
-	// prepare for input
-	connectDevices();
-	JslSetCallback(&joyShockPollCallback);
-	JslSetTouchCallback(&TouchCallback);
-	tray->Show();
 
 	left_stick_mode.SetFilter(&filterInvalidValue<StickMode, StickMode::INVALID>)->
 		AddOnChangeListener(bind(&UpdateRingModeFromStickMode, &left_ring_mode, ::placeholders::_1));
@@ -3120,9 +3029,14 @@ int main(int argc, char *argv[]) {
 	hold_press_time.SetFilter(&filterHoldPressDelay);
 	currentWorkingDir.SetFilter( [] (PathString current, PathString next) { return SetCWD(string(next)) ? next : current; });
 	autoloadSwitch.SetFilter(&filterInvalidValue<Switch, Switch::INVALID>)->AddOnChangeListener(&UpdateAutoload);
-	grid_dims.SetFilter([] (auto current, auto next) {
-			return next.first * next.second >= 1 && next.first * next.second <= 25 ? next : current;
+	grid_size.AddOnChangeListener(bind(&OnNewGridDimensions, &commandRegistry, placeholders::_1));
+	grid_size.SetFilter([](auto current, auto next)
+		{
+			float floorX = floorf(next.x());
+			float floorY = floorf(next.y());
+			return floorX * floorY >= 1 && floorX * floorY <= 25 ? FloatXY{floorX, floorY} : current;
 		});
+	OnNewGridDimensions(&commandRegistry, grid_size.get()); // Call to create touch buttons
 	touchpad_mode.SetFilter(&filterInvalidValue<TouchpadMode, TouchpadMode::INVALID>);
 	color.AddOnChangeListener([](Color newColor)
 		{
@@ -3133,8 +3047,7 @@ int main(int argc, char *argv[]) {
 		});
 
 	currentWorkingDir = string(&cmdLine[0], &cmdLine[wcslen(cmdLine)]);
-	CmdRegistry commandRegistry;
-
+	
 	autoLoadThread.reset(new PollingThread(&AutoLoadPoll, &commandRegistry, 1000, true)); // Start by default
 	if (autoLoadThread && autoLoadThread->isRunning())
 	{
@@ -3302,12 +3215,13 @@ int main(int argc, char *argv[]) {
 		->SetHelp("Sets the amount of time in milliseconds within which the user needs to press a button twice before enabling the double press mappings. This setting does not support modeshift."));
 	commandRegistry.Add((new JSMAssignment<PathString>("JSM_DIRECTORY", currentWorkingDir))
 		->SetHelp("If AUTOLOAD doesn't work properly, set this value to the path to the directory holding the JoyShockMapper.exe file. Make sure a folder named \"AutoLoad\" exists there."));
-	commandRegistry.Add((new TouchpadModeAssignment("TOUCHPAD_MODE", touchpad_mode))->SetHelp("Assign a mode to the touchpad. If you use GRID, you need to follow up with the number of rows and columns, the product of which need to be between 1 and 25."));
+	commandRegistry.Add((new JSMAssignment<TouchpadMode>("TOUCHPAD_MODE", touchpad_mode))
+		->SetHelp("Assign a mode to the touchpad. Valid values are GRID or MOUSE."));
+	commandRegistry.Add((new JSMAssignment<FloatXY>("GRID_SIZE", grid_size))
+		->SetHelp("When TOUCHPAD_MODE is set to GRID, this variable sets the number of rows and columns in the grid. The product of the two numbers need to be between 1 and 25."));
 	//commandRegistry.Add((new JSMAssignment<StickMode>(touch_stick_mode))->SetHelp("TODO"));
-	grid_dims.AddOnChangeListener(bind(&OnNewGridDimensions, &commandRegistry, placeholders::_1));
-	OnNewGridDimensions(&commandRegistry, grid_dims.get()); // Call to create touch buttons
-	commandRegistry.Add(new HelpCmd(commandRegistry));
 	commandRegistry.Add((new JSMAssignment<Color>("LIGHT_BAR", color))->SetHelp("Changes the color bar of the DS4. Either enter as a hex code (xRRGGBB) or as three decimal values between 0 and 255 (RRR GGG BBB)."));
+	commandRegistry.Add(new HelpCmd(commandRegistry));
 
 	bool quit = false;
 	commandRegistry.Add((new JSMMacro("QUIT"))
@@ -3319,6 +3233,11 @@ int main(int argc, char *argv[]) {
 	);
 
 	Mapping::_isCommandValid = bind(&CmdRegistry::isCommandValid, &commandRegistry, placeholders::_1);
+
+	connectDevices();
+	JslSetCallback(&joyShockPollCallback);
+	JslSetTouchCallback(&TouchCallback);
+	tray->Show();
 
 	do_RESET_MAPPINGS(&commandRegistry);
 	if (commandRegistry.loadConfigFile("onstartup.txt"))

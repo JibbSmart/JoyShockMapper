@@ -683,8 +683,26 @@ ZLF,GYRO_SENS = NONE
 The touchpad always offers the ```TOUCH``` button binding. It will be active if there is any touch point active. This binding will overlap with other touch buttons and can be useful to disable gyro for example, or bring up the game map.
 
 The most important setting for the touchpad is simply ```TOUCHPAD\_MODE``` which will determine the primary functionality of the touchpad. Here are th possible values:
-* **GRID r c** - Grid will create a button grid of equally sized buttons on the touch pad. You have to also pass a number of rows and columns to the grid. The product of the two cannot be greater than 25. Touch buttons T1-TN will then become available for assignment. They are layed out from left to right, from top to bottom.
-* **CURSOR** - Cursor mode turns the touchpad into a familiar laptop touchpad. Gestures will be added to this mode in a future release, such as double touch, pinch and rotation. Taps and double taps are already usable via ```TOUCH```.
+* **GRID** - Grid will create a button grid of equally sized buttons on the touch pad. You have to also assign to ```GRID_SIZE```` the number of columns and rows of the grid. The product of the two cannot be greater than 25. Touch buttons T1-TN will then become available for assignment. They are layed out in order from left to right, from top to bottom.
+* **MOUSE** - Mouse mode turns the touchpad into a familiar laptop touchpad. Gestures will be added to this mode in a future release, such as double touch, pinch and rotation. Taps and double taps are already usable via ```TOUCH```.
+
+Here's an example of grid usage to add some more buttons that otherwise would not be worth putting on a controller
+```
+TOUCHPAD_GRID = GRID
+GRID_SIZE = 2 1   # split the pad in two buttons, left and right
+GYRO_OFF = TOUCH  # disable the gyro when I touch either button
+
+T1 = F1'  # View Help 
+T2 = F10' # Quick Save
+```
+
+Or a typical touchapd in cursor mode
+```
+TOUCHPAD_MODE = MOUSE
+TOUCH = LMOUSE'	     # Quick tap means select
+TOUCH,TOUCH = RMOUSE # Double tap for right click
+CAPTURE = ^LMOUSE    # Or click pad to hold as you drag
+```
 
 ### 8. Miscellaneous Commands
 There are a few other useful commands that don't fall under the above categories:

@@ -5,6 +5,7 @@
 #include <stdint.h>
 
 // https://www.rapidtables.com/web/color/RGB_Color.html#color-table
+// Can't use magic enum because it only supports base type up to 16b and I need 32b
 map<std::string, uint32_t> colorCodeMap
 {
 	{"OFF", 0x000000},
@@ -93,6 +94,7 @@ map<std::string, uint32_t> colorCodeMap
 	{"PLUM", 0xDDA0DD},
 	{"VIOLET", 0xEE82EE},
 	{"MAGENTA", 0xFF00FF},
+	{"FUCHSIA", 0xFF00FF},
 	{"ORCHID", 0xDA70D6},
 	{"MEDIUM_VIOLET_RED", 0xC71585},
 	{"PALE_VIOLET_RED", 0xDB7093},
@@ -140,12 +142,15 @@ map<std::string, uint32_t> colorCodeMap
 	{"SNOW", 0xFFFAFA},
 	{"BLACK", 0x000000},
 	{"DIM_GRAY", 0x696969},
+	{"DIM_GREY", 0x696969},
 	{"GRAY", 0x808080},
+	{"GREY", 0x808080},
 	{"DARK_GRAY", 0xA9A9A9},
 	{"DARK_GREY", 0xA9A9A9},
 	{"SILVER", 0xC0C0C0},
 	{"LIGHT_GRAY", 0xD3D3D3},
+	{"LIGHT_GREY", 0xD3D3D3},
 	{"GAINSBORO", 0xDCDCDC},
 	{"WHITE_SMOKE", 0xF5F5F5},
-{ "WHITE", 0xFFFFFF },
+	{"WHITE", 0xFFFFFF},
 };

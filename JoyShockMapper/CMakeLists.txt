@@ -28,7 +28,7 @@ add_executable (
     include/JSMVariable.hpp
     include/Whitelister.h
     include/JoyShockMapper.h
-	include/ColorCodes.h
+    include/ColorCodes.h
 )
 
 if (WINDOWS)
