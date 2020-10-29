@@ -3307,7 +3307,7 @@ int main(int argc, char *argv[]) {
 	grid_dims.AddOnChangeListener(bind(&OnNewGridDimensions, &commandRegistry, placeholders::_1));
 	OnNewGridDimensions(&commandRegistry, grid_dims.get()); // Call to create touch buttons
 	commandRegistry.Add(new HelpCmd(commandRegistry));
-	commandRegistry.Add((new JSMAssignment<Color>("COLOR_BAR", color))->SetHelp("Changes the color bar of the DS4. Either enter as a hex code (xRRGGBB) or as three decimal values between 0 and 255 (RRR GGG BBB)."));
+	commandRegistry.Add((new JSMAssignment<Color>("LIGHT_BAR", color))->SetHelp("Changes the color bar of the DS4. Either enter as a hex code (xRRGGBB) or as three decimal values between 0 and 255 (RRR GGG BBB)."));
 
 	bool quit = false;
 	commandRegistry.Add((new JSMMacro("QUIT"))

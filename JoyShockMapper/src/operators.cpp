@@ -1,5 +1,6 @@
 #include "JoyShockMapper.h"
 #include "InputHelpers.h"
+#include <ColorCodes.h>
 
 #include <cstring>
 #include <sstream>
@@ -207,13 +208,27 @@ istream &operator >> (istream &in, Color &color)
 		char pound;
 		in >> pound >> std::hex >> color.raw;
 	}
+	else if (in.peek() >= 'A' && in.peek() <= 'Z')
+	{
+		string s;
+		in >> s;
+		auto code = colorCodeMap.find(s);
+		if (code == colorCodeMap.end())
+		{
+			in.setstate(in.failbit);
+		}
+		else
+		{
+			color.raw = code != colorCodeMap.end();
+		}
+	}
 	else
 	{
-		int16_t r, g, b;
+		int r, g, b;
 		in >> r >> g >> b;
-		color.rgb.r = r;
-		color.rgb.g = g;
-		color.rgb.b = b;
+		color.rgb.r = uint8_t(clamp(r, 0, 255));
+		color.rgb.g = uint8_t(clamp(g, 0, 255));
+		color.rgb.b = uint8_t(clamp(b, 0, 255));
 	}
 	return in;
 }
