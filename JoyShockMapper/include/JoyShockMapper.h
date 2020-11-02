@@ -79,18 +79,18 @@ enum class ButtonID
 	LEAN_LEFT,  
 	LEAN_RIGHT, 
 	TOUCH,		// Touch anywhere on the touchpad
-	// TUP,
-	// TDOWN,
-	// TLEFT,
-	// TRIGHT,
-	// TRING,
 	ZLF,		// = FIRST_ANALOG_TRIGGER
 				// insert more analog triggers here
 	ZRF,		// =  LAST_ANALOG_TRIGGER
 	SIZE,		// Not a button
 
 	// Virtual buttons configured on the touchpad. The number of buttons vary dynamically, but they each need a different ID
-	T1, // FIRST_TOUCH_BUTTON
+	TUP, // FIRST_TOUCH_BUTTON
+	TDOWN,
+	TLEFT,
+	TRIGHT,
+	TRING,
+	T1,
 	T2,
 	T3,
 	T4,
@@ -191,8 +191,12 @@ enum class SettingID
 	HOLD_PRESS_TIME,
 	SIM_PRESS_WINDOW, // Unchorded setting
 	DBL_PRESS_WINDOW,  // Unchorded setting
+	GRID_SIZE, // Unchorded setting
 	TOUCHPAD_MODE,
 	TOUCH_STICK_MODE,
+	TOUCH_STICK_RADIUS,
+	TOUCH_DEADZONE_INNER,
+	TOUCH_RING_MODE,
 };
 
 // constexpr are like #define but with respect to typeness
@@ -200,7 +204,7 @@ constexpr size_t MAX_NO_OF_TOUCH = 2; // Could be obtained from JSL?
 constexpr int MAPPING_SIZE = int(ButtonID::SIZE);
 constexpr int FIRST_ANALOG_TRIGGER = int(ButtonID::ZLF);
 constexpr int LAST_ANALOG_TRIGGER = int(ButtonID::ZRF);
-constexpr int FIRST_TOUCH_BUTTON = int(ButtonID::T1);
+constexpr int FIRST_TOUCH_BUTTON = int(ButtonID::TUP);
 constexpr int NUM_ANALOG_TRIGGERS = int(LAST_ANALOG_TRIGGER) - int(FIRST_ANALOG_TRIGGER) + 1;
 constexpr float MAGIC_TAP_DURATION = 40.0f; // in milliseconds.
 constexpr float MAGIC_INSTANT_DURATION = 40.0f; // in milliseconds
@@ -225,7 +229,7 @@ enum class Switch : char { OFF, ON, INVALID, }; // Used to parse autoload assign
 
 enum class TouchpadMode
 {
-	GRID,		// Grid and Stick ?
+	GRID_AND_STICK,		// Grid and Stick ?
 	MOUSE, // gestures to be added as part of this mode
 	INVALID
 };
@@ -360,7 +364,7 @@ public:
 
 	Mapping(int dummy) : Mapping() {}
 
-	void ProcessEvent(BtnEvent evt, DigitalButton &button, in_string displayName) const;
+	void ProcessEvent(BtnEvent evt, DigitalButton *button, in_string displayName) const;
 
 	bool AddMapping(KeyCode key, EventModifier evtMod, ActionModifier actMod = ActionModifier::None);
 

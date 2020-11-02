@@ -680,28 +680,60 @@ ZLF,GYRO_SENS = NONE
 ```
 ### 7. Touchpad
 
-The touchpad always offers the ```TOUCH``` button binding. It will be active if there is any touch point active. This binding will overlap with other touch buttons and can be useful to disable gyro for example, or bring up the game map.
+The touchpad always offers the ```TOUCH``` button binding. It will be pressed if there is any touch point active. This binding will overlap with other touch buttons and can be useful to disable gyro for example, or bring up the game map.
 
 The most important setting for the touchpad is simply ```TOUCHPAD\_MODE``` which will determine the primary functionality of the touchpad. Here are th possible values:
-* **GRID** - Grid will create a button grid of equally sized buttons on the touch pad. You have to also assign to ```GRID_SIZE```` the number of columns and rows of the grid. The product of the two cannot be greater than 25. Touch buttons T1-TN will then become available for assignment. They are layed out in order from left to right, from top to bottom.
+* **GRID_AND_STICK** - Grid And Stick will create a button grid of equally sized buttons on the touch pad. You have to also assign to ```GRID_SIZE```` the number of columns and rows of the grid : the product of the two cannot be greater than 25 or lesser than 1. Touch buttons T1-TN will then become available for assignment: they are layed out in order from left to right, from top to bottom. There are also two touchsticks available. See below.
 * **MOUSE** - Mouse mode turns the touchpad into a familiar laptop touchpad. Gestures will be added to this mode in a future release, such as double touch, pinch and rotation. Taps and double taps are already usable via ```TOUCH```.
 
 Here's an example of grid usage to add some more buttons that otherwise would not be worth putting on a controller
 ```
-TOUCHPAD_GRID = GRID
+TOUCHPAD_MODE = GRID_AND_STICK
 GRID_SIZE = 2 1   # split the pad in two buttons, left and right
 GYRO_OFF = TOUCH  # disable the gyro when I touch either button
 
+# Bind on taps, so I can hold to only disable gyro
 T1 = F1'  # View Help 
 T2 = F10' # Quick Save
 ```
 
 Or a typical touchapd in cursor mode
 ```
-TOUCHPAD_MODE = MOUSE
+TOUCH_STICK_MODE = MOUSE
 TOUCH = LMOUSE'	     # Quick tap means select
 TOUCH,TOUCH = RMOUSE # Double tap for right click
-CAPTURE = ^LMOUSE    # Or click pad to hold as you drag
+CAPTURE = ^LMOUSE    # Or click pad to toggle click (dragging)
+```
+
+#### 7.1 Touch Stick
+
+A touch stick is a virtual joystick mapped unto the touchpad. As such, a touch stick has and uses all of the familiar binding names and settings, plus one new setting.
+```
+TUP, TDOWN, TLEFT, TRIGHT, TRING : The touchstick four directions when in NO_MOUSE mode.
+TOUCH_STICK_MODE: Set the touchstick to any  stick mode (AIM, FLICK_ONLY, MOUSE_AREA, etc...)
+TOUCH_DEADZONE_INNER: Sets how large the area with no output is. There is no TOUCH_DEADZONE_OUTER, as it is replaced with TOUCH_STICK_RADIUS. See below.
+TOUCH_RING_MODE: Sets what ring should be used for TRING, either INNER or OUTER.
+TOUCH_STICK_RADIUS: Sets the size of the stick, or in other words, the amount of touchpad units to travel to the edge of the stick.
+```
+
+The touchstick center is always the point of contact. As such, one can easily configure gestures by setting a very large touch stick radius and binding values to the 4 directions.
+
+The touch stick differs from other input methods in one particular way. The four stick directions cannot be used as a chord for other buttons, but you can chord the four direction with the grid buttons. As such, you can control two touch sticks at the same time on either side of the touch pad with each having different bindings. The example below showcases the numbers 1 to 4 bound to swipe gestures on the left half of the pad, and 5 to 8 bound to swipe gestures on the right half of the pad.
+
+```
+TOUCH_STICK_MODE = GRID_AND_STICK
+GRID_SIZE = 2 1 # Left and Right
+TOUCH_STICK_RADIUS = 800 # Use a larger value to use stick as swipe gestures
+
+T1,TLEFT = 1
+T1,TUP = 2
+T1,TRIGHT = 3
+T1,TDOWN = 4
+
+T2,TLEFT = 5
+T2,TUP = 6
+T2,TRIGHT = 7
+T2,TDOWN = 8
 ```
 
 ### 8. Miscellaneous Commands

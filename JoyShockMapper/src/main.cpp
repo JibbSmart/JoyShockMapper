@@ -83,8 +83,11 @@ JSMVariable<Switch> autoloadSwitch = JSMVariable<Switch>(Switch::ON);
 vector<JSMButton> mappings; // array enables use of for each loop and other i/f
 vector<JSMButton> touch_buttons; // array of virtual buttons on the touchpad grid
 JSMVariable<FloatXY> grid_size = JSMVariable(FloatXY{ 2.f, 1.f }); // Default left side and right side button
-JSMSetting<TouchpadMode> touchpad_mode = JSMSetting<TouchpadMode>(SettingID::TOUCHPAD_MODE, TouchpadMode::GRID);
-//JSMSetting<StickMode> touch_stick_mode = JSMSetting<StickMode>(SettingID::TOUCH_STICK_MODE, StickMode::NO_MOUSE);
+JSMSetting<TouchpadMode> touchpad_mode = JSMSetting<TouchpadMode>(SettingID::TOUCHPAD_MODE, TouchpadMode::GRID_AND_STICK);
+JSMSetting<StickMode> touch_stick_mode = JSMSetting<StickMode>(SettingID::TOUCH_STICK_MODE, StickMode::NO_MOUSE);
+JSMSetting<float> touch_stick_radius = JSMSetting<float>(SettingID::TOUCH_STICK_RADIUS, 100.f);
+JSMSetting<float> touch_deadzone_inner = JSMSetting<float>(SettingID::TOUCH_DEADZONE_INNER, 0.3f);
+JSMSetting<RingMode> touch_ring_mode = JSMSetting<RingMode>(SettingID::TOUCH_RING_MODE, RingMode::OUTER);
 
 mutex loading_lock;
 
@@ -96,14 +99,6 @@ bool devicesCalibrating = false;
 Whitelister whitelister(false);
 unordered_map<int, shared_ptr<JoyShock>> handle_to_joyshock;
 
-class Touchpad
-{
-	// Handle a single touch related action. On per touch point
-public:
-	Touchpad()
-	{}
-};
-
 // This class holds all the logic related to a single digital button. It does not hold the mapping but only a reference
 // to it. It also contains it's various states, flags and data.
 class DigitalButton
@@ -112,7 +107,8 @@ public:
 	// All digital buttons need a reference to the same instance of a the common structure within the same controller.
 	// It enables the buttons to synchronize and be aware of the state of the whole controller.
 	struct Common {
-		Common()
+		Common(int deviceHandle)
+			: _deviceHandle(deviceHandle)
 		{
 			chordStack.push_front(ButtonID::NONE); //Always hold mapping none at the end to handle modeshifts and chords
 			_referenceCount++;
@@ -120,6 +116,7 @@ public:
 		deque<pair<ButtonID, KeyCode>> gyroActionQueue; // Queue of gyro control actions currently in effect
 		deque<pair<ButtonID, KeyCode>> activeTogglesQueue;
 		deque<ButtonID> chordStack; // Represents the current active buttons in order from most recent to latest
+		const int _deviceHandle;
 
 		private:
 		int _referenceCount;
@@ -148,7 +145,7 @@ public:
 	}
 
 
-	DigitalButton(DigitalButton::Common* btnCommon, ButtonID id, int deviceHandle)
+	DigitalButton(DigitalButton::Common* btnCommon, ButtonID id)
 		: _id(id)
 		, _btnState(BtnState::NoPress)
 		, _common(btnCommon)
@@ -158,7 +155,6 @@ public:
 		, _turboCount(0)
 		, _simPressMaster(ButtonID::NONE)
 		, _instantReleaseQueue()
-		, _deviceHandle(deviceHandle)
 	{
 		_instantReleaseQueue.reserve(2);
 	}
@@ -173,7 +169,6 @@ public:
 	unsigned int _turboCount;
 	ButtonID _simPressMaster;
 	vector<BtnEvent> _instantReleaseQueue;
-	int _deviceHandle;
 
 	bool CheckInstantRelease(BtnEvent instantEvent)
 	{
@@ -181,7 +176,7 @@ public:
 		if (instant != _instantReleaseQueue.end())
 		{
 			//cout << "Button " << _id << " releases instant " << instantEvent << endl;
-			_keyToRelease->ProcessEvent(BtnEvent::OnInstantRelease, *this, _nameToRelease);
+			_keyToRelease->ProcessEvent(BtnEvent::OnInstantRelease, this, _nameToRelease);
 			_instantReleaseQueue.erase(instant);
 			return true;
 		}
@@ -201,8 +196,8 @@ public:
 				}
 				if (elapsed_time > hold_ms)
 				{
-					_keyToRelease->ProcessEvent(BtnEvent::OnHold, *this, _nameToRelease);
-					_keyToRelease->ProcessEvent(BtnEvent::OnTurbo, *this, _nameToRelease);
+					_keyToRelease->ProcessEvent(BtnEvent::OnHold, this, _nameToRelease);
+					_keyToRelease->ProcessEvent(BtnEvent::OnTurbo, this, _nameToRelease);
 					_turboCount++;
 				}
 			}
@@ -214,7 +209,7 @@ public:
 				}
 				if (floorf((elapsed_time - hold_ms) / turbo_ms) >= _turboCount)
 				{
-					_keyToRelease->ProcessEvent(BtnEvent::OnTurbo, *this, _nameToRelease);
+					_keyToRelease->ProcessEvent(BtnEvent::OnTurbo, this, _nameToRelease);
 					_turboCount++;
 				}
 				if (elapsed_time > hold_ms + _turboCount * turbo_ms + MAGIC_INSTANT_DURATION)
@@ -225,16 +220,16 @@ public:
 		}
 		else // not pressed
 		{
-			_keyToRelease->ProcessEvent(BtnEvent::OnRelease, *this, _nameToRelease);
+			_keyToRelease->ProcessEvent(BtnEvent::OnRelease, this, _nameToRelease);
 			if (_turboCount == 0)
 			{
-				_keyToRelease->ProcessEvent(BtnEvent::OnTap, *this, _nameToRelease);
+				_keyToRelease->ProcessEvent(BtnEvent::OnTap, this, _nameToRelease);
 				_btnState = BtnState::TapRelease;
 				_press_times = time_now; // Start counting tap duration
 			}
 			else
 			{
-				_keyToRelease->ProcessEvent(BtnEvent::OnHoldRelease, *this, _nameToRelease);
+				_keyToRelease->ProcessEvent(BtnEvent::OnHoldRelease, this, _nameToRelease);
 				if (_instantReleaseQueue.empty())
 				{
 					_btnState = BtnState::NoPress;
@@ -273,13 +268,13 @@ public:
 	void StartCalibration()
 	{
 		printf("Starting continuous calibration\n");
-		JslResetContinuousCalibration(_deviceHandle);
-		JslStartContinuousCalibration(_deviceHandle);
+		JslResetContinuousCalibration(_common->_deviceHandle);
+		JslStartContinuousCalibration(_common->_deviceHandle);
 	}
 
 	void FinishCalibration()
 	{
-		JslPauseContinuousCalibration(_deviceHandle);
+		JslPauseContinuousCalibration(_common->_deviceHandle);
 		printf("Gyro calibration set\n");
 		ClearAllActiveToggle(KeyCode("CALIBRATE"));
 	}
@@ -490,7 +485,7 @@ Mapping::Mapping(in_string mapping)
 	}
 }
 
-void Mapping::ProcessEvent(BtnEvent evt, DigitalButton &button, in_string displayName) const
+void Mapping::ProcessEvent(BtnEvent evt, DigitalButton *button, in_string displayName) const
 {
 	// cout << button._id << " processes event " << evt << endl;
 	auto entry = eventMapping.find(evt);
@@ -514,7 +509,7 @@ void Mapping::ProcessEvent(BtnEvent evt, DigitalButton &button, in_string displa
 		}
 		//cout << button._id << " processes event " << evt << endl;
 		if(entry->second)
-			entry->second(&button);
+			entry->second(button);
 	}
 }
 
@@ -622,6 +617,38 @@ void Mapping::RunAllActions(DigitalButton *btn, int numEventActions, ...)
 	return;
 }
 
+class TouchStick
+{
+	int _index = -1;
+	FloatXY _currentLocation = { 0.f, 0.f };
+	bool _prevDown = false;
+
+	bool is_flicking_touch = false;
+	FloatXY touch_last_cal;
+	float touch_stick_acceleration = 1.0;
+	bool ignore_motion_stick = false;
+	// Handle a single touch related action. On per touch point
+public:
+	vector<DigitalButton> buttons; // Each touchstick gets it's own digital buttons. Is that smart?
+
+	TouchStick(int index, DigitalButton::Common &common)
+		: _index(index)
+	{
+		buttons.reserve(5);
+		for (ButtonID id = ButtonID::TUP; id <= ButtonID::TRING; id = ButtonID(int(id) + 1))
+		{
+			buttons.push_back(DigitalButton(&common, id));
+		}
+	}
+
+	void handleTouchStickChange(JoyShock *js, bool down, short movX, short movY, float delta_time);
+
+	inline bool wasDown()
+	{
+		return _prevDown;
+	}
+};
+
 // An instance of this class represents a single controller device that JSM is listening to.
 class JoyShock {
 private:
@@ -693,8 +720,8 @@ public:
 	mutex callback_lock;
 
 	vector<DigitalButton> buttons;
-	vector<DigitalButton> touchButtons;
-	vector<Touchpad> touchpads;
+	vector<DigitalButton> gridButtons;
+	vector<TouchStick> touchpads;
 	chrono::steady_clock::time_point started_flick;
 	chrono::steady_clock::time_point time_now;
 	// tap_release_queue has been replaced with button states *TapRelease. The hold time of the tap is effectively quantized to the polling period of the device.
@@ -750,18 +777,20 @@ public:
 		, stick_step_size(stickStepSize)
 		, triggerState(NUM_ANALOG_TRIGGERS, DstState::NoPress)
 		, buttons()
-		, touchButtons()
+		, gridButtons()
 		, touchpads()
 	{
-		btnCommon = new DigitalButton::Common();
+		btnCommon = new DigitalButton::Common(uniqueHandle);
 		buttons.reserve(MAPPING_SIZE);
 		for (int i = 0; i < MAPPING_SIZE; ++i)
 		{
-			buttons.push_back( DigitalButton(btnCommon, ButtonID(i), uniqueHandle) );
+			buttons.push_back( DigitalButton(btnCommon, ButtonID(i)) );
 		}
 		ResetSmoothSample();
-		touchpads.assign(MAX_NO_OF_TOUCH, Touchpad());
-		updateGridSize(grid_size.get().x() * grid_size.get().y());
+		for (int i = 0; i < MAX_NO_OF_TOUCH; ++i) {
+			touchpads.push_back(TouchStick(i, *btnCommon));
+		}
+		updateGridSize(grid_size.get().x() * grid_size.get().y() + 5);
 	}
 
 	JoyShock(int uniqueHandle, float pollRate, int controllerSplitType, float stickStepSize, DigitalButton::Common* sharedButtonCommon)
@@ -777,10 +806,12 @@ public:
 		buttons.reserve(MAPPING_SIZE);
 		for (int i = 0; i < MAPPING_SIZE; ++i)
 		{
-			buttons.push_back(DigitalButton(btnCommon, ButtonID(i), uniqueHandle));
+			buttons.push_back(DigitalButton(btnCommon, ButtonID(i)));
 		}
 		ResetSmoothSample();
-		touchpads.assign(MAX_NO_OF_TOUCH, Touchpad());
+		for (int i = 0; i < MAX_NO_OF_TOUCH; ++i) {
+			touchpads.push_back(TouchStick(i, *btnCommon));
+		}
 		updateGridSize(grid_size.get().x() * grid_size.get().y());
 	}
 
@@ -855,9 +886,9 @@ public:
 			case SettingID::TOUCHPAD_MODE:
 				opt = GetOptionalSetting<E>(touchpad_mode, *activeChord);
 				break;
-			//case SettingID::TOUCH_STICK_MODE:
-			//	opt = GetOptionalSetting<E>(touch_stick_mode, *activeChord);
-			//	break;
+			case SettingID::TOUCH_STICK_MODE:
+				opt = GetOptionalSetting<E>(touch_stick_mode, *activeChord);
+				break;
 			}
 			if (opt) return *opt;
 		}
@@ -978,6 +1009,12 @@ public:
 				break;
 			case SettingID::HOLD_PRESS_TIME:
 				opt = hold_press_time.get(*activeChord);
+				break;
+			case SettingID::TOUCH_STICK_RADIUS:
+				opt = touch_stick_radius.get(*activeChord);
+				break;
+			case SettingID::TOUCH_DEADZONE_INNER:
+				opt = touch_deadzone_inner.get(*activeChord);
 				break;
 				// SIM_PRESS_WINDOW and DBL_PRESS_WINDOW are not chorded, they can be accessed as is.
 			}
@@ -1129,61 +1166,68 @@ public:
 		outY = yResult + y * immediateFactor;
 	}
 
-	void handleButtonChange(ButtonID index, bool pressed)
+	void handleButtonChange(ButtonID index, bool pressed, int touchpadIndex = -1)
 	{
-		auto foundChord = find(btnCommon->chordStack.begin(), btnCommon->chordStack.end(), index);
-		if (!pressed)
+		if (index < ButtonID::SIZE || index >= ButtonID::T1) // Can't chord touch stick buttons?!?
 		{
-			if (foundChord != btnCommon->chordStack.end())
+			auto foundChord = find(btnCommon->chordStack.begin(), btnCommon->chordStack.end(), index);
+			if (!pressed)
 			{
-				//cout << "Button " << index << " is released!" << endl;
-				btnCommon->chordStack.erase(foundChord); // The chord is released
+				if (foundChord != btnCommon->chordStack.end())
+				{
+					//cout << "Button " << index << " is released!" << endl;
+					btnCommon->chordStack.erase(foundChord); // The chord is released
+				}
+			}
+			else if (foundChord == btnCommon->chordStack.end()) {
+				//cout << "Button " << index << " is pressed!" << endl;
+				btnCommon->chordStack.push_front(index); // Always push at the fromt to make it a stack
 			}
 		}
-		else if (foundChord == btnCommon->chordStack.end()) {
-			//cout << "Button " << index << " is pressed!" << endl;
-			btnCommon->chordStack.push_front(index); // Always push at the fromt to make it a stack
-		}
+		else if (pressed)
+			cout << index << " for touchpad " << touchpadIndex << " is now pressed" << endl;
+		// TODO: handle touchstick buttons
+		DigitalButton *button = index < ButtonID::SIZE ? &buttons[int(index)] : 
+								touchpadIndex >= 0 && touchpadIndex < touchpads.size() ? &touchpads[touchpadIndex].buttons[int(index) - FIRST_TOUCH_BUTTON] :
+								index >= ButtonID::T1 ? &gridButtons[int(index) - int(ButtonID::T1)] : throw exception("What index is this?");
 
-		DigitalButton &button = index < ButtonID::SIZE ? buttons[int(index)] : touchButtons[int(index) - FIRST_TOUCH_BUTTON];
-
-		switch (button._btnState)
+		switch (button->_btnState)
 		{
 		case BtnState::NoPress:
 			if (pressed)
 			{
-				button._press_times = time_now;
-				if (button._mapping.HasSimMappings())
+				button->_press_times = time_now;
+				if (button->_mapping.HasSimMappings())
 				{
-					button._btnState = BtnState::WaitSim;
+					button->_btnState = BtnState::WaitSim;
 				}
-				else if (button._mapping.getDblPressMap())
+				else if (button->_mapping.getDblPressMap())
 				{
 					// Start counting time between two start presses
-					button._btnState = BtnState::DblPressStart;
+					button->_btnState = BtnState::DblPressStart;
 				}
 				else
 				{
-					button._btnState = BtnState::BtnPress;
-					button.GetPressMapping()->ProcessEvent(BtnEvent::OnPress, button, button._nameToRelease);
+					button->_btnState = BtnState::BtnPress;
+					button->GetPressMapping()->ProcessEvent(BtnEvent::OnPress, button, button->_nameToRelease);
 				}
 			}
 			break;
 		case BtnState::BtnPress:
-			button.ProcessButtonPress(pressed, time_now, getSetting(SettingID::TURBO_PERIOD), getSetting(SettingID::HOLD_PRESS_TIME));
+			button->ProcessButtonPress(pressed, time_now, getSetting(SettingID::TURBO_PERIOD), getSetting(SettingID::HOLD_PRESS_TIME));
 			break;
 		case BtnState::TapRelease:
 		{
-			if (pressed || button.GetPressDurationMS(time_now) > MAGIC_INSTANT_DURATION)
+			if (pressed || button->GetPressDurationMS(time_now) > MAGIC_INSTANT_DURATION)
 			{
-				button.CheckInstantRelease(BtnEvent::OnRelease);
-				button.CheckInstantRelease(BtnEvent::OnTap);
+				button->CheckInstantRelease(BtnEvent::OnRelease);
+				button->CheckInstantRelease(BtnEvent::OnTap);
 			}
-			if (pressed || button.GetPressDurationMS(time_now) > button._keyToRelease->getTapDuration())
+			if (pressed || button->GetPressDurationMS(time_now) > button->_keyToRelease->getTapDuration())
 			{
-				button.GetPressMapping()->ProcessEvent(BtnEvent::OnTapRelease, button, button._nameToRelease);
-				button._btnState = BtnState::NoPress;
-				button.ClearKey();
+				button->GetPressMapping()->ProcessEvent(BtnEvent::OnTapRelease, button, button->_nameToRelease);
+				button->_btnState = BtnState::NoPress;
+				button->ClearKey();
 			}
 			break;
 		}
@@ -1193,128 +1237,128 @@ public:
 			auto simMap = GetMatchingSimMap(index);
 			if (pressed && simMap)
 			{
-				button._btnState = BtnState::SimPress;
-				button._press_times = time_now; // Reset Timer
-				button._keyToRelease.reset(new Mapping(simMap->second)); // Make a copy
-				button._nameToRelease = button._mapping.getSimPressName(simMap->first);
+				button->_btnState = BtnState::SimPress;
+				button->_press_times = time_now; // Reset Timer
+				button->_keyToRelease.reset(new Mapping(simMap->second)); // Make a copy
+				button->_nameToRelease = button->_mapping.getSimPressName(simMap->first);
 
 				buttons[int(simMap->first)]._btnState = BtnState::SimPress;
 				buttons[int(simMap->first)]._press_times = time_now;
 				buttons[int(simMap->first)].SyncSimPress(index, *simMap);
 
-				simMap->second.get().ProcessEvent(BtnEvent::OnPress, button, button._nameToRelease);
+				simMap->second.get().ProcessEvent(BtnEvent::OnPress, button, button->_nameToRelease);
 			}
-			else if (!pressed || button.GetPressDurationMS(time_now) > sim_press_window)
+			else if (!pressed || button->GetPressDurationMS(time_now) > sim_press_window)
 			{
 				// Button was released before sim delay expired OR
 				// Button is still pressed but Sim delay did expire
-				if (button._mapping.getDblPressMap())
+				if (button->_mapping.getDblPressMap())
 				{
 					// Start counting time between two start presses
-					button._btnState = BtnState::DblPressStart;
+					button->_btnState = BtnState::DblPressStart;
 				}
 				else
 				{
-					button._btnState = BtnState::BtnPress;
-					button.GetPressMapping()->ProcessEvent(BtnEvent::OnPress, button, button._nameToRelease);
-					//button._press_times = time_now;
+					button->_btnState = BtnState::BtnPress;
+					button->GetPressMapping()->ProcessEvent(BtnEvent::OnPress, button, button->_nameToRelease);
+					//button->_press_times = time_now;
 				}
 			}
 			// Else let time flow, stay in this state, no output.
 			break;
 		}
 		case BtnState::SimPress:
-			if (button._simPressMaster != ButtonID::NONE && buttons[int(button._simPressMaster)]._btnState != BtnState::SimPress)
+			if (button->_simPressMaster != ButtonID::NONE && buttons[int(button->_simPressMaster)]._btnState != BtnState::SimPress)
 			{
 				// The master button has released! change state now!
-				button._btnState = BtnState::SimRelease;
-				button._simPressMaster = ButtonID::NONE;
+				button->_btnState = BtnState::SimRelease;
+				button->_simPressMaster = ButtonID::NONE;
 			}
-			else if (!pressed || button._simPressMaster == ButtonID::NONE) // Both slave and master handle release, but only the master handles the press
+			else if (!pressed || button->_simPressMaster == ButtonID::NONE) // Both slave and master handle release, but only the master handles the press
 			{
-				button.ProcessButtonPress(pressed, time_now, getSetting(SettingID::TURBO_PERIOD), getSetting(SettingID::HOLD_PRESS_TIME));
-				if (button._simPressMaster != ButtonID::NONE && button._btnState != BtnState::SimPress)
+				button->ProcessButtonPress(pressed, time_now, getSetting(SettingID::TURBO_PERIOD), getSetting(SettingID::HOLD_PRESS_TIME));
+				if (button->_simPressMaster != ButtonID::NONE && button->_btnState != BtnState::SimPress)
 				{
 					// The slave button has released! Change master state now!
-					buttons[int(button._simPressMaster)]._btnState = BtnState::SimRelease;
-					button._simPressMaster = ButtonID::NONE;
+					buttons[int(button->_simPressMaster)]._btnState = BtnState::SimRelease;
+					button->_simPressMaster = ButtonID::NONE;
 				}
 			}
 			break;
 		case BtnState::SimRelease:
 			if (!pressed)
 			{
-				button._btnState = BtnState::NoPress;
-				button.ClearKey();
+				button->_btnState = BtnState::NoPress;
+				button->ClearKey();
 			}
 			break;
 		case BtnState::DblPressStart:
-			if (button.GetPressDurationMS(time_now) > dbl_press_window)
+			if (button->GetPressDurationMS(time_now) > dbl_press_window)
 			{
-				button.GetPressMapping()->ProcessEvent(BtnEvent::OnPress, button, button._nameToRelease);
-				button._btnState = BtnState::BtnPress;
-				//button._press_times = time_now; // Reset Timer
+				button->GetPressMapping()->ProcessEvent(BtnEvent::OnPress, button, button->_nameToRelease);
+				button->_btnState = BtnState::BtnPress;
+				//button->_press_times = time_now; // Reset Timer
 			}
 			else if (!pressed)
 			{
-				if (button.GetPressDurationMS(time_now) > getSetting(SettingID::HOLD_PRESS_TIME))
+				if (button->GetPressDurationMS(time_now) > getSetting(SettingID::HOLD_PRESS_TIME))
 				{
-					button._btnState = BtnState::DblPressNoPressHold;
+					button->_btnState = BtnState::DblPressNoPressHold;
 				}
 				else
 				{
-					button._btnState = BtnState::DblPressNoPressTap;
+					button->_btnState = BtnState::DblPressNoPressTap;
 				}
 			}
 			break;
 		case BtnState::DblPressNoPressTap:
-			if (button.GetPressDurationMS(time_now) > dbl_press_window)
+			if (button->GetPressDurationMS(time_now) > dbl_press_window)
 			{
-				button._btnState = BtnState::BtnPress;
-				button._press_times = time_now; // Reset Timer to raise a tap
-				button.GetPressMapping()->ProcessEvent(BtnEvent::OnPress, button, button._nameToRelease);
+				button->_btnState = BtnState::BtnPress;
+				button->_press_times = time_now; // Reset Timer to raise a tap
+				button->GetPressMapping()->ProcessEvent(BtnEvent::OnPress, button, button->_nameToRelease);
 			}
 			else if (pressed)
 			{
-				button._btnState = BtnState::DblPressPress;
-				button._press_times = time_now;
-				button._keyToRelease.reset(new Mapping(button._mapping.getDblPressMap()->second));
-				button._nameToRelease = button._mapping.getName(index);
-				button._mapping.getDblPressMap()->second.get().ProcessEvent(BtnEvent::OnPress, button, button._nameToRelease);
+				button->_btnState = BtnState::DblPressPress;
+				button->_press_times = time_now;
+				button->_keyToRelease.reset(new Mapping(button->_mapping.getDblPressMap()->second));
+				button->_nameToRelease = button->_mapping.getName(index);
+				button->_mapping.getDblPressMap()->second.get().ProcessEvent(BtnEvent::OnPress, button, button->_nameToRelease);
 			}
 			break;
 		case BtnState::DblPressNoPressHold:
-			if (button.GetPressDurationMS(time_now) > dbl_press_window)
+			if (button->GetPressDurationMS(time_now) > dbl_press_window)
 			{
-				button._btnState = BtnState::BtnPress;
+				button->_btnState = BtnState::BtnPress;
 				// Don't reset timer to preserve hold press behaviour
-				button.GetPressMapping()->ProcessEvent(BtnEvent::OnPress, button, button._nameToRelease);
+				button->GetPressMapping()->ProcessEvent(BtnEvent::OnPress, button, button->_nameToRelease);
 			}
 			else if (pressed)
 			{
-				button._btnState = BtnState::DblPressPress;
-				button._press_times = time_now;
-				button._keyToRelease.reset(new Mapping(button._mapping.getDblPressMap()->second));
-				button._nameToRelease = button._mapping.getName(index);
-				button._mapping.getDblPressMap()->second.get().ProcessEvent(BtnEvent::OnPress, button, button._nameToRelease);
+				button->_btnState = BtnState::DblPressPress;
+				button->_press_times = time_now;
+				button->_keyToRelease.reset(new Mapping(button->_mapping.getDblPressMap()->second));
+				button->_nameToRelease = button->_mapping.getName(index);
+				button->_mapping.getDblPressMap()->second.get().ProcessEvent(BtnEvent::OnPress, button, button->_nameToRelease);
 			}
 			break;
 		case BtnState::DblPressPress:
-			button.ProcessButtonPress(pressed, time_now, getSetting(SettingID::TURBO_PERIOD), getSetting(SettingID::HOLD_PRESS_TIME));
+			button->ProcessButtonPress(pressed, time_now, getSetting(SettingID::TURBO_PERIOD), getSetting(SettingID::HOLD_PRESS_TIME));
 			break;
 		case BtnState::InstRelease:
 		{
-			if (button.GetPressDurationMS(time_now) > MAGIC_INSTANT_DURATION)
+			if (button->GetPressDurationMS(time_now) > MAGIC_INSTANT_DURATION)
 			{
-				button.CheckInstantRelease(BtnEvent::OnRelease);
-				button._btnState = BtnState::NoPress;
-				button.ClearKey();
+				button->CheckInstantRelease(BtnEvent::OnRelease);
+				button->_btnState = BtnState::NoPress;
+				button->ClearKey();
 			}
 			break;
 		}
 		default:
-			cout << "Invalid button state " << button._btnState << ": Resetting to NoPress" << endl;
-			button._btnState = BtnState::NoPress;
+			cout << "Invalid button state " << button->_btnState << ": Resetting to NoPress" << endl;
+			button->_btnState = BtnState::NoPress;
 			break;
 		}
 	}
@@ -1519,11 +1563,13 @@ public:
 
 	void updateGridSize(size_t numberOfButtons)
 	{
-		while (touchButtons.size() > numberOfButtons)
-				touchButtons.pop_back();
+		numberOfButtons = numberOfButtons - 5; // Don't include touch stick buttons
+		
+		while (gridButtons.size() > numberOfButtons)
+			gridButtons.pop_back();
 
-		for (int i = FIRST_TOUCH_BUTTON + int(touchButtons.size()); touchButtons.size() < numberOfButtons; ++i)
-			touchButtons.push_back(DigitalButton(btnCommon, ButtonID(i), intHandle));
+		for (int i = int(ButtonID::T1) + gridButtons.size(); gridButtons.size() < numberOfButtons; ++i)
+			gridButtons.push_back(DigitalButton(btnCommon, ButtonID(i)));
 	}
 };
 
@@ -1585,11 +1631,14 @@ static void resetAllMappings() {
 	hold_press_time.Reset();
 	sim_press_window.Reset();
 	dbl_press_window.Reset();
-	touchpad_mode.Reset();
 	grid_size.Reset();
+	touchpad_mode.Reset();
+	touch_stick_mode.Reset();
+	touch_stick_radius.Reset();
+	touch_deadzone_inner.Reset();
+	touch_ring_mode.Reset();
 	for_each(touch_buttons.begin(), touch_buttons.end(), [] (auto &map) { map.Reset(); });
-	//touch_stick_mode.Reset();
-
+	
 	os_mouse_speed = 1.0f;
 	last_flick_and_rotation = 0.0f;
 }
@@ -1964,10 +2013,10 @@ JoyShock* getJoyShockFromHandle(int handle) {
 	return nullptr;
 }
 
-void processStick(JoyShock* jc, float stickX, float stickY, float lastX, float lastY, float innerDeadzone, float outerDeadzone, RingMode ringMode, StickMode stickMode,
-	ButtonID ringId, ButtonID leftId, ButtonID rightId, ButtonID upId, ButtonID downId, ControllerOrientation controllerOrientation,
-	float mouseCalibrationFactor, float deltaTime, float &acceleration, FloatXY &lastAreaCal, bool& isFlicking, bool &ignoreStickMode,
-	bool &anyStickInput, bool &lockMouse, float &camSpeedX, float &camSpeedY)
+void processStick(JoyShock* jc, float stickX, float stickY, float lastX, float lastY, float innerDeadzone, float outerDeadzone, 
+	RingMode ringMode, StickMode stickMode, ButtonID ringId, ButtonID leftId, ButtonID rightId, ButtonID upId, ButtonID downId,
+	ControllerOrientation controllerOrientation, float mouseCalibrationFactor, float deltaTime, float &acceleration, FloatXY &lastAreaCal,
+	bool& isFlicking, bool &ignoreStickMode, bool &anyStickInput, bool &lockMouse, float &camSpeedX, float &camSpeedY, int touchpadIndex = -1)
 {
 	float temp;
 	switch (controllerOrientation)
@@ -2008,7 +2057,7 @@ void processStick(JoyShock* jc, float stickX, float stickY, float lastX, float l
 	float stickLength = sqrt(stickX * stickX + stickY * stickY);
 	bool ring = ringMode == RingMode::INNER && stickLength > 0.0f && stickLength < 0.7f ||
 	  ringMode == RingMode::OUTER && stickLength > 0.7f;
-	jc->handleButtonChange(ringId, ring);
+	jc->handleButtonChange(ringId, ring, touchpadIndex);
 
 	bool rotateOnly = stickMode == StickMode::ROTATE_ONLY;
 	bool flickOnly = stickMode == StickMode::FLICK_ONLY;
@@ -2091,17 +2140,87 @@ void processStick(JoyShock* jc, float stickX, float stickY, float lastX, float l
 	else if (stickMode == StickMode::NO_MOUSE)
 	{ // Do not do if invalid
 		// left!
-		jc->handleButtonChange(leftId, left);
+		jc->handleButtonChange(leftId, left, touchpadIndex);
 		// right!
-		jc->handleButtonChange(rightId, right);
+		jc->handleButtonChange(rightId, right, touchpadIndex);
 		// up!
-		jc->handleButtonChange(upId, up);
+		jc->handleButtonChange(upId, up, touchpadIndex);
 		// down!
-		jc->handleButtonChange(downId, down);
+		jc->handleButtonChange(downId, down, touchpadIndex);
 
 		anyStickInput = left | right | up | down; // ring doesn't count
 	}
 }
+
+void TouchStick::handleTouchStickChange(JoyShock *js, bool down, short movX, short movY, float delta_time)
+{
+	float stickX = down ? clamp<float>((_currentLocation.x() + movX) / js->getSetting(SettingID::TOUCH_STICK_RADIUS), -1.f, 1.f) : 0.f;
+	float stickY = down ? clamp<float>((_currentLocation.y() - movY) / js->getSetting(SettingID::TOUCH_STICK_RADIUS), -1.f, 1.f) : 0.f;
+	//if ((stickX != 0.f || stickY != 0.f) &&
+	//	(movX != 0.f || movY != 0.f))
+	//	cout << "TouchStick pos is " << stickX << " and " << stickY << endl;
+	float lastX = _currentLocation.x();
+	float lastY = _currentLocation.y();
+	float innerDeadzone = js->getSetting(SettingID::TOUCH_DEADZONE_INNER);
+	float outerDeadzone = 0.f;
+	RingMode ringMode =  js->getSetting<RingMode>(SettingID::TOUCH_RING_MODE);
+	StickMode stickMode = js->getSetting<StickMode>(SettingID::TOUCH_STICK_MODE);
+	ButtonID ringId = ButtonID::TRING;
+	ButtonID leftId = ButtonID::TLEFT;
+	ButtonID rightId = ButtonID::TRIGHT;
+	ButtonID upId = ButtonID::TUP;
+	ButtonID downId = ButtonID::TDOWN;
+	ControllerOrientation controllerOrientation = js->getSetting<ControllerOrientation>(SettingID::CONTROLLER_ORIENTATION);
+	float mouseCalibrationFactor = 180.0f / PI / os_mouse_speed;;
+	float deltaTime = delta_time;
+	float &acceleration = touch_stick_acceleration;
+	FloatXY &lastAreaCal = touch_last_cal;
+	bool& isFlicking = is_flicking_touch;
+	bool &ignoreStickMode = ignore_motion_stick;
+	bool anyStickInput = false;
+	bool lockMouse = false; // unused
+	float camSpeedX = 0.f;
+	float camSpeedY = 0.f;
+
+	if (!down && _prevDown)
+	{
+		processStick(js, 0.f, 0.f, lastX, lastY, innerDeadzone, outerDeadzone,
+			ringMode, stickMode, ringId, leftId, rightId, upId, downId, 
+			controllerOrientation, mouseCalibrationFactor, deltaTime, acceleration, lastAreaCal, 
+			isFlicking, ignoreStickMode, anyStickInput, lockMouse, camSpeedX, camSpeedY, _index);
+
+		float mouseCalibration = js->getSetting(SettingID::REAL_WORLD_CALIBRATION) / os_mouse_speed / js->getSetting(SettingID::IN_GAME_SENS);
+		shapedSensitivityMoveMouse(0.f, 0.f, js->getSetting<FloatXY>(SettingID::MIN_GYRO_SENS), js->getSetting<FloatXY>(SettingID::MAX_GYRO_SENS),
+			js->getSetting(SettingID::MIN_GYRO_THRESHOLD), js->getSetting(SettingID::MAX_GYRO_THRESHOLD), deltaTime,
+			camSpeedX * js->getSetting(SettingID::STICK_AXIS_X), -camSpeedY * js->getSetting(SettingID::STICK_AXIS_Y), mouseCalibration);
+
+		_currentLocation = { 0.f, 0.f };
+
+		is_flicking_touch = false;
+		touch_last_cal;
+		touch_stick_acceleration = 1.0;
+		ignore_motion_stick = false;
+	}
+	else
+	{
+
+		processStick(js, stickX, stickY, lastX, lastY, innerDeadzone, outerDeadzone,
+			ringMode, stickMode, ringId, leftId, rightId, upId, downId,
+			controllerOrientation, mouseCalibrationFactor, deltaTime, acceleration, lastAreaCal,
+			isFlicking, ignoreStickMode, anyStickInput, lockMouse, camSpeedX, camSpeedY, _index);
+
+		float mouseCalibration = js->getSetting(SettingID::REAL_WORLD_CALIBRATION) / os_mouse_speed / js->getSetting(SettingID::IN_GAME_SENS);
+		shapedSensitivityMoveMouse(0.f, 0.f, js->getSetting<FloatXY>(SettingID::MIN_GYRO_SENS), js->getSetting<FloatXY>(SettingID::MAX_GYRO_SENS),
+			js->getSetting(SettingID::MIN_GYRO_THRESHOLD), js->getSetting(SettingID::MAX_GYRO_THRESHOLD), deltaTime,
+			camSpeedX * js->getSetting(SettingID::STICK_AXIS_X), -camSpeedY * js->getSetting(SettingID::STICK_AXIS_Y), mouseCalibration);
+		
+		_currentLocation = { lastX + movX, lastY - movY };
+
+	}
+
+	_prevDown = down;
+}
+
 
 void DisplayTouchInfo(int id, optional<FloatXY> xy, optional<FloatXY> prevXY = nullopt)
 {
@@ -2139,6 +2258,8 @@ void TouchCallback(int jcHandle, TOUCH_POINT point0, TOUCH_POINT point1, float d
 	//}
 
 	JoyShock *js = getJoyShockFromHandle(jcHandle);
+	if (!js)
+		return;
 	js->callback_lock.lock();
 
 	auto mode = js->getSetting<TouchpadMode>(SettingID::TOUCHPAD_MODE);
@@ -2158,7 +2279,7 @@ void TouchCallback(int jcHandle, TOUCH_POINT point0, TOUCH_POINT point1, float d
 			js->btnCommon->chordStack.erase(currentlyActive);
 		}
 	}
-	if (mode == TouchpadMode::GRID)
+	if (mode == TouchpadMode::GRID_AND_STICK)
 	{
 		int index0 = -1, index1 = -1;
 		if (point0.isDown())
@@ -2166,7 +2287,7 @@ void TouchCallback(int jcHandle, TOUCH_POINT point0, TOUCH_POINT point1, float d
 			float row = floorf(point0.posY * grid_size.get().y());
 			float col = floorf(point0.posX * grid_size.get().x());
 			//cout << "I should be in button " << row << " " << col << endl;
-			index0 = int(row*grid_size.get().x() + col);
+			index0 = int(row*grid_size.get().x() + col) + 5;
 		}
 
 		if (point1.isDown())
@@ -2174,17 +2295,20 @@ void TouchCallback(int jcHandle, TOUCH_POINT point0, TOUCH_POINT point1, float d
 			float row = floorf(point1.posY * grid_size.get().y());
 			float col = floorf(point1.posX * grid_size.get().x());
 			//cout << "I should be in button " << row << " " << col << endl;
-			index1 = int(row*grid_size.get().x() + col);
+			index1 = int(row*grid_size.get().x() + col) + 5;
 		}
 
-		for (int i = 0; i <= touch_buttons.size(); ++i)
+		// Index 0-4 are touch buttons. Only handle grid here
+		for (int i = 5; i < touch_buttons.size(); ++i)
 		{
 			auto optId = magic_enum::enum_cast<ButtonID>(FIRST_TOUCH_BUTTON + i);
 
 			// JSM can get touch button callbacks before the grid buttons are setup at startup. Just skip then.
-			if (optId && i < js->touchButtons.size())
+			if (optId)
 				js->handleButtonChange(*optId, i == index0 || i == index1);
 		}
+		js->touchpads[0].handleTouchStickChange(js, point0.isDown(), point0.movX, point0.movY, delta_time);
+		js->touchpads[1].handleTouchStickChange(js, point1.isDown(), point1.movX, point1.movY, delta_time);
 	}
 	else if (mode == TouchpadMode::MOUSE && point0.isDown())
 	{
@@ -2736,7 +2860,7 @@ void RefreshAutoloadHelp(JSMAssignment<Switch> *autoloadCmd)
 void OnNewGridDimensions(CmdRegistry *registry, FloatXY newGridDims)
 {
 	_ASSERT_EXPR(registry, U("You forgot to bind the command registry properly!"));
-	auto numberOfButtons = size_t(newGridDims.first*newGridDims.second);
+	auto numberOfButtons = size_t(newGridDims.first*newGridDims.second) + 5; // Add Touch stick buttons
 
 	if (numberOfButtons < touch_buttons.size())
 	{
@@ -2951,7 +3075,7 @@ int main(int argc, char *argv[]) {
 	static_cast<void>(argv);
 	void *trayIconData = nullptr;
 #endif // _WIN32
-	touch_buttons.reserve(25); // This makes sure the items will never get copied and cause crashes
+	touch_buttons.reserve(int(ButtonID::T25) - FIRST_TOUCH_BUTTON); // This makes sure the items will never get copied and cause crashes
 	mappings.reserve(MAPPING_SIZE);
 	for (int id = 0; id < MAPPING_SIZE; ++id)
 	{
@@ -3038,6 +3162,13 @@ int main(int argc, char *argv[]) {
 		});
 	OnNewGridDimensions(&commandRegistry, grid_size.get()); // Call to create touch buttons
 	touchpad_mode.SetFilter(&filterInvalidValue<TouchpadMode, TouchpadMode::INVALID>);
+	touch_stick_mode.SetFilter(&filterInvalidValue<StickMode, StickMode::INVALID>);
+	touch_deadzone_inner.SetFilter(&filterPositive);
+	touch_ring_mode.SetFilter(&filterInvalidValue<RingMode, RingMode::INVALID>);
+	touch_stick_radius.SetFilter([] (auto current, auto next )
+		{
+			return filterPositive(current, floorf(next));
+		});
 	color.AddOnChangeListener([](Color newColor)
 		{
 			for (auto devicePair : handle_to_joyshock)
@@ -3216,10 +3347,11 @@ int main(int argc, char *argv[]) {
 	commandRegistry.Add((new JSMAssignment<PathString>("JSM_DIRECTORY", currentWorkingDir))
 		->SetHelp("If AUTOLOAD doesn't work properly, set this value to the path to the directory holding the JoyShockMapper.exe file. Make sure a folder named \"AutoLoad\" exists there."));
 	commandRegistry.Add((new JSMAssignment<TouchpadMode>("TOUCHPAD_MODE", touchpad_mode))
-		->SetHelp("Assign a mode to the touchpad. Valid values are GRID or MOUSE."));
+		->SetHelp("Assign a mode to the touchpad. Valid values are GRID_AND_STICK or MOUSE."));
 	commandRegistry.Add((new JSMAssignment<FloatXY>("GRID_SIZE", grid_size))
-		->SetHelp("When TOUCHPAD_MODE is set to GRID, this variable sets the number of rows and columns in the grid. The product of the two numbers need to be between 1 and 25."));
-	//commandRegistry.Add((new JSMAssignment<StickMode>(touch_stick_mode))->SetHelp("TODO"));
+		->SetHelp("When TOUCHPAD_MODE is set to GRID_AND_STICK, this variable sets the number of rows and columns in the grid. The product of the two numbers need to be between 1 and 25."));
+	commandRegistry.Add((new JSMAssignment<StickMode>(touch_stick_mode))->SetHelp("Set a mouse mode for the touchpad stick. Valid values are the following:\nNO_MOUSE, AIM, FLICK, FLICK_ONLY, ROTATE_ONLY, MOUSE_RING, MOUSE_AREA, OUTER_RING, INNER_RING"));
+	commandRegistry.Add((new JSMAssignment<float>(touch_stick_radius))->SetHelp("Set the radius of the touchpad stick. The center of the stick is always the first point of contact. Use a very large value (ex: 800) to use it as swipe gesture."));
 	commandRegistry.Add((new JSMAssignment<Color>("LIGHT_BAR", color))->SetHelp("Changes the color bar of the DS4. Either enter as a hex code (xRRGGBB) or as three decimal values between 0 and 255 (RRR GGG BBB)."));
 	commandRegistry.Add(new HelpCmd(commandRegistry));
 
