@@ -77,7 +77,7 @@ JSMSetting<float> turbo_period = JSMSetting<float>(SettingID::TURBO_PERIOD, 80.0
 JSMSetting<float> hold_press_time = JSMSetting<float>(SettingID::HOLD_PRESS_TIME, 150.0f);
 JSMVariable<float> sim_press_window = JSMVariable<float>(50.0f);
 JSMVariable<float> dbl_press_window = JSMVariable<float>(200.0f);
-JSMVariable<Color> color = JSMVariable<Color>({0x00ffffff});
+JSMSetting<Color> light_bar = JSMSetting<Color>(SettingID::LIGHT_BAR, 0);
 JSMVariable<PathString> currentWorkingDir = JSMVariable<PathString>(GetCWD());
 JSMVariable<Switch> autoloadSwitch = JSMVariable<Switch>(Switch::ON);
 vector<JSMButton> mappings; // array enables use of for each loop and other i/f
@@ -88,6 +88,7 @@ JSMSetting<StickMode> touch_stick_mode = JSMSetting<StickMode>(SettingID::TOUCH_
 JSMSetting<float> touch_stick_radius = JSMSetting<float>(SettingID::TOUCH_STICK_RADIUS, 100.f);
 JSMSetting<float> touch_deadzone_inner = JSMSetting<float>(SettingID::TOUCH_DEADZONE_INNER, 0.3f);
 JSMSetting<RingMode> touch_ring_mode = JSMSetting<RingMode>(SettingID::TOUCH_RING_MODE, RingMode::OUTER);
+JSMSetting<FloatXY> touchpad_sens = JSMSetting<FloatXY>(SettingID::TOUCHPAD_SENS, { 1.f, 1.f });
 
 mutex loading_lock;
 
@@ -889,6 +890,9 @@ public:
 			case SettingID::TOUCH_STICK_MODE:
 				opt = GetOptionalSetting<E>(touch_stick_mode, *activeChord);
 				break;
+			case SettingID::TOUCH_RING_MODE:
+				opt = GetOptionalSetting<E>(touch_stick_mode, *activeChord);
+				break;
 			}
 			if (opt) return *opt;
 		}
@@ -1043,6 +1047,9 @@ public:
 				break;
 			case SettingID::STICK_SENS:
 				opt = stick_sens.get(*activeChord);
+				break;
+			case SettingID::TOUCHPAD_SENS:
+				opt = touchpad_sens.get(*activeChord);
 				break;
 			}
 			if (opt) return *opt;
@@ -1634,6 +1641,8 @@ static void resetAllMappings() {
 	touch_stick_radius.Reset();
 	touch_deadzone_inner.Reset();
 	touch_ring_mode.Reset();
+	touchpad_sens.Reset();
+	light_bar.Reset();
 	for_each(touch_buttons.begin(), touch_buttons.end(), [] (auto &map) { map.Reset(); });
 	
 	os_mouse_speed = 1.0f;
@@ -2169,10 +2178,7 @@ void TouchStick::handleTouchStickChange(JoyShock *js, bool down, short movX, sho
 		controllerOrientation, mouseCalibrationFactor, delta_time, touch_stick_acceleration, touch_last_cal,
 		is_flicking_touch, ignore_motion_stick, anyStickInput, lockMouse, camSpeedX, camSpeedY, _index);
 
-	float mouseCalibration = js->getSetting(SettingID::REAL_WORLD_CALIBRATION) / os_mouse_speed / js->getSetting(SettingID::IN_GAME_SENS);
-	shapedSensitivityMoveMouse(0.f, 0.f, js->getSetting<FloatXY>(SettingID::MIN_GYRO_SENS), js->getSetting<FloatXY>(SettingID::MAX_GYRO_SENS),
-		js->getSetting(SettingID::MIN_GYRO_THRESHOLD), js->getSetting(SettingID::MAX_GYRO_THRESHOLD), delta_time,
-		camSpeedX * js->getSetting(SettingID::STICK_AXIS_X), -camSpeedY * js->getSetting(SettingID::STICK_AXIS_Y), mouseCalibration);
+	moveMouse(camSpeedX * js->getSetting(SettingID::STICK_AXIS_X), -camSpeedY * js->getSetting(SettingID::STICK_AXIS_Y));
 
 
 	if (!down && _prevDown)
@@ -2283,8 +2289,9 @@ void TouchCallback(int jcHandle, TOUCH_POINT point0, TOUCH_POINT point1, float d
 	}
 	else if (mode == TouchpadMode::MOUSE && point0.isDown())
 	{
+		FloatXY sens = js->getSetting<FloatXY>(SettingID::TOUCHPAD_SENS);
 		//cout << "Moving the cursor by " << point0.movX << " h and " << point0.movY << " v" << endl;
-		moveMouse(point0.movX, point0.movY);
+		moveMouse(point0.movX * sens.x(), point0.movY * sens.y());
 		// Ignore second touch point in this mode for now until gestures gets handled here
 	}
 	js->callback_lock.unlock();
@@ -3135,11 +3142,12 @@ int main(int argc, char *argv[]) {
 	touch_stick_mode.SetFilter(&filterInvalidValue<StickMode, StickMode::INVALID>);
 	touch_deadzone_inner.SetFilter(&filterPositive);
 	touch_ring_mode.SetFilter(&filterInvalidValue<RingMode, RingMode::INVALID>);
+	touchpad_sens.SetFilter(filterFloatPair);
 	touch_stick_radius.SetFilter([] (auto current, auto next )
 		{
 			return filterPositive(current, floorf(next));
 		});
-	color.AddOnChangeListener([](Color newColor)
+	light_bar.AddOnChangeListener([](Color newColor)
 		{
 			for (auto devicePair : handle_to_joyshock)
 			{
@@ -3320,9 +3328,14 @@ int main(int argc, char *argv[]) {
 		->SetHelp("Assign a mode to the touchpad. Valid values are GRID_AND_STICK or MOUSE."));
 	commandRegistry.Add((new JSMAssignment<FloatXY>("GRID_SIZE", grid_size))
 		->SetHelp("When TOUCHPAD_MODE is set to GRID_AND_STICK, this variable sets the number of rows and columns in the grid. The product of the two numbers need to be between 1 and 25."));
-	commandRegistry.Add((new JSMAssignment<StickMode>(touch_stick_mode))->SetHelp("Set a mouse mode for the touchpad stick. Valid values are the following:\nNO_MOUSE, AIM, FLICK, FLICK_ONLY, ROTATE_ONLY, MOUSE_RING, MOUSE_AREA, OUTER_RING, INNER_RING"));
-	commandRegistry.Add((new JSMAssignment<float>(touch_stick_radius))->SetHelp("Set the radius of the touchpad stick. The center of the stick is always the first point of contact. Use a very large value (ex: 800) to use it as swipe gesture."));
-	commandRegistry.Add((new JSMAssignment<Color>("LIGHT_BAR", color))->SetHelp("Changes the color bar of the DS4. Either enter as a hex code (xRRGGBB) or as three decimal values between 0 and 255 (RRR GGG BBB)."));
+	commandRegistry.Add((new JSMAssignment<StickMode>(touch_stick_mode))
+		->SetHelp("Set a mouse mode for the touchpad stick. Valid values are the following:\nNO_MOUSE, AIM, FLICK, FLICK_ONLY, ROTATE_ONLY, MOUSE_RING, MOUSE_AREA, OUTER_RING, INNER_RING"));
+	commandRegistry.Add((new JSMAssignment<float>(touch_stick_radius))
+		->SetHelp("Set the radius of the touchpad stick. The center of the stick is always the first point of contact. Use a very large value (ex: 800) to use it as swipe gesture."));
+	commandRegistry.Add((new JSMAssignment<Color>(light_bar))
+		->SetHelp("Changes the color bar of the DS4. Either enter as a hex code (xRRGGBB), as three decimal values between 0 and 255 (RRR GGG BBB), or as a common color name in all caps and underscores."));
+	commandRegistry.Add((new JSMAssignment<FloatXY>(touchpad_sens))
+		->SetHelp("Changes the sensitivity of the touchpad when set as a mouse. Enter a second value for a different vertical sensitivity."));
 	commandRegistry.Add(new HelpCmd(commandRegistry));
 
 	bool quit = false;

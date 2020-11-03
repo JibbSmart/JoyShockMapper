@@ -197,6 +197,8 @@ enum class SettingID
 	TOUCH_STICK_RADIUS,
 	TOUCH_DEADZONE_INNER,
 	TOUCH_RING_MODE,
+	TOUCHPAD_SENS,
+	LIGHT_BAR,
 };
 
 // constexpr are like #define but with respect to typeness
