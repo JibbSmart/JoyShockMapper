@@ -279,7 +279,7 @@ public:
 		ClearAllActiveToggle(KeyCode("CALIBRATE"));
 	}
 
-	void ApplyGyroAction(KeyCode gyroAction) // TODO: Keycode should be WORD here
+	void ApplyGyroAction(KeyCode gyroAction)
 	{
 		_common->gyroActionQueue.push_back({ _id, gyroAction });
 	}
@@ -1184,9 +1184,7 @@ public:
 				btnCommon->chordStack.push_front(index); // Always push at the fromt to make it a stack
 			}
 		}
-		else if (pressed)
-			cout << index << " for touchpad " << touchpadIndex << " is now pressed" << endl;
-		// TODO: handle touchstick buttons
+
 		DigitalButton *button = index < ButtonID::SIZE ? &buttons[int(index)] : 
 								touchpadIndex >= 0 && touchpadIndex < touchpads.size() ? &touchpads[touchpadIndex].buttons[int(index) - FIRST_TOUCH_BUTTON] :
 								index >= ButtonID::T1 ? &gridButtons[int(index) - int(ButtonID::T1)] : throw exception("What index is this?");
@@ -1523,7 +1521,6 @@ public:
 			handleButtonChange(softIndex, true);
 			break;
 		default:
-			// TODO: use magic enum to translate enum # to str
 			cout << "Error: Trigger " << softIndex << " has invalid state " << triggerState[idxState] << ". Reset to NoPress." << endl;
 			triggerState[idxState] = DstState::NoPress;
 			break;
@@ -2156,44 +2153,30 @@ void TouchStick::handleTouchStickChange(JoyShock *js, bool down, short movX, sho
 {
 	float stickX = down ? clamp<float>((_currentLocation.x() + movX) / js->getSetting(SettingID::TOUCH_STICK_RADIUS), -1.f, 1.f) : 0.f;
 	float stickY = down ? clamp<float>((_currentLocation.y() - movY) / js->getSetting(SettingID::TOUCH_STICK_RADIUS), -1.f, 1.f) : 0.f;
-	//if ((stickX != 0.f || stickY != 0.f) &&
-	//	(movX != 0.f || movY != 0.f))
-	//	cout << "TouchStick pos is " << stickX << " and " << stickY << endl;
-	float lastX = _currentLocation.x();
-	float lastY = _currentLocation.y();
 	float innerDeadzone = js->getSetting(SettingID::TOUCH_DEADZONE_INNER);
-	float outerDeadzone = 0.f;
 	RingMode ringMode =  js->getSetting<RingMode>(SettingID::TOUCH_RING_MODE);
 	StickMode stickMode = js->getSetting<StickMode>(SettingID::TOUCH_STICK_MODE);
-	ButtonID ringId = ButtonID::TRING;
-	ButtonID leftId = ButtonID::TLEFT;
-	ButtonID rightId = ButtonID::TRIGHT;
-	ButtonID upId = ButtonID::TUP;
-	ButtonID downId = ButtonID::TDOWN;
 	ControllerOrientation controllerOrientation = js->getSetting<ControllerOrientation>(SettingID::CONTROLLER_ORIENTATION);
-	float mouseCalibrationFactor = 180.0f / PI / os_mouse_speed;;
-	float deltaTime = delta_time;
-	float &acceleration = touch_stick_acceleration;
-	FloatXY &lastAreaCal = touch_last_cal;
-	bool& isFlicking = is_flicking_touch;
-	bool &ignoreStickMode = ignore_motion_stick;
+	float mouseCalibrationFactor = 180.0f / PI / os_mouse_speed;
+
 	bool anyStickInput = false;
-	bool lockMouse = false; // unused
+	bool lockMouse = false;
 	float camSpeedX = 0.f;
 	float camSpeedY = 0.f;
 
+	processStick(js, stickX, stickY, _currentLocation.x(), _currentLocation.y(), innerDeadzone, 0.f,
+		ringMode, stickMode, ButtonID::TRING, ButtonID::TLEFT, ButtonID::TRIGHT, ButtonID::TUP, ButtonID::TDOWN,
+		controllerOrientation, mouseCalibrationFactor, delta_time, touch_stick_acceleration, touch_last_cal,
+		is_flicking_touch, ignore_motion_stick, anyStickInput, lockMouse, camSpeedX, camSpeedY, _index);
+
+	float mouseCalibration = js->getSetting(SettingID::REAL_WORLD_CALIBRATION) / os_mouse_speed / js->getSetting(SettingID::IN_GAME_SENS);
+	shapedSensitivityMoveMouse(0.f, 0.f, js->getSetting<FloatXY>(SettingID::MIN_GYRO_SENS), js->getSetting<FloatXY>(SettingID::MAX_GYRO_SENS),
+		js->getSetting(SettingID::MIN_GYRO_THRESHOLD), js->getSetting(SettingID::MAX_GYRO_THRESHOLD), delta_time,
+		camSpeedX * js->getSetting(SettingID::STICK_AXIS_X), -camSpeedY * js->getSetting(SettingID::STICK_AXIS_Y), mouseCalibration);
+
+
 	if (!down && _prevDown)
 	{
-		processStick(js, 0.f, 0.f, lastX, lastY, innerDeadzone, outerDeadzone,
-			ringMode, stickMode, ringId, leftId, rightId, upId, downId, 
-			controllerOrientation, mouseCalibrationFactor, deltaTime, acceleration, lastAreaCal, 
-			isFlicking, ignoreStickMode, anyStickInput, lockMouse, camSpeedX, camSpeedY, _index);
-
-		float mouseCalibration = js->getSetting(SettingID::REAL_WORLD_CALIBRATION) / os_mouse_speed / js->getSetting(SettingID::IN_GAME_SENS);
-		shapedSensitivityMoveMouse(0.f, 0.f, js->getSetting<FloatXY>(SettingID::MIN_GYRO_SENS), js->getSetting<FloatXY>(SettingID::MAX_GYRO_SENS),
-			js->getSetting(SettingID::MIN_GYRO_THRESHOLD), js->getSetting(SettingID::MAX_GYRO_THRESHOLD), deltaTime,
-			camSpeedX * js->getSetting(SettingID::STICK_AXIS_X), -camSpeedY * js->getSetting(SettingID::STICK_AXIS_Y), mouseCalibration);
-
 		_currentLocation = { 0.f, 0.f };
 
 		is_flicking_touch = false;
@@ -2203,19 +2186,7 @@ void TouchStick::handleTouchStickChange(JoyShock *js, bool down, short movX, sho
 	}
 	else
 	{
-
-		processStick(js, stickX, stickY, lastX, lastY, innerDeadzone, outerDeadzone,
-			ringMode, stickMode, ringId, leftId, rightId, upId, downId,
-			controllerOrientation, mouseCalibrationFactor, deltaTime, acceleration, lastAreaCal,
-			isFlicking, ignoreStickMode, anyStickInput, lockMouse, camSpeedX, camSpeedY, _index);
-
-		float mouseCalibration = js->getSetting(SettingID::REAL_WORLD_CALIBRATION) / os_mouse_speed / js->getSetting(SettingID::IN_GAME_SENS);
-		shapedSensitivityMoveMouse(0.f, 0.f, js->getSetting<FloatXY>(SettingID::MIN_GYRO_SENS), js->getSetting<FloatXY>(SettingID::MAX_GYRO_SENS),
-			js->getSetting(SettingID::MIN_GYRO_THRESHOLD), js->getSetting(SettingID::MAX_GYRO_THRESHOLD), deltaTime,
-			camSpeedX * js->getSetting(SettingID::STICK_AXIS_X), -camSpeedY * js->getSetting(SettingID::STICK_AXIS_Y), mouseCalibration);
-		
-		_currentLocation = { lastX + movX, lastY - movY };
-
+		_currentLocation = { _currentLocation.x() + movX, _currentLocation.y() - movY };
 	}
 
 	_prevDown = down;
@@ -2542,7 +2513,6 @@ void joyShockPollCallback(int jcHandle, JOY_SHOCK_STATE state, JOY_SHOCK_STATE l
 	// Apply gyro modifiers in the queue from oldest to newest (thus giving priority to most recent)
 	for (auto pair : jc->btnCommon->gyroActionQueue)
 	{
-		// TODO: logic optimization
 		if (pair.second.code == GYRO_ON_BIND)
 			blockGyro = false;
 		else if (pair.second.code == GYRO_OFF_BIND)

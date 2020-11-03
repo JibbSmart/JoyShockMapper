@@ -124,7 +124,7 @@ ostream &operator <<(ostream &out, GyroSettings gyro_settings)
 		if (gyro_settings.button == ButtonID::NONE)
 			out << "No button disables or enables gyro";
 		else if(gyro_settings.button != ButtonID::INVALID)
-			out << gyro_settings.button;  //TODO: button to string conversion
+			out << gyro_settings.button;
 		break;
 	default:
 		out << "INVALID";

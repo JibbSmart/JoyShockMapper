@@ -684,7 +684,7 @@ The touchpad always offers the ```TOUCH``` button binding. It will be pressed if
 
 The most important setting for the touchpad is simply ```TOUCHPAD\_MODE``` which will determine the primary functionality of the touchpad. Here are th possible values:
 * **GRID_AND_STICK** - Grid And Stick will create a button grid of equally sized buttons on the touch pad. You have to also assign to ```GRID_SIZE```` the number of columns and rows of the grid : the product of the two cannot be greater than 25 or lesser than 1. Touch buttons T1-TN will then become available for assignment: they are layed out in order from left to right, from top to bottom. There are also two touchsticks available. See below.
-* **MOUSE** - Mouse mode turns the touchpad into a familiar laptop touchpad. Gestures will be added to this mode in a future release, such as double touch, pinch and rotation. Taps and double taps are already usable via ```TOUCH```.
+* **MOUSE** - Mouse mode turns the touchpad into a familiar laptop touchpad. Gestures will be added to this mode in a future release, such as double touch, pinch and rotation. Taps and double taps are already usable via ```TOUCH```. It currently uses the same settings as gyro for sensitivity and acceleration.
 
 Here's an example of grid usage to add some more buttons that otherwise would not be worth putting on a controller
 ```
