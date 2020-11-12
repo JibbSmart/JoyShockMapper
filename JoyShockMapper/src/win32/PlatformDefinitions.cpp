@@ -179,6 +179,18 @@ WORD nameToKey(const std::string &name)
 	{
 		return VK_RMENU;
 	}
+	if (name.compare("LWINDOWS") == 0)
+	{
+		return VK_LWIN;
+	}
+	if (name.compare("RWINDOWS") == 0)
+	{
+		return VK_RWIN;
+	}
+	if (name.compare("CONTEXT") == 0)
+	{
+		return VK_APPS;
+	}
 	if (name.compare("TAB") == 0)
 	{
 		return VK_TAB;
@@ -270,6 +282,46 @@ WORD nameToKey(const std::string &name)
 	if (name.compare("CAPS_LOCK") == 0)
 	{
 		return VK_CAPITAL;
+	}
+	if (name.compare("SCREENSHOT") == 0)
+	{
+		return VK_SNAPSHOT;
+	}
+	if (name.compare("SCROLL_LOCK") == 0)
+	{
+		return VK_SCROLL;
+	}
+	if (name.compare("NUM_LOCK") == 0)
+	{
+		return VK_NUMLOCK;
+	}
+	if (name.compare("MUTE") == 0)
+	{
+		return VK_VOLUME_MUTE;
+	}
+	if (name.compare("VOLUME_DOWN") == 0)
+	{
+		return VK_VOLUME_DOWN;
+	}
+	if (name.compare("VOLUME_UP") == 0)
+	{
+		return VK_VOLUME_UP;
+	}
+	if (name.compare("NEXT_TRACK") == 0)
+	{
+		return VK_MEDIA_NEXT_TRACK;
+	}
+	if (name.compare("PREV_TRACK") == 0)
+	{
+		return VK_MEDIA_PREV_TRACK;
+	}
+	if (name.compare("STOP_TRACK") == 0)
+	{
+		return VK_MEDIA_STOP;
+	}
+	if (name.compare("PLAY_PAUSE") == 0)
+	{
+		return VK_MEDIA_PLAY_PAUSE;
 	}
 	if (name.compare("NONE") == 0)
 	{

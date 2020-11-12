@@ -211,11 +211,15 @@ UP, DOWN, LEFT, RIGHT: the arrow keys
 LCONTROL, RCONTROL, CONTROL: left Ctrl, right Ctrl, generic Ctrl, respectively
 LALT, RALT, ALT: left Alt, right Alt, generic Alt, respectively
 LSHIFT, RSHIFT, SHIFT: left Shift, right Shift, generic Shift, respectively
-TAB, ESC, ENTER, SPACE, BACKSPACE, CAPS_LOCK
-PAGEUP, PAGEDOWN, HOME, END, INSERT, DELETE,
+LWINDOWS, RWINDOWS, CONTEXT: Both Windows keys and the context menu key
+TAB, ESC, ENTER, SPACE, BACKSPACE, CAPS_LOCK, SCROLL_LOCK, NUM_LOCK, 
+PAGEUP, PAGEDOWN, HOME, END, INSERT, DELETE
 LMOUSE, MMOUSE, RMOUSE: mouse left click, middle click and right click respectively
 BMOUSE, FMOUSE: mouse back (button 4) click and mouse forward (button 5) click respectively
 SCROLLUP, SCROLLDOWN: scroll the mouse wheel up, down, respectively
+VOLUME_UP, VOLUME_DOWN, MUTE: Volume controls
+NEXT_TRACK, PREV_TRACK, STOP_TRACK, PLAY_PAUSE: media control
+SCREENSHOT: print screen button
 NONE: No input
 CALIBRATE: recalibrate gyro when pressing this input
 GYRO_ON, GYRO_OFF: Enable or disable gyro
@@ -261,7 +265,7 @@ See the tap press and hold press event modifiers below for more details on how k
 
 #### 1.2 Binding Modifiers
 
-There are two kinds of modifiers that can be applied to key bindings: action modifiers and event modifiers. They are represented by symbols added before and after the key name repectively. And each binding can only ever have one of each. You can however have multiple keys bound to the same events, thus sending multiple key presses at once.
+There are two kinds of modifiers that can be applied to key bindings: action modifiers and event modifiers. They are represented by symbols added before and after the key name respectively. And each binding can only ever have one of each. You can however have multiple keys bound to the same events, thus sending multiple key presses at once.
 
 **Action modifiers** come in two kinds: **toggle (^)** and **instant (!)**. Using either of these modifiers will make it so that nothing is bound to the release of the button press.
 * ^ Toggle makes it so that the key will alternate between applying and releasing the key press at each press.
