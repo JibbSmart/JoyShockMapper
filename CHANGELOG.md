@@ -3,6 +3,12 @@
 Most recent updates will appear first.
 This is a summary of new features and bugfixes. Read the README to learn how to use the features mentioned here.
 
+## 2.1.0
+Jibb added experimental support for the DualSense controller (PlayStation 5) when connected by USB.
+
+### Features
+* The DualSense controller is now supported if connected by USB.
+
 ## 2.0.3
 More bugfixes for bugs introduced by bugfixes, thanks to Nicolas. :P
 
