@@ -3,6 +3,12 @@
 Most recent updates will appear first.
 This is a summary of new features and bugfixes. Read the README to learn how to use the features mentioned here.
 
+## 2.1.1
+Nicolas added more keybinds.
+
+### Features
+* New keybinds include: volume control, media control, windows keys and context menu key.
+
 ## 2.1.0
 Jibb added experimental support for the DualSense controller (PlayStation 5) when connected by USB.
 
