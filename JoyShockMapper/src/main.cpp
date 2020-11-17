@@ -77,7 +77,7 @@ JSMSetting<float> turbo_period = JSMSetting<float>(SettingID::TURBO_PERIOD, 80.0
 JSMSetting<float> hold_press_time = JSMSetting<float>(SettingID::HOLD_PRESS_TIME, 150.0f);
 JSMVariable<float> sim_press_window = JSMVariable<float>(50.0f);
 JSMVariable<float> dbl_press_window = JSMVariable<float>(200.0f);
-JSMSetting<Color> light_bar = JSMSetting<Color>(SettingID::LIGHT_BAR, 0);
+JSMSetting<Color> light_bar = JSMSetting<Color>(SettingID::LIGHT_BAR, 0xFFFFFF);
 JSMVariable<PathString> currentWorkingDir = JSMVariable<PathString>(GetCWD());
 JSMVariable<Switch> autoloadSwitch = JSMVariable<Switch>(Switch::ON);
 vector<JSMButton> mappings; // array enables use of for each loop and other i/f
@@ -1681,6 +1681,7 @@ void connectDevices() {
 				continue;
 			}
 		}
+		JslSetLightColour(handle, light_bar.get()->raw);
 		JoyShock* js = new JoyShock(handle,
 			JslGetPollRate(handle),
 			JslGetControllerSplitType(handle),
@@ -3130,16 +3131,16 @@ int main(int argc, char *argv[]) {
 	hold_press_time.SetFilter(&filterHoldPressDelay);
 	currentWorkingDir.SetFilter( [] (PathString current, PathString next) { return SetCWD(string(next)) ? next : current; });
 	autoloadSwitch.SetFilter(&filterInvalidValue<Switch, Switch::INVALID>)->AddOnChangeListener(&UpdateAutoload);
-	grid_size.AddOnChangeListener(bind(&OnNewGridDimensions, &commandRegistry, placeholders::_1));
 	grid_size.SetFilter([](auto current, auto next)
 		{
 			float floorX = floorf(next.x());
 			float floorY = floorf(next.y());
 			return floorX * floorY >= 1 && floorX * floorY <= 25 ? FloatXY{floorX, floorY} : current;
 		});
-	OnNewGridDimensions(&commandRegistry, grid_size.get()); // Call to create touch buttons
+	grid_size.AddOnChangeListener(bind(&OnNewGridDimensions, &commandRegistry, placeholders::_1), true); // Call the listener now
 	touchpad_mode.SetFilter(&filterInvalidValue<TouchpadMode, TouchpadMode::INVALID>);
-	touch_stick_mode.SetFilter(&filterInvalidValue<StickMode, StickMode::INVALID>);
+	touch_stick_mode.SetFilter(&filterInvalidValue<StickMode, StickMode::INVALID>)->
+		AddOnChangeListener(bind(&UpdateRingModeFromStickMode, &touch_ring_mode, ::placeholders::_1));
 	touch_deadzone_inner.SetFilter(&filterPositive);
 	touch_ring_mode.SetFilter(&filterInvalidValue<RingMode, RingMode::INVALID>);
 	touchpad_sens.SetFilter(filterFloatPair);
@@ -3281,9 +3282,8 @@ int main(int argc, char *argv[]) {
 	commandRegistry.Add((new JSMAssignment<TriggerMode>(zrMode))
 		->SetHelp("Controllers with a left analog trigger can use one of the following dual stage trigger modes:\nNO_FULL, NO_SKIP, MAY_SKIP, MUST_SKIP, MAY_SKIP_R, MUST_SKIP_R"));
 	auto *autoloadCmd = new JSMAssignment<Switch>("AUTOLOAD", autoloadSwitch);
-	currentWorkingDir.AddOnChangeListener(bind(&RefreshAutoloadHelp, autoloadCmd));
     commandRegistry.Add(autoloadCmd);
-	RefreshAutoloadHelp(autoloadCmd);
+	currentWorkingDir.AddOnChangeListener(bind(&RefreshAutoloadHelp, autoloadCmd), true);
 	commandRegistry.Add((new JSMMacro("README"))->SetMacro(bind(&do_README))
 		->SetHelp("Open the latest JoyShockMapper README in your browser."));
 	commandRegistry.Add((new JSMMacro("WHITELIST_SHOW"))->SetMacro(bind(&do_WHITELIST_SHOW))

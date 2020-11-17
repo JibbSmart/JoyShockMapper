@@ -219,7 +219,7 @@ istream &operator >> (istream &in, Color &color)
 		}
 		else
 		{
-			color.raw = code != colorCodeMap.end();
+			color.raw = code->second;
 		}
 	}
 	else
