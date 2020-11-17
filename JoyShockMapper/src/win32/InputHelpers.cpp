@@ -107,7 +107,10 @@ int pressKey(KeyCode vkKey, bool pressed) {
 	input.ki.time = 0;
 	input.ki.dwFlags = KEYEVENTF_SCANCODE;
 	input.ki.dwFlags |= pressed ? 0 : KEYEVENTF_KEYUP;
-	if (vkKey.code >= VK_LEFT && vkKey.code <= VK_DOWN) {
+	if ((vkKey.code >= VK_LEFT && vkKey.code <= VK_DOWN) || 
+		(vkKey.code >= VK_LWIN && vkKey.code <= VK_NUMPAD9) ||
+		(vkKey.code >= VK_BROWSER_BACK && vkKey.code <= VK_LAUNCH_APP2) )
+	{
 		input.ki.dwFlags |= KEYEVENTF_EXTENDEDKEY;
 	}
 	//input.ki.wVk = vkKey;

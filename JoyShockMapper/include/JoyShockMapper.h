@@ -206,7 +206,7 @@ struct KeyCode
 	string name;
 
 	inline KeyCode()
-		: code(0)
+		: code()
 		, name()
 	{}
 
