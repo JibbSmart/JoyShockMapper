@@ -6,7 +6,7 @@
 
 // https://www.rapidtables.com/web/color/RGB_Color.html#color-table
 // Can't use magic enum because it only supports base type up to 16b and I need 32b
-map<std::string, uint32_t> colorCodeMap
+static map<std::string, uint32_t> colorCodeMap
 {
 	{"OFF", 0x000000},
 	{"MAROON", 0x800000},

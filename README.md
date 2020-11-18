@@ -386,6 +386,7 @@ JoyShockMapper can assign different bindings to the full pull of the trigger, al
 ```
 NO_FULL (default): Ignore full pull binding. This mode is enforced on controllers who have digital triggers like the Pro Controller.
 NO_SKIP: Never skip the soft pull binding. Full pull binding activates anytime the trigger is fully pressed.
+NO_SKIP_EXCLUSIVE: Never skip the soft pull binding. When Full pull binding is active, the soft pull binding isn't.
 MUST_SKIP: Only send full pull binding on a quick full press of the trigger, ignoring soft pull binding.
 MAY_SKIP: Combines NO_SKIP and MUST_SKIP: Soft binding may be skipped on a quick full press, and full pull can be activated on top of soft pull binding.
 MUST_SKIP_R: Responsive version of MUST_SKIP. See below.

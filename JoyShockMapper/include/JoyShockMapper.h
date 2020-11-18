@@ -217,11 +217,11 @@ enum class RingMode { OUTER, INNER, INVALID };
 enum class StickMode { NO_MOUSE, AIM, FLICK, FLICK_ONLY, ROTATE_ONLY, MOUSE_RING, MOUSE_AREA, OUTER_RING, INNER_RING, INVALID };
 enum class FlickSnapMode { NONE, FOUR, EIGHT, INVALID };
 enum class AxisMode { STANDARD = 1, INVERTED = -1, INVALID = 0 }; // valid values are true!
-enum class TriggerMode { NO_FULL, NO_SKIP, MAY_SKIP, MUST_SKIP, MAY_SKIP_R, MUST_SKIP_R, INVALID };
+enum class TriggerMode { NO_FULL, NO_SKIP, MAY_SKIP, MUST_SKIP, MAY_SKIP_R, MUST_SKIP_R, NO_SKIP_EXCLUSIVE, INVALID };
 enum class GyroAxisMask { NONE = 0, X = 1, Y = 2, Z = 4, INVALID = 8 };
 enum class JoyconMask { USE_BOTH, IGNORE_LEFT, IGNORE_RIGHT, IGNORE_BOTH, INVALID };
 enum class GyroIgnoreMode { BUTTON, LEFT_STICK, RIGHT_STICK, INVALID };
-enum class DstState { NoPress, PressStart, QuickSoftTap, QuickFullPress, QuickFullRelease, SoftPress, DelayFullPress, PressStartResp, INVALID };
+enum class DstState { NoPress, PressStart, QuickSoftTap, QuickFullPress, QuickFullRelease, SoftPress, DelayFullPress, PressStartResp, ExclFullPress, INVALID };
 enum class BtnState {
 	NoPress, BtnPress, TapRelease, WaitSim, SimPress, SimRelease,
 	DblPressStart, DblPressNoPressTap, DblPressNoPressHold, DblPressPress, InstRelease, INVALID

@@ -1413,7 +1413,7 @@ public:
 					buttons[int(softIndex)]._press_times = time_now;
 					handleButtonChange(softIndex, true);
 				}
-				else // mode == NO_FULL or NO_SKIP
+				else // mode == NO_FULL or NO_SKIP, NO_SKIP_EXCLUSIVE
 				{
 					triggerState[idxState] = DstState::SoftPress;
 					handleButtonChange(softIndex, true);
@@ -1501,7 +1501,6 @@ public:
 			}
 			else // Soft Press is being held
 			{
-				handleButtonChange(softIndex, true);
 
 				if ((mode == TriggerMode::MAY_SKIP || mode == TriggerMode::NO_SKIP || mode == TriggerMode::MAY_SKIP_R)
 					&& pressed == 1.0)
@@ -1509,6 +1508,16 @@ public:
 					// Full press is allowed in addition to soft press
 					triggerState[idxState] = DstState::DelayFullPress;
 					handleButtonChange(fullIndex, true);
+				}
+				else if (mode == TriggerMode::NO_SKIP_EXCLUSIVE && pressed == 1.0)
+				{
+					handleButtonChange(softIndex, false);
+					triggerState[idxState] = DstState::ExclFullPress;
+					handleButtonChange(fullIndex, true);
+				}
+				else
+				{
+					handleButtonChange(softIndex, true);
 				}
 				// else ignore full press on NO_FULL and MUST_SKIP
 			}
@@ -1526,6 +1535,20 @@ public:
 			}
 			// Soft press is always held regardless
 			handleButtonChange(softIndex, true);
+			break;
+		case DstState::ExclFullPress:
+			if (pressed < 1.0f) {
+				// Full press is being release
+				triggerState[idxState] = DstState::SoftPress;
+				handleButtonChange(fullIndex, false);
+				handleButtonChange(softIndex, true);
+			}
+			else
+			{
+				// Full press is being held
+				handleButtonChange(fullIndex, true);
+			}
+			break;
 			break;
 		default:
 			cout << "Error: Trigger " << softIndex << " has invalid state " << triggerState[idxState] << ". Reset to NoPress." << endl;
@@ -3278,9 +3301,9 @@ int main(int argc, char *argv[]) {
 	commandRegistry.Add((new JSMAssignment<ControllerOrientation>(controller_orientation))
 	    ->SetHelp("Let the stick modes account for how you're holding the controller:\nFORWARD, LEFT, RIGHT, BACKWARD"));
 	commandRegistry.Add((new JSMAssignment<TriggerMode>(zlMode))
-		->SetHelp("Controllers with a right analog trigger can use one of the following dual stage trigger modes:\nNO_FULL, NO_SKIP, MAY_SKIP, MUST_SKIP, MAY_SKIP_R, MUST_SKIP_R"));
+		->SetHelp("Controllers with a right analog trigger can use one of the following dual stage trigger modes:\nNO_FULL, NO_SKIP, MAY_SKIP, MUST_SKIP, MAY_SKIP_R, MUST_SKIP_R, NO_SKIP_EXCLUSIVE"));
 	commandRegistry.Add((new JSMAssignment<TriggerMode>(zrMode))
-		->SetHelp("Controllers with a left analog trigger can use one of the following dual stage trigger modes:\nNO_FULL, NO_SKIP, MAY_SKIP, MUST_SKIP, MAY_SKIP_R, MUST_SKIP_R"));
+		->SetHelp("Controllers with a left analog trigger can use one of the following dual stage trigger modes:\nNO_FULL, NO_SKIP, MAY_SKIP, MUST_SKIP, MAY_SKIP_R, MUST_SKIP_R, NO_SKIP_EXCLUSIVE"));
 	auto *autoloadCmd = new JSMAssignment<Switch>("AUTOLOAD", autoloadSwitch);
     commandRegistry.Add(autoloadCmd);
 	currentWorkingDir.AddOnChangeListener(bind(&RefreshAutoloadHelp, autoloadCmd), true);
