@@ -3366,6 +3366,7 @@ int main(int argc, char *argv[]) {
 		->SetMacro( [&quit] (JSMMacro *, in_string)
 			{
 				quit = true;
+				WriteToConsole(""); // If ran from autoload thread, you need to send RETURN to resume the main loop and check the quit flag.
 			})
 		->SetHelp("Close the application.")
 	);
