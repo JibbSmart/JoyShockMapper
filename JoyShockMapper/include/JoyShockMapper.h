@@ -211,6 +211,7 @@ constexpr int NUM_ANALOG_TRIGGERS = int(LAST_ANALOG_TRIGGER) - int(FIRST_ANALOG_
 constexpr float MAGIC_TAP_DURATION = 40.0f; // in milliseconds.
 constexpr float MAGIC_INSTANT_DURATION = 40.0f; // in milliseconds
 constexpr float MAGIC_EXTENDED_TAP_DURATION = 500.0f; // in milliseconds
+constexpr int MAGIC_TRIGGER_SMOOTHING = 5; // in samples
 
 enum class ControllerOrientation { FORWARD, LEFT, RIGHT, BACKWARD, INVALID };
 enum class RingMode { OUTER, INNER, INVALID };

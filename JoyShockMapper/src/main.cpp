@@ -714,6 +714,46 @@ private:
 		throw invalid_argument(ss.str().c_str());
 	}
 
+	bool isSoftPullPressed(int triggerIndex, float triggerPosition)
+	{
+		float threshold = getSetting(SettingID::TRIGGER_THRESHOLD);
+		if (threshold >= 0)
+		{
+			return triggerPosition > threshold;
+		}
+		// else HAIR TRIGGER
+
+		// Calculate 3 sample averages with the last MAGIC_TRIGGER_SMOOTHING samples + new sample
+		float sum = 0.f;
+		for_each(prevTriggerPosition[triggerIndex].begin(), prevTriggerPosition[triggerIndex].begin()+3, [&sum](auto data) { sum += data; });
+		float avg_tm3 = sum / 3.0f;
+		sum = sum - *(prevTriggerPosition[triggerIndex].begin()) + *(prevTriggerPosition[triggerIndex].end() - 2);
+		float avg_tm2 = sum / 3.0f;
+		sum = sum - *(prevTriggerPosition[triggerIndex].begin() + 1) + *(prevTriggerPosition[triggerIndex].end() - 1);
+		float avg_tm1 = sum / 3.0f;
+		sum = sum - *(prevTriggerPosition[triggerIndex].begin() + 2) + triggerPosition;
+		float avg_t0 = sum / 3.0f;
+		//if (avg_t0 > 0) cout << "Trigger: " << avg_t0 << endl;
+		
+		// Soft press is pressed if we got three averaged samples in a row that are pressed
+		bool isPressed;
+		if (avg_t0 > avg_tm1 && avg_tm1 > avg_tm2 && avg_tm2 > avg_tm3)
+		{
+			isPressed = true;
+		}
+		else if (avg_t0 < avg_tm1 && avg_tm1 < avg_tm2 && avg_tm2 < avg_tm3)
+		{
+			isPressed = false;
+		}
+		else
+		{
+			isPressed = triggerState[triggerIndex] != DstState::NoPress;
+		}
+		prevTriggerPosition[triggerIndex].pop_front();
+		prevTriggerPosition[triggerIndex].push_back(triggerPosition);
+		return isPressed;
+	}
+
 public:
 	const int MaxGyroSamples = 64;
 	const int NumSamples = 64;
@@ -744,6 +784,7 @@ public:
 	float right_acceleration = 1.0;
 	float motion_stick_acceleration = 1.0;
 	vector<DstState> triggerState; // State of analog triggers when skip mode is active
+	vector<deque<float>> prevTriggerPosition;
 	DigitalButton::Common* btnCommon;
 
 	// Modeshifting the stick mode can create quirky behaviours on transition. These flags
@@ -777,6 +818,7 @@ public:
 		, controller_type(controllerSplitType)
 		, stick_step_size(stickStepSize)
 		, triggerState(NUM_ANALOG_TRIGGERS, DstState::NoPress)
+		, prevTriggerPosition(NUM_ANALOG_TRIGGERS, deque<float>(MAGIC_TRIGGER_SMOOTHING, 0.f))
 		, buttons()
 		, gridButtons()
 		, touchpads()
@@ -800,6 +842,7 @@ public:
 	  , controller_type(controllerSplitType)
 	  , stick_step_size(stickStepSize)
 	  , triggerState(NUM_ANALOG_TRIGGERS, DstState::NoPress)
+	  , prevTriggerPosition(NUM_ANALOG_TRIGGERS, deque<float>(MAGIC_TRIGGER_SMOOTHING, 0.f))
 	  , btnCommon(sharedButtonCommon)
 	  , buttons()
 	{
@@ -1368,7 +1411,7 @@ public:
 		}
 	}
 
-	void handleTriggerChange(ButtonID softIndex, ButtonID fullIndex, TriggerMode mode, float pressed)
+	void handleTriggerChange(ButtonID softIndex, ButtonID fullIndex, TriggerMode mode, float position)
 	{
 		if (JslGetControllerType(intHandle) != JS_TYPE_DS4)
 		{
@@ -1399,7 +1442,7 @@ public:
 		{
 		case DstState::NoPress:
 			// It actually doesn't matter what the last Press is. Theoretically, we could have missed the edge.
-			if (pressed > getSetting(SettingID::TRIGGER_THRESHOLD))
+			if (isSoftPullPressed(idxState, position))
 			{
 				if (mode == TriggerMode::MAY_SKIP || mode == TriggerMode::MUST_SKIP)
 				{
@@ -1425,12 +1468,12 @@ public:
 			}
 			break;
 		case DstState::PressStart:
-			if (pressed <= getSetting(SettingID::TRIGGER_THRESHOLD)) {
+			if (!isSoftPullPressed(idxState, position)) {
 				// Trigger has been quickly tapped on the soft press
 				triggerState[idxState] = DstState::QuickSoftTap;
 				handleButtonChange(softIndex, true);
 			}
-			else if (pressed == 1.0)
+			else if (position == 1.0)
 			{
 				// Trigger has been full pressed quickly
 				triggerState[idxState] = DstState::QuickFullPress;
@@ -1445,12 +1488,12 @@ public:
 			// Else, time passes as soft press is being held, waiting to see if the soft binding should be skipped
 			break;
 		case DstState::PressStartResp:
-			if (pressed <= getSetting(SettingID::TRIGGER_THRESHOLD)) {
+			if (!isSoftPullPressed(idxState, position)) {
 				// Soft press is being released
 				triggerState[idxState] = DstState::NoPress;
 				handleButtonChange(softIndex, false);
 			}
-			else if (pressed == 1.0)
+			else if (position == 1.0)
 			{
 				// Trigger has been full pressed quickly
 				triggerState[idxState] = DstState::QuickFullPress;
@@ -1471,7 +1514,7 @@ public:
 			handleButtonChange(softIndex, false);
 			break;
 		case DstState::QuickFullPress:
-			if (pressed < 1.0f) {
+			if (position < 1.0f) {
 				// Full press is being release
 				triggerState[idxState] = DstState::QuickFullRelease;
 				handleButtonChange(fullIndex, false);
@@ -1482,10 +1525,10 @@ public:
 			}
 			break;
 		case DstState::QuickFullRelease:
-			if (pressed <= getSetting(SettingID::TRIGGER_THRESHOLD)) {
+			if (!isSoftPullPressed(idxState, position)) {
 				triggerState[idxState] = DstState::NoPress;
 			}
-			else if (pressed == 1.0f)
+			else if (position == 1.0f)
 			{
 				// Trigger is being full pressed again
 				triggerState[idxState] = DstState::QuickFullPress;
@@ -1494,7 +1537,7 @@ public:
 			// else wait for the the trigger to be fully released
 			break;
 		case DstState::SoftPress:
-			if (pressed <= getSetting(SettingID::TRIGGER_THRESHOLD)) {
+			if (!isSoftPullPressed(idxState, position)) {
 				// Soft press is being released
 				triggerState[idxState] = DstState::NoPress;
 				handleButtonChange(softIndex, false);
@@ -1503,13 +1546,13 @@ public:
 			{
 
 				if ((mode == TriggerMode::MAY_SKIP || mode == TriggerMode::NO_SKIP || mode == TriggerMode::MAY_SKIP_R)
-					&& pressed == 1.0)
+					&& position == 1.0)
 				{
 					// Full press is allowed in addition to soft press
 					triggerState[idxState] = DstState::DelayFullPress;
 					handleButtonChange(fullIndex, true);
 				}
-				else if (mode == TriggerMode::NO_SKIP_EXCLUSIVE && pressed == 1.0)
+				else if (mode == TriggerMode::NO_SKIP_EXCLUSIVE && position == 1.0)
 				{
 					handleButtonChange(softIndex, false);
 					triggerState[idxState] = DstState::ExclFullPress;
@@ -1523,7 +1566,7 @@ public:
 			}
 			break;
 		case DstState::DelayFullPress:
-			if (pressed < 1.0)
+			if (position < 1.0)
 			{
 				// Full Press is being released
 				triggerState[idxState] = DstState::SoftPress;
@@ -1537,7 +1580,7 @@ public:
 			handleButtonChange(softIndex, true);
 			break;
 		case DstState::ExclFullPress:
-			if (pressed < 1.0f) {
+			if (position < 1.0f) {
 				// Full press is being release
 				triggerState[idxState] = DstState::SoftPress;
 				handleButtonChange(fullIndex, false);
@@ -1548,7 +1591,6 @@ public:
 				// Full press is being held
 				handleButtonChange(fullIndex, true);
 			}
-			break;
 			break;
 		default:
 			cout << "Error: Trigger " << softIndex << " has invalid state " << triggerState[idxState] << ". Reset to NoPress." << endl;
@@ -3120,7 +3162,7 @@ int main(int argc, char *argv[]) {
 	stick_power.SetFilter(&filterFloat);
 	real_world_calibration.SetFilter(&filterFloat);
 	in_game_sens.SetFilter(bind(&fmaxf, 0.0001f, ::placeholders::_2));
-	trigger_threshold.SetFilter(&filterClamp01);
+	trigger_threshold.SetFilter(&filterFloat);
 	aim_x_sign.SetFilter(&filterInvalidValue<AxisMode, AxisMode::INVALID>);
 	aim_y_sign.SetFilter(&filterInvalidValue<AxisMode, AxisMode::INVALID>);
 	gyro_x_sign.SetFilter(&filterInvalidValue<AxisMode, AxisMode::INVALID>);
@@ -3210,7 +3252,7 @@ int main(int argc, char *argv[]) {
 	commandRegistry.Add((new JSMAssignment<float>(in_game_sens))
 		->SetHelp("Set this value to the sensitivity you use in game. It is used by stick FLICK and AIM modes as well as GYRO aiming."));
 	commandRegistry.Add((new JSMAssignment<float>(trigger_threshold))
-		->SetHelp("Set this to a value between 0 and 1. This is the threshold at which a soft press binding is triggered."));
+		->SetHelp("Set this to a value between 0 and 1. This is the threshold at which a soft press binding is triggered. Or set the value to -1 to use hair trigger mode"));
 	commandRegistry.Add((new JSMMacro("RESET_MAPPINGS"))->SetMacro(bind(&do_RESET_MAPPINGS, &commandRegistry))
 		->SetHelp("Delete all custom bindings and reset to default.\nHOME and CAPTURE are set to CALIBRATE on both tap and hold by default."));
 	commandRegistry.Add((new JSMMacro("NO_GYRO_BUTTON"))->SetMacro(bind(&do_NO_GYRO_BUTTON))

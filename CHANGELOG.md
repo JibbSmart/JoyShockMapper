@@ -5,10 +5,12 @@ This is a summary of new features and bugfixes. Read the README to learn how to 
 
 ## 2.2.0
 Nicolas added some touchpad support: TOUCH binding, grid system, touch joystick for each touchpoint, cursor mode, and NO_SKIP_EXCLUSIVE trigger mode.
+Added hair trigger as a negative threshold
 
 ### Features
 * New Bindings: TOUCH, T1-T25 touch buttons, Touch stick bindings
 * New settings for touch joystick such as mode, inner deadzone, and stick radius
+* Assigning a negative value to trigger threshold enables hair trigger
 
 ## 2.1.1
 Nicolas added more keybinds.
