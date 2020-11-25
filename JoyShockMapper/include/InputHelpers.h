@@ -130,6 +130,7 @@ private:
 DWORD ShowOnlineHelp();
 
 void HideConsole();
+void UnhideConsole();
 
 void ShowConsole();
 

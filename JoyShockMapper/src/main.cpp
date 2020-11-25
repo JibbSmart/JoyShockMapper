@@ -89,12 +89,14 @@ JSMSetting<float> touch_stick_radius = JSMSetting<float>(SettingID::TOUCH_STICK_
 JSMSetting<float> touch_deadzone_inner = JSMSetting<float>(SettingID::TOUCH_DEADZONE_INNER, 0.3f);
 JSMSetting<RingMode> touch_ring_mode = JSMSetting<RingMode>(SettingID::TOUCH_RING_MODE, RingMode::OUTER);
 JSMSetting<FloatXY> touchpad_sens = JSMSetting<FloatXY>(SettingID::TOUCHPAD_SENS, { 1.f, 1.f });
+JSMVariable<Switch> hide_minimized = JSMVariable<Switch>(Switch::OFF);
 
 mutex loading_lock;
 
 float os_mouse_speed = 1.0;
 float last_flick_and_rotation = 0.0;
 unique_ptr<PollingThread> autoLoadThread;
+unique_ptr<PollingThread> minimizeThread;
 unique_ptr<TrayIcon> tray;
 bool devicesCalibrating = false;
 Whitelister whitelister(false);
@@ -1823,22 +1825,22 @@ bool do_IGNORE_OS_MOUSE_SPEED() {
 	return true;
 }
 
-void UpdateAutoload(Switch newValue)
+void UpdateThread(PollingThread *thread, Switch newValue)
 {
-	if (autoLoadThread)
+	if (thread)
 	{
 		if (newValue == Switch::ON)
 		{
-			autoLoadThread->Start();
+			thread->Start();
 		}
 		else if (newValue == Switch::OFF)
 		{
-			autoLoadThread->Stop();
+			thread->Stop();
 		}
 	}
 	else
 	{
-		cout << "AutoLoad is unavailable" << endl;
+		cout << "The thread is unavailable" << endl;
 	}
 }
 
@@ -2736,6 +2738,15 @@ bool AutoLoadPoll(void *param)
 	return true;
 }
 
+bool MinimizePoll(void *param)
+{
+	if (isConsoleMinimized())
+	{
+		HideConsole();
+	}
+	return true;
+}
+
 void beforeShowTrayMenu()
 {
 	if (!tray || !*tray) printf("ERROR: Cannot create tray item.\n");
@@ -2749,9 +2760,7 @@ void beforeShowTrayMenu()
 		});
 		tray->AddMenuItem(U("AutoLoad"), [](bool isChecked)
 			{
-				isChecked ?
-					autoLoadThread->Start() :
-					autoLoadThread->Stop();
+				autoloadSwitch = isChecked ? Switch::ON : Switch::OFF;
 			}, bind(&PollingThread::isRunning, autoLoadThread.get()));
 
 		if (Whitelister::IsHIDCerberusRunning())
@@ -2800,6 +2809,12 @@ void beforeShowTrayMenu()
 			WriteToConsole("CALCULATE_REAL_WORLD_CALIBRATION");
 			ShowConsole();
 		});
+		tray->AddMenuItem(U("Hide when minimized"), [](bool isChecked)
+			{
+				hide_minimized = isChecked ? Switch::ON : Switch::OFF;
+				if (!isChecked)
+					UnhideConsole();
+			}, bind(&PollingThread::isRunning, minimizeThread.get()));
 		tray->AddMenuItem(U("Quit"), []()
 		{
 			WriteToConsole("QUIT");
@@ -3131,6 +3146,8 @@ int main(int argc, char *argv[]) {
 	// console
 	initConsole(&CleanUp);
 	printf("Welcome to JoyShockMapper version %s!\n", version);
+	autoLoadThread.reset(new PollingThread(&AutoLoadPoll, &commandRegistry, 1000, autoloadSwitch.get() == Switch::ON)); // Start by default
+	minimizeThread.reset(new PollingThread(&MinimizePoll, nullptr, 1000, hide_minimized.get() == Switch::ON)); // Start by default
 
 	left_stick_mode.SetFilter(&filterInvalidValue<StickMode, StickMode::INVALID>)->
 		AddOnChangeListener(bind(&UpdateRingModeFromStickMode, &left_ring_mode, ::placeholders::_1));
@@ -3195,7 +3212,8 @@ int main(int argc, char *argv[]) {
 	dbl_press_window.SetFilter(&filterPositive);
 	hold_press_time.SetFilter(&filterHoldPressDelay);
 	currentWorkingDir.SetFilter( [] (PathString current, PathString next) { return SetCWD(string(next)) ? next : current; });
-	autoloadSwitch.SetFilter(&filterInvalidValue<Switch, Switch::INVALID>)->AddOnChangeListener(&UpdateAutoload);
+	autoloadSwitch.SetFilter(&filterInvalidValue<Switch, Switch::INVALID>)->AddOnChangeListener(bind(&UpdateThread, autoLoadThread.get(), placeholders::_1 ));
+	hide_minimized.SetFilter(&filterInvalidValue<Switch, Switch::INVALID>)->AddOnChangeListener(bind(&UpdateThread, minimizeThread.get(), placeholders::_1 ));
 	grid_size.SetFilter([](auto current, auto next)
 		{
 			float floorX = floorf(next.x());
@@ -3223,7 +3241,6 @@ int main(int argc, char *argv[]) {
 
 	currentWorkingDir = string(&cmdLine[0], &cmdLine[wcslen(cmdLine)]);
 	
-	autoLoadThread.reset(new PollingThread(&AutoLoadPoll, &commandRegistry, 1000, true)); // Start by default
 	if (autoLoadThread && autoLoadThread->isRunning())
 	{
 		printf("AutoLoad is enabled. Configurations in \"%s\" folder will get loaded when matching application is in focus.\n", AUTOLOAD_FOLDER());
@@ -3402,6 +3419,8 @@ int main(int argc, char *argv[]) {
 	commandRegistry.Add((new JSMAssignment<FloatXY>(touchpad_sens))
 		->SetHelp("Changes the sensitivity of the touchpad when set as a mouse. Enter a second value for a different vertical sensitivity."));
 	commandRegistry.Add(new HelpCmd(commandRegistry));
+	commandRegistry.Add((new JSMAssignment<Switch>("HIDE_MINIMIZED", hide_minimized))
+		->SetHelp("JSM will be hidden in the notification area when minimized if this setting is ON. Otherwise it stays in the taskbar."));
 
 	bool quit = false;
 	commandRegistry.Add((new JSMMacro("QUIT"))
