@@ -3594,7 +3594,7 @@ int main(int argc, char *argv[]) {
 	JslSetTouchCallback(&TouchCallback);
 	tray->Show();
 
-	do_RESET_MAPPINGS(&commandRegistry);
+	do_RESET_MAPPINGS(&commandRegistry); // onreset.txt
 	if (commandRegistry.loadConfigFile("onstartup.txt"))
 	{
 		printf("Finished executing startup file.\n");
