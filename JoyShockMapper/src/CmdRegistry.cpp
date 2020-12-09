@@ -226,6 +226,11 @@ void CmdRegistry::GetCommandList(vector<string>& outList)
 	return;
 }
 
+bool CmdRegistry::hasCommand(in_string name) const
+{
+	return _registry.find(name) != _registry.end();
+}
+
 string CmdRegistry::GetHelp(in_string command)
 {
 	auto cmd = _registry.find(command);

@@ -100,6 +100,8 @@ public:
 
 	bool Remove(in_string name);
 
+	bool hasCommand(in_string name) const;
+
 	bool isCommandValid(in_string line);
 
 	// Process a command entered by the user

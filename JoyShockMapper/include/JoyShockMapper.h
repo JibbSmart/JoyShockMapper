@@ -215,7 +215,7 @@ constexpr int MAGIC_TRIGGER_SMOOTHING = 5; // in samples
 
 enum class ControllerOrientation { FORWARD, LEFT, RIGHT, BACKWARD, INVALID };
 enum class RingMode { OUTER, INNER, INVALID };
-enum class StickMode { NO_MOUSE, AIM, FLICK, FLICK_ONLY, ROTATE_ONLY, MOUSE_RING, MOUSE_AREA, OUTER_RING, INNER_RING, INVALID };
+enum class StickMode { NO_MOUSE, AIM, FLICK, FLICK_ONLY, ROTATE_ONLY, MOUSE_RING, MOUSE_AREA, OUTER_RING, INNER_RING, SCROLL_WHEEL, INVALID };
 enum class FlickSnapMode { NONE, FOUR, EIGHT, INVALID };
 enum class AxisMode { STANDARD = 1, INVERTED = -1, INVALID = 0 }; // valid values are true!
 enum class TriggerMode { NO_FULL, NO_SKIP, MAY_SKIP, MUST_SKIP, MAY_SKIP_R, MUST_SKIP_R, NO_SKIP_EXCLUSIVE, INVALID };
@@ -333,6 +333,7 @@ struct GyroSettings {
 
 
 class DigitalButton;
+class JoyShock;
 
 typedef function<void(DigitalButton *)> OnEventAction;
 
