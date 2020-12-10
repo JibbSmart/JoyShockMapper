@@ -426,6 +426,7 @@ ROTATE_ONLY: flick stick rotation without the initial flick
 MOUSE_RING: stick angle sets the mouse position on a circle directly around the center of the screen
 MOUSE_AREA: stick position sets the cursor in a circular area around the neutral position
 NO_MOUSE: don't affect the mouse, use button mappings (default)
+SCROLL_WHEEL: enable left and right bindings by rotating the stick counter-clockwise or clockwise.
 ```
 
 The mode for the left and right stick are set like so:
@@ -489,6 +490,8 @@ When using the ```MOUSE_RING``` stick mode, tilting the stick will put the mouse
 When using the ```MOUSE_AREA``` stick mode, the stick value directly sets the mouse position. So moving the stick rightward gradually all the way to the edge will move the cursor at the same speed for a number of pixel equal to the value of ```MOUSE_RING_RADIUS``` ; and moving the stick back to the middle will move the cursor back again to where it started. Contrary to the previous mode, this mode can operate in conjunction with other mouse inputs, such as gyro.
 
 When using stick mode ```NO_MOUSE```, JSM will use the stick's UP DOWN LEFT and RIGHT bindings in a cross gate layout. There is a small square deadzone to ignore very small stick moves.
+
+Finally, ```SCROLL_WHEEL``` while turn the stick into a rotating scroll wheel. Left bindings are pulsed by rotating counter-clockwise and right bindings are pulsed by rotating clockwise. The setting SCROLL_SENS allows you to change the amount of degrees you need to perform to trigger a pulse. Unlike other sensitivity parameters, a higher value is lower sensitivity.
 
 ```
 # Left stick moves
@@ -685,9 +688,9 @@ ZLF,GYRO_SENS = NONE
 
 The touchpad always offers the ```TOUCH``` button binding. It will be pressed if there is any touch point active. This binding will overlap with other touch buttons and can be useful to disable gyro for example, or bring up the game map.
 
-The most important setting for the touchpad is simply ```TOUCHPAD\_MODE``` which will determine the primary functionality of the touchpad. Here are th possible values:
-* **GRID_AND_STICK** - Grid And Stick will create a button grid of equally sized buttons on the touch pad. You have to also assign to ```GRID_SIZE```` the number of columns and rows of the grid : the product of the two cannot be greater than 25 or lesser than 1. Touch buttons T1-TN will then become available for assignment: they are layed out in order from left to right, from top to bottom. There are also two touchsticks available. See below.
-* **MOUSE** - Mouse mode turns the touchpad into a familiar laptop touchpad. Sensitivity can be adjusted via ```TOUCHPAD_SENS```. Gestures will be added to this mode in a future release, such as double touch, pinch and rotation. Taps and double taps are already usable via ```TOUCH```.
+The most important setting for the touchpad is simply ```TOUCHPAD_MODE``` which will determine the primary functionality of the touchpad. Here are th possible values:
+* **GRID_AND_STICK** - Grid And Stick will create a button grid of equally sized buttons on the touch pad. You have to also assign to ```GRID_SIZE``` the number of columns and rows of the grid : the product of the two cannot be greater than 25 or lesser than 1. Touch buttons T1-TN will then become available for assignment: they are layed out in order from left to right, from top to bottom. There are also two touchsticks available. See below.
+* **MOUSE** - Mouse mode turns the touchpad into a familiar laptop touchpad. Sensitivity can be adjusted via ```TOUCHPAD_SENS```. Using two fingers you can rotate to trigger TLEFT and TRIGHT bindings like a scroll wheel ; you can also pinch to trigger TUP and TDOWN and use the vertical value of ```SCROLL_SENS```. More gestures will be added to this mode in a future release such as double touch. Taps and double taps are already usable via ```TOUCH```.
 
 Here's an example of grid usage to add some more buttons that otherwise would not be worth putting on a controller
 ```
@@ -707,6 +710,10 @@ TOUCHPAD_MODE = MOUSE
 TOUCH = LMOUSE'	     # Quick tap means select
 TOUCH,TOUCH = RMOUSE # Double tap for right click
 CAPTURE = ^LMOUSE    # Or click pad to toggle click (dragging)
+TUP = CONTROL\ SCROLLUP     # Zoom in when stretching outward
+TDOWN = CONTROL\ SCROLLDOWN   # Zoom out when pinching inward
+TRIGHT = SCROLLDOWN  # Rotate clockwise to scroll down
+TLEFT = SCROLLUP     # Rotate counter-clockwise to scroll up
 ```
 
 #### 7.1 Touch Stick

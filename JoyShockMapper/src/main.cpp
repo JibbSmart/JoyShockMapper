@@ -90,6 +90,7 @@ JSMSetting<float> touch_deadzone_inner = JSMSetting<float>(SettingID::TOUCH_DEAD
 JSMSetting<RingMode> touch_ring_mode = JSMSetting<RingMode>(SettingID::TOUCH_RING_MODE, RingMode::OUTER);
 JSMSetting<FloatXY> touchpad_sens = JSMSetting<FloatXY>(SettingID::TOUCHPAD_SENS, { 1.f, 1.f });
 JSMVariable<Switch> hide_minimized = JSMVariable<Switch>(Switch::OFF);
+JSMSetting<FloatXY> scroll_sens = JSMSetting<FloatXY>(SettingID::SCROLL_SENS, { 30.f, 30.f });
 
 mutex loading_lock;
 
@@ -833,7 +834,7 @@ public:
 		: _index(index)
 	{
 		buttons.reserve(5);
-		for (ButtonID id = ButtonID::TUP; id <= ButtonID::TRING; id = ButtonID(int(id) + 1))
+		for (ButtonID id = ButtonID(FIRST_TOUCH_BUTTON); id <= ButtonID::TRING; id = ButtonID(int(id) + 1))
 		{
 			buttons.push_back(DigitalButton(&common, id));
 		}
@@ -856,7 +857,7 @@ protected:
 	const int _touchpadId;
 	JoyShock * _js;
 
-	ButtonID _releaseMe;
+	bool _pressed;
 
 public:
 	static function<void(JoyShock *,ButtonID, int, bool)> _handleButtonChange;
@@ -866,26 +867,27 @@ public:
 		, _negativeId(negativeId)
 		, _positiveId(positiveId)
 		, _touchpadId(touchpadId)
-		, _releaseMe(ButtonID::NONE)
+		, _pressed(false)
 		, _js(js)
 	{}
 
 	void ProcessScroll(float distance, float sens)
 	{	
 		_leftovers += distance;
-		if(distance != 0)
-			cout << "Stick moved " << distance << " so that leftover is now " << _leftovers << endl;
-		if (fabsf(_leftovers) > sens)
+		//if(distance != 0) cout << "[" << _negativeId << "," << _positiveId << "] moved " << distance << " so that leftover is now " << _leftovers << endl;
+
+		if (!_pressed && fabsf(_leftovers) > sens)
 		{
 			_handleButtonChange(_js, _negativeId, _touchpadId, _leftovers > 0);
 			_handleButtonChange(_js, _positiveId, _touchpadId, _leftovers < 0);
 			_leftovers = _leftovers > 0 ? _leftovers - sens : _leftovers + sens;
-			_releaseMe = _leftovers > 0 ? _negativeId : _positiveId;
+			_pressed = true;
 		}
 		else
 		{
 			_handleButtonChange(_js, _negativeId, _touchpadId, false);
 			_handleButtonChange(_js, _positiveId, _touchpadId, false);
+			_pressed = false;
 		}
 	}
 
@@ -894,6 +896,7 @@ public:
 		_leftovers = 0;
 		_handleButtonChange(_js, _negativeId, _touchpadId, false);
 		_handleButtonChange(_js, _positiveId, _touchpadId, false);
+		_pressed = false;
 	}
 };
 
@@ -1024,10 +1027,11 @@ public:
 	FloatXY motion_last_cal;
 	ScrollAxis left_scroll;
 	ScrollAxis right_scroll;
-	ScrollAxis motion_scroll_x;
-	ScrollAxis motion_scroll_y;
+	//ScrollAxis motion_scroll_x;
+	//ScrollAxis motion_scroll_y;
 	ScrollAxis touch_scroll_x;
 	ScrollAxis touch_scroll_y;
+	array<TOUCH_POINT, 2> prevTouchPoints;
 
 	float poll_rate;
 	int controller_type = 0;
@@ -1077,10 +1081,8 @@ public:
 		, touchpads()
 		, right_scroll(this, ButtonID::RLEFT, ButtonID::RRIGHT)
 		, left_scroll(this, ButtonID::LLEFT, ButtonID::LRIGHT)
-		, motion_scroll_x(this, ButtonID::MLEFT, ButtonID::MRIGHT)
-		, motion_scroll_y(this, ButtonID::MDOWN, ButtonID::MUP)
-		, touch_scroll_x(this, ButtonID::TLEFT, ButtonID::TRIGHT)
-		, touch_scroll_y(this, ButtonID::TDOWN, ButtonID::TUP)
+		, touch_scroll_x(this, ButtonID::TLEFT, ButtonID::TRIGHT, 0)
+		, touch_scroll_y(this, ButtonID::TDOWN, ButtonID::TUP, 0)
 	{
 		btnCommon = new DigitalButton::Common(uniqueHandle);
 		btnCommon->_getMatchingSimBtn = bind(&JoyShock::GetMatchingSimBtn, this, placeholders::_1);
@@ -1108,8 +1110,6 @@ public:
 		, buttons()
 		, right_scroll(this, ButtonID::RLEFT, ButtonID::RRIGHT)
 		, left_scroll(this, ButtonID::LLEFT, ButtonID::LRIGHT)
-		, motion_scroll_x(this, ButtonID::MLEFT, ButtonID::MRIGHT)
-		, motion_scroll_y(this, ButtonID::MDOWN, ButtonID::MUP)
 		, touch_scroll_x(this, ButtonID::TLEFT, ButtonID::TRIGHT)
 		, touch_scroll_y(this, ButtonID::TDOWN, ButtonID::TUP)
 	{
@@ -1360,6 +1360,9 @@ public:
 				break;
 			case SettingID::TOUCHPAD_SENS:
 				opt = touchpad_sens.get(*activeChord);
+				break;
+			case SettingID::SCROLL_SENS:
+				opt = scroll_sens.get(*activeChord);
 				break;
 			}
 			if (opt) return *opt;
@@ -1793,6 +1796,7 @@ static void resetAllMappings() {
 	touch_ring_mode.Reset();
 	touchpad_sens.Reset();
 	light_bar.Reset();
+	scroll_sens.Reset();
 	for_each(touch_buttons.begin(), touch_buttons.end(), [] (auto &map) { map.Reset(); });
 	
 	os_mouse_speed = 1.0f;
@@ -2311,7 +2315,7 @@ void processStick(JoyShock* jc, float stickX, float stickY, float lastX, float l
 					lastAngle = lastAngle > 0 ? lastAngle - 360.f : lastAngle + 360.f;
 				}
 				//cout << "Stick moved from " << lastAngle << " to " << angle; // << endl;
-				scroll->ProcessScroll(angle - lastAngle, 90.f);
+				scroll->ProcessScroll(angle - lastAngle, jc->getSetting<FloatXY>(SettingID::SCROLL_SENS).x());
 			}
 		}
 	}
@@ -2348,7 +2352,7 @@ void TouchStick::handleTouchStickChange(JoyShock *js, bool down, short movX, sho
 	processStick(js, stickX, stickY, _currentLocation.x(), _currentLocation.y(), innerDeadzone, 0.f,
 		ringMode, stickMode, ButtonID::TRING, ButtonID::TLEFT, ButtonID::TRIGHT, ButtonID::TUP, ButtonID::TDOWN,
 		controllerOrientation, mouseCalibrationFactor, delta_time, touch_stick_acceleration, touch_last_cal,
-		is_flicking_touch, ignore_motion_stick, anyStickInput, lockMouse, camSpeedX, camSpeedY, nullptr, _index);
+		is_flicking_touch, ignore_motion_stick, anyStickInput, lockMouse, camSpeedX, camSpeedY, &js->touch_scroll_x, _index);
 
 	moveMouse(camSpeedX * js->getSetting(SettingID::STICK_AXIS_X), -camSpeedY * js->getSetting(SettingID::STICK_AXIS_Y));
 
@@ -2459,13 +2463,44 @@ void TouchCallback(int jcHandle, TOUCH_POINT point0, TOUCH_POINT point1, float d
 		js->touchpads[0].handleTouchStickChange(js, point0.isDown(), point0.movX, point0.movY, delta_time);
 		js->touchpads[1].handleTouchStickChange(js, point1.isDown(), point1.movX, point1.movY, delta_time);
 	}
-	else if (mode == TouchpadMode::MOUSE && point0.isDown())
+	else if (mode == TouchpadMode::MOUSE)
 	{
-		FloatXY sens = js->getSetting<FloatXY>(SettingID::TOUCHPAD_SENS);
-		//cout << "Moving the cursor by " << point0.movX << " h and " << point0.movY << " v" << endl;
-		moveMouse(point0.movX * sens.x(), point0.movY * sens.y());
-		// Ignore second touch point in this mode for now until gestures gets handled here
+		if (point0.isDown() && point1.isDown())
+		{
+			if (js->prevTouchPoints[0].isDown() && js->prevTouchPoints[1].isDown())
+			{
+				float x = fabsf(point0.posX - point1.posX) * 10;
+				float y = fabsf(point0.posY - point1.posY) * 10;
+				float angle = atan2f(y, x) / PI * 360;
+				float dist = x * x + y * y;
+				x = fabsf(js->prevTouchPoints[0].posX - js->prevTouchPoints[1].posX) * 10;
+				y = fabsf(js->prevTouchPoints[0].posY - js->prevTouchPoints[1].posY) * 10;
+				float oldAngle = atan2f(y, x) / PI * 360;
+				float oldDist = x * x + y * y;
+				js->touch_scroll_x.ProcessScroll(angle - oldAngle, js->getSetting<FloatXY>(SettingID::SCROLL_SENS).x());
+				js->touch_scroll_y.ProcessScroll(dist - oldDist, js->getSetting<FloatXY>(SettingID::SCROLL_SENS).y());
+			}
+			else
+			{
+				js->touch_scroll_x.Reset();
+				js->touch_scroll_y.Reset();
+			}
+		}
+		else
+		{
+			js->touch_scroll_x.Reset();
+			js->touch_scroll_y.Reset();
+			if (point0.isDown() ^ point1.isDown()) // XOR
+			{
+				TOUCH_POINT *downPoint = point0.isDown() ? &point0 : &point1;
+				FloatXY sens = js->getSetting<FloatXY>(SettingID::TOUCHPAD_SENS);
+				// if(downPoint->movX || downPoint->movY) cout << "Moving the cursor by " << std::dec << int(downPoint->movX) << " h and " << int(downPoint->movY) << " v" << endl;
+				moveMouse(downPoint->movX * sens.x(), downPoint->movY * sens.y());
+				// Ignore second touch point in this mode for now until gestures gets handled here
+			}
+		}
 	}
+	js->prevTouchPoints = { point0, point1 };
 	js->callback_lock.unlock();
 }
 
@@ -3539,6 +3574,8 @@ int main(int argc, char *argv[]) {
 	commandRegistry.Add(new HelpCmd(commandRegistry));
 	commandRegistry.Add((new JSMAssignment<Switch>("HIDE_MINIMIZED", hide_minimized))
 		->SetHelp("JSM will be hidden in the notification area when minimized if this setting is ON. Otherwise it stays in the taskbar."));
+	commandRegistry.Add((new JSMAssignment<FloatXY>(scroll_sens))
+		->SetHelp("Scrolling sensitivity for sticks and touchpad in degrees. Second value is used for touchpad pinch-strech gestures."));
 
 	bool quit = false;
 	commandRegistry.Add((new JSMMacro("QUIT"))

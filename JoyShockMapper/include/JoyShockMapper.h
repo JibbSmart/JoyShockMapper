@@ -199,6 +199,7 @@ enum class SettingID
 	TOUCH_RING_MODE,
 	TOUCHPAD_SENS,
 	LIGHT_BAR,
+	SCROLL_SENS,
 };
 
 // constexpr are like #define but with respect to typeness
@@ -206,7 +207,7 @@ constexpr size_t MAX_NO_OF_TOUCH = 2; // Could be obtained from JSL?
 constexpr int MAPPING_SIZE = int(ButtonID::SIZE);
 constexpr int FIRST_ANALOG_TRIGGER = int(ButtonID::ZLF);
 constexpr int LAST_ANALOG_TRIGGER = int(ButtonID::ZRF);
-constexpr int FIRST_TOUCH_BUTTON = int(ButtonID::TUP);
+constexpr int FIRST_TOUCH_BUTTON = MAPPING_SIZE + 1;
 constexpr int NUM_ANALOG_TRIGGERS = int(LAST_ANALOG_TRIGGER) - int(FIRST_ANALOG_TRIGGER) + 1;
 constexpr float MAGIC_TAP_DURATION = 40.0f; // in milliseconds.
 constexpr float MAGIC_INSTANT_DURATION = 40.0f; // in milliseconds
