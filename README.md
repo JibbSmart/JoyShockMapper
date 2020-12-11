@@ -1,4 +1,3 @@
-
 # JoyShockMapper
 The Sony PlayStation DualSense, DualShock 4, Nintendo Switch JoyCons (used in pairs), and Nintendo Switch Pro Controller have much in common. They have many of the features expected of modern game controllers. They also have an incredibly versatile and underutilised input that their biggest rival (Microsoft's Xbox One controller) doesn't have: a 3-axis gyroscope (from here on, “gyro”).
 
@@ -39,8 +38,13 @@ JoyShockMapper works on Windows and uses JoyShockLibrary to read inputs from con
   * **[Touchpad](#7-touchpad)**
     * **[Touch Sticks](#71-touch-stick)**
   * **[Miscellaneous Commands](#8-miscellaneous-commands)**
+* **[Configuration Files](#configuration-files)**
+  * **[OnStartup.txt](#1-onstartuptxt)**
+  * **[OnReset.txt](#2-onresettxt)**
+  * **[Autoload feature](#3-autoload-feature)**
 * **[Known and Perceived Issues](#known-and-perceived-issues)**
 * **[Troubleshooting](#troubleshooting)**
+* **[Known and Perceived Issues](#known-and-perceived-issues)**
 * **[Credits](#credits)**
 * **[Helpful Resources](#helpful-resources)**
 * **[License](#license)**
@@ -112,7 +116,7 @@ Included is a folder called GyroConfigs. This includes templates for creating ne
     * [Sticks](#3-stick-mouse-inputs), the [gyro](#4-gyro-mouse-inputs) and [Sony's analog triggers](#2-analog-triggers) require some more configuration: typically some MODE you want to set, a sensitivity value and some other settings. Each is explained in the corresponding section. They follow the same format : [setting name] = [value]
 	* Buttons and settings will display their current values if you only enter their name in the console.
 	* Settings can display a short description of what they do if you enter [setting name] HELP
-	* There quite a few commands that do not work as assignments like above but just runs a function. For example RECONNECT\_CONTROLLERS will update the controller listing, and RESET\_MAPPINGS will set all settings and bindings to default. README will lead you to this document!
+	* There are quite a few commands that do not work as assignments like above but just runs a function. For example RECONNECT\_CONTROLLERS will update the controller listing, and RESET\_MAPPINGS will set all settings and bindings to default. README will lead you to this document!
 	* You will find a JoyShockMapper icon in the system tray: right click on it to display a quick list of commands and configuration files.
 
 3. JoyShockMapper can load all the commands contained in a text file.
@@ -193,7 +197,7 @@ MUP, MDOWN, MLEFT, MRIGHT: Motion stick tilted forward, back, left or right
 MRING: Motion ring binding, either inner or outer.
 LEAN_LEFT, LEAN_RIGHT: Tilt the controller to the left or right
 TOUCH : The DS4 touchpad is being touched
-T1-T16: Up to 16 configurable touch buttons layed out in a grid
+T1-T25: Up to 25 configurable touch buttons layed out in a grid
 ```
 
 These can all be mapped to the following keyboard and mouse inputs:
@@ -304,10 +308,10 @@ ______|-----|---|---|---|---|---|--|___________|---|____________
       |     |   |   |   |   |   |  |           |   |      |
      (a)   (b) (c) (c) (c) (c) (c)(d)         (a) (d)    (g)
            (c)                    (f)             (e)
-a: start press \\
+a: start press \
 b: hold press _
 c: turbo +
-d: release press \/
+d: release press /
 e: tap press '
 f: hold release
 g: tap release
@@ -537,7 +541,7 @@ When using the ```MOUSE_AREA``` stick mode, the stick value directly sets the mo
 
 When using stick mode ```NO_MOUSE```, JSM will use the stick's UP DOWN LEFT and RIGHT bindings in a cross gate layout. There is a small square deadzone to ignore very small stick moves.
 
-Finally, ```SCROLL_WHEEL``` while turn the stick into a rotating scroll wheel. Left bindings are pulsed by rotating counter-clockwise and right bindings are pulsed by rotating clockwise. The setting SCROLL_SENS allows you to change the amount of degrees you need to perform to trigger a pulse. Unlike other sensitivity parameters, a higher value is lower sensitivity.
+Finally, ```SCROLL_WHEEL``` while turn the stick into a rotating scroll wheel. Left bindings are pulsed by rotating counter-clockwise and right bindings are pulsed by rotating clockwise. The setting SCROLL_SENS allows you to change the amount of degrees you need to perform to trigger a pulse. Unlike other sensitivity parameters, a higher value is less sensitive.
 
 ```
 # Left stick moves
@@ -804,7 +808,8 @@ There are a few other useful commands that don't fall under the above categories
 * **LIGHT_BAR** - Set the DS4 light bar to the assigned color. You can assign either a 6 hex digit code precedded by 'x', three decimal values for red, green and blue between 0 and 255, or simply a [common color name](https://www.rapidtables.com/web/color/RGB_Color.html#color-table) in capitals and underscore.
 * **HIDE_MINIMIZED** - Some users like having JSM hidden in the notification area. You can hide JSM when minimized by setting this to ON. OFF is the default value.
 * ***onstartup.txt*** - This is not a command. But if a file called '*onstartup.txt*' is found in the current working directory on startup, its contents will be loaded and executed right away. If you prefer that AutoLoad is disabled, put ```AUTOLOAD = OFF``` in here to have it disabled at startup. If you use HIDGuardian / HIDCerberus and always want to whitelist JSM and then reconnect controllers, just put ```WHITELIST_ADD``` and ```RECONNECT_CONTROLLERS``` in the startup file.
-* ***onreset.txt*** - This is also not a command. But if a file called '*onreset.txt*' is found in the current working directory when the ```RESET_MAPPINGS``` command is called, this config will be loaded and executed right afterwards.
+* **README** will lead you to this document.
+* **HELP** Will display a list of all commands, all commands containing a given string, or the specific help for all the exact command names given to it.
 
 ## Configuration Files
 
@@ -822,7 +827,7 @@ When JoyShockMapper first boots up, it will attempt to load the commands found i
 
 This configuration is found in the same location as OnStartup.txt explained above. This file is run each time RESET\_MAPPINGS is called, as well as before OnStartup.txt. This file is a good spot to have a CALIBRATE button for your controller, which you will typically always need.
 
-### 3. Autoload
+### 3. Autoload feature
 
 JoyShockMapper can automatically load a configuration file for your games each time the game window enters focus. Drop the file in the **AutoLoad** folder where JSM_DIRECTORY refers to. JoyShockMapper will look for a name based on the executable name of the program that's in focus. When it goes into focus and autoload is enabled (which it is by default), JoyShockMapper will tell you the name of the file it's looking for - case insensitive.
 
@@ -878,6 +883,8 @@ JoyShockMapper relies a lot on [JoyShockLibrary](https://github.com/jibbsmart/Jo
   * How developers can do a better job implementing gyro controls;
   * How to use JoyShockMapper;
   * User editable collection of user configurations and tips for using JoyShockMapper with a bunch of games.
+*[GyroGaming subreddit](https://www.reddit.com/r/GyroGaming/)
+*[GyroGaming discord server](https://discord.gg/4w7pCqj).
 
 ## License
 JoyShockMapper is licensed under the MIT License - see [LICENSE.md](LICENSE.md).
