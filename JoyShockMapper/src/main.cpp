@@ -2774,7 +2774,6 @@ int main(int argc, char *argv[]) {
 		newButton.SetFilter(&filterMapping);
 		mappings.push_back(newButton);
 	}
-	tray.reset(new TrayIcon(trayIconData, &beforeShowTrayMenu ));
 	// console
 	initConsole(&CleanUp);
 	printf("Welcome to JoyShockMapper version %s!\n", version);
@@ -2782,7 +2781,8 @@ int main(int argc, char *argv[]) {
 	// prepare for input
 	connectDevices();
 	JslSetCallback(&joyShockPollCallback);
-	tray->Show();
+    tray.reset(new TrayIcon(trayIconData, &beforeShowTrayMenu ));
+    tray->Show();
 
 	left_stick_mode.SetFilter(&filterInvalidValue<StickMode, StickMode::INVALID>)->
 		AddOnChangeListener(bind(&UpdateRingModeFromStickMode, &left_ring_mode, ::placeholders::_1));
