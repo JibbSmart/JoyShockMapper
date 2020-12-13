@@ -10,7 +10,7 @@
 #include "JoyShockMapper.h"
 #include "PlatformDefinitions.h"
 
-const char *AUTOLOAD_FOLDER = [] {
+const char *AUTOLOAD_FOLDER() {
 	std::string directory;
 
 	const auto XDG_CONFIG_HOME = getenv("XDG_CONFIG_HOME");
@@ -25,9 +25,9 @@ const char *AUTOLOAD_FOLDER = [] {
 
 	directory = directory + "/JoyShockMapper/AutoLoad/";
 	return strdup(directory.c_str());
-}();
+};
 
-const char *GYRO_CONFIGS_FOLDER = [] {
+const char *GYRO_CONFIGS_FOLDER() {
 	std::string directory;
 
 	const auto XDG_CONFIG_HOME = getenv("XDG_CONFIG_HOME");
@@ -42,9 +42,9 @@ const char *GYRO_CONFIGS_FOLDER = [] {
 
 	directory = directory + "/JoyShockMapper/GyroConfigs/";
 	return strdup(directory.c_str());
-}();
+};
 
-const char *BASE_JSM_CONFIG_FOLDER = [] {
+const char *BASE_JSM_CONFIG_FOLDER() {
 	std::string directory;
 
 	const auto XDG_CONFIG_HOME = getenv("XDG_CONFIG_HOME");
@@ -59,7 +59,7 @@ const char *BASE_JSM_CONFIG_FOLDER = [] {
 
 	directory = directory + "/JoyShockMapper/";
 	return strdup(directory.c_str());
-}();
+};
 
 unsigned long GetCurrentProcessId()
 {
@@ -73,7 +73,7 @@ unsigned long GetCurrentProcessId()
 /// NONE
 /// And characters: ; ' , . / \ [ ] + - `
 /// Yes, this looks slow. But it's only there to help set up faster mappings
-WORD KeyCode::nameToKey(const std::string &name)
+WORD nameToKey(const std::string &name)
 {
 	// https://msdn.microsoft.com/en-us/library/dd375731%28v=vs.85%29.aspx?f=255&MSPPError=-2147217396
 	auto length = name.length();

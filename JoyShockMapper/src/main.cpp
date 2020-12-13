@@ -252,7 +252,7 @@ public:
 				}
 			}
 			// Chord stack should always include NONE which will provide a value in the loop above
-			throw exception("ChordStack should always include ButtonID::NONE, for the chorded variable to return the base value.");
+			throw runtime_error("ChordStack should always include ButtonID::NONE, for the chorded variable to return the base value.");
 		}
 		return _keyToRelease.get();
 	}
@@ -505,11 +505,20 @@ void Mapping::ProcessEvent(BtnEvent evt, DigitalButton &button, in_string displa
 	}
 }
 
-void Mapping::InsertEventMapping(BtnEvent evt, OnEventAction action)
-{
-	auto existingActions = eventMapping.find(evt);
-	eventMapping[evt] = existingActions == eventMapping.end() ? action :
-		bind(&RunAllActions, placeholders::_1, 2, existingActions->second, action); // Chain with already existing mapping, if any
+void Mapping::InsertEventMapping(BtnEvent evt, OnEventAction action) {
+    auto existingActions = eventMapping.find(evt);
+    //eventMapping[evt] = existingActions == eventMapping.end() ? action :
+    //bind(&RunAllActions, placeholders::_1, 2, existingActions->second,
+    //     action); // Chain with already existing mapping, if any
+
+    if (existingActions == eventMapping.end()) {
+        eventMapping[evt] = action;
+    } else {
+        eventMapping[evt] = [=](DigitalButton* btn) {
+            if(existingActions->second) existingActions->second(btn);
+            if(action) action(btn);
+        };
+    }
 }
 
 bool Mapping::AddMapping(KeyCode key, EventModifier evtMod, ActionModifier actMod)
@@ -581,7 +590,11 @@ bool Mapping::AddMapping(KeyCode key, EventModifier evtMod, ActionModifier actMo
 	case ActionModifier::Instant:
 	{
 		OnEventAction action2 = bind(&DigitalButton::RegisterInstant, placeholders::_1, applyEvt);
-		apply = bind(&Mapping::RunAllActions, placeholders::_1, 2, apply, action2);
+		//apply = bind(&Mapping::RunAllActions, placeholders::_1, 2, apply, action2);
+		apply = [=](DigitalButton* btn) {
+		    if(apply) apply(btn);
+		    if(action2) action2(btn);
+		};
 		releaseEvt = BtnEvent::OnInstantRelease;
 	} break;
 	case ActionModifier::INVALID:
@@ -595,8 +608,10 @@ bool Mapping::AddMapping(KeyCode key, EventModifier evtMod, ActionModifier actMo
 	return true;
 }
 
+
 void Mapping::RunAllActions(DigitalButton *btn, int numEventActions, ...)
 {
+    /*
 	va_list arguments;
 	va_start(arguments, numEventActions);
 	for (int x = 0; x < numEventActions; x++)
@@ -607,6 +622,7 @@ void Mapping::RunAllActions(DigitalButton *btn, int numEventActions, ...)
 	}
 	va_end(arguments);
 	return;
+     */
 }
 
 // An instance of this class represents a single controller device that JSM is listening to.
@@ -2833,7 +2849,11 @@ int main(int argc, char *argv[]) {
 	currentWorkingDir.SetFilter( [] (PathString current, PathString next) { return SetCWD(string(next)) ? next : current; });
 	autoloadSwitch.SetFilter(&filterInvalidValue<Switch, Switch::INVALID>)->AddOnChangeListener(&UpdateAutoload);
 
-	currentWorkingDir = string(&cmdLine[0], &cmdLine[wcslen(cmdLine)]);
+#if _WIN32
+    currentWorkingDir = string(&cmdLine[0], &cmdLine[wcslen(cmdLine)]);
+#else
+    currentWorkingDir = string(argv[0]);
+#endif
 	CmdRegistry commandRegistry;
 
 	autoLoadThread.reset(new PollingThread(&AutoLoadPoll, &commandRegistry, 1000, true)); // Start by default
