@@ -7,6 +7,7 @@
 #include <vector>
 #include <map>
 #include <string>
+#include <atomic>
 
 struct MenuItem;
 
@@ -17,6 +18,7 @@ class WindowsTrayIcon {
 	std::map<UINT_PTR, std::function<void()>> _clickMap;
 	HANDLE _thread;
 	std::function<void()> _beforeShow;
+    std::atomic_bool _init;
 
 public:
 	WindowsTrayIcon(HINSTANCE hInstance, std::function<void()> beforeShow);
