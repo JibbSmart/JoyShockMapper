@@ -212,7 +212,7 @@ void CmdRegistry::processLine(const string& line)
 
 		if (!hasProcessed)
 		{
-			cout << "Unrecognized command: \"" << trimmedLine << "\"\nEnter HELP to display all commands." << endl;
+			cout << "Unrecognized command: \"" << trimmedLine << "\"" << endl << "Enter HELP to display all commands." << endl;
 		}
 	}
 	// else ignore empty lines

@@ -39,12 +39,12 @@ protected:
 			string fwd_args(results.empty() ? arguments : results[1].str());
 			if (!_parse(this, fwd_args))
 			{
-				cout << _help << endl; // Parsing has failed. Show help.
+				cout << "Error in processing command " << _name << endl << "The README command will lead you to the user manual." << endl; // Parsing has failed. Show help.
 			}
 		}
 		else
 		{
-			// If no if case processed the command,; it has been entered wrong.
+			// If no if-case processed the command it has been entered wrong.
 			return false;
 		}
 		return true; // Command is completely processed

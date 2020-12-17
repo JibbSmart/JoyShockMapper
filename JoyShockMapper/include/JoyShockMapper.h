@@ -118,6 +118,9 @@ enum class ButtonID
 	// Add as necessary...
 };
 
+// Help strings for each button
+extern const map<ButtonID, string> buttonHelpMap;
+
 enum class SettingID
 {
 	INVALID = -2,			// Represents an error in user input

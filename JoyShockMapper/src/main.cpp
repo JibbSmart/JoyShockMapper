@@ -3403,7 +3403,7 @@ int main(int argc, char *argv[]) {
 
 	for (auto &mapping : mappings) // Add all button mappings as commands
 	{
-		commandRegistry.Add(new JSMAssignment<Mapping>(mapping));
+		commandRegistry.Add((new JSMAssignment<Mapping>(mapping))->SetHelp(buttonHelpMap.at(mapping._id)));
 	}
 	commandRegistry.Add((new JSMAssignment<FloatXY>(min_gyro_sens))
 		->SetHelp("Minimum gyro sensitivity when turning controller at or below MIN_GYRO_THRESHOLD.\nYou can assign a second value as a different vertical sensitivity."));
