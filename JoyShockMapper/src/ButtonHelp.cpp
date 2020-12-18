@@ -4,10 +4,10 @@
 
 const map<ButtonID, string> buttonHelpMap
 {
-	{ButtonID::UP, "Up on the d - pad"},
-	{ButtonID::DOWN, "Down on the d - pad"},
-	{ButtonID::LEFT, "Left on the d - pad"},
-	{ButtonID::RIGHT, "Right on the d - pad"},
+	{ButtonID::UP, "Up on the d-pad"},
+	{ButtonID::DOWN, "Down on the d-pad"},
+	{ButtonID::LEFT, "Left on the d-pad"},
+	{ButtonID::RIGHT, "Right on the d-pad"},
 	{ButtonID::L, "L1 or L, the top left shoulder button"},
 	{ButtonID::ZL, "L2 or ZL, the bottom left shoulder button(or trigger)"},
 	{ButtonID::MINUS, "Share or -"},
