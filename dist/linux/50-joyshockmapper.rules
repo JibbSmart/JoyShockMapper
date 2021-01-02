@@ -16,6 +16,9 @@ KERNEL=="hidraw*", KERNELS=="*054C:05C4*", GROUP="input", MODE="0660", TAG+="uac
 # DualShock 4 Slim over bluetooth hidraw
 KERNEL=="hidraw*", KERNELS=="*054C:09CC*", GROUP="input", MODE="0660", TAG+="uaccess"
 
+# DualSense over USB hidraw
+KERNEL=="hidraw*", ATTRS{idVendor}=="0x054c", ATTRS{idProduct}=="0x0ce6", GROUP="input", MODE="0660", TAG+="uaccess"
+
 # Nintendo Switch Pro Controller over USB hidraw
 KERNEL=="hidraw*", ATTRS{idVendor}=="057e", ATTRS{idProduct}=="2009", GROUP="input", MODE="0660", TAG+="uaccess"
 
