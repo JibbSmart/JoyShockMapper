@@ -507,17 +507,12 @@ void Mapping::ProcessEvent(BtnEvent evt, DigitalButton &button, in_string displa
 
 void Mapping::InsertEventMapping(BtnEvent evt, OnEventAction action) {
     auto existingActions = eventMapping.find(evt);
-    //eventMapping[evt] = existingActions == eventMapping.end() ? action :
-    //bind(&RunAllActions, placeholders::_1, 2, existingActions->second,
-    //     action); // Chain with already existing mapping, if any
 
     if (existingActions == eventMapping.end()) {
         eventMapping[evt] = action;
     } else {
-        eventMapping[evt] = [=](DigitalButton* btn) {
-            if(existingActions->second) existingActions->second(btn);
-            if(action) action(btn);
-        };
+		// Chain with already existing mapping, if any
+		eventMapping[evt] = bind(&RunBothActions, placeholders::_1, existingActions->second, action);
     }
 }
 
@@ -590,11 +585,7 @@ bool Mapping::AddMapping(KeyCode key, EventModifier evtMod, ActionModifier actMo
 	case ActionModifier::Instant:
 	{
 		OnEventAction action2 = bind(&DigitalButton::RegisterInstant, placeholders::_1, applyEvt);
-		//apply = bind(&Mapping::RunAllActions, placeholders::_1, 2, apply, action2);
-		apply = [=](DigitalButton* btn) {
-		    if(apply) apply(btn);
-		    if(action2) action2(btn);
-		};
+		apply = bind(&Mapping::RunBothActions, placeholders::_1, apply, action2);
 		releaseEvt = BtnEvent::OnInstantRelease;
 	} break;
 	case ActionModifier::INVALID:
@@ -609,20 +600,12 @@ bool Mapping::AddMapping(KeyCode key, EventModifier evtMod, ActionModifier actMo
 }
 
 
-void Mapping::RunAllActions(DigitalButton *btn, int numEventActions, ...)
+void Mapping::RunBothActions(DigitalButton *btn, OnEventAction action1, OnEventAction action2)
 {
-    /*
-	va_list arguments;
-	va_start(arguments, numEventActions);
-	for (int x = 0; x < numEventActions; x++)
-	{
-		auto action = va_arg(arguments, OnEventAction);
-		if(action)
-			action(btn);
-	}
-	va_end(arguments);
-	return;
-     */
+	if (action1) 
+		action1(btn);
+	if (action2) 
+		action2(btn);
 }
 
 // An instance of this class represents a single controller device that JSM is listening to.

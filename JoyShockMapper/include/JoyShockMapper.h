@@ -292,7 +292,7 @@ private:
 	map<BtnEvent, OnEventAction> eventMapping;
 	float tapDurationMs = MAGIC_TAP_DURATION;
 	void InsertEventMapping(BtnEvent evt, OnEventAction action);
-	static void RunAllActions(DigitalButton *btn, int numEventActions, ...);
+	static void RunBothActions(DigitalButton *btn, OnEventAction action1, OnEventAction action2);
 
 public:
 	Mapping() = default;
