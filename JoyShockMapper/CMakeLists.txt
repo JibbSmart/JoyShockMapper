@@ -44,7 +44,7 @@ if (WINDOWS)
     set_target_properties (
         ${BINARY_NAME} PROPERTIES
          WIN32_EXECUTABLE ON
-         VS_STARTUP_PROJECT ${BINARY_NAME}
+         VS_STARTUP_PROJECT "${BINARY_NAME}"
          VS_DEBUGGER_WORKING_DIRECTORY "$(ProjectDir)/$(Configuration)/"
     )
 
@@ -84,12 +84,6 @@ if (WINDOWS)
         ${BINARY_NAME} PUBLIC
         "${PROJECT_BINARY_DIR}/_deps/vigemclient-src/include"
     )
-    
-    #target_link_libraries (
-    #    ${BINARY_NAME} 
-    #    PRIVATE Platform::Dependencies
-    #    ViGEmClient
-    #)
 
     add_custom_command(
         TARGET ${BINARY_NAME}

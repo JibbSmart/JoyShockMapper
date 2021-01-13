@@ -5,12 +5,10 @@
 #include "TrayIcon.h"
 #include "JSMAssignment.hpp"
 #include "quatMaths.cpp"
-struct XINPUT_GAMEPAD;
 #include "win32/Gamepad.h"
 
 #include <mutex>
 #include <deque>
-
 
 #pragma warning(disable:4996) // Disable deprecated API warnings
 

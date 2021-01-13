@@ -1,21 +1,13 @@
-//
-// Windows basic types 'n' fun
-//
-#include <windows.h>
-
-//
-// Optional depending on your use case
-//
+#include "win32/Gamepad.h"
 #include <Xinput.h>
 
 //
-// The ViGEm API
+// Windows basic types 'n' fun
 //
 
+#include "ViGEm/Client.h"
 #include <string>
 #include <sstream>
-#include "win32/Gamepad.h"
-#include "ViGEm/Client.h"
 
 //
 // Link against SetupAPI
@@ -100,9 +92,9 @@ bool Gamepad::isInitialized(std::string *errorMsg)
 
 Gamepad::TargetUpdate Gamepad::getUpdater()
 {
-	return [this] (void *state)
+	return [this] (XINPUT_GAMEPAD *state)
 	{
-		vigem_target_x360_update(client, _gamepad, *reinterpret_cast<XUSB_REPORT*>(state));
+		vigem_target_x360_update(client, _gamepad, *reinterpret_cast<_XUSB_REPORT*>(state));
 	};
 }
 
@@ -196,6 +188,6 @@ void Gamepad::Update::setRightTrigger(float val)
 
 void Gamepad::Update::send()
 {
-	_targetUpdate(&_state);
+	_targetUpdate(_state.get());
 	_targetUpdate = nullptr;
 }

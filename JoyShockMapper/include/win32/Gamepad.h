@@ -4,11 +4,13 @@
 
 
 struct _VIGEM_TARGET_T;
+struct _XINPUT_GAMEPAD;
+typedef _XINPUT_GAMEPAD XINPUT_GAMEPAD;
 
 class Gamepad
 {
 public:
-	using TargetUpdate = function<void(void*)>;
+	using TargetUpdate = function<void(XINPUT_GAMEPAD*)>;
 
 	class Update
 	{
