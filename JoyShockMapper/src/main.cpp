@@ -5,9 +5,12 @@
 #include "TrayIcon.h"
 #include "JSMAssignment.hpp"
 #include "quatMaths.cpp"
+struct XINPUT_GAMEPAD;
+#include "win32/Gamepad.h"
 
 #include <mutex>
 #include <deque>
+
 
 #pragma warning(disable:4996) // Disable deprecated API warnings
 
@@ -3004,6 +3007,16 @@ int main(int argc, char *argv[]) {
 	commandRegistry.Add((new JSMAssignment<PathString>("JSM_DIRECTORY", currentWorkingDir))
 		->SetHelp("If AUTOLOAD doesn't work properly, set this value to the path to the directory holding the JoyShockMapper.exe file. Make sure a folder named \"AutoLoad\" exists there."));
 	commandRegistry.Add(new HelpCmd(commandRegistry));
+
+	Gamepad gamepad2;
+	commandRegistry.Add((new JSMMacro("TEST"))->SetMacro([](JSMMacro *, in_string) {
+		Gamepad gamepad;
+		if (gamepad.isInitialized())
+		{
+			Gamepad::Update update(gamepad);
+			update.setButton(ButtonID::PLUS, true);
+		}
+		}));
 
 	bool quit = false;
 	commandRegistry.Add((new JSMMacro("QUIT"))
