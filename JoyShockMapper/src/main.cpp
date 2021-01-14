@@ -167,7 +167,7 @@ public:
 		auto instant = find(_instantReleaseQueue.begin(), _instantReleaseQueue.end(), instantEvent);
 		if (instant != _instantReleaseQueue.end())
 		{
-			//cout << "Button " << _id << " releases instant " << instantEvent << endl;
+			//COUT << "Button " << _id << " releases instant " << instantEvent << endl;
 			_keyToRelease->ProcessEvent(BtnEvent::OnInstantRelease, *this, _nameToRelease);
 			_instantReleaseQueue.erase(instant);
 			return true;
@@ -328,7 +328,7 @@ public:
 
 	void RegisterInstant(BtnEvent evt)
 	{
-		//cout << "Button " << _id << " registers instant " << evt << endl;
+		//COUT << "Button " << _id << " registers instant " << evt << endl;
 		_instantReleaseQueue.push_back(evt);
 	}
 
@@ -352,7 +352,7 @@ public:
 		_keyToRelease.reset(new Mapping(*_mapping.AtSimPress(btn)));
 		_nameToRelease = _mapping.getSimPressName(btn);
 		_simPressMaster = btn;
-		//cout << btn << " is the master button" << endl;
+		//COUT << btn << " is the master button" << endl;
 	}
 
 	void ClearKey()
@@ -479,27 +479,27 @@ Mapping::Mapping(in_string mapping)
 
 void Mapping::ProcessEvent(BtnEvent evt, DigitalButton &button, in_string displayName) const
 {
-	// cout << button._id << " processes event " << evt << endl;
+	// COUT << button._id << " processes event " << evt << endl;
 	auto entry = eventMapping.find(evt);
 	if (entry != eventMapping.end() && entry->second) // Skip over empty entries
 	{
 		switch (evt)
 		{
 		case BtnEvent::OnPress:
-			cout << displayName << ": true" << endl;
+			COUT << displayName << ": true" << endl;
 			break;
 		case BtnEvent::OnRelease:
 		case BtnEvent::OnHoldRelease:
-			cout << displayName << ": false" << endl;
+			COUT << displayName << ": false" << endl;
 			break;
 		case BtnEvent::OnTap:
-			cout << displayName << ": tapped" << endl;
+			COUT << displayName << ": tapped" << endl;
 			break;
 		case BtnEvent::OnHold:
-			cout << displayName << ": held" << endl;
+			COUT << displayName << ": held" << endl;
 			break;
 		}
-		//cout << button._id << " processes event " << evt << endl;
+		//COUT << button._id << " processes event " << evt << endl;
 		if(entry->second)
 			entry->second(&button);
 	}
@@ -532,7 +532,7 @@ bool Mapping::AddMapping(KeyCode key, EventModifier evtMod, ActionModifier actMo
 		_ASSERT_EXPR(Mapping::_isCommandValid, "You need to assign a function to this field. It should be a function that validates the command line.");
 		if (!Mapping::_isCommandValid(key.name))
 		{
-			cout << "Error: \"" << key.name << "\" is not a valid command" << endl;
+			COUT << "Error: \"" << key.name << "\" is not a valid command" << endl;
 			return false;
 		}
 		apply = bind(&WriteToConsole, key.name);
@@ -1109,12 +1109,12 @@ public:
 		{
 			if (foundChord != btnCommon->chordStack.end())
 			{
-				//cout << "Button " << index << " is released!" << endl;
+				//COUT << "Button " << index << " is released!" << endl;
 				btnCommon->chordStack.erase(foundChord); // The chord is released
 			}
 		}
 		else if (foundChord == btnCommon->chordStack.end()) {
-			//cout << "Button " << index << " is pressed!" << endl;
+			//COUT << "Button " << index << " is pressed!" << endl;
 			btnCommon->chordStack.push_front(index); // Always push at the fromt to make it a stack
 		}
 
@@ -1286,7 +1286,7 @@ public:
 			break;
 		}
 		default:
-			cout << "Invalid button state " << button._btnState << ": Resetting to NoPress" << endl;
+			COUT << "Invalid button state " << button._btnState << ": Resetting to NoPress" << endl;
 			button._btnState = BtnState::NoPress;
 			break;
 		}
@@ -1303,7 +1303,7 @@ public:
 		auto idxState = int(fullIndex) - FIRST_ANALOG_TRIGGER; // Get analog trigger index
 		if (idxState < 0 || idxState >= (int)triggerState.size())
 		{
-			cout << "Error: Trigger " << fullIndex << " does not exist in state map. Dual Stage Trigger not possible." << endl;
+			COUT << "Error: Trigger " << fullIndex << " does not exist in state map. Dual Stage Trigger not possible." << endl;
 			return;
 		}
 
@@ -1453,7 +1453,7 @@ public:
 			break;
 		default:
 			// TODO: use magic enum to translate enum # to str
-			cout << "Error: Trigger " << softIndex << " has invalid state " << triggerState[idxState] << ". Reset to NoPress." << endl;
+			COUT << "Error: Trigger " << softIndex << " has invalid state " << triggerState[idxState] << ". Reset to NoPress." << endl;
 			triggerState[idxState] = DstState::NoPress;
 			break;
 		}
@@ -1636,7 +1636,7 @@ bool do_RESET_MAPPINGS(CmdRegistry *registry) {
 	{
 		if (!registry->loadConfigFile("onreset.txt"))
 		{
-			cout << "There is no onreset.txt file to load." << endl;
+			COUT << "There is no onreset.txt file to load." << endl;
 		}
 	}
 	return true;
@@ -1677,7 +1677,7 @@ void UpdateAutoload(Switch newValue)
 	}
 	else
 	{
-		cout << "AutoLoad is unavailable" << endl;
+		COUT << "AutoLoad is unavailable" << endl;
 	}
 }
 
@@ -2413,7 +2413,7 @@ bool AutoLoadPoll(void *param)
 		string path(AUTOLOAD_FOLDER());
 		auto files = ListDirectory(path);
 		auto noextmodule = windowModule.substr(0, windowModule.find_first_of('.'));
-		printf("[AUTOLOAD] \"%s\" in focus: ", windowTitle.c_str()); // looking for config : " , );
+		cout << "[AUTOLOAD] \"" << windowTitle << "\" in focus: "; // looking for config : " , );
 		bool success = false;
 		for (auto file : files)
 		{
@@ -2556,7 +2556,7 @@ float filterHoldPressDelay(float c, float next)
 {
 	if (next <= sim_press_window || next >= dbl_press_window)
 	{
-		cout << SettingID::HOLD_PRESS_TIME << " can only be set to a value between those of " <<
+		COUT << SettingID::HOLD_PRESS_TIME << " can only be set to a value between those of " <<
 			SettingID::SIM_PRESS_WINDOW << " (" << sim_press_window << "ms) and " <<
 			SettingID::DBL_PRESS_WINDOW << " (" << dbl_press_window << "ms) exclusive." << endl;
 		return c;
@@ -2604,8 +2604,8 @@ void RefreshAutoloadHelp(JSMAssignment<Switch> *autoloadCmd)
 class GyroSensAssignment : public JSMAssignment<FloatXY>
 {
 public:
-	GyroSensAssignment(in_string name, JSMSetting<FloatXY>& gyroSens)
-		: JSMAssignment(name, string(magic_enum::enum_name(gyroSens._id)), gyroSens)
+	GyroSensAssignment(SettingID id, JSMSetting<FloatXY>& gyroSens)
+		: JSMAssignment(magic_enum::enum_name(id).data(), string(magic_enum::enum_name(gyroSens._id)), gyroSens)
 	{
 		// min and max gyro sens already have a listener
 		gyroSens.RemoveOnChangeListener(_listenerId);
@@ -2615,8 +2615,8 @@ public:
 class StickDeadzoneAssignment : public JSMAssignment<float>
 {
 public:
-	StickDeadzoneAssignment(in_string name, JSMSetting<float> &stickDeadzone)
-	  : JSMAssignment(name, string(magic_enum::enum_name(stickDeadzone._id)), stickDeadzone)
+	StickDeadzoneAssignment(SettingID id, JSMSetting<float> &stickDeadzone)
+	  : JSMAssignment(magic_enum::enum_name(id).data(), string(magic_enum::enum_name(stickDeadzone._id)), stickDeadzone)
 	{
 		// min and max gyro sens already have a listener
 		stickDeadzone.RemoveOnChangeListener(_listenerId);
@@ -2634,7 +2634,7 @@ private:
 		{
 			GyroSettings value(_var);
 			//No assignment? Display current assignment
-			cout << (value.always_off ? string("GYRO_ON") : string("GYRO_OFF")) << " = " << value << endl;;
+			COUT << (value.always_off ? string("GYRO_ON") : string("GYRO_OFF")) << " = " << value << endl;;
 		}
 		else
 		{
@@ -2659,11 +2659,11 @@ private:
 
 	void DisplayGyroSettingValue(GyroSettings value)
 	{
-		cout << (value.always_off ? string("GYRO_ON") : string("GYRO_OFF")) << " is set to " << value << endl;;
+		COUT << (value.always_off ? string("GYRO_ON") : string("GYRO_OFF")) << " is set to " << value << endl;;
 	}
 public:
-	GyroButtonAssignment(in_string name, bool always_off)
-		: JSMAssignment(name, gyro_settings)
+	GyroButtonAssignment(SettingID id, bool always_off)
+		: JSMAssignment(magic_enum::enum_name(id).data(), gyro_settings)
 		, _always_off(always_off)
 	{
 		SetParser(bind(&GyroButtonAssignment::GyroParser, this, placeholders::_2));
@@ -2704,26 +2704,26 @@ private:
 		if (arg.empty())
 		{
 			// Show all commands
-			cout << "Here's the list of all commands." << endl;
+			COUT << "Here's the list of all commands." << endl;
 			vector<string> list;
 			registry->GetCommandList(list);
 			for (auto cmd : list)
 			{
-				cout << "    " << cmd << endl;
+				COUT << "    " << cmd << endl;
 			}
-			cout << "Enter HELP [cmd1] [cmd2] ... for details on specific commands." << endl;
+			COUT << "Enter HELP [cmd1] [cmd2] ... for details on specific commands." << endl;
 		}
 		else
 		{
 			auto help = registry->GetHelp(arg);
 			if (!help.empty())
 			{
-				cout << arg << " :" << endl <<
+				COUT << arg << " :" << endl <<
 					"    " << help << endl;
 			}
 			else
 			{
-				cout << arg << " is not a recognized command" << endl;
+				COUT << arg << " is not a recognized command" << endl;
 			}
 		}
 	}
@@ -2876,9 +2876,9 @@ int main(int argc, char *argv[]) {
 		->SetHelp("Set a mouse mode for the right stick. Valid values are the following:\nNO_MOUSE, AIM, FLICK, FLICK_ONLY, ROTATE_ONLY, MOUSE_RING, MOUSE_AREA, OUTER_RING, INNER_RING"));
 	commandRegistry.Add((new JSMAssignment<StickMode>(motion_stick_mode))
 	    ->SetHelp("Set a mouse mode for the motion-stick -- the whole controller is treated as a stick. Valid values are the following:\nNO_MOUSE, AIM, FLICK, FLICK_ONLY, ROTATE_ONLY, MOUSE_RING, MOUSE_AREA, OUTER_RING, INNER_RING"));
-	commandRegistry.Add((new GyroButtonAssignment("GYRO_OFF", false))
+	commandRegistry.Add((new GyroButtonAssignment(SettingID::GYRO_OFF, false))
 		->SetHelp("Assign a controller button to disable the gyro when pressed."));
-	commandRegistry.Add((new GyroButtonAssignment("GYRO_ON", true))->SetListener() // Set only one listener
+	commandRegistry.Add((new GyroButtonAssignment(SettingID::GYRO_ON, true))->SetListener() // Set only one listener
 		->SetHelp("Assign a controller button to enable the gyro when pressed."));
 	commandRegistry.Add((new JSMAssignment<AxisMode>(aim_x_sign))
 		->SetHelp("When in AIM mode, set stick X axis inversion. Valid values are the following:\nSTANDARD or 1, and INVERTED or -1"));
@@ -2894,13 +2894,13 @@ int main(int argc, char *argv[]) {
 		->SetHelp("JoyShockMapper will load the user's OS mouse sensitivity value to consider it in its calculations."));
 	commandRegistry.Add((new JSMMacro("IGNORE_OS_MOUSE_SPEED"))->SetMacro(bind(do_IGNORE_OS_MOUSE_SPEED))
 		->SetHelp("Disable JoyShockMapper's consideration of the the user's OS mouse sensitivity value."));
-	commandRegistry.Add((new JSMAssignment<JoyconMask>("JOYCON_GYRO_MASK", joycon_gyro_mask))
+	commandRegistry.Add((new JSMAssignment<JoyconMask>(joycon_gyro_mask))
 		->SetHelp("When using two Joycons, select which one will be used for gyro. Valid values are the following:\nUSE_BOTH, IGNORE_LEFT, IGNORE_RIGHT, IGNORE_BOTH"));
-	commandRegistry.Add((new JSMAssignment<JoyconMask>("JOYCON_MOTION_MASK", joycon_motion_mask))
+	commandRegistry.Add((new JSMAssignment<JoyconMask>(joycon_motion_mask))
 	    ->SetHelp("When using two Joycons, select which one will be used for non-gyro motion. Valid values are the following:\nUSE_BOTH, IGNORE_LEFT, IGNORE_RIGHT, IGNORE_BOTH"));
-	commandRegistry.Add((new GyroSensAssignment("GYRO_SENS", min_gyro_sens))
+	commandRegistry.Add((new GyroSensAssignment(SettingID::GYRO_SENS, min_gyro_sens))
 		->SetHelp("Sets a gyro sensitivity to use. This sets both MIN_GYRO_SENS and MAX_GYRO_SENS to the same values. You can assign a second value as a different vertical sensitivity."));
-	commandRegistry.Add((new GyroSensAssignment("GYRO_SENS", max_gyro_sens))->SetHelp(""));
+	commandRegistry.Add((new GyroSensAssignment(SettingID::GYRO_SENS, max_gyro_sens))->SetHelp(""));
 	commandRegistry.Add((new JSMAssignment<float>(flick_time))
 		->SetHelp("Sets how long a flick takes in seconds. This value is used by stick FLICK mode."));
 	commandRegistry.Add((new JSMAssignment<float>(flick_time_exponent))
@@ -2927,12 +2927,12 @@ int main(int argc, char *argv[]) {
 		->SetHelp("Defines a radius of the right stick within which all values will be ignored. This value can only be between 0 and 1 but it should be small. Stick input out of this radius will be adjusted."));
 	commandRegistry.Add((new JSMAssignment<float>(right_stick_deadzone_outer))
 		->SetHelp("Defines a distance from the right stick's outer edge for which the stick will be considered fully tilted. This value can only be between 0 and 1 but it should be small. Stick input out of this deadzone will be adjusted."));
-	commandRegistry.Add((new StickDeadzoneAssignment("STICK_DEADZONE_INNER", left_stick_deadzone_inner))
+	commandRegistry.Add((new StickDeadzoneAssignment(SettingID::STICK_DEADZONE_INNER, left_stick_deadzone_inner))
 		->SetHelp("Defines a radius of the both left and right sticks within which all values will be ignored. This value can only be between 0 and 1 but it should be small. Stick input out of this radius will be adjusted."));
-	commandRegistry.Add((new StickDeadzoneAssignment("STICK_DEADZONE_INNER", right_stick_deadzone_inner))->SetHelp(""));
-	commandRegistry.Add((new StickDeadzoneAssignment("STICK_DEADZONE_OUTER", left_stick_deadzone_outer))
+	commandRegistry.Add((new StickDeadzoneAssignment(SettingID::STICK_DEADZONE_INNER, right_stick_deadzone_inner))->SetHelp(""));
+	commandRegistry.Add((new StickDeadzoneAssignment(SettingID::STICK_DEADZONE_OUTER, left_stick_deadzone_outer))
 		->SetHelp("Defines a distance from both sticks' outer edge for which the stick will be considered fully tilted. This value can only be between 0 and 1 but it should be small. Stick input out of this deadzone will be adjusted."));
-	commandRegistry.Add((new StickDeadzoneAssignment("STICK_DEADZONE_OUTER", right_stick_deadzone_outer))->SetHelp(""));
+	commandRegistry.Add((new StickDeadzoneAssignment(SettingID::STICK_DEADZONE_OUTER, right_stick_deadzone_outer))->SetHelp(""));
 	commandRegistry.Add((new JSMAssignment<float>(motion_deadzone_inner))
 		->SetHelp("Defines a radius of the motion-stick within which all values will be ignored. This value can only be between 0 and 1 but it should be small. Stick input out of this radius will be adjusted."));
 	commandRegistry.Add((new JSMAssignment<float>(motion_deadzone_outer))

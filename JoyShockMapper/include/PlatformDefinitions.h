@@ -5,6 +5,22 @@
 #ifdef _WIN32
 
 #include <Windows.h>
+#include <iostream>
+#include <sstream>
+
+template<std::ostream* stdio, uint16_t color>
+struct ColorStream : public stringstream
+{
+	~ColorStream()
+	{
+		HANDLE hStdout = GetStdHandle(STD_ERROR_HANDLE);
+		CONSOLE_SCREEN_BUFFER_INFO info = { 0 };
+		GetConsoleScreenBufferInfo(hStdout, &info);
+		SetConsoleTextAttribute(hStdout, color);
+		(*stdio) << str();
+		SetConsoleTextAttribute(hStdout, info.wAttributes);
+	}
+};
 
 #define U(string) L##string
 
@@ -108,6 +124,7 @@ extern const char *GYRO_CONFIGS_FOLDER();
 extern const char *BASE_JSM_CONFIG_FOLDER();
 
 extern unsigned long GetCurrentProcessId();
+
 
 #else
 #error "Unknown platform"

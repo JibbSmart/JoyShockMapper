@@ -41,10 +41,14 @@ unique_ptr<JSMCommand> JSMCommand::GetModifiedCmd(char op, in_string chord)
 bool JSMCommand::ParseData(in_string arguments)
 {
 	_ASSERT_EXPR(_parse, L"There is no function defined to parse this command.");
-	if (arguments.compare("HELP") == 0 || !_parse(this, arguments))
+	if (arguments.compare("HELP") == 0)
 	{
 		// Parsing has failed. Show help.
-		cout << _help << endl;
+		COUT << _help << endl;
+	}
+	else if (!_parse(this, arguments))
+	{
+		CERR << _help << endl;
 	}
 	return true; // Command is completely processed
 }
@@ -200,7 +204,7 @@ void CmdRegistry::processLine(const string& line)
 
 		if (!hasProcessed)
 		{
-			cout << "Unrecognized command: \"" << trimmedLine << "\"\nEnter HELP to display all commands." << endl;
+			CERR << "Unrecognized command: \"" << trimmedLine << "\"\nEnter HELP to display all commands." << endl;
 		}
 	}
 	// else ignore empty lines
