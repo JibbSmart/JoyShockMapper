@@ -9,6 +9,7 @@
 
 #include <mutex>
 #include <deque>
+#include <iomanip>
 
 #pragma warning(disable:4996) // Disable deprecated API warnings
 
@@ -168,7 +169,7 @@ public:
 		auto instant = find(_instantReleaseQueue.begin(), _instantReleaseQueue.end(), instantEvent);
 		if (instant != _instantReleaseQueue.end())
 		{
-			//cout << "Button " << _id << " releases instant " << instantEvent << endl;
+			//COUT << "Button " << _id << " releases instant " << instantEvent << endl;
 			_keyToRelease->ProcessEvent(BtnEvent::OnInstantRelease, *this, _nameToRelease);
 			_instantReleaseQueue.erase(instant);
 			return true;
@@ -260,7 +261,7 @@ public:
 
 	void StartCalibration()
 	{
-		printf("Starting continuous calibration\n");
+		COUT << "Starting continuous calibration" << endl;
 		JslResetContinuousCalibration(_deviceHandle);
 		JslStartContinuousCalibration(_deviceHandle);
 	}
@@ -268,11 +269,11 @@ public:
 	void FinishCalibration()
 	{
 		JslPauseContinuousCalibration(_deviceHandle);
-		printf("Gyro calibration set\n");
+		COUT << "Gyro calibration set" << endl;
 		ClearAllActiveToggle(KeyCode("CALIBRATE"));
 	}
 
-	void ApplyGyroAction(KeyCode gyroAction) // TODO: Keycode should be WORD here
+	void ApplyGyroAction(KeyCode gyroAction)
 	{
 		_common->gyroActionQueue.push_back({ _id, gyroAction });
 	}
@@ -329,7 +330,7 @@ public:
 
 	void RegisterInstant(BtnEvent evt)
 	{
-		//cout << "Button " << _id << " registers instant " << evt << endl;
+		//COUT << "Button " << _id << " registers instant " << evt << endl;
 		_instantReleaseQueue.push_back(evt);
 	}
 
@@ -353,7 +354,7 @@ public:
 		_keyToRelease.reset(new Mapping(*_mapping.AtSimPress(btn)));
 		_nameToRelease = _mapping.getSimPressName(btn);
 		_simPressMaster = btn;
-		//cout << btn << " is the master button" << endl;
+		//COUT << btn << " is the master button" << endl;
 	}
 
 	void ClearKey()
@@ -480,27 +481,27 @@ Mapping::Mapping(in_string mapping)
 
 void Mapping::ProcessEvent(BtnEvent evt, DigitalButton &button, in_string displayName) const
 {
-	// cout << button._id << " processes event " << evt << endl;
+	// COUT << button._id << " processes event " << evt << endl;
 	auto entry = eventMapping.find(evt);
 	if (entry != eventMapping.end() && entry->second) // Skip over empty entries
 	{
 		switch (evt)
 		{
 		case BtnEvent::OnPress:
-			cout << displayName << ": true" << endl;
+			COUT << displayName << ": true" << endl;
 			break;
 		case BtnEvent::OnRelease:
 		case BtnEvent::OnHoldRelease:
-			cout << displayName << ": false" << endl;
+			COUT << displayName << ": false" << endl;
 			break;
 		case BtnEvent::OnTap:
-			cout << displayName << ": tapped" << endl;
+			COUT << displayName << ": tapped" << endl;
 			break;
 		case BtnEvent::OnHold:
-			cout << displayName << ": held" << endl;
+			COUT << displayName << ": held" << endl;
 			break;
 		}
-		//cout << button._id << " processes event " << evt << endl;
+		//COUT << button._id << " processes event " << evt << endl;
 		if(entry->second)
 			entry->second(&button);
 	}
@@ -533,7 +534,7 @@ bool Mapping::AddMapping(KeyCode key, EventModifier evtMod, ActionModifier actMo
 		_ASSERT_EXPR(Mapping::_isCommandValid, "You need to assign a function to this field. It should be a function that validates the command line.");
 		if (!Mapping::_isCommandValid(key.name))
 		{
-			cout << "Error: \"" << key.name << "\" is not a valid command" << endl;
+			COUT << "Error: \"" << key.name << "\" is not a valid command" << endl;
 			return false;
 		}
 		apply = bind(&WriteToConsole, key.name);
@@ -1110,12 +1111,12 @@ public:
 		{
 			if (foundChord != btnCommon->chordStack.end())
 			{
-				//cout << "Button " << index << " is released!" << endl;
+				//COUT << "Button " << index << " is released!" << endl;
 				btnCommon->chordStack.erase(foundChord); // The chord is released
 			}
 		}
 		else if (foundChord == btnCommon->chordStack.end()) {
-			//cout << "Button " << index << " is pressed!" << endl;
+			//COUT << "Button " << index << " is pressed!" << endl;
 			btnCommon->chordStack.push_front(index); // Always push at the fromt to make it a stack
 		}
 
@@ -1287,7 +1288,7 @@ public:
 			break;
 		}
 		default:
-			cout << "Invalid button state " << button._btnState << ": Resetting to NoPress" << endl;
+			COUT << "Invalid button state " << button._btnState << ": Resetting to NoPress" << endl;
 			button._btnState = BtnState::NoPress;
 			break;
 		}
@@ -1304,7 +1305,7 @@ public:
 		auto idxState = int(fullIndex) - FIRST_ANALOG_TRIGGER; // Get analog trigger index
 		if (idxState < 0 || idxState >= (int)triggerState.size())
 		{
-			cout << "Error: Trigger " << fullIndex << " does not exist in state map. Dual Stage Trigger not possible." << endl;
+			COUT << "Error: Trigger " << fullIndex << " does not exist in state map. Dual Stage Trigger not possible." << endl;
 			return;
 		}
 
@@ -1454,7 +1455,7 @@ public:
 			break;
 		default:
 			// TODO: use magic enum to translate enum # to str
-			cout << "Error: Trigger " << softIndex << " has invalid state " << triggerState[idxState] << ". Reset to NoPress." << endl;
+			COUT << "Error: Trigger " << softIndex << " has invalid state " << triggerState[idxState] << ". Reset to NoPress." << endl;
 			triggerState[idxState] = DstState::NoPress;
 			break;
 		}
@@ -1597,23 +1598,23 @@ void connectDevices() {
 		//JslStartContinuousCalibration(deviceHandles[i]);
 	}
 
-	string msg;
-	if (numConnected == 1) {
-		msg = "1 device connected\n";
-	}
-	else {
-		stringstream ss;
-		ss << numConnected << " devices connected" << endl;
-		msg = ss.str();
-	}
-	printf("%s\n", msg.c_str());
+	{
+		ColorStream<&cout, FOREGROUND_GREEN | FOREGROUND_INTENSITY> ss;
+		if (numConnected == 1) {
+			ss << "1 device connected" << endl;
+		}
+		else {
+
+			ss << numConnected << " devices connected" << endl;
+		}
+	} // Display message in color
 	//if (!IsVisible())
 	//{
 	//	tray->SendToast(wstring(msg.begin(), msg.end()));
 	//}
 
 	//if (numConnected != 0) {
-	//	printf("All devices have started continuous gyro calibration\n");
+	//	COUT << "All devices have started continuous gyro calibration" << endl;
 	//}
 
 	delete[] deviceHandles;
@@ -1631,20 +1632,20 @@ bool do_NO_GYRO_BUTTON() {
 }
 
 bool do_RESET_MAPPINGS(CmdRegistry *registry) {
-	printf("Resetting all mappings to defaults\n");
+	COUT << "Resetting all mappings to defaults" << endl;
 	resetAllMappings();
 	if (registry)
 	{
 		if (!registry->loadConfigFile("onreset.txt"))
 		{
-			cout << "There is no onreset.txt file to load." << endl;
+			COUT << "There is no onreset.txt file to load." << endl;
 		}
 	}
 	return true;
 }
 
 bool do_RECONNECT_CONTROLLERS() {
-	printf("Reconnecting controllers\n");
+	COUT << "Reconnecting controllers" << endl;
 	JslDisconnectAndDisposeAll();
 	connectDevices();
 	JslSetCallback(&joyShockPollCallback);
@@ -1652,13 +1653,13 @@ bool do_RECONNECT_CONTROLLERS() {
 }
 
 bool do_COUNTER_OS_MOUSE_SPEED() {
-	printf("Countering OS mouse speed setting\n");
+	COUT << "Countering OS mouse speed setting" << endl;
 	os_mouse_speed = getMouseSpeed();
 	return true;
 }
 
 bool do_IGNORE_OS_MOUSE_SPEED() {
-	printf("Ignoring OS mouse speed setting\n");
+	COUT << "Ignoring OS mouse speed setting" << endl;
 	os_mouse_speed = 1.0;
 	return true;
 }
@@ -1678,7 +1679,7 @@ void UpdateAutoload(Switch newValue)
 	}
 	else
 	{
-		cout << "AutoLoad is unavailable" << endl;
+		COUT << "AutoLoad is unavailable" << endl;
 	}
 }
 
@@ -1690,24 +1691,24 @@ bool do_CALCULATE_REAL_WORLD_CALIBRATION(in_string argument) {
 			numRotations = stof(argument);
 		}
 		catch (invalid_argument ia) {
-			printf("Can't convert \"%s\" to a number\n", argument.c_str());
+			COUT << "Can't convert \"" << argument << "\" to a number" << endl;
 			return false;
 		}
 	}
 	if (numRotations == 0) {
-		printf("Can't calculate calibration from zero rotations\n");
+		COUT << "Can't calculate calibration from zero rotations" << endl;
 	}
 	else if (last_flick_and_rotation == 0) {
-		printf("Need to use the flick stick at least once before calculating an appropriate calibration value\n");
+		COUT << "Need to use the flick stick at least once before calculating an appropriate calibration value" << endl;
 	}
 	else {
-		printf("Recommendation: REAL_WORLD_CALIBRATION = %.5g\n", *real_world_calibration.get() * last_flick_and_rotation / numRotations);
+		COUT << "Recommendation: REAL_WORLD_CALIBRATION = " << setprecision(5) << (*real_world_calibration.get() * last_flick_and_rotation / numRotations) << endl;
 	}
 	return true;
 }
 
 bool do_FINISH_GYRO_CALIBRATION() {
-	printf("Finishing continuous calibration for all devices\n");
+	COUT << "Finishing continuous calibration for all devices" << endl;
 	for (auto iter = handle_to_joyshock.begin(); iter != handle_to_joyshock.end(); ++iter) {
 		JslPauseContinuousCalibration(iter->second->intHandle);
 	}
@@ -1716,7 +1717,7 @@ bool do_FINISH_GYRO_CALIBRATION() {
 }
 
 bool do_RESTART_GYRO_CALIBRATION() {
-	printf("Restarting continuous calibration for all devices\n");
+	COUT << "Restarting continuous calibration for all devices" << endl;
 	for (auto iter = handle_to_joyshock.begin(); iter != handle_to_joyshock.end(); ++iter) {
 		JslResetContinuousCalibration(iter->second->intHandle);
 		JslStartContinuousCalibration(iter->second->intHandle);
@@ -1727,7 +1728,7 @@ bool do_RESTART_GYRO_CALIBRATION() {
 
 bool do_SET_MOTION_STICK_NEUTRAL()
 {
-	printf("Setting neutral motion stick orientation...\n");
+	COUT << "Setting neutral motion stick orientation..." << endl;
 	for (auto iter = handle_to_joyshock.begin(); iter != handle_to_joyshock.end(); ++iter)
 	{
 		iter->second->set_neutral_quat = true;
@@ -1747,41 +1748,41 @@ bool do_SLEEP(in_string argument)
 		}
 		catch (invalid_argument ia)
 		{
-			printf("Can't convert \"%s\" to a number\n", argument.c_str());
+			COUT << "Can't convert \"" << argument << "\" to a number" << endl;
 			return false;
 		}
 	}
 
 	if (sleepTime <= 0)
 	{
-		printf("Sleep time must be greater than 0 and less than or equal to 10\n");
+		COUT << "Sleep time must be greater than 0 and less than or equal to 10" << endl;
 		return false;
 	}
 
 	if (sleepTime > 10)
 	{
-		printf("Sleep is capped at 10s per command\n");
+		COUT << "Sleep is capped at 10s per command" << endl;
 		sleepTime = 10.f;
 	}
-	printf("Sleeping for %.3f second(s)...\n", sleepTime);
+	COUT << "Sleeping for " << setprecision(3) << sleepTime << " second(s)..." << endl;
 	std::this_thread::sleep_for(std::chrono::milliseconds((int)(sleepTime * 1000)));
-	printf("Finished sleeping.\n");
+	COUT << "Finished sleeping." << endl;
 
 	return true;
 }
 
 bool do_README() {
-	printf("Opening online help in your browser\n");
+	COUT << "Opening online help in your browser" << endl;
 	auto err = ShowOnlineHelp();
 	if (err != 0)
 	{
-		printf("Could not open online help. Error #%d\n", err);
+		COUT << "Could not open online help. Error #" << err << endl;;
 	}
 	return true;
 }
 
 bool do_WHITELIST_SHOW() {
-	printf("Your PID is %lu\n", GetCurrentProcessId()); // WinAPI call!
+	COUT << "Your PID is " << GetCurrentProcessId() << endl;
 	Whitelister::ShowHIDCerberus();
 	return true;
 }
@@ -1790,18 +1791,18 @@ bool do_WHITELIST_ADD() {
 	whitelister.Add();
 	if (whitelister)
 	{
-		printf("JoyShockMapper was successfully whitelisted\n");
+		COUT << "JoyShockMapper was successfully whitelisted" << endl;
 	}
 	else
 	{
-		printf("Whitelisting failed!\n");
+		COUT << "Whitelisting failed!" << endl;
 	}
 	return true;
 }
 
 bool do_WHITELIST_REMOVE() {
 	whitelister.Remove();
-	printf("JoyShockMapper removed from whitelist\n");
+	COUT << "JoyShockMapper removed from whitelist" << endl;
 	return true;
 }
 
@@ -1819,7 +1820,7 @@ static float handleFlickStick(float calX, float calY, float lastCalX, float last
 	}
 	if (stickLength >= flickStickThreshold) {
 		float stickAngle = atan2(-offsetX, offsetY);
-		//printf(", %.4f\n", lastOffsetLength);
+		//COUT << ", %.4f\n", lastOffsetLength);
 		if (!isFlicking) {
 			// bam! new flick!
 			isFlicking = true;
@@ -1850,7 +1851,7 @@ static float handleFlickStick(float calX, float calY, float lastCalX, float last
 				jc->ResetSmoothSample();
 				jc->flick_rotation_counter = stickAngle; // track all rotation for this flick
 				// TODO: All these printfs should be hidden behind a setting. User might not want them.
-				printf("Flick: %.3f degrees\n", stickAngle * (180.0f / (float)PI));
+				COUT << "Flick: " << setprecision(3) << stickAngle * (180.0f / (float)PI) << " degrees" << endl;
 			}
 		}
 		else {
@@ -2066,10 +2067,10 @@ void processStick(JoyShock* jc, float stickX, float stickY, float lastX, float l
 
 void joyShockPollCallback(int jcHandle, JOY_SHOCK_STATE state, JOY_SHOCK_STATE lastState, IMU_STATE imuState, IMU_STATE lastImuState, float deltaTime) {
 
-	//printf("DS4 accel: %.4f, %.4f, %.4f\n", imuState.accelX, imuState.accelY, imuState.accelZ);
-	//printf("\tDS4 gyro: %.4f, %.4f, %.4f\n", imuState.gyroX, imuState.gyroY, imuState.gyroZ);
+	//COUT << "DS4 accel: %.4f, %.4f, %.4f\n", imuState.accelX, imuState.accelY, imuState.accelZ);
+	//COUT << "\tDS4 gyro: %.4f, %.4f, %.4f\n", imuState.gyroX, imuState.gyroY, imuState.gyroZ);
 	MOTION_STATE motion = JslGetMotionState(jcHandle);
-	//printf("\tDS4 quat: %.4f, %.4f, %.4f, %.4f | accel: %.4f, %.4f, %.4f | grav: %.4f, %.4f, %.4f\n",
+	//COUT << "\tDS4 quat: %.4f, %.4f, %.4f, %.4f | accel: %.4f, %.4f, %.4f | grav: %.4f, %.4f, %.4f\n",
 	//	motion.quatW, motion.quatX, motion.quatY, motion.quatZ,
 	//	motion.accelX, motion.accelY, motion.accelZ,
 	//	motion.gravX, motion.gravY, motion.gravZ);
@@ -2081,7 +2082,7 @@ void joyShockPollCallback(int jcHandle, JOY_SHOCK_STATE state, JOY_SHOCK_STATE l
 	bool motionAny = false;
 	// get jc from handle
 	JoyShock* jc = getJoyShockFromHandle(jcHandle);
-	//printf("Controller %d\n", jcHandle);
+	//COUT << "Controller %d\n", jcHandle);
 	if (jc == nullptr) return;
 	jc->callback_lock.lock();
 	if (jc->set_neutral_quat)
@@ -2091,10 +2092,10 @@ void joyShockPollCallback(int jcHandle, JOY_SHOCK_STATE state, JOY_SHOCK_STATE l
 		jc->neutralQuatY = motion.quatY;
 		jc->neutralQuatZ = motion.quatZ;
 		jc->set_neutral_quat = false;
-		printf("Neutral orientation for device %d set...\n", jc->intHandle);
+		COUT << "Neutral orientation for device " << jc->intHandle << " set..." << endl;
 	}
 	jc->controller_type = JslGetControllerSplitType(jcHandle); // Reassign at each call? :( Low impact function
-	//printf("Found a match for %d\n", jcHandle);
+	//COUT << "Found a match for %d\n", jcHandle);
 	float gyroX = 0.0;
 	float gyroY = 0.0;
 	int mouse_x_flag = (int)jc->getSetting<GyroAxisMask>(SettingID::MOUSE_X_FROM_GYRO_AXIS);
@@ -2124,7 +2125,7 @@ void joyShockPollCallback(int jcHandle, JOY_SHOCK_STATE state, JOY_SHOCK_STATE l
 	if (numGyroSamples < 1) numGyroSamples = 1; // need at least 1 sample
 	auto threshold = jc->getSetting(SettingID::GYRO_SMOOTH_THRESHOLD);
 	jc->GetSmoothedGyro(gyroX, gyroY, gyroLength, threshold / 2.0f, threshold, int(numGyroSamples), gyroX, gyroY);
-	//printf("%d Samples for threshold: %0.4f\n", numGyroSamples, gyro_smooth_threshold * maxSmoothingSamples);
+	//COUT << "%d Samples for threshold: %0.4f\n", numGyroSamples, gyro_smooth_threshold * maxSmoothingSamples);
 
 	// now, honour gyro_cutoff_speed
 	gyroLength = sqrt(gyroX * gyroX + gyroY * gyroY);
@@ -2374,7 +2375,7 @@ void joyShockPollCallback(int jcHandle, JOY_SHOCK_STATE state, JOY_SHOCK_STATE l
 		(jc->controller_type == JS_SPLIT_TYPE_FULL ||
 		(jc->controller_type & (int)jc->getSetting<JoyconMask>(SettingID::JOYCON_GYRO_MASK)) == 0))
 	{
-		//printf("GX: %0.4f GY: %0.4f GZ: %0.4f\n", imuState.gyroX, imuState.gyroY, imuState.gyroZ);
+		//COUT << "GX: %0.4f GY: %0.4f GZ: %0.4f\n", imuState.gyroX, imuState.gyroY, imuState.gyroZ);
 		float mouseCalibration = jc->getSetting(SettingID::REAL_WORLD_CALIBRATION) / os_mouse_speed / jc->getSetting(SettingID::IN_GAME_SENS);
 		shapedSensitivityMoveMouse(gyroX * gyro_x_sign_to_use, gyroY * gyro_y_sign_to_use, jc->getSetting<FloatXY>(SettingID::MIN_GYRO_SENS), jc->getSetting<FloatXY>(SettingID::MAX_GYRO_SENS),
 			jc->getSetting(SettingID::MIN_GYRO_THRESHOLD), jc->getSetting(SettingID::MAX_GYRO_THRESHOLD), deltaTime,
@@ -2414,25 +2415,25 @@ bool AutoLoadPoll(void *param)
 		string path(AUTOLOAD_FOLDER());
 		auto files = ListDirectory(path);
 		auto noextmodule = windowModule.substr(0, windowModule.find_first_of('.'));
-		printf("[AUTOLOAD] \"%s\" in focus: ", windowTitle.c_str()); // looking for config : " , );
+		COUT_AUTOLOAD << "[AUTOLOAD] \"" << windowTitle << "\" in focus: "; // looking for config : " , );
 		bool success = false;
 		for (auto file : files)
 		{
 			auto noextconfig = file.substr(0, file.find_first_of('.'));
 			if (iequals(noextconfig, noextmodule))
 			{
-				printf("loading \"AutoLoad\\%s.txt\".\n", noextconfig.c_str());
+				COUT_AUTOLOAD << "loading \"AutoLoad\\" << noextconfig << ".txt\"." << endl;
 				loading_lock.lock();
 				registry->processLine(path + file);
 				loading_lock.unlock();
-				printf("[AUTOLOAD] Loading completed\n");
+				COUT_AUTOLOAD << "[AUTOLOAD] Loading completed" << endl;
 				success = true;
 				break;
 			}
 		}
 		if (!success)
 		{
-			printf("create \"AutoLoad\\%s.txt\" to autoload for this application.\n", noextmodule.c_str());
+			COUT_AUTOLOAD << "create \"AutoLoad\\" << noextmodule << ".txt\" to autoload for this application." << endl;
 		}
 	}
 	return true;
@@ -2440,7 +2441,7 @@ bool AutoLoadPoll(void *param)
 
 void beforeShowTrayMenu()
 {
-	if (!tray || !*tray) printf("ERROR: Cannot create tray item.\n");
+	if (!tray || !*tray) CERR << "ERROR: Cannot create tray item." << endl;
 	else
 	{
 		tray->ClearMenuMap();
@@ -2557,7 +2558,7 @@ float filterHoldPressDelay(float c, float next)
 {
 	if (next <= sim_press_window || next >= dbl_press_window)
 	{
-		cout << SettingID::HOLD_PRESS_TIME << " can only be set to a value between those of " <<
+		COUT << SettingID::HOLD_PRESS_TIME << " can only be set to a value between those of " <<
 			SettingID::SIM_PRESS_WINDOW << " (" << sim_press_window << "ms) and " <<
 			SettingID::DBL_PRESS_WINDOW << " (" << dbl_press_window << "ms) exclusive." << endl;
 		return c;
@@ -2576,7 +2577,7 @@ TriggerMode triggerModeNotification(TriggerMode current, TriggerMode next)
 	{
 		if (JslGetControllerType(js.first) != JS_TYPE_DS4 && next != TriggerMode::NO_FULL)
 		{
-			printf("WARNING: Dual Stage Triggers are only valid on analog triggers. Full pull bindings will be ignored on non DS4 controllers.\n");
+			ColorStream<&cout, FOREGROUND_RED | FOREGROUND_GREEN | FOREGROUND_INTENSITY>() << "WARNING: Dual Stage Triggers are only valid on analog triggers. Full pull bindings will be ignored on non DS4 controllers." << endl;
 			break;
 		}
 	}
@@ -2605,8 +2606,8 @@ void RefreshAutoloadHelp(JSMAssignment<Switch> *autoloadCmd)
 class GyroSensAssignment : public JSMAssignment<FloatXY>
 {
 public:
-	GyroSensAssignment(in_string name, JSMSetting<FloatXY>& gyroSens)
-		: JSMAssignment(name, string(magic_enum::enum_name(gyroSens._id)), gyroSens)
+	GyroSensAssignment(SettingID id, JSMSetting<FloatXY>& gyroSens)
+		: JSMAssignment(magic_enum::enum_name(id).data(), string(magic_enum::enum_name(gyroSens._id)), gyroSens)
 	{
 		// min and max gyro sens already have a listener
 		gyroSens.RemoveOnChangeListener(_listenerId);
@@ -2616,8 +2617,8 @@ public:
 class StickDeadzoneAssignment : public JSMAssignment<float>
 {
 public:
-	StickDeadzoneAssignment(in_string name, JSMSetting<float> &stickDeadzone)
-	  : JSMAssignment(name, string(magic_enum::enum_name(stickDeadzone._id)), stickDeadzone)
+	StickDeadzoneAssignment(SettingID id, JSMSetting<float> &stickDeadzone)
+	  : JSMAssignment(magic_enum::enum_name(id).data(), string(magic_enum::enum_name(stickDeadzone._id)), stickDeadzone)
 	{
 		// min and max gyro sens already have a listener
 		stickDeadzone.RemoveOnChangeListener(_listenerId);
@@ -2635,7 +2636,7 @@ private:
 		{
 			GyroSettings value(_var);
 			//No assignment? Display current assignment
-			cout << (value.always_off ? string("GYRO_ON") : string("GYRO_OFF")) << " = " << value << endl;;
+			COUT << (value.always_off ? string("GYRO_ON") : string("GYRO_OFF")) << " = " << value << endl;;
 		}
 		else
 		{
@@ -2660,11 +2661,11 @@ private:
 
 	void DisplayGyroSettingValue(GyroSettings value)
 	{
-		cout << (value.always_off ? string("GYRO_ON") : string("GYRO_OFF")) << " is set to " << value << endl;;
+		COUT << (value.always_off ? string("GYRO_ON") : string("GYRO_OFF")) << " is set to " << value << endl;;
 	}
 public:
-	GyroButtonAssignment(in_string name, bool always_off)
-		: JSMAssignment(name, gyro_settings)
+	GyroButtonAssignment(SettingID id, bool always_off)
+		: JSMAssignment(magic_enum::enum_name(id).data(), gyro_settings)
 		, _always_off(always_off)
 	{
 		SetParser(bind(&GyroButtonAssignment::GyroParser, this, placeholders::_2));
@@ -2705,26 +2706,26 @@ private:
 		if (arg.empty())
 		{
 			// Show all commands
-			cout << "Here's the list of all commands." << endl;
+			COUT << "Here's the list of all commands." << endl;
 			vector<string> list;
 			registry->GetCommandList(list);
 			for (auto cmd : list)
 			{
-				cout << "    " << cmd << endl;
+				COUT << "    " << cmd << endl;
 			}
-			cout << "Enter HELP [cmd1] [cmd2] ... for details on specific commands." << endl;
+			COUT << "Enter HELP [cmd1] [cmd2] ... for details on specific commands." << endl;
 		}
 		else
 		{
 			auto help = registry->GetHelp(arg);
 			if (!help.empty())
 			{
-				cout << arg << " :" << endl <<
+				COUT << arg << " :" << endl <<
 					"    " << help << endl;
 			}
 			else
 			{
-				cout << arg << " is not a recognized command" << endl;
+				COUT << arg << " is not a recognized command" << endl;
 			}
 		}
 	}
@@ -2762,8 +2763,8 @@ int main(int argc, char *argv[]) {
 	tray.reset(new TrayIcon(trayIconData, &beforeShowTrayMenu ));
 	// console
 	initConsole(&CleanUp);
-	printf("Welcome to JoyShockMapper version %s!\n", version);
-	//if (whitelister) printf("JoyShockMapper was successfully whitelisted!\n");
+	COUT << "Welcome to JoyShockMapper version " << version << '!' << endl;
+	//if (whitelister) COUT << "JoyShockMapper was successfully whitelisted!" << endl;
 	// prepare for input
 	connectDevices();
 	JslSetCallback(&joyShockPollCallback);
@@ -2840,9 +2841,9 @@ int main(int argc, char *argv[]) {
 	autoLoadThread.reset(new PollingThread(&AutoLoadPoll, &commandRegistry, 1000, true)); // Start by default
 	if (autoLoadThread && autoLoadThread->isRunning())
 	{
-		printf("AutoLoad is enabled. Configurations in \"%s\" folder will get loaded when matching application is in focus.\n", AUTOLOAD_FOLDER());
+		COUT << "AutoLoad is enabled. Configurations in \"" << AUTOLOAD_FOLDER() << "\" folder will get loaded when matching application is in focus." << endl;
 	}
-	else printf("[AUTOLOAD] AutoLoad is unavailable\n");
+	else COUT << "[AUTOLOAD] AutoLoad is unavailable" << endl;
 
 
 	for (auto &mapping : mappings) // Add all button mappings as commands
@@ -2877,9 +2878,9 @@ int main(int argc, char *argv[]) {
 		->SetHelp("Set a mouse mode for the right stick. Valid values are the following:\nNO_MOUSE, AIM, FLICK, FLICK_ONLY, ROTATE_ONLY, MOUSE_RING, MOUSE_AREA, OUTER_RING, INNER_RING"));
 	commandRegistry.Add((new JSMAssignment<StickMode>(motion_stick_mode))
 	    ->SetHelp("Set a mouse mode for the motion-stick -- the whole controller is treated as a stick. Valid values are the following:\nNO_MOUSE, AIM, FLICK, FLICK_ONLY, ROTATE_ONLY, MOUSE_RING, MOUSE_AREA, OUTER_RING, INNER_RING"));
-	commandRegistry.Add((new GyroButtonAssignment("GYRO_OFF", false))
+	commandRegistry.Add((new GyroButtonAssignment(SettingID::GYRO_OFF, false))
 		->SetHelp("Assign a controller button to disable the gyro when pressed."));
-	commandRegistry.Add((new GyroButtonAssignment("GYRO_ON", true))->SetListener() // Set only one listener
+	commandRegistry.Add((new GyroButtonAssignment(SettingID::GYRO_ON, true))->SetListener() // Set only one listener
 		->SetHelp("Assign a controller button to enable the gyro when pressed."));
 	commandRegistry.Add((new JSMAssignment<AxisMode>(aim_x_sign))
 		->SetHelp("When in AIM mode, set stick X axis inversion. Valid values are the following:\nSTANDARD or 1, and INVERTED or -1"));
@@ -2895,13 +2896,13 @@ int main(int argc, char *argv[]) {
 		->SetHelp("JoyShockMapper will load the user's OS mouse sensitivity value to consider it in its calculations."));
 	commandRegistry.Add((new JSMMacro("IGNORE_OS_MOUSE_SPEED"))->SetMacro(bind(do_IGNORE_OS_MOUSE_SPEED))
 		->SetHelp("Disable JoyShockMapper's consideration of the the user's OS mouse sensitivity value."));
-	commandRegistry.Add((new JSMAssignment<JoyconMask>("JOYCON_GYRO_MASK", joycon_gyro_mask))
+	commandRegistry.Add((new JSMAssignment<JoyconMask>(joycon_gyro_mask))
 		->SetHelp("When using two Joycons, select which one will be used for gyro. Valid values are the following:\nUSE_BOTH, IGNORE_LEFT, IGNORE_RIGHT, IGNORE_BOTH"));
-	commandRegistry.Add((new JSMAssignment<JoyconMask>("JOYCON_MOTION_MASK", joycon_motion_mask))
+	commandRegistry.Add((new JSMAssignment<JoyconMask>(joycon_motion_mask))
 	    ->SetHelp("When using two Joycons, select which one will be used for non-gyro motion. Valid values are the following:\nUSE_BOTH, IGNORE_LEFT, IGNORE_RIGHT, IGNORE_BOTH"));
-	commandRegistry.Add((new GyroSensAssignment("GYRO_SENS", min_gyro_sens))
+	commandRegistry.Add((new GyroSensAssignment(SettingID::GYRO_SENS, min_gyro_sens))
 		->SetHelp("Sets a gyro sensitivity to use. This sets both MIN_GYRO_SENS and MAX_GYRO_SENS to the same values. You can assign a second value as a different vertical sensitivity."));
-	commandRegistry.Add((new GyroSensAssignment("GYRO_SENS", max_gyro_sens))->SetHelp(""));
+	commandRegistry.Add((new GyroSensAssignment(SettingID::GYRO_SENS, max_gyro_sens))->SetHelp(""));
 	commandRegistry.Add((new JSMAssignment<float>(flick_time))
 		->SetHelp("Sets how long a flick takes in seconds. This value is used by stick FLICK mode."));
 	commandRegistry.Add((new JSMAssignment<float>(flick_time_exponent))
@@ -2928,12 +2929,12 @@ int main(int argc, char *argv[]) {
 		->SetHelp("Defines a radius of the right stick within which all values will be ignored. This value can only be between 0 and 1 but it should be small. Stick input out of this radius will be adjusted."));
 	commandRegistry.Add((new JSMAssignment<float>(right_stick_deadzone_outer))
 		->SetHelp("Defines a distance from the right stick's outer edge for which the stick will be considered fully tilted. This value can only be between 0 and 1 but it should be small. Stick input out of this deadzone will be adjusted."));
-	commandRegistry.Add((new StickDeadzoneAssignment("STICK_DEADZONE_INNER", left_stick_deadzone_inner))
+	commandRegistry.Add((new StickDeadzoneAssignment(SettingID::STICK_DEADZONE_INNER, left_stick_deadzone_inner))
 		->SetHelp("Defines a radius of the both left and right sticks within which all values will be ignored. This value can only be between 0 and 1 but it should be small. Stick input out of this radius will be adjusted."));
-	commandRegistry.Add((new StickDeadzoneAssignment("STICK_DEADZONE_INNER", right_stick_deadzone_inner))->SetHelp(""));
-	commandRegistry.Add((new StickDeadzoneAssignment("STICK_DEADZONE_OUTER", left_stick_deadzone_outer))
+	commandRegistry.Add((new StickDeadzoneAssignment(SettingID::STICK_DEADZONE_INNER, right_stick_deadzone_inner))->SetHelp(""));
+	commandRegistry.Add((new StickDeadzoneAssignment(SettingID::STICK_DEADZONE_OUTER, left_stick_deadzone_outer))
 		->SetHelp("Defines a distance from both sticks' outer edge for which the stick will be considered fully tilted. This value can only be between 0 and 1 but it should be small. Stick input out of this deadzone will be adjusted."));
-	commandRegistry.Add((new StickDeadzoneAssignment("STICK_DEADZONE_OUTER", right_stick_deadzone_outer))->SetHelp(""));
+	commandRegistry.Add((new StickDeadzoneAssignment(SettingID::STICK_DEADZONE_OUTER, right_stick_deadzone_outer))->SetHelp(""));
 	commandRegistry.Add((new JSMAssignment<float>(motion_deadzone_inner))
 		->SetHelp("Defines a radius of the motion-stick within which all values will be ignored. This value can only be between 0 and 1 but it should be small. Stick input out of this radius will be adjusted."));
 	commandRegistry.Add((new JSMAssignment<float>(motion_deadzone_outer))
@@ -3030,7 +3031,7 @@ int main(int argc, char *argv[]) {
 	do_RESET_MAPPINGS(&commandRegistry);
 	if (commandRegistry.loadConfigFile("onstartup.txt"))
 	{
-		printf("Finished executing startup file.\n");
+		COUT << "Finished executing startup file." << endl;
 	}
 
 	// The main loop is simple and reads like pseudocode

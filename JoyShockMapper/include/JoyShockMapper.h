@@ -122,6 +122,8 @@ enum class SettingID
 	STICK_ACCELERATION_CAP, 
 	LEFT_STICK_DEADZONE_INNER,
 	LEFT_STICK_DEADZONE_OUTER,
+	STICK_DEADZONE_INNER,
+	STICK_DEADZONE_OUTER,
 	CALCULATE_REAL_WORLD_CALIBRATION,
 	FINISH_GYRO_CALIBRATION,
 	RESTART_GYRO_CALIBRATION,
@@ -382,3 +384,7 @@ istream& operator >> (istream& in, AxisMode& am);
 // AxisMode can use the templated operator for writing
 
 istream& operator >> (istream& in, PathString& fxy);
+
+#define CERR ColorStream<&std::cerr, FOREGROUND_RED | FOREGROUND_INTENSITY>()
+#define COUT ColorStream<&std::cout, FOREGROUND_GREEN | FOREGROUND_INTENSITY>()
+#define COUT_AUTOLOAD ColorStream<&cout, FOREGROUND_BLUE | FOREGROUND_INTENSITY>()
