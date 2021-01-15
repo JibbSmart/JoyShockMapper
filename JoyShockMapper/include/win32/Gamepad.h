@@ -2,10 +2,10 @@
 
 #include "JoyShockMapper.h"
 
-
-struct _VIGEM_TARGET_T;
-struct _XINPUT_GAMEPAD;
-typedef _XINPUT_GAMEPAD XINPUT_GAMEPAD;
+// Forward Declare and typedefs
+typedef struct _VIGEM_TARGET_T VIGEM_TARGET;
+typedef struct _XINPUT_GAMEPAD XINPUT_GAMEPAD;
+typedef enum _VIGEM_ERRORS VIGEM_ERRORS;
 
 class Gamepad
 {
@@ -38,5 +38,5 @@ public:
 
 private:
 	std::string _errorMsg;
-	_VIGEM_TARGET_T *_gamepad;
+	VIGEM_TARGET *_gamepad = nullptr;
 };

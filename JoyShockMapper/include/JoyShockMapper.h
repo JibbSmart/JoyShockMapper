@@ -385,6 +385,8 @@ istream& operator >> (istream& in, AxisMode& am);
 
 istream& operator >> (istream& in, PathString& fxy);
 
+// This trickery doesn't work in Linux does it? :(
 #define CERR ColorStream<&std::cerr, FOREGROUND_RED | FOREGROUND_INTENSITY>()
-#define COUT ColorStream<&std::cout, FOREGROUND_GREEN | FOREGROUND_INTENSITY>()
-#define COUT_AUTOLOAD ColorStream<&cout, FOREGROUND_BLUE | FOREGROUND_INTENSITY>()
+#define COUT ColorStream<&std::cout, FOREGROUND_GREEN>()
+#define COUT_INFO ColorStream<&cout, FOREGROUND_BLUE | FOREGROUND_INTENSITY>()
+#define COUT_WARN ColorStream<&cout, FOREGROUND_RED | FOREGROUND_GREEN | FOREGROUND_INTENSITY>()

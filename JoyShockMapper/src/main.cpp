@@ -1598,16 +1598,12 @@ void connectDevices() {
 		//JslStartContinuousCalibration(deviceHandles[i]);
 	}
 
-	{
-		ColorStream<&cout, FOREGROUND_GREEN | FOREGROUND_INTENSITY> ss;
 		if (numConnected == 1) {
-			ss << "1 device connected" << endl;
+			COUT << "1 device connected" << endl;
 		}
 		else {
-
-			ss << numConnected << " devices connected" << endl;
+			COUT << numConnected << " devices connected" << endl;
 		}
-	} // Display message in color
 	//if (!IsVisible())
 	//{
 	//	tray->SendToast(wstring(msg.begin(), msg.end()));
@@ -2415,25 +2411,25 @@ bool AutoLoadPoll(void *param)
 		string path(AUTOLOAD_FOLDER());
 		auto files = ListDirectory(path);
 		auto noextmodule = windowModule.substr(0, windowModule.find_first_of('.'));
-		COUT_AUTOLOAD << "[AUTOLOAD] \"" << windowTitle << "\" in focus: "; // looking for config : " , );
+		COUT_INFO << "[AUTOLOAD] \"" << windowTitle << "\" in focus: "; // looking for config : " , );
 		bool success = false;
 		for (auto file : files)
 		{
 			auto noextconfig = file.substr(0, file.find_first_of('.'));
 			if (iequals(noextconfig, noextmodule))
 			{
-				COUT_AUTOLOAD << "loading \"AutoLoad\\" << noextconfig << ".txt\"." << endl;
+				COUT_INFO << "loading \"AutoLoad\\" << noextconfig << ".txt\"." << endl;
 				loading_lock.lock();
 				registry->processLine(path + file);
 				loading_lock.unlock();
-				COUT_AUTOLOAD << "[AUTOLOAD] Loading completed" << endl;
+				COUT_INFO << "[AUTOLOAD] Loading completed" << endl;
 				success = true;
 				break;
 			}
 		}
 		if (!success)
 		{
-			COUT_AUTOLOAD << "create \"AutoLoad\\" << noextmodule << ".txt\" to autoload for this application." << endl;
+			COUT_INFO << "create \"AutoLoad\\" << noextmodule << ".txt\" to autoload for this application." << endl;
 		}
 	}
 	return true;
@@ -2577,7 +2573,7 @@ TriggerMode triggerModeNotification(TriggerMode current, TriggerMode next)
 	{
 		if (JslGetControllerType(js.first) != JS_TYPE_DS4 && next != TriggerMode::NO_FULL)
 		{
-			ColorStream<&cout, FOREGROUND_RED | FOREGROUND_GREEN | FOREGROUND_INTENSITY>() << "WARNING: Dual Stage Triggers are only valid on analog triggers. Full pull bindings will be ignored on non DS4 controllers." << endl;
+			COUT_WARN << "WARNING: Dual Stage Triggers are only valid on analog triggers. Full pull bindings will be ignored on non DS4 controllers." << endl;
 			break;
 		}
 	}
@@ -2763,7 +2759,7 @@ int main(int argc, char *argv[]) {
 	tray.reset(new TrayIcon(trayIconData, &beforeShowTrayMenu ));
 	// console
 	initConsole(&CleanUp);
-	COUT << "Welcome to JoyShockMapper version " << version << '!' << endl;
+	ColorStream<&cout, FOREGROUND_GREEN | FOREGROUND_INTENSITY>() << "Welcome to JoyShockMapper version " << version << '!' << endl;
 	//if (whitelister) COUT << "JoyShockMapper was successfully whitelisted!" << endl;
 	// prepare for input
 	connectDevices();
@@ -3010,10 +3006,14 @@ int main(int argc, char *argv[]) {
 	Gamepad gamepad2;
 	commandRegistry.Add((new JSMMacro("TEST"))->SetMacro([](JSMMacro *, in_string) {
 		Gamepad gamepad;
-		if (gamepad.isInitialized())
+		string errMsg;
+		if (gamepad.isInitialized(&errMsg))
 		{
 			Gamepad::Update update(gamepad);
 			update.setButton(ButtonID::PLUS, true);
+		}
+		else {
+			CERR << errMsg << endl;
 		}
 		}));
 

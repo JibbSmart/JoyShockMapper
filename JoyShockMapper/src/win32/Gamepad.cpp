@@ -17,6 +17,64 @@
 static PVIGEM_CLIENT client = nullptr;
 static size_t clientCounter = 0;
 
+template <>
+ostream & operator <<<VIGEM_ERROR>(ostream &out, VIGEM_ERROR errCode)
+{
+	switch (errCode)
+	{
+	case VIGEM_ERROR_NONE:
+		out << "VIGEM_ERROR_NONE";
+		break;
+	case VIGEM_ERROR_BUS_NOT_FOUND:
+		out << "VIGEM_ERROR_BUS_NOT_FOUND";
+		break;
+	case VIGEM_ERROR_NO_FREE_SLOT:
+		out << "VIGEM_ERROR_NO_FREE_SLOT";
+		break;
+	case VIGEM_ERROR_INVALID_TARGET:
+		out << "VIGEM_ERROR_INVALID_TARGET";
+		break;
+	case VIGEM_ERROR_REMOVAL_FAILED:
+		out << "VIGEM_ERROR_REMOVAL_FAILED";
+		break;
+	case VIGEM_ERROR_ALREADY_CONNECTED:
+		out << "VIGEM_ERROR_ALREADY_CONNECTED";
+		break;
+	case VIGEM_ERROR_TARGET_UNINITIALIZED:
+		out << "VIGEM_ERROR_TARGET_UNINITIALIZED";
+		break;
+	case VIGEM_ERROR_TARGET_NOT_PLUGGED_IN:
+		out << "VIGEM_ERROR_TARGET_NOT_PLUGGED_IN";
+		break;
+	case VIGEM_ERROR_BUS_VERSION_MISMATCH:
+		out << "VIGEM_ERROR_BUS_VERSION_MISMATCH";
+		break;
+	case VIGEM_ERROR_BUS_ACCESS_FAILED:
+		out << "VIGEM_ERROR_BUS_ACCESS_FAILED";
+		break;
+	case VIGEM_ERROR_CALLBACK_ALREADY_REGISTERED:
+		out << "VIGEM_ERROR_CALLBACK_ALREADY_REGISTERED";
+		break;
+	case VIGEM_ERROR_CALLBACK_NOT_FOUND:
+		out << "VIGEM_ERROR_CALLBACK_NOT_FOUND";
+		break;
+	case VIGEM_ERROR_BUS_ALREADY_CONNECTED:
+		out << "VIGEM_ERROR_BUS_ALREADY_CONNECTED";
+		break;
+	case VIGEM_ERROR_BUS_INVALID_HANDLE:
+		out << "VIGEM_ERROR_BUS_INVALID_HANDLE";
+		break;
+	case VIGEM_ERROR_XUSB_USERINDEX_OUT_OF_RANGE:
+		out << "VIGEM_ERROR_XUSB_USERINDEX_OUT_OF_RANGE";
+		break;
+	case VIGEM_ERROR_INVALID_PARAMETER:
+		out << "VIGEM_ERROR_INVALID_PARAMETER";
+		break;
+	default:
+		break;
+	}
+	return out;
+}
 
 Gamepad::Gamepad()
 {
@@ -27,8 +85,9 @@ Gamepad::Gamepad()
 		if (client == nullptr)
 		{
 			std::stringstream ss;
-			ss << "Uh, not enough memory to do that?!" << std::endl;
+			ss << "Uh, not enough memory to do that?!";
 			_errorMsg = ss.str();
+			clientCounter--;
 			return;
 		}
 
@@ -37,7 +96,11 @@ Gamepad::Gamepad()
 		if (!VIGEM_SUCCESS(retval))
 		{
 			std::stringstream ss;
-			ss << "ViGEm Bus connection failed with error code: 0x" << std::hex << uint32_t(retval) << std::endl;
+			if (retval == VIGEM_ERROR_BUS_NOT_FOUND)
+				ss << "ViGEm bus is not installed. You can download the latest here:" << endl
+				   << "https://github.com/ViGEm/ViGEmBus/releases/latest";
+			else
+				ss << "ViGEm Bus connection failed: " << retval;
 			_errorMsg = ss.str();
 			return;
 		}
@@ -59,7 +122,11 @@ Gamepad::Gamepad()
 	if (!VIGEM_SUCCESS(err))
 	{
 		std::stringstream ss;
-		ss << "Target plugin failed with error code: 0x" << std::hex << uint32_t(err) << std::endl;
+		if (err == VIGEM_ERROR_BUS_NOT_FOUND)
+			ss << "ViGEm bus is not installed. You can download the latest here:" << endl
+			   << "https://github.com/ViGEm/ViGEmBus/releases/latest";
+		else
+			ss << "Target plugin failed: " << err;
 		_errorMsg = ss.str();
 	}
 
