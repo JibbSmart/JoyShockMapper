@@ -3,6 +3,7 @@
 
 #include <Windows.h>
 #include <WinSock2.h>
+#include <iostream>
 #include <sstream>
 
 #pragma comment(lib,"ws2_32.lib")
@@ -78,7 +79,8 @@ bool Whitelister::IsHIDCerberusRunning()
 
 bool Whitelister::ShowHIDCerberus()
 {
-	printf("Open HIDCerberus at the following adress in your browser:\nhttp://localhost:26762/\n");
+	std::cout << "Open HIDCerberus at the following adress in your browser:" << endl
+		 << "http://localhost:26762/" << endl;
 	return true;
 	// SECURE CODING! https://www.oreilly.com/library/view/secure-programming-cookbook/0596003943/ch01s08.html
 	//STARTUPINFOA startupInfo;

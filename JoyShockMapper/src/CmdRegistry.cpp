@@ -67,7 +67,7 @@ bool CmdRegistry::loadConfigFile(in_string fileName) {
 	}
 	if (file)
 	{
-		printf("Loading commands from file %s\n", fileName.c_str());
+		COUT << "Loading commands from file " << fileName << endl;
 		// https://stackoverflow.com/questions/6892754/creating-a-simple-configuration-file-and-parser-in-c
 		string line;
 		while (getline(file, line)) {
