@@ -10,33 +10,24 @@ typedef enum _VIGEM_ERRORS VIGEM_ERRORS;
 class Gamepad
 {
 public:
-	using TargetUpdate = function<void(XINPUT_GAMEPAD*)>;
-
-	class Update
-	{
-	public:
-		Update(Gamepad &gamepad);
-		~Update();
-
-		void setButton(ButtonID btn, bool pressed);
-		void setLeftStick(float x, float y);
-		void setRightStick(float x, float y);
-		void setLeftTrigger(float);
-		void setRightTrigger(float);
-		void send();
-	private:
-		unique_ptr<XINPUT_GAMEPAD> _state;
-		TargetUpdate _targetUpdate;
-	};
-
 	Gamepad();
 	virtual ~Gamepad();
 
 	bool isInitialized(std::string *errorMsg = nullptr);
+	inline string getError() const
+	{
+		return _errorMsg;
+	}
 
-	TargetUpdate getUpdater();
+	void setButton(ButtonID btn, bool pressed);
+	void setLeftStick(float x, float y);
+	void setRightStick(float x, float y);
+	void setLeftTrigger(float);
+	void setRightTrigger(float);
+	void update();
 
 private:
 	std::string _errorMsg;
 	VIGEM_TARGET *_gamepad = nullptr;
+	unique_ptr<XINPUT_GAMEPAD> _state;
 };

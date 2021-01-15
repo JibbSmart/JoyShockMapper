@@ -2156,7 +2156,7 @@ void joyShockPollCallback(int jcHandle, JOY_SHOCK_STATE state, JOY_SHOCK_STATE l
 	float mouseCalibrationFactor = 180.0f / PI / os_mouse_speed;
 	if (jc->controller_type != JS_SPLIT_TYPE_RIGHT)
 	{
-		// let's do these sticks... don't want to constantly send input, so we need to compare them to last time
+		// let's do these sticks... don't want to constantly update input, so we need to compare them to last time
 		float lastCalX = lastState.stickLX;
 		float lastCalY = lastState.stickLY;
 		float calX = state.stickLX;
@@ -3006,14 +3006,13 @@ int main(int argc, char *argv[]) {
 	Gamepad gamepad2;
 	commandRegistry.Add((new JSMMacro("TEST"))->SetMacro([](JSMMacro *, in_string) {
 		Gamepad gamepad;
-		string errMsg;
-		if (gamepad.isInitialized(&errMsg))
+		if (gamepad.isInitialized())
 		{
-			Gamepad::Update update(gamepad);
-			update.setButton(ButtonID::PLUS, true);
+			gamepad.setButton(ButtonID::PLUS, true);
+			gamepad.update();
 		}
 		else {
-			CERR << errMsg << endl;
+			CERR << gamepad.getError() << endl;
 		}
 		}));
 

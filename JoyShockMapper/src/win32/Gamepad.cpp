@@ -77,6 +77,7 @@ ostream & operator <<<VIGEM_ERROR>(ostream &out, VIGEM_ERROR errCode)
 }
 
 Gamepad::Gamepad()
+	: _state( new XINPUT_GAMEPAD )
 {
 	clientCounter++;
 	if (client == nullptr)
@@ -130,7 +131,12 @@ Gamepad::Gamepad()
 		_errorMsg = ss.str();
 	}
 
-	// vigem_target_x360_register_notification
+	if (vigem_target_is_attached(_gamepad) != TRUE)
+	{
+		_errorMsg = "Target is not attached";
+	}
+
+	// vigem_target_x360_register_notification => rumble, player number
 }
 
 Gamepad::~Gamepad()
@@ -157,29 +163,10 @@ bool Gamepad::isInitialized(std::string *errorMsg)
 	return _errorMsg.empty() && vigem_target_is_attached(_gamepad) == TRUE;
 }
 
-Gamepad::TargetUpdate Gamepad::getUpdater()
-{
-	return [this] (XINPUT_GAMEPAD *state)
-	{
-		vigem_target_x360_update(client, _gamepad, *reinterpret_cast<_XUSB_REPORT*>(state));
-	};
-}
-
-Gamepad::Update::Update(Gamepad & gamepad)
-	: _state(new XINPUT_GAMEPAD)
-{
-	_targetUpdate = gamepad.getUpdater();
-}
-
-Gamepad::Update::~Update() {
-	if(_targetUpdate)
-		_targetUpdate(_state.get());
-}
-
 WORD SetPressed(WORD buttons, WORD mask) { return buttons | mask; }
 WORD ClearPressed(WORD buttons, WORD mask) { return buttons & ~mask; }
 
-void Gamepad::Update::setButton(ButtonID btn, bool pressed) {
+void Gamepad::setButton(ButtonID btn, bool pressed) {
 	decltype(&SetPressed) op = pressed ? &SetPressed : &ClearPressed;
 
 	switch (btn)
@@ -231,30 +218,29 @@ void Gamepad::Update::setButton(ButtonID btn, bool pressed) {
 	}
 }
 
-void Gamepad::Update::setLeftStick(float x, float y) 
+void Gamepad::setLeftStick(float x, float y) 
 {
 	_state->sThumbLX = uint16_t(clamp(x, 0.f, 1.f) * SHRT_MAX);
 	_state->sThumbLY = uint16_t(clamp(y, 0.f, 1.f) * SHRT_MAX);
 }
 
-void Gamepad::Update::setRightStick(float x, float y) 
+void Gamepad::setRightStick(float x, float y) 
 {
 	_state->sThumbRX = uint16_t(clamp(x, 0.f, 1.f) * SHRT_MAX);
 	_state->sThumbRY = uint16_t(clamp(y, 0.f, 1.f) * SHRT_MAX);
 }
 
-void Gamepad::Update::setLeftTrigger(float val)
+void Gamepad::setLeftTrigger(float val)
 {
 	_state->bLeftTrigger = uint8_t(clamp(val, 0.f, 1.f) * UCHAR_MAX);
 }
 
-void Gamepad::Update::setRightTrigger(float val) 
+void Gamepad::setRightTrigger(float val) 
 {
 	_state->bRightTrigger = uint8_t(clamp(val, 0.f, 1.f) * UCHAR_MAX);
 }
 
-void Gamepad::Update::send()
+void Gamepad::update()
 {
-	_targetUpdate(_state.get());
-	_targetUpdate = nullptr;
+	vigem_target_x360_update(client, _gamepad, *reinterpret_cast<XUSB_REPORT*>(_state.get()));
 }
