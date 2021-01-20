@@ -35,6 +35,21 @@ constexpr WORD GYRO_TRACK_Y = 0x8E;
 constexpr WORD GYRO_TRACKBALL = 0x8F;
 constexpr WORD COMMAND_ACTION = 0x97; // Run command
 
+constexpr WORD X_UP = 0xE8;
+constexpr WORD X_DOWN = 0xE9;
+constexpr WORD X_LEFT = 0xEA;
+constexpr WORD X_RIGHT = 0xEB;
+constexpr WORD X_LB = 0xEC;
+constexpr WORD X_RB = 0xED;
+constexpr WORD X_X = 0xEE;
+constexpr WORD X_A = 0xEF;
+constexpr WORD X_Y = 0xF0;
+constexpr WORD X_B = 0xF1;
+constexpr WORD X_LS = 0xF2;
+constexpr WORD X_RS = 0xF3;
+constexpr WORD X_BACK = 0xF4;
+constexpr WORD X_START = 0xF5;
+
 // All enums should have an INVALID field for proper use with templated << and >> operators
 
 enum class ButtonID
@@ -172,10 +187,10 @@ constexpr float MAGIC_EXTENDED_TAP_DURATION = 500.0f; // in milliseconds
 
 enum class ControllerOrientation { FORWARD, LEFT, RIGHT, BACKWARD, INVALID };
 enum class RingMode { OUTER, INNER, INVALID };
-enum class StickMode { NO_MOUSE, AIM, FLICK, FLICK_ONLY, ROTATE_ONLY, MOUSE_RING, MOUSE_AREA, OUTER_RING, INNER_RING, INVALID };
+enum class StickMode { NO_MOUSE, AIM, FLICK, FLICK_ONLY, ROTATE_ONLY, MOUSE_RING, MOUSE_AREA, X_LEFT_STICK, X_RIGHT_STICK, OUTER_RING, INNER_RING, INVALID };
 enum class FlickSnapMode { NONE, FOUR, EIGHT, INVALID };
 enum class AxisMode { STANDARD = 1, INVERTED = -1, INVALID = 0 }; // valid values are true!
-enum class TriggerMode { NO_FULL, NO_SKIP, MAY_SKIP, MUST_SKIP, MAY_SKIP_R, MUST_SKIP_R, INVALID };
+enum class TriggerMode { NO_FULL, NO_SKIP, MAY_SKIP, MUST_SKIP, MAY_SKIP_R, MUST_SKIP_R, X_LT, X_RT, INVALID };
 enum class GyroAxisMask { NONE = 0, X = 1, Y = 2, Z = 4, INVALID = 8 };
 enum class JoyconMask { USE_BOTH, IGNORE_LEFT, IGNORE_RIGHT, IGNORE_BOTH, INVALID };
 enum class GyroIgnoreMode { BUTTON, LEFT_STICK, RIGHT_STICK, INVALID };
@@ -222,7 +237,7 @@ struct KeyCode
 			name = keyName;
 	}
 
-	inline operator bool()
+	inline bool isValid()
 	{
 		return code != 0;
 	}
@@ -234,7 +249,7 @@ struct KeyCode
 
 	inline bool operator !=(const KeyCode& rhs)
 	{
-		return !operator=(rhs);
+		return !operator==(rhs);
 	}
 };
 
@@ -287,12 +302,14 @@ public:
 	// This functor nees to be set to way to validate a command line string;
 	static function<bool(in_string)> _isCommandValid;
 
-	string description = "no input";
-	string command;
+	string _description = "no input";
+	string _command;
 
 private:
-	map<BtnEvent, OnEventAction> eventMapping;
-	float tapDurationMs = MAGIC_TAP_DURATION;
+	map<BtnEvent, OnEventAction> _eventMapping;
+	float _tapDurationMs = MAGIC_TAP_DURATION;
+	bool _hasXInput = false;
+
 	void InsertEventMapping(BtnEvent evt, OnEventAction action);
 	static void RunAllActions(DigitalButton *btn, int numEventActions, ...);
 
@@ -309,19 +326,25 @@ public:
 
 	inline bool isValid() const
 	{
-		return !eventMapping.empty();
+		return !_eventMapping.empty();
 	}
 
 	inline float getTapDuration() const
 	{
-		return tapDurationMs;
+		return _tapDurationMs;
 	}
 
 	inline void clear()
 	{
-		eventMapping.clear();
-		description.clear();
-		tapDurationMs = MAGIC_TAP_DURATION;
+		_eventMapping.clear();
+		_description.clear();
+		_tapDurationMs = MAGIC_TAP_DURATION;
+		_hasXInput = false;
+	}
+
+	inline bool hasXInput() const
+	{
+		return _hasXInput;
 	}
 };
 

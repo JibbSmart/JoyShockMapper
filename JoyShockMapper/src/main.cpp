@@ -109,6 +109,7 @@ public:
 		deque<pair<ButtonID, KeyCode>> gyroActionQueue; // Queue of gyro control actions currently in effect
 		deque<pair<ButtonID, KeyCode>> activeTogglesQueue;
 		deque<ButtonID> chordStack; // Represents the current active buttons in order from most recent to latest
+		Gamepad xInput;
 
 		private:
 		int _referenceCount;
@@ -293,17 +294,25 @@ public:
 		}
 	}
 
-	void ApplyBtnPress(KeyCode keyCode)
+	void ApplyBtnPress(KeyCode key)
 	{
-		if(keyCode.code != NO_HOLD_MAPPED)
+		if (key.code >= X_UP && key.code <= X_START)
 		{
-			pressKey(keyCode, true);
+			_common->xInput.setButton(key, true);
+		}
+		else if(key.code != NO_HOLD_MAPPED)
+		{
+			pressKey(key, true);
 		}
 	}
 
 	void ApplyBtnRelease(KeyCode key)
 	{
-		if (key.code != NO_HOLD_MAPPED)
+		if (key.code >= X_UP && key.code <= X_START)
+		{
+			_common->xInput.setButton(key, false);
+		}
+		else if (key.code != NO_HOLD_MAPPED)
 		{
 			pressKey(key, false);
 			ClearAllActiveToggle(key);
@@ -374,7 +383,7 @@ public:
 
 ostream &operator << (ostream &out, Mapping mapping)
 {
-	out << mapping.command;
+	out << mapping._command;
 	return out;
 }
 
@@ -386,7 +395,7 @@ istream &operator >> (istream &in, Mapping &mapping)
 	smatch results;
 	int count = 0;
 
-	mapping.command = valueName;
+	mapping._command = valueName;
 	stringstream ss;
 
 	while (regex_match(valueName, results, regex(R"(\s*([!\^]?)((\".*?\")|\w*[0-9A-Z]|\W)([\\\/+'_]?)\s*(.*))")) && !results[0].str().empty())
@@ -458,7 +467,7 @@ istream &operator >> (istream &in, Mapping &mapping)
 		count++;
 	} // Next item
 
-	mapping.description = ss.str();
+	mapping._description = ss.str();
 
 	return in;
 }
@@ -466,7 +475,7 @@ istream &operator >> (istream &in, Mapping &mapping)
 bool operator ==(const Mapping &lhs, const Mapping &rhs)
 {
 	// Very flawfull :(
-	return lhs.command == rhs.command;
+	return lhs._command == rhs._command;
 }
 
 Mapping::Mapping(in_string mapping)
@@ -482,8 +491,8 @@ Mapping::Mapping(in_string mapping)
 void Mapping::ProcessEvent(BtnEvent evt, DigitalButton &button, in_string displayName) const
 {
 	// COUT << button._id << " processes event " << evt << endl;
-	auto entry = eventMapping.find(evt);
-	if (entry != eventMapping.end() && entry->second) // Skip over empty entries
+	auto entry = _eventMapping.find(evt);
+	if (entry != _eventMapping.end() && entry->second) // Skip over empty entries
 	{
 		switch (evt)
 		{
@@ -509,8 +518,8 @@ void Mapping::ProcessEvent(BtnEvent evt, DigitalButton &button, in_string displa
 
 void Mapping::InsertEventMapping(BtnEvent evt, OnEventAction action)
 {
-	auto existingActions = eventMapping.find(evt);
-	eventMapping[evt] = existingActions == eventMapping.end() ? action :
+	auto existingActions = _eventMapping.find(evt);
+	_eventMapping[evt] = existingActions == _eventMapping.end() ? action :
 		bind(&RunAllActions, placeholders::_1, 2, existingActions->second, action); // Chain with already existing mapping, if any
 }
 
@@ -521,13 +530,13 @@ bool Mapping::AddMapping(KeyCode key, EventModifier evtMod, ActionModifier actMo
 	{
 		apply = bind(&DigitalButton::StartCalibration, placeholders::_1);
 		release = bind(&DigitalButton::FinishCalibration, placeholders::_1);
-		tapDurationMs = MAGIC_EXTENDED_TAP_DURATION; // Unused in regular press
+		_tapDurationMs = MAGIC_EXTENDED_TAP_DURATION; // Unused in regular press
 	}
 	else if (key.code >= GYRO_INV_X && key.code <= GYRO_TRACKBALL)
 	{
 		apply = bind(&DigitalButton::ApplyGyroAction, placeholders::_1, key);
 		release = bind(&DigitalButton::RemoveGyroAction, placeholders::_1);
-		tapDurationMs = MAGIC_EXTENDED_TAP_DURATION; // Unused in regular press
+		_tapDurationMs = MAGIC_EXTENDED_TAP_DURATION; // Unused in regular press
 	}
 	else if (key.code == COMMAND_ACTION)
 	{
@@ -542,6 +551,7 @@ bool Mapping::AddMapping(KeyCode key, EventModifier evtMod, ActionModifier actMo
 	}
 	else // if (key.code != NO_HOLD_MAPPED)
 	{
+		_hasXInput |= (key.code >= X_UP && key.code <= X_START); // Set flag if xinput _command
 		apply = bind(&DigitalButton::ApplyBtnPress, placeholders::_1, key);
 		release = bind(&DigitalButton::ApplyBtnRelease, placeholders::_1, key);
 	}
@@ -745,6 +755,8 @@ public:
 			buttons.push_back( DigitalButton(btnCommon, ButtonID(i), uniqueHandle) );
 		}
 		ResetSmoothSample();
+
+		CheckVigemState();
 	}
 
 	JoyShock(int uniqueHandle, float pollRate, int controllerSplitType, float stickStepSize, DigitalButton::Common* sharedButtonCommon)
@@ -763,11 +775,24 @@ public:
 			buttons.push_back(DigitalButton(btnCommon, ButtonID(i), uniqueHandle));
 		}
 		ResetSmoothSample();
+
+		CheckVigemState();
 	}
 
 	~JoyShock()
 	{
 		btnCommon->DecrementReferenceCounter();
+	}
+
+	bool CheckVigemState()
+	{
+		string error;
+		if (btnCommon->xInput.isInitialized(&error) == false)
+		{
+			CERR << "[ViGEm Client] " << error << endl;
+			return false;
+		}
+		return true;
 	}
 
 	template<typename E>
@@ -1296,10 +1321,21 @@ public:
 
 	void handleTriggerChange(ButtonID softIndex, ButtonID fullIndex, TriggerMode mode, float pressed)
 	{
-		if (JslGetControllerType(intHandle) != JS_TYPE_DS4)
+		if (JslGetControllerType(intHandle) != JS_TYPE_DS4 && mode != TriggerMode::X_LT && mode != TriggerMode::X_RT)
 		{
 			// Override local variable because the controller has digital triggers. Effectively ignore Full Pull binding.
 			mode = TriggerMode::NO_FULL;
+		}
+
+		if (mode == TriggerMode::X_LT)
+		{
+			btnCommon->xInput.setLeftTrigger(pressed);
+			return;
+		}
+		else if (mode == TriggerMode::X_RT)
+		{
+			btnCommon->xInput.setRightTrigger(pressed);
+			return;
 		}
 
 		auto idxState = int(fullIndex) - FIRST_ANALOG_TRIGGER; // Get analog trigger index
@@ -2059,6 +2095,20 @@ void processStick(JoyShock* jc, float stickX, float stickY, float lastX, float l
 
 		anyStickInput = left | right | up | down; // ring doesn't count
 	}
+	else if (stickMode == StickMode::X_LEFT_STICK)
+	{
+		if (jc->btnCommon->xInput.isInitialized())
+		{
+			jc->btnCommon->xInput.setLeftStick(stickX, stickY);
+		}
+	}
+	else if (stickMode == StickMode::X_RIGHT_STICK)
+	{
+		if (jc->btnCommon->xInput.isInitialized())
+		{
+			jc->btnCommon->xInput.setRightStick(stickX, stickY);
+		}
+	}
 }
 
 void joyShockPollCallback(int jcHandle, JOY_SHOCK_STATE state, JOY_SHOCK_STATE lastState, IMU_STATE imuState, IMU_STATE lastImuState, float deltaTime) {
@@ -2377,6 +2427,7 @@ void joyShockPollCallback(int jcHandle, JOY_SHOCK_STATE state, JOY_SHOCK_STATE l
 			jc->getSetting(SettingID::MIN_GYRO_THRESHOLD), jc->getSetting(SettingID::MAX_GYRO_THRESHOLD), deltaTime,
 			camSpeedX * jc->getSetting(SettingID::STICK_AXIS_X), -camSpeedY * jc->getSetting(SettingID::STICK_AXIS_Y), mouseCalibration);
 	}
+	jc->btnCommon->xInput.update(); // Check for initialized built-in
 	jc->callback_lock.unlock();
 }
 
@@ -2513,6 +2564,7 @@ void CleanUp()
 	JslDisconnectAndDisposeAll();
 	ReleaseConsole();
 	whitelister.Remove();
+	handle_to_joyshock.clear(); // Destroy Vigem Gamepads before client
 }
 
 float filterClamp01(float current, float next)
@@ -2554,7 +2606,7 @@ float filterHoldPressDelay(float c, float next)
 {
 	if (next <= sim_press_window || next >= dbl_press_window)
 	{
-		COUT << SettingID::HOLD_PRESS_TIME << " can only be set to a value between those of " <<
+		CERR << SettingID::HOLD_PRESS_TIME << " can only be set to a value between those of " <<
 			SettingID::SIM_PRESS_WINDOW << " (" << sim_press_window << "ms) and " <<
 			SettingID::DBL_PRESS_WINDOW << " (" << dbl_press_window << "ms) exclusive." << endl;
 		return c;
@@ -2564,10 +2616,18 @@ float filterHoldPressDelay(float c, float next)
 
 Mapping filterMapping(Mapping current, Mapping next)
 {
+	if (next.hasXInput())
+	{
+		for (auto js : handle_to_joyshock)
+		{
+			if (js.second->CheckVigemState() == false)
+				return current;
+		}
+	}
 	return next.isValid() ? next : current;
 }
 
-TriggerMode triggerModeNotification(TriggerMode current, TriggerMode next)
+TriggerMode filterTriggerMode(TriggerMode current, TriggerMode next)
 {
 	for (auto js : handle_to_joyshock)
 	{
@@ -2577,7 +2637,28 @@ TriggerMode triggerModeNotification(TriggerMode current, TriggerMode next)
 			break;
 		}
 	}
-	return next;
+	if (next == TriggerMode::X_LT || next == TriggerMode::X_RT)
+	{
+		for (auto js : handle_to_joyshock)
+		{
+			if (js.second->CheckVigemState() == false)
+				return current;
+		}
+	}
+	return filterInvalidValue<TriggerMode, TriggerMode::INVALID>(current, next);
+}
+
+StickMode filterStickMode(StickMode current, StickMode next)
+{
+	if (next == StickMode::X_LEFT_STICK || next == StickMode::X_RIGHT_STICK)
+	{
+		for (auto js : handle_to_joyshock)
+		{
+			if (js.second->CheckVigemState() == false)
+				return current;
+		}
+	}
+	return filterInvalidValue<StickMode, StickMode::INVALID>(current, next);
 }
 
 void UpdateRingModeFromStickMode(JSMVariable<RingMode> *stickRingMode, StickMode newValue)
@@ -2766,11 +2847,11 @@ int main(int argc, char *argv[]) {
 	JslSetCallback(&joyShockPollCallback);
 	tray->Show();
 
-	left_stick_mode.SetFilter(&filterInvalidValue<StickMode, StickMode::INVALID>)->
+	left_stick_mode.SetFilter(&filterStickMode)->
 		AddOnChangeListener(bind(&UpdateRingModeFromStickMode, &left_ring_mode, ::placeholders::_1));
-	right_stick_mode.SetFilter(&filterInvalidValue<StickMode, StickMode::INVALID>)->
+	right_stick_mode.SetFilter(&filterStickMode)->
 		AddOnChangeListener(bind(&UpdateRingModeFromStickMode, &right_ring_mode, ::placeholders::_1));
-	motion_stick_mode.SetFilter(&filterInvalidValue<StickMode, StickMode::INVALID>)->
+	motion_stick_mode.SetFilter(&filterStickMode)->
 		AddOnChangeListener(bind(&UpdateRingModeFromStickMode, &motion_ring_mode, ::placeholders::_1));
 	left_ring_mode.SetFilter(&filterInvalidValue<RingMode, RingMode::INVALID>);
 	right_ring_mode.SetFilter(&filterInvalidValue<RingMode, RingMode::INVALID>);
@@ -2784,10 +2865,8 @@ int main(int argc, char *argv[]) {
 	joycon_gyro_mask.SetFilter(&filterInvalidValue<JoyconMask, JoyconMask::INVALID>);
 	joycon_motion_mask.SetFilter(&filterInvalidValue<JoyconMask, JoyconMask::INVALID>);
 	controller_orientation.SetFilter(&filterInvalidValue<ControllerOrientation, ControllerOrientation::INVALID>);
-	zlMode.SetFilter(&filterInvalidValue<TriggerMode, TriggerMode::INVALID>);
-	zrMode.SetFilter(&filterInvalidValue<TriggerMode, TriggerMode::INVALID>);
-	zlMode.SetFilter(&triggerModeNotification);
-	zrMode.SetFilter(&triggerModeNotification);
+	zlMode.SetFilter(&filterTriggerMode);
+	zrMode.SetFilter(&filterTriggerMode);
 	flick_snap_mode.SetFilter(&filterInvalidValue<FlickSnapMode, FlickSnapMode::INVALID>);
 	min_gyro_sens.SetFilter(&filterFloatPair);
 	max_gyro_sens.SetFilter(&filterFloatPair);
@@ -3002,19 +3081,6 @@ int main(int argc, char *argv[]) {
 	commandRegistry.Add((new JSMAssignment<PathString>("JSM_DIRECTORY", currentWorkingDir))
 		->SetHelp("If AUTOLOAD doesn't work properly, set this value to the path to the directory holding the JoyShockMapper.exe file. Make sure a folder named \"AutoLoad\" exists there."));
 	commandRegistry.Add(new HelpCmd(commandRegistry));
-
-	Gamepad gamepad2;
-	commandRegistry.Add((new JSMMacro("TEST"))->SetMacro([](JSMMacro *, in_string) {
-		Gamepad gamepad;
-		if (gamepad.isInitialized())
-		{
-			gamepad.setButton(ButtonID::PLUS, true);
-			gamepad.update();
-		}
-		else {
-			CERR << gamepad.getError() << endl;
-		}
-		}));
 
 	bool quit = false;
 	commandRegistry.Add((new JSMMacro("QUIT"))

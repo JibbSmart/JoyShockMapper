@@ -363,5 +363,62 @@ WORD nameToKey(const std::string &name)
 	{
 		return GYRO_OFF_BIND;
 	}
+	if (name.compare("X_UP") == 0)
+	{
+		return X_UP;
+	}
+	if (name.compare("X_DOWN") == 0)
+	{
+		return X_DOWN;
+	}
+	if (name.compare("X_LEFT") == 0)
+	{
+		return X_LEFT;
+	}
+	if (name.compare("X_RIGHT") == 0)
+	{
+		return X_RIGHT;
+	}
+	if (name.compare("X_LB") == 0)
+	{
+		return X_LB;
+	}
+	if (name.compare("X_RB") == 0)
+	{
+		return X_RB;
+	}
+	if (name.compare("X_X") == 0)
+	{
+		return X_X;
+	}
+	if (name.compare("X_A") == 0)
+	{
+		return X_A;
+	}
+	if (name.compare("X_Y") == 0)
+	{
+		return X_Y;
+	}
+	if (name.compare("X_B") == 0)
+	{
+		return X_B;
+	}
+	if (name.compare("X_LS") == 0)
+	{
+		return X_LS;
+	}
+	if (name.compare("X_RS") == 0)
+	{
+		return X_RS;
+	}
+	if (name.compare("X_BACK") == 0)
+	{
+		return X_BACK;
+	}
+	if (name.compare("X_START") == 0)
+	{
+		return X_START;
+	}
+
 	return 0x00;
 }

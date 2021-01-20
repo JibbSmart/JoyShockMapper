@@ -39,7 +39,7 @@ protected:
 			string fwd_args(results.empty() ? arguments : results[1].str());
 			if (!_parse(this, fwd_args))
 			{
-				CERR << "Error when parsing the command" << _displayName << endl 
+				CERR << "Error when parsing the command " << _displayName << endl 
 					 << _help << endl; // Parsing has failed. Show help.
 			}
 		}
@@ -195,5 +195,5 @@ public:
 template<>
 void JSMAssignment<Mapping>::DisplayNewValue(Mapping newValue)
 {
-	COUT << _name << " mapped to " << newValue.description << endl;
+	COUT << _name << " mapped to " << newValue._description << endl;
 }

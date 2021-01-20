@@ -19,7 +19,7 @@ public:
 		return _errorMsg;
 	}
 
-	void setButton(ButtonID btn, bool pressed);
+	void setButton(KeyCode btn, bool pressed);
 	void setLeftStick(float x, float y);
 	void setRightStick(float x, float y);
 	void setLeftTrigger(float);
