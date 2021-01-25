@@ -8,17 +8,17 @@
 #include <iostream>
 #include <sstream>
 
+constexpr uint16_t DEFAULT_COLOR = FOREGROUND_RED | FOREGROUND_GREEN | FOREGROUND_BLUE; // White
+
 template<std::ostream* stdio, uint16_t color>
 struct ColorStream : public stringstream
 {
 	~ColorStream()
 	{
 		HANDLE hStdout = GetStdHandle(STD_ERROR_HANDLE);
-		CONSOLE_SCREEN_BUFFER_INFO info = { 0 };
-		GetConsoleScreenBufferInfo(hStdout, &info);
 		SetConsoleTextAttribute(hStdout, color);
 		(*stdio) << str();
-		SetConsoleTextAttribute(hStdout, info.wAttributes);
+		SetConsoleTextAttribute(hStdout, DEFAULT_COLOR);
 	}
 };
 

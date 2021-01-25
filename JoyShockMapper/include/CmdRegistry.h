@@ -91,7 +91,8 @@ private:
 public:
 	CmdRegistry();
 
-	bool loadConfigFile(in_string fileName);
+	// Not in_string because the string is modified inside
+	bool loadConfigFile(string fileName);
 
 	// Add a command to the registry. The regisrty takes ownership of the memory of this pointer.
 	// You can use _ASSERT() on the return value of this function to make sure the commands are
@@ -117,7 +118,7 @@ class JSMMacro : public JSMCommand
 {
 public:
 	// A Macro function has it's command object passed as argument.
-	typedef function<void(JSMMacro *macro, in_string arguments)> MacroDelegate;
+	typedef function<bool(JSMMacro *macro, in_string arguments)> MacroDelegate;
 
 protected:
 	// The macro function to call when the command is recognized.

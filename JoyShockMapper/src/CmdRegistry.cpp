@@ -57,9 +57,13 @@ CmdRegistry::CmdRegistry()
 {
 }
 
-
-bool CmdRegistry::loadConfigFile(in_string fileName) {
+bool CmdRegistry::loadConfigFile(string fileName) {
 	// https://stackoverflow.com/questions/2602013/read-whole-ascii-file-into-c-stdstring
+
+	// Trim away quotation marks from drag and drop
+	if (*fileName.begin() == '\"' && *(fileName.end() - 1) == '\"')
+		fileName = fileName.substr(1, fileName.size() - 2);
+
 	ifstream file(fileName);
 	if (!file.is_open())
 	{
@@ -234,7 +238,16 @@ bool JSMMacro::DefaultParser(JSMCommand* cmd, in_string arguments)
 	auto macroCmd = static_cast<JSMMacro*>(cmd);
 	// Developper protection to remind you to set a parser.
 	_ASSERT_EXPR(macroCmd->_macro, L"No Macro was set for this command.");
-	macroCmd->_macro(macroCmd, arguments);
+	if (arguments.compare(0, 4, "HELP") == 0)
+	{
+		// Show help.
+		COUT << macroCmd->_help << endl;
+	}
+	else if(!macroCmd->_macro(macroCmd, arguments))
+	{
+		CERR << "Error when parsing the command " << macroCmd->_name << endl
+			<< macroCmd->_help << endl; // Parsing has failed. Show help.
+	}
 	return true;
 }
 
