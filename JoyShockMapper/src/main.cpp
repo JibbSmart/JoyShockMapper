@@ -82,6 +82,7 @@ JSMVariable<float> dbl_press_window = JSMVariable<float>(200.0f);
 JSMVariable<PathString> currentWorkingDir = JSMVariable<PathString>(GetCWD());
 JSMVariable<Switch> autoloadSwitch = JSMVariable<Switch>(Switch::ON);
 vector<JSMButton> mappings; // array enables use of for each loop and other i/f
+JSMVariable<ControllerScheme> virtual_controller = JSMVariable<ControllerScheme>(ControllerScheme::NONE);
 
 mutex loading_lock;
 
@@ -105,16 +106,20 @@ public:
 		{
 			chordStack.push_front(ButtonID::NONE); //Always hold mapping none at the end to handle modeshifts and chords
 			_referenceCount++;
+			if (virtual_controller.get() != ControllerScheme::NONE)
+			{
+				_vigemController.reset(new Gamepad(virtual_controller.get()));
+			}
 		}
 		deque<pair<ButtonID, KeyCode>> gyroActionQueue; // Queue of gyro control actions currently in effect
 		deque<pair<ButtonID, KeyCode>> activeTogglesQueue;
 		deque<ButtonID> chordStack; // Represents the current active buttons in order from most recent to latest
-		Gamepad xInput;
+		unique_ptr<Gamepad> _vigemController;
 
-		private:
-		int _referenceCount;
+	private:
+		int _referenceCount = 0;
 
-		public:
+	public:
 		void IncrementReferenceCounter()
 		{
 			_referenceCount++;
@@ -296,9 +301,10 @@ public:
 
 	void ApplyBtnPress(KeyCode key)
 	{
-		if (key.code >= X_UP && key.code <= X_START)
+		if (key.code >= X_UP && key.code <= X_START || key.code == PS_HOME || key.code == PS_PAD_CLICK)
 		{
-			_common->xInput.setButton(key, true);
+			if(_common->_vigemController)
+				_common->_vigemController->setButton(key, true);
 		}
 		else if(key.code != NO_HOLD_MAPPED)
 		{
@@ -308,9 +314,10 @@ public:
 
 	void ApplyBtnRelease(KeyCode key)
 	{
-		if (key.code >= X_UP && key.code <= X_START)
+		if (key.code >= X_UP && key.code <= X_START || key.code == PS_HOME || key.code == PS_PAD_CLICK)
 		{
-			_common->xInput.setButton(key, false);
+			if (_common->_vigemController)
+				_common->_vigemController->setButton(key, false);
 		}
 		else if (key.code != NO_HOLD_MAPPED)
 		{
@@ -786,11 +793,14 @@ public:
 
 	bool CheckVigemState()
 	{
-		string error;
-		if (btnCommon->xInput.isInitialized(&error) == false)
+		if (virtual_controller.get() != ControllerScheme::NONE)
 		{
-			CERR << "[ViGEm Client] " << error << endl;
-			return false;
+			string error = "There is no controller object";
+			if (!btnCommon->_vigemController || btnCommon->_vigemController->isInitialized(&error) == false)
+			{
+				CERR << "[ViGEm Client] " << error << endl;
+				return false;
+			}
 		}
 		return true;
 	}
@@ -1329,12 +1339,14 @@ public:
 
 		if (mode == TriggerMode::X_LT)
 		{
-			btnCommon->xInput.setLeftTrigger(pressed);
+			if (btnCommon->_vigemController)
+				btnCommon->_vigemController->setLeftTrigger(pressed);
 			return;
 		}
 		else if (mode == TriggerMode::X_RT)
 		{
-			btnCommon->xInput.setRightTrigger(pressed);
+			if (btnCommon->_vigemController)
+				btnCommon->_vigemController->setRightTrigger(pressed);
 			return;
 		}
 
@@ -1587,6 +1599,7 @@ static void resetAllMappings() {
 	hold_press_time.Reset();
 	sim_press_window.Reset();
 	dbl_press_window.Reset();
+	virtual_controller.Reset();
 
 	os_mouse_speed = 1.0f;
 	last_flick_and_rotation = 0.0f;
@@ -1595,7 +1608,7 @@ static void resetAllMappings() {
 void connectDevices(bool mergeJoycons = true) {
 	handle_to_joyshock.clear();
 	int numConnected = JslConnectDevices();
-	vector<int> deviceHandles(0, numConnected);
+	vector<int> deviceHandles(numConnected, 0);
 
 	if (numConnected > 0)
 	{
@@ -1616,13 +1629,13 @@ void connectDevices(bool mergeJoycons = true) {
 				if (otherJoyCon != handle_to_joyshock.end())
 				{
 					// The second JC points to the same common buttons as the other one.
-					JoyShock *js = new JoyShock(handle,
-						otherJoyCon->second->btnCommon);
+					shared_ptr<JoyShock> js(new JoyShock(handle,
+						otherJoyCon->second->btnCommon));
 					handle_to_joyshock.emplace(handle, js);
 					continue;
 				}
 			}
-			JoyShock* js = new JoyShock(handle);
+			shared_ptr<JoyShock> js(new JoyShock(handle));
 			handle_to_joyshock.emplace(handle, js);
 		}
 	}
@@ -2090,18 +2103,18 @@ void processStick(JoyShock* jc, float stickX, float stickY, float lastX, float l
 
 		anyStickInput = left | right | up | down; // ring doesn't count
 	}
-	else if (stickMode == StickMode::X_LEFT_STICK)
+	else if (stickMode == StickMode::LEFT_STICK)
 	{
-		if (jc->btnCommon->xInput.isInitialized())
+		if (jc->btnCommon->_vigemController)
 		{
-			jc->btnCommon->xInput.setLeftStick(stickX, stickY);
+			jc->btnCommon->_vigemController->setLeftStick(stickX, stickY);
 		}
 	}
-	else if (stickMode == StickMode::X_RIGHT_STICK)
+	else if (stickMode == StickMode::RIGHT_STICK)
 	{
-		if (jc->btnCommon->xInput.isInitialized())
+		if (jc->btnCommon->_vigemController)
 		{
-			jc->btnCommon->xInput.setRightStick(stickX, stickY);
+			jc->btnCommon->_vigemController->setRightStick(stickX, stickY);
 		}
 	}
 }
@@ -2422,7 +2435,10 @@ void joyShockPollCallback(int jcHandle, JOY_SHOCK_STATE state, JOY_SHOCK_STATE l
 			jc->getSetting(SettingID::MIN_GYRO_THRESHOLD), jc->getSetting(SettingID::MAX_GYRO_THRESHOLD), deltaTime,
 			camSpeedX * jc->getSetting(SettingID::STICK_AXIS_X), -camSpeedY * jc->getSetting(SettingID::STICK_AXIS_Y), mouseCalibration);
 	}
-	jc->btnCommon->xInput.update(); // Check for initialized built-in
+	if (jc->btnCommon->_vigemController)
+	{
+		jc->btnCommon->_vigemController->update(); // Check for initialized built-in
+	}
 	jc->callback_lock.unlock();
 }
 
@@ -2645,7 +2661,7 @@ TriggerMode filterTriggerMode(TriggerMode current, TriggerMode next)
 
 StickMode filterStickMode(StickMode current, StickMode next)
 {
-	if (next == StickMode::X_LEFT_STICK || next == StickMode::X_RIGHT_STICK)
+	if (next == StickMode::LEFT_STICK || next == StickMode::RIGHT_STICK)
 	{
 		for (auto js : handle_to_joyshock)
 		{
@@ -2666,6 +2682,23 @@ void UpdateRingModeFromStickMode(JSMVariable<RingMode> *stickRingMode, StickMode
 	{
 		*stickRingMode = RingMode::OUTER;
 	}
+}
+
+ControllerScheme UpdateVirtualController(ControllerScheme oldScheme, ControllerScheme newScheme)
+{
+	bool success = true;
+	for (auto js : handle_to_joyshock)
+	{
+		if (!js.second->btnCommon->_vigemController || 
+			js.second->btnCommon->_vigemController->getType() != newScheme)
+		{
+			js.second->btnCommon->_vigemController.reset(
+				newScheme == ControllerScheme::NONE ? nullptr : new Gamepad(newScheme));
+
+			success &= js.second->CheckVigemState();
+		}
+	}
+	return success ? newScheme : oldScheme;
 }
 
 void RefreshAutoloadHelp(JSMAssignment<Switch> *autoloadCmd)
@@ -2905,6 +2938,7 @@ int main(int argc, char *argv[]) {
 	hold_press_time.SetFilter(&filterHoldPressDelay);
 	currentWorkingDir.SetFilter( [] (PathString current, PathString next) { return SetCWD(string(next)) ? next : current; });
 	autoloadSwitch.SetFilter(&filterInvalidValue<Switch, Switch::INVALID>)->AddOnChangeListener(&UpdateAutoload);
+	virtual_controller.SetFilter(&UpdateVirtualController);
 
 	currentWorkingDir = string(&cmdLine[0], &cmdLine[wcslen(cmdLine)]);
 	CmdRegistry commandRegistry;
@@ -3077,6 +3111,8 @@ int main(int argc, char *argv[]) {
 	commandRegistry.Add((new JSMAssignment<PathString>("JSM_DIRECTORY", currentWorkingDir))
 		->SetHelp("If AUTOLOAD doesn't work properly, set this value to the path to the directory holding the JoyShockMapper.exe file. Make sure a folder named \"AutoLoad\" exists there."));
 	commandRegistry.Add(new HelpCmd(commandRegistry));
+	commandRegistry.Add((new JSMAssignment<ControllerScheme>(magic_enum::enum_name(SettingID::VIRTUAL_CONTROLLER).data(), virtual_controller))
+		->SetHelp("Sets the vigem virtual controller type. Can be NONE (default), XBOX (360) or DS4 (PS4)."));
 
 	bool quit = false;
 	commandRegistry.Add((new JSMMacro("QUIT"))

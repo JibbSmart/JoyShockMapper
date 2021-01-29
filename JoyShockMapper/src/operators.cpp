@@ -76,6 +76,24 @@ ostream &operator <<(ostream &out, FlickSnapMode fsm) {
 	return out;
 }
 
+istream& operator >>(istream& in, TriggerMode& tm)
+{
+	string name;
+	in >> name;
+	if (name.compare("PS_L2") == 0) {
+		tm = TriggerMode::X_LT;
+	}
+	else if (name.compare("PS_R2") == 0) {
+		tm = TriggerMode::X_RT;
+	}
+	else
+	{
+		auto opt = magic_enum::enum_cast<TriggerMode>(name);
+		tm = opt ? *opt : TriggerMode::INVALID;
+	}
+	return in;
+}
+
 istream &operator >>(istream &in, GyroSettings &gyro_settings)
 {
 	string valueName;

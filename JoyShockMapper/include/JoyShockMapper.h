@@ -51,6 +51,23 @@ constexpr WORD X_RS = 0xF3;
 constexpr WORD X_BACK = 0xF4;
 constexpr WORD X_START = 0xF5;
 
+constexpr WORD PS_UP = 0xE8;
+constexpr WORD PS_DOWN = 0xE9;
+constexpr WORD PS_LEFT = 0xEA;
+constexpr WORD PS_RIGHT = 0xEB;
+constexpr WORD PS_L1 = 0xEC;
+constexpr WORD PS_R1 = 0xED;
+constexpr WORD PS_SQUARE = 0xEE;
+constexpr WORD PS_CROSS = 0xEF;
+constexpr WORD PS_TRIANGLE = 0xF0;
+constexpr WORD PS_CIRCLE = 0xF1;
+constexpr WORD PS_L3 = 0xF2;
+constexpr WORD PS_R3 = 0xF3;
+constexpr WORD PS_SHARE = 0xF4;
+constexpr WORD PS_OPTIONS = 0xF5;
+constexpr WORD PS_HOME = 0xB8;
+constexpr WORD PS_PAD_CLICK = 0xB9;
+
 // All enums should have an INVALID field for proper use with templated << and >> operators
 
 enum class ButtonID
@@ -173,8 +190,9 @@ enum class SettingID
 	TRIGGER_SKIP_DELAY,
 	TURBO_PERIOD,
 	HOLD_PRESS_TIME,
-	SIM_PRESS_WINDOW, // Unchorded setting
-	DBL_PRESS_WINDOW  // Unchorded setting
+	SIM_PRESS_WINDOW, // Unchordable setting
+	DBL_PRESS_WINDOW,  // Unchordable setting
+	VIRTUAL_CONTROLLER, // unchordable setting
 };
 
 // constexpr are like #define but with respect to typeness
@@ -188,10 +206,10 @@ constexpr float MAGIC_EXTENDED_TAP_DURATION = 500.0f; // in milliseconds
 
 enum class ControllerOrientation { FORWARD, LEFT, RIGHT, BACKWARD, INVALID };
 enum class RingMode { OUTER, INNER, INVALID };
-enum class StickMode { NO_MOUSE, AIM, FLICK, FLICK_ONLY, ROTATE_ONLY, MOUSE_RING, MOUSE_AREA, X_LEFT_STICK, X_RIGHT_STICK, OUTER_RING, INNER_RING, INVALID };
+enum class StickMode { NO_MOUSE, AIM, FLICK, FLICK_ONLY, ROTATE_ONLY, MOUSE_RING, MOUSE_AREA, LEFT_STICK, RIGHT_STICK, OUTER_RING, INNER_RING, INVALID };
 enum class FlickSnapMode { NONE, FOUR, EIGHT, INVALID };
 enum class AxisMode { STANDARD = 1, INVERTED = -1, INVALID = 0 }; // valid values are true!
-enum class TriggerMode { NO_FULL, NO_SKIP, MAY_SKIP, MUST_SKIP, MAY_SKIP_R, MUST_SKIP_R, X_LT, X_RT, INVALID };
+enum class TriggerMode { NO_FULL, NO_SKIP, MAY_SKIP, MUST_SKIP, MAY_SKIP_R, MUST_SKIP_R, X_LT, X_RT, PS_L2 = X_LT, PS_R2 = X_RT, INVALID };
 enum class GyroAxisMask { NONE = 0, X = 1, Y = 2, Z = 4, INVALID = 8 };
 enum class JoyconMask { USE_BOTH, IGNORE_LEFT, IGNORE_RIGHT, IGNORE_BOTH, INVALID };
 enum class GyroIgnoreMode { BUTTON, LEFT_STICK, RIGHT_STICK, INVALID };
@@ -202,6 +220,7 @@ enum class BtnState {
 };
 enum class BtnEvent { OnPress, OnTap, OnHold, OnTurbo, OnRelease, OnTapRelease, OnHoldRelease, OnInstantRelease, INVALID };
 enum class Switch : char { OFF, ON, INVALID, }; // Used to parse autoload assignment
+enum class ControllerScheme { NONE, XBOX, DS4, INVALID };
 
 // Workaround default string streaming operator
 class PathString : public string // Should be wstring
@@ -379,6 +398,8 @@ ostream &operator << (ostream &out, ButtonID rhv);
 
 istream &operator >>(istream &in, FlickSnapMode &fsm);
 ostream &operator <<(ostream &out, FlickSnapMode fsm);
+
+istream& operator >>(istream& in, TriggerMode& tm); // Handle L2 / R2
 
 istream &operator >>(istream &in, GyroSettings &gyro_settings);
 ostream &operator <<(ostream &out, GyroSettings gyro_settings);
