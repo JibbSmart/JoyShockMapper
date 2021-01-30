@@ -121,24 +121,6 @@ ostream & operator <<<VIGEM_ERROR>(ostream &out, VIGEM_ERROR errCode)
 	return out;
 }
 
-//static void ds4Notification(
-//	PVIGEM_CLIENT client,
-//	PVIGEM_TARGET target,
-//	UCHAR largeMotor,
-//	UCHAR smallMotor,
-//	Indicator lightbarColor,
-//	LPVOID userData
-//)
-//{
-//	auto originator = static_cast<Gamepad*>(userData);
-//	if (client == VigemClient::get() && originator && originator->_gamepad == target && originator->_notification)
-//	{
-//		Indicator indicator;
-//		indicator.led = ledNumber;
-//		originator->_notification(largeMotor, smallMotor, indicator);
-//	}
-//}
-
 void Gamepad::x360Notification(
 	PVIGEM_CLIENT client,
 	PVIGEM_TARGET target,
@@ -176,6 +158,7 @@ void Gamepad::ds4Notification(
 Gamepad::Gamepad(ControllerScheme scheme)
 	: _stateX360( new XINPUT_GAMEPAD )
 	, _stateDS4( new DS4_REPORT )
+	, _notification()
 {
 	XUSB_REPORT_INIT(reinterpret_cast<PXUSB_REPORT>(_stateX360.get()));
 	DS4_REPORT_INIT(_stateDS4.get());
@@ -213,6 +196,12 @@ Gamepad::Gamepad(ControllerScheme scheme)
 			_errorMsg = "Target is not attached";
 		}
 	}
+}
+
+Gamepad::Gamepad(ControllerScheme scheme, Notification notification)
+	: Gamepad(scheme)
+{
+	_notification = notification;
 }
 
 Gamepad::~Gamepad()
@@ -586,7 +575,6 @@ public:
 		return _value;
 	}
 };
-
 
 void Gamepad::setButtonDS4(KeyCode btn, bool pressed)
 {

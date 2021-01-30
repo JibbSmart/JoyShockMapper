@@ -328,7 +328,7 @@ public:
 private:
 	map<BtnEvent, OnEventAction> _eventMapping;
 	float _tapDurationMs = MAGIC_TAP_DURATION;
-	bool _hasXInput = false;
+	bool _hasViGEmBtn = false;
 
 	void InsertEventMapping(BtnEvent evt, OnEventAction action);
 	static void RunAllActions(DigitalButton *btn, int numEventActions, ...);
@@ -359,12 +359,12 @@ public:
 		_eventMapping.clear();
 		_description.clear();
 		_tapDurationMs = MAGIC_TAP_DURATION;
-		_hasXInput = false;
+		_hasViGEmBtn = false;
 	}
 
-	inline bool hasXInput() const
+	inline bool hasViGEmBtn() const
 	{
-		return _hasXInput;
+		return _hasViGEmBtn;
 	}
 };
 

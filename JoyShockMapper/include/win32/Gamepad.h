@@ -14,6 +14,7 @@ union Indicator
 {
 	UCHAR led;
 	UCHAR rgb[3];
+	UINT32 colorCode;
 };
 
 class Gamepad
@@ -21,6 +22,7 @@ class Gamepad
 public:
 	typedef function<void(UCHAR largeMotor, UCHAR smallMotor, Indicator indicator)> Notification;
 	Gamepad(ControllerScheme scheme);
+	Gamepad(ControllerScheme scheme, Notification notification);
 	virtual ~Gamepad();
 
 	bool isInitialized(std::string *errorMsg = nullptr);
@@ -35,8 +37,6 @@ public:
 	void setLeftTrigger(float);
 	void setRightTrigger(float);
 	void update();
-
-	Notification _notification = nullptr;
 
 	ControllerScheme getType() const;
 
@@ -66,6 +66,7 @@ private:
 	void setButtonX360(KeyCode btn, bool pressed);
 	void setButtonDS4(KeyCode btn, bool pressed);
 
+	Notification _notification = nullptr;
 	std::string _errorMsg;
 	PVIGEM_TARGET _gamepad = nullptr;
 	unique_ptr<XINPUT_GAMEPAD> _stateX360;

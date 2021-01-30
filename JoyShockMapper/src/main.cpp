@@ -558,7 +558,7 @@ bool Mapping::AddMapping(KeyCode key, EventModifier evtMod, ActionModifier actMo
 	}
 	else // if (key.code != NO_HOLD_MAPPED)
 	{
-		_hasXInput |= (key.code >= X_UP && key.code <= X_START); // Set flag if xinput _command
+		_hasViGEmBtn |= (key.code >= X_UP && key.code <= X_START) || key.code == PS_HOME || key.code == PS_PAD_CLICK; // Set flag if vigem button
 		apply = bind(&DigitalButton::ApplyBtnPress, placeholders::_1, key);
 		release = bind(&DigitalButton::ApplyBtnRelease, placeholders::_1, key);
 	}
@@ -803,6 +803,20 @@ public:
 			}
 		}
 		return true;
+	}
+
+	static void handleViGEmNotification(shared_ptr<JoyShock> js, UCHAR largeMotor, UCHAR smallMotor, Indicator indicator)
+	{
+		int type = JslGetControllerType(js->intHandle);
+		if (virtual_controller == ControllerScheme::XBOX && (type <= JS_TYPE_PRO_CONTROLLER))
+		{
+			JslSetPlayerNumber(js->intHandle, indicator.led);
+		}
+		else if (virtual_controller == ControllerScheme::DS4 && (type >= JS_TYPE_DS4))
+		{
+			JslSetLightColour(js->intHandle, indicator.colorCode);
+		}
+		JslSetRumble(js->intHandle, smallMotor, largeMotor);
 	}
 
 	template<typename E>
@@ -2627,8 +2641,13 @@ float filterHoldPressDelay(float c, float next)
 
 Mapping filterMapping(Mapping current, Mapping next)
 {
-	if (next.hasXInput())
+	if (next.hasViGEmBtn())
 	{
+		if (virtual_controller.get() == ControllerScheme::NONE)
+		{
+			COUT << "Before using this mapping, you need to set VIRTUAL_CONTROLLER." << endl;
+			return current;
+		}
 		for (auto js : handle_to_joyshock)
 		{
 			if (js.second->CheckVigemState() == false)
@@ -2650,6 +2669,11 @@ TriggerMode filterTriggerMode(TriggerMode current, TriggerMode next)
 	}
 	if (next == TriggerMode::X_LT || next == TriggerMode::X_RT)
 	{
+		if (virtual_controller.get() == ControllerScheme::NONE)
+		{
+			COUT << "Before using this trigger mode, you need to set VIRTUAL_CONTROLLER." << endl;
+			return current;
+		}
 		for (auto js : handle_to_joyshock)
 		{
 			if (js.second->CheckVigemState() == false)
@@ -2663,6 +2687,11 @@ StickMode filterStickMode(StickMode current, StickMode next)
 {
 	if (next == StickMode::LEFT_STICK || next == StickMode::RIGHT_STICK)
 	{
+		if (virtual_controller.get() == ControllerScheme::NONE)
+		{
+			COUT << "Before using this stick mode, you need to set VIRTUAL_CONTROLLER." << endl;
+			return current;
+		}
 		for (auto js : handle_to_joyshock)
 		{
 			if (js.second->CheckVigemState() == false)
@@ -2684,21 +2713,28 @@ void UpdateRingModeFromStickMode(JSMVariable<RingMode> *stickRingMode, StickMode
 	}
 }
 
-ControllerScheme UpdateVirtualController(ControllerScheme oldScheme, ControllerScheme newScheme)
+ControllerScheme UpdateVirtualController(ControllerScheme prevScheme, ControllerScheme nextScheme)
 {
-	bool success = true;
 	for (auto js : handle_to_joyshock)
 	{
 		if (!js.second->btnCommon->_vigemController || 
-			js.second->btnCommon->_vigemController->getType() != newScheme)
+			js.second->btnCommon->_vigemController->getType() != nextScheme)
 		{
 			js.second->btnCommon->_vigemController.reset(
-				newScheme == ControllerScheme::NONE ? nullptr : new Gamepad(newScheme));
-
-			success &= js.second->CheckVigemState();
+				nextScheme == ControllerScheme::NONE ? nullptr : 
+				new Gamepad(nextScheme, bind(&JoyShock::handleViGEmNotification, js.second, placeholders::_1, placeholders::_2, placeholders::_3)));
 		}
 	}
-	return success ? newScheme : oldScheme;
+	bool success = true;
+	for (auto js : handle_to_joyshock)
+	{
+		if (!js.second->CheckVigemState())
+		{
+			return prevScheme;
+		}
+	}
+
+	return nextScheme;
 }
 
 void RefreshAutoloadHelp(JSMAssignment<Switch> *autoloadCmd)
