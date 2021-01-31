@@ -73,9 +73,13 @@ public:
 	}
 
 	// Remember to call this listener when the value changes.
-	virtual unsigned int AddOnChangeListener(OnChangeDelegate listener)
+	virtual unsigned int AddOnChangeListener(OnChangeDelegate listener, bool callListener = false)
 	{
 		_onChangeListeners[_delegateID] = listener;
+		if (callListener)
+		{
+			_onChangeListeners[_delegateID](_value);
+		}
 		return _delegateID++;
 	}
 

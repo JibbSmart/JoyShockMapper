@@ -377,6 +377,11 @@ void HideConsole()
 	ShowWindow(GetConsoleWindow(), SW_HIDE);
 }
 
+void UnhideConsole()
+{
+	ShowWindow(GetConsoleWindow(), SW_SHOWMINIMIZED);
+}
+
 void ShowConsole()
 {
 	ShowWindow(GetConsoleWindow(), SW_SHOWDEFAULT);

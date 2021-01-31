@@ -19,6 +19,7 @@ add_executable (
     src/operators.cpp
     src/CmdRegistry.cpp
     src/quatMaths.cpp
+    src/ButtonHelp.cpp
     include/InputHelpers.h
     include/PlatformDefinitions.h
     include/TrayIcon.h
@@ -28,6 +29,7 @@ add_executable (
     include/JSMVariable.hpp
     include/Whitelister.h
     include/JoyShockMapper.h
+    include/ColorCodes.h
 )
 
 if (WINDOWS)
@@ -122,8 +124,9 @@ target_include_directories (
 # JoyShockLibrary
 CPMAddPackage (
     NAME JoyShockLibrary
-    GITHUB_REPOSITORY JibbSmart/JoyShockLibrary
-    VERSION 2.1.0
+    GITHUB_REPOSITORY Electronicks/JoyShockLibrary
+    #VERSION 2.1.0
+    GIT_TAG d225824b3922485bc8364c21ad513971e6ed1d04
 )
 
 target_link_libraries (

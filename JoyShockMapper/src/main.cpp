@@ -79,16 +79,19 @@ JSMSetting<float> turbo_period = JSMSetting<float>(SettingID::TURBO_PERIOD, 80.0
 JSMSetting<float> hold_press_time = JSMSetting<float>(SettingID::HOLD_PRESS_TIME, 150.0f);
 JSMVariable<float> sim_press_window = JSMVariable<float>(50.0f);
 JSMVariable<float> dbl_press_window = JSMVariable<float>(200.0f);
+JSMSetting<Color> light_bar = JSMSetting<Color>(SettingID::LIGHT_BAR, 0xFFFFFF);
+JSMSetting<FloatXY> scroll_sens = JSMSetting<FloatXY>(SettingID::SCROLL_SENS, { 30.f, 30.f });
 JSMVariable<PathString> currentWorkingDir = JSMVariable<PathString>(GetCWD());
 JSMVariable<Switch> autoloadSwitch = JSMVariable<Switch>(Switch::ON);
 vector<JSMButton> mappings; // array enables use of for each loop and other i/f
 JSMVariable<ControllerScheme> virtual_controller = JSMVariable<ControllerScheme>(ControllerScheme::NONE);
-
+JSMVariable<Switch> hide_minimized = JSMVariable<Switch>(Switch::OFF);
 mutex loading_lock;
 
 float os_mouse_speed = 1.0;
 float last_flick_and_rotation = 0.0;
 unique_ptr<PollingThread> autoLoadThread;
+unique_ptr<PollingThread> minimizeThread;
 unique_ptr<TrayIcon> tray;
 bool devicesCalibrating = false;
 Whitelister whitelister(false);
@@ -115,6 +118,7 @@ public:
 		deque<pair<ButtonID, KeyCode>> activeTogglesQueue;
 		deque<ButtonID> chordStack; // Represents the current active buttons in order from most recent to latest
 		unique_ptr<Gamepad> _vigemController;
+		function<DigitalButton* (ButtonID)> _getMatchingSimBtn;
 
 	private:
 		int _referenceCount = 0;
@@ -145,13 +149,13 @@ public:
 
 	DigitalButton(DigitalButton::Common* btnCommon, ButtonID id, int deviceHandle)
 		: _id(id)
+		, _btnState(BtnState::NoPress)
 		, _common(btnCommon)
 		, _mapping(mappings[int(_id)])
 		, _press_times()
-		, _btnState(BtnState::NoPress)
 		, _keyToRelease()
 		, _turboCount(0)
-		, _simPressMaster(ButtonID::NONE)
+		, _simPressMaster(nullptr)
 		, _instantReleaseQueue()
 		, _deviceHandle(deviceHandle)
 	{
@@ -159,14 +163,14 @@ public:
 	}
 
 	const ButtonID _id; // Always ID first for easy debugging
+	BtnState _btnState = BtnState::NoPress;
 	Common* _common;
 	const JSMButton &_mapping;
 	chrono::steady_clock::time_point _press_times;
-	BtnState _btnState = BtnState::NoPress;
 	unique_ptr<Mapping> _keyToRelease; // At key press, remember what to release
 	string _nameToRelease;
 	unsigned int _turboCount;
-	ButtonID _simPressMaster;
+	DigitalButton * _simPressMaster;
 	vector<BtnEvent> _instantReleaseQueue;
 	int _deviceHandle;
 
@@ -290,7 +294,7 @@ public:
 			[this](auto pair)
 			{
 				// On a sim press, release the master button (the one who triggered the press)
-				return pair.first == (_simPressMaster != ButtonID::NONE ? _simPressMaster : _id);
+				return pair.first == (_simPressMaster ? _simPressMaster->_id : _id);
 			});
 		if (gyroAction != _common->gyroActionQueue.end())
 		{
@@ -365,11 +369,11 @@ public:
 		}
 	}
 
-	void SyncSimPress(ButtonID btn, const ComboMap &map)
+	void SyncSimPress(DigitalButton &btn)
 	{
-		_keyToRelease.reset(new Mapping(*_mapping.AtSimPress(btn)));
-		_nameToRelease = _mapping.getSimPressName(btn);
-		_simPressMaster = btn;
+		_keyToRelease.reset(new Mapping(*btn._keyToRelease));
+		_nameToRelease = btn._nameToRelease;
+		_simPressMaster = &btn;
 		//COUT << btn << " is the master button" << endl;
 	}
 
@@ -385,6 +389,197 @@ public:
 	inline float GetPressDurationMS(chrono::steady_clock::time_point time_now)
 	{
 		return static_cast<float>(chrono::duration_cast<chrono::milliseconds>(time_now - _press_times).count());
+	}
+
+	void handleButtonChange(bool pressed, chrono::steady_clock::time_point time_now, float turboTime, float holdTime)
+	{
+		if (_id < ButtonID::SIZE || _id >= ButtonID::T1) // Can't chord touch stick buttons?!?
+		{
+			auto foundChord = find(_common->chordStack.begin(), _common->chordStack.end(), _id);
+			if (!pressed)
+			{
+				if (foundChord != _common->chordStack.end())
+				{
+					//cout << "Button " << index << " is released!" << endl;
+					_common->chordStack.erase(foundChord); // The chord is released
+				}
+			}
+			else if (foundChord == _common->chordStack.end()) {
+				//cout << "Button " << index << " is pressed!" << endl;
+				_common->chordStack.push_front(_id); // Always push at the fromt to make it a stack
+			}
+		}
+
+		switch (_btnState)
+		{
+		case BtnState::NoPress:
+			if (pressed)
+			{
+				_press_times = time_now;
+				if (_mapping.HasSimMappings())
+				{
+					_btnState = BtnState::WaitSim;
+				}
+				else if (_mapping.getDblPressMap())
+				{
+					// Start counting time between two start presses
+					_btnState = BtnState::DblPressStart;
+				}
+				else
+				{
+					_btnState = BtnState::BtnPress;
+					GetPressMapping()->ProcessEvent(BtnEvent::OnPress, *this, _nameToRelease);
+				}
+			}
+			break;
+		case BtnState::BtnPress:
+			ProcessButtonPress(pressed, time_now, turboTime, holdTime);
+			break;
+		case BtnState::TapRelease:
+		{
+			if (pressed || GetPressDurationMS(time_now) > MAGIC_INSTANT_DURATION)
+			{
+				CheckInstantRelease(BtnEvent::OnRelease);
+				CheckInstantRelease(BtnEvent::OnTap);
+			}
+			if (pressed || GetPressDurationMS(time_now) > _keyToRelease->getTapDuration())
+			{
+				GetPressMapping()->ProcessEvent(BtnEvent::OnTapRelease, *this, _nameToRelease);
+				_btnState = BtnState::NoPress;
+				ClearKey();
+			}
+			break;
+		}
+		case BtnState::WaitSim:
+		{
+			// Is there a sim mapping on this button where the other button is in WaitSim state too?
+			auto simBtn = _common->_getMatchingSimBtn(_id);
+			if (pressed && simBtn)
+			{
+				_btnState = BtnState::SimPress;
+				_press_times = time_now; // Reset Timer
+				_keyToRelease.reset(new Mapping(_mapping.AtSimPress(simBtn->_id)->get())); // Make a copy
+				_nameToRelease = _mapping.getSimPressName(simBtn->_id);
+
+				simBtn->_btnState = BtnState::SimPress;
+				simBtn->_press_times = time_now;
+				simBtn->SyncSimPress(*this);
+
+				_keyToRelease->ProcessEvent(BtnEvent::OnPress, *this, _nameToRelease);
+			}
+			else if (!pressed || GetPressDurationMS(time_now) > sim_press_window)
+			{
+				// Button was released before sim delay expired OR
+				// Button is still pressed but Sim delay did expire
+				if (_mapping.getDblPressMap())
+				{
+					// Start counting time between two start presses
+					_btnState = BtnState::DblPressStart;
+				}
+				else
+				{
+					_btnState = BtnState::BtnPress;
+					GetPressMapping()->ProcessEvent(BtnEvent::OnPress, *this, _nameToRelease);
+					//_press_times = time_now;
+				}
+			}
+			// Else let time flow, stay in this state, no output.
+			break;
+		}
+		case BtnState::SimPress:
+			if (_simPressMaster && _simPressMaster->_btnState != BtnState::SimPress)
+			{
+				// The master button has released! change state now!
+				_btnState = BtnState::SimRelease;
+				_simPressMaster = nullptr;
+			}
+			else if (!pressed || !_simPressMaster) // Both slave and master handle release, but only the master handles the press
+			{
+				ProcessButtonPress(pressed, time_now, turboTime, holdTime);
+				if (_simPressMaster && _btnState != BtnState::SimPress)
+				{
+					// The slave button has released! Change master state now!
+					_simPressMaster->_btnState = BtnState::SimRelease;
+					_simPressMaster = nullptr;
+				}
+			}
+			break;
+		case BtnState::SimRelease:
+			if (!pressed)
+			{
+				_btnState = BtnState::NoPress;
+				ClearKey();
+			}
+			break;
+		case BtnState::DblPressStart:
+			if (GetPressDurationMS(time_now) > dbl_press_window)
+			{
+				GetPressMapping()->ProcessEvent(BtnEvent::OnPress, *this, _nameToRelease);
+				_btnState = BtnState::BtnPress;
+				//_press_times = time_now; // Reset Timer
+			}
+			else if (!pressed)
+			{
+				if (GetPressDurationMS(time_now) > holdTime)
+				{
+					_btnState = BtnState::DblPressNoPressHold;
+				}
+				else
+				{
+					_btnState = BtnState::DblPressNoPressTap;
+				}
+			}
+			break;
+		case BtnState::DblPressNoPressTap:
+			if (GetPressDurationMS(time_now) > dbl_press_window)
+			{
+				_btnState = BtnState::BtnPress;
+				_press_times = time_now; // Reset Timer to raise a tap
+				GetPressMapping()->ProcessEvent(BtnEvent::OnPress, *this, _nameToRelease);
+			}
+			else if (pressed)
+			{
+				_btnState = BtnState::DblPressPress;
+				_press_times = time_now;
+				_keyToRelease.reset(new Mapping(_mapping.getDblPressMap()->second));
+				_nameToRelease = _mapping.getName(_id);
+				_mapping.getDblPressMap()->second.get().ProcessEvent(BtnEvent::OnPress, *this, _nameToRelease);
+			}
+			break;
+		case BtnState::DblPressNoPressHold:
+			if (GetPressDurationMS(time_now) > dbl_press_window)
+			{
+				_btnState = BtnState::BtnPress;
+				// Don't reset timer to preserve hold press behaviour
+				GetPressMapping()->ProcessEvent(BtnEvent::OnPress, *this, _nameToRelease);
+			}
+			else if (pressed)
+			{
+				_btnState = BtnState::DblPressPress;
+				_press_times = time_now;
+				_keyToRelease.reset(new Mapping(_mapping.getDblPressMap()->second));
+				_nameToRelease = _mapping.getName(_id);
+				_mapping.getDblPressMap()->second.get().ProcessEvent(BtnEvent::OnPress, *this, _nameToRelease);
+			}
+			break;
+		case BtnState::DblPressPress:
+			ProcessButtonPress(pressed, time_now, turboTime, holdTime);
+			break;
+		case BtnState::InstRelease:
+		{
+			if (GetPressDurationMS(time_now) > MAGIC_INSTANT_DURATION)
+			{
+				CheckInstantRelease(BtnEvent::OnRelease);
+				_btnState = BtnState::NoPress;
+				ClearKey();
+			}
+			break;
+		}
+		default:
+			cout << "Invalid button state " << _btnState << ": Resetting to NoPress" << endl;
+			_btnState = BtnState::NoPress;
+			break;
+		}
 	}
 };
 
@@ -516,6 +711,9 @@ void Mapping::ProcessEvent(BtnEvent evt, DigitalButton &button, in_string displa
 		case BtnEvent::OnHold:
 			COUT << displayName << ": held" << endl;
 			break;
+		case BtnEvent::OnTurbo:
+			cout << displayName << ": turbo" << endl;
+			break;
 		}
 		//COUT << button._id << " processes event " << evt << endl;
 		if(entry->second)
@@ -628,6 +826,56 @@ void Mapping::RunAllActions(DigitalButton *btn, int numEventActions, ...)
 	return;
 }
 
+class ScrollAxis
+{
+protected:
+	float _leftovers;
+	ButtonID _negativeId;
+	ButtonID _positiveId;
+	JoyShock * _js;
+
+	bool _pressed;
+
+public:
+	static function<void(JoyShock *,ButtonID, bool)> _handleButtonChange;
+
+	ScrollAxis(JoyShock *js, ButtonID negativeId, ButtonID positiveId)
+		: _leftovers(0.f)
+		, _negativeId(negativeId)
+		, _positiveId(positiveId)
+		, _pressed(false)
+		, _js(js)
+	{}
+
+	void ProcessScroll(float distance, float sens)
+	{	
+		_leftovers += distance;
+		//if(distance != 0) cout << "[" << _negativeId << "," << _positiveId << "] moved " << distance << " so that leftover is now " << _leftovers << endl;
+
+		if (!_pressed && fabsf(_leftovers) > sens)
+		{
+			_handleButtonChange(_js, _negativeId, _leftovers > 0);
+			_handleButtonChange(_js, _positiveId, _leftovers < 0);
+			_leftovers = _leftovers > 0 ? _leftovers - sens : _leftovers + sens;
+			_pressed = true;
+		}
+		else
+		{
+			_handleButtonChange(_js, _negativeId, false);
+			_handleButtonChange(_js, _positiveId, false);
+			_pressed = false;
+		}
+	}
+
+	void Reset()
+	{
+		_leftovers = 0;
+		_handleButtonChange(_js, _negativeId, false);
+		_handleButtonChange(_js, _positiveId, false);
+		_pressed = false;
+	}
+};
+
 // An instance of this class represents a single controller device that JSM is listening to.
 class JoyShock {
 private:
@@ -692,6 +940,46 @@ private:
 		throw invalid_argument(ss.str().c_str());
 	}
 
+	bool isSoftPullPressed(int triggerIndex, float triggerPosition)
+	{
+		float threshold = getSetting(SettingID::TRIGGER_THRESHOLD);
+		if (threshold >= 0)
+		{
+			return triggerPosition > threshold;
+		}
+		// else HAIR TRIGGER
+
+		// Calculate 3 sample averages with the last MAGIC_TRIGGER_SMOOTHING samples + new sample
+		float sum = 0.f;
+		for_each(prevTriggerPosition[triggerIndex].begin(), prevTriggerPosition[triggerIndex].begin()+3, [&sum](auto data) { sum += data; });
+		float avg_tm3 = sum / 3.0f;
+		sum = sum - *(prevTriggerPosition[triggerIndex].begin()) + *(prevTriggerPosition[triggerIndex].end() - 2);
+		float avg_tm2 = sum / 3.0f;
+		sum = sum - *(prevTriggerPosition[triggerIndex].begin() + 1) + *(prevTriggerPosition[triggerIndex].end() - 1);
+		float avg_tm1 = sum / 3.0f;
+		sum = sum - *(prevTriggerPosition[triggerIndex].begin() + 2) + triggerPosition;
+		float avg_t0 = sum / 3.0f;
+		//if (avg_t0 > 0) cout << "Trigger: " << avg_t0 << endl;
+		
+		// Soft press is pressed if we got three averaged samples in a row that are pressed
+		bool isPressed;
+		if (avg_t0 > avg_tm1 && avg_tm1 > avg_tm2 && avg_tm2 > avg_tm3)
+		{
+			isPressed = true;
+		}
+		else if (avg_t0 < avg_tm1 && avg_tm1 < avg_tm2 && avg_tm2 < avg_tm3)
+		{
+			isPressed = false;
+		}
+		else
+		{
+			isPressed = triggerState[triggerIndex] != DstState::NoPress;
+		}
+		prevTriggerPosition[triggerIndex].pop_front();
+		prevTriggerPosition[triggerIndex].push_back(triggerPosition);
+		return isPressed;
+	}
+
 public:
 	const int MaxGyroSamples = 64;
 	const int NumSamples = 64;
@@ -711,6 +999,10 @@ public:
 	FloatXY left_last_cal;
 	FloatXY right_last_cal;
 	FloatXY motion_last_cal;
+	ScrollAxis left_scroll;
+	ScrollAxis right_scroll;
+	//ScrollAxis motion_scroll_x;
+	//ScrollAxis motion_scroll_y;
 
 	float poll_rate;
 	int controller_type = 0;
@@ -720,6 +1012,7 @@ public:
 	float right_acceleration = 1.0;
 	float motion_stick_acceleration = 1.0;
 	vector<DstState> triggerState; // State of analog triggers when skip mode is active
+	vector<deque<float>> prevTriggerPosition;
 	DigitalButton::Common* btnCommon;
 
 	// Modeshifting the stick mode can create quirky behaviours on transition. These flags
@@ -753,17 +1046,20 @@ public:
 		, controller_type(JslGetControllerSplitType(handle))
 		, stick_step_size(JslGetStickStep(handle))
 		, triggerState(NUM_ANALOG_TRIGGERS, DstState::NoPress)
+		, prevTriggerPosition(NUM_ANALOG_TRIGGERS, deque<float>(MAGIC_TRIGGER_SMOOTHING, 0.f))
 		, buttons()
+		, right_scroll(this, ButtonID::RLEFT, ButtonID::RRIGHT)
+		, left_scroll(this, ButtonID::LLEFT, ButtonID::LRIGHT)
 	{
 		btnCommon = new DigitalButton::Common();
+		btnCommon->_getMatchingSimBtn = bind(&JoyShock::GetMatchingSimBtn, this, placeholders::_1);
+
 		buttons.reserve(MAPPING_SIZE);
 		for (int i = 0; i < MAPPING_SIZE; ++i)
 		{
 			buttons.push_back( DigitalButton(btnCommon, ButtonID(i), handle) );
 		}
 		ResetSmoothSample();
-
-		CheckVigemState();
 	}
 
 	JoyShock(int handle, DigitalButton::Common* sharedButtonCommon)
@@ -774,6 +1070,8 @@ public:
 		, triggerState(NUM_ANALOG_TRIGGERS, DstState::NoPress)
 		, btnCommon(sharedButtonCommon)
 		, buttons()
+		, right_scroll(this, ButtonID::RLEFT, ButtonID::RRIGHT)
+		, left_scroll(this, ButtonID::LLEFT, ButtonID::LRIGHT)
 	{
 		btnCommon->IncrementReferenceCounter();
 		buttons.reserve(MAPPING_SIZE);
@@ -1031,6 +1329,9 @@ public:
 			case SettingID::STICK_SENS:
 				opt = stick_sens.get(*activeChord);
 				break;
+			case SettingID::SCROLL_SENS:
+				opt = scroll_sens.get(*activeChord);
+				break;
 			}
 			if (opt) return *opt;
 		}// Check next Chord
@@ -1059,7 +1360,7 @@ public:
 
 public:
 
-	const ComboMap *GetMatchingSimMap(ButtonID index)
+	DigitalButton *GetMatchingSimBtn(ButtonID index)
 	{
 		// Find the simMapping where the other btn is in the same state as this btn.
 		// POTENTIAL FLAW: The mapping you find may not necessarily be the one that got you in a
@@ -1070,7 +1371,7 @@ public:
 			auto simMap = mappings[int(index)].getSimMap(ButtonID(id));
 			if (simMap && index != simMap->first && buttons[int(simMap->first)]._btnState == buttons[int(index)]._btnState)
 			{
-				return simMap;
+				return &buttons[int(simMap->first)];
 			}
 		}
 		return nullptr;
@@ -1153,197 +1454,12 @@ public:
 		outY = yResult + y * immediateFactor;
 	}
 
-	void handleButtonChange(ButtonID index, bool pressed)
+	inline DigitalButton* GetButton(ButtonID index)
 	{
-		auto foundChord = find(btnCommon->chordStack.begin(), btnCommon->chordStack.end(), index);
-		if (!pressed)
-		{
-			if (foundChord != btnCommon->chordStack.end())
-			{
-				//COUT << "Button " << index << " is released!" << endl;
-				btnCommon->chordStack.erase(foundChord); // The chord is released
-			}
-		}
-		else if (foundChord == btnCommon->chordStack.end()) {
-			//COUT << "Button " << index << " is pressed!" << endl;
-			btnCommon->chordStack.push_front(index); // Always push at the fromt to make it a stack
-		}
-
-		DigitalButton &button = buttons[int(index)];
-
-		switch (button._btnState)
-		{
-		case BtnState::NoPress:
-			if (pressed)
-			{
-				button._press_times = time_now;
-				if (button._mapping.HasSimMappings())
-				{
-					button._btnState = BtnState::WaitSim;
-				}
-				else if (button._mapping.getDblPressMap())
-				{
-					// Start counting time between two start presses
-					button._btnState = BtnState::DblPressStart;
-				}
-				else
-				{
-					button._btnState = BtnState::BtnPress;
-					button.GetPressMapping()->ProcessEvent(BtnEvent::OnPress, button, button._nameToRelease);
-				}
-			}
-			break;
-		case BtnState::BtnPress:
-			button.ProcessButtonPress(pressed, time_now, getSetting(SettingID::TURBO_PERIOD), getSetting(SettingID::HOLD_PRESS_TIME));
-			break;
-		case BtnState::TapRelease:
-		{
-			if (pressed || button.GetPressDurationMS(time_now) > MAGIC_INSTANT_DURATION)
-			{
-				button.CheckInstantRelease(BtnEvent::OnRelease);
-				button.CheckInstantRelease(BtnEvent::OnTap);
-			}
-			if (pressed || button.GetPressDurationMS(time_now) > button._keyToRelease->getTapDuration())
-			{
-				button.GetPressMapping()->ProcessEvent(BtnEvent::OnTapRelease, button, button._nameToRelease);
-				button._btnState = BtnState::NoPress;
-				button.ClearKey();
-			}
-			break;
-		}
-		case BtnState::WaitSim:
-		{
-			// Is there a sim mapping on this button where the other button is in WaitSim state too?
-			auto simMap = GetMatchingSimMap(index);
-			if (pressed && simMap)
-			{
-				button._btnState = BtnState::SimPress;
-				button._press_times = time_now; // Reset Timer
-				button._keyToRelease.reset(new Mapping(simMap->second)); // Make a copy
-				button._nameToRelease = button._mapping.getSimPressName(simMap->first);
-
-				buttons[int(simMap->first)]._btnState = BtnState::SimPress;
-				buttons[int(simMap->first)]._press_times = time_now;
-				buttons[int(simMap->first)].SyncSimPress(index, *simMap);
-
-				simMap->second.get().ProcessEvent(BtnEvent::OnPress, button, button._nameToRelease);
-			}
-			else if (!pressed || button.GetPressDurationMS(time_now) > sim_press_window)
-			{
-				// Button was released before sim delay expired OR
-				// Button is still pressed but Sim delay did expire
-				if (button._mapping.getDblPressMap())
-				{
-					// Start counting time between two start presses
-					button._btnState = BtnState::DblPressStart;
-				}
-				else
-				{
-					button._btnState = BtnState::BtnPress;
-					button.GetPressMapping()->ProcessEvent(BtnEvent::OnPress, button, button._nameToRelease);
-					//button._press_times = time_now;
-				}
-			}
-			// Else let time flow, stay in this state, no output.
-			break;
-		}
-		case BtnState::SimPress:
-			if (button._simPressMaster != ButtonID::NONE && buttons[int(button._simPressMaster)]._btnState != BtnState::SimPress)
-			{
-				// The master button has released! change state now!
-				button._btnState = BtnState::SimRelease;
-				button._simPressMaster = ButtonID::NONE;
-			}
-			else if (!pressed || button._simPressMaster == ButtonID::NONE) // Both slave and master handle release, but only the master handles the press
-			{
-				button.ProcessButtonPress(pressed, time_now, getSetting(SettingID::TURBO_PERIOD), getSetting(SettingID::HOLD_PRESS_TIME));
-				if (button._simPressMaster != ButtonID::NONE && button._btnState != BtnState::SimPress)
-				{
-					// The slave button has released! Change master state now!
-					buttons[int(button._simPressMaster)]._btnState = BtnState::SimRelease;
-					button._simPressMaster = ButtonID::NONE;
-				}
-			}
-			break;
-		case BtnState::SimRelease:
-			if (!pressed)
-			{
-				button._btnState = BtnState::NoPress;
-				button.ClearKey();
-			}
-			break;
-		case BtnState::DblPressStart:
-			if (button.GetPressDurationMS(time_now) > dbl_press_window)
-			{
-				button.GetPressMapping()->ProcessEvent(BtnEvent::OnPress, button, button._nameToRelease);
-				button._btnState = BtnState::BtnPress;
-				//button._press_times = time_now; // Reset Timer
-			}
-			else if (!pressed)
-			{
-				if (button.GetPressDurationMS(time_now) > getSetting(SettingID::HOLD_PRESS_TIME))
-				{
-					button._btnState = BtnState::DblPressNoPressHold;
-				}
-				else
-				{
-					button._btnState = BtnState::DblPressNoPressTap;
-				}
-			}
-			break;
-		case BtnState::DblPressNoPressTap:
-			if (button.GetPressDurationMS(time_now) > dbl_press_window)
-			{
-				button._btnState = BtnState::BtnPress;
-				button._press_times = time_now; // Reset Timer to raise a tap
-				button.GetPressMapping()->ProcessEvent(BtnEvent::OnPress, button, button._nameToRelease);
-			}
-			else if (pressed)
-			{
-				button._btnState = BtnState::DblPressPress;
-				button._press_times = time_now;
-				button._keyToRelease.reset(new Mapping(button._mapping.getDblPressMap()->second));
-				button._nameToRelease = button._mapping.getName(index);
-				button._mapping.getDblPressMap()->second.get().ProcessEvent(BtnEvent::OnPress, button, button._nameToRelease);
-			}
-			break;
-		case BtnState::DblPressNoPressHold:
-			if (button.GetPressDurationMS(time_now) > dbl_press_window)
-			{
-				button._btnState = BtnState::BtnPress;
-				// Don't reset timer to preserve hold press behaviour
-				button.GetPressMapping()->ProcessEvent(BtnEvent::OnPress, button, button._nameToRelease);
-			}
-			else if (pressed)
-			{
-				button._btnState = BtnState::DblPressPress;
-				button._press_times = time_now;
-				button._keyToRelease.reset(new Mapping(button._mapping.getDblPressMap()->second));
-				button._nameToRelease = button._mapping.getName(index);
-				button._mapping.getDblPressMap()->second.get().ProcessEvent(BtnEvent::OnPress, button, button._nameToRelease);
-			}
-			break;
-		case BtnState::DblPressPress:
-			button.ProcessButtonPress(pressed, time_now, getSetting(SettingID::TURBO_PERIOD), getSetting(SettingID::HOLD_PRESS_TIME));
-			break;
-		case BtnState::InstRelease:
-		{
-			if (button.GetPressDurationMS(time_now) > MAGIC_INSTANT_DURATION)
-			{
-				button.CheckInstantRelease(BtnEvent::OnRelease);
-				button._btnState = BtnState::NoPress;
-				button.ClearKey();
-			}
-			break;
-		}
-		default:
-			COUT << "Invalid button state " << button._btnState << ": Resetting to NoPress" << endl;
-			button._btnState = BtnState::NoPress;
-			break;
-		}
+		return &buttons[int(index)];
 	}
 
-	void handleTriggerChange(ButtonID softIndex, ButtonID fullIndex, TriggerMode mode, float pressed)
+	void handleTriggerChange(ButtonID softIndex, ButtonID fullIndex, TriggerMode mode, float position)
 	{
 		if (JslGetControllerType(intHandle) != JS_TYPE_DS4 && mode != TriggerMode::X_LT && mode != TriggerMode::X_RT)
 		{
@@ -1354,13 +1470,13 @@ public:
 		if (mode == TriggerMode::X_LT)
 		{
 			if (btnCommon->_vigemController)
-				btnCommon->_vigemController->setLeftTrigger(pressed);
+				btnCommon->_vigemController->setLeftTrigger(position);
 			return;
 		}
 		else if (mode == TriggerMode::X_RT)
 		{
 			if (btnCommon->_vigemController)
-				btnCommon->_vigemController->setRightTrigger(pressed);
+				btnCommon->_vigemController->setRightTrigger(position);
 			return;
 		}
 
@@ -1375,19 +1491,19 @@ public:
 		if (buttons[int(softIndex)]._btnState == BtnState::TapRelease)
 		{
 			// keep triggering until the tap release is complete
-			handleButtonChange(softIndex, false);
+			GetButton(softIndex)->handleButtonChange(false, time_now, getSetting(SettingID::TURBO_PERIOD), getSetting(SettingID::HOLD_PRESS_TIME));
 		}
 		if (buttons[int(fullIndex)]._btnState == BtnState::TapRelease)
 		{
 			// keep triggering until the tap release is complete
-			handleButtonChange(fullIndex, false);
+			GetButton(fullIndex)->handleButtonChange(false, time_now, getSetting(SettingID::TURBO_PERIOD), getSetting(SettingID::HOLD_PRESS_TIME));
 		}
 
 		switch (triggerState[idxState])
 		{
 		case DstState::NoPress:
 			// It actually doesn't matter what the last Press is. Theoretically, we could have missed the edge.
-			if (pressed > getSetting(SettingID::TRIGGER_THRESHOLD))
+			if (isSoftPullPressed(idxState, position))
 			{
 				if (mode == TriggerMode::MAY_SKIP || mode == TriggerMode::MUST_SKIP)
 				{
@@ -1399,124 +1515,145 @@ public:
 				{
 					triggerState[idxState] = DstState::PressStartResp;
 					buttons[int(softIndex)]._press_times = time_now;
-					handleButtonChange(softIndex, true);
+					GetButton(softIndex)->handleButtonChange(true, time_now, getSetting(SettingID::TURBO_PERIOD), getSetting(SettingID::HOLD_PRESS_TIME));
 				}
-				else // mode == NO_FULL or NO_SKIP
+				else // mode == NO_FULL or NO_SKIP, NO_SKIP_EXCLUSIVE
 				{
 					triggerState[idxState] = DstState::SoftPress;
-					handleButtonChange(softIndex, true);
+					GetButton(softIndex)->handleButtonChange(true, time_now, getSetting(SettingID::TURBO_PERIOD), getSetting(SettingID::HOLD_PRESS_TIME));
 				}
 			}
 			else
 			{
-				handleButtonChange(softIndex, false);
+				GetButton(softIndex)->handleButtonChange(false, time_now, getSetting(SettingID::TURBO_PERIOD), getSetting(SettingID::HOLD_PRESS_TIME));
 			}
 			break;
 		case DstState::PressStart:
-			if (pressed <= getSetting(SettingID::TRIGGER_THRESHOLD)) {
+			if (!isSoftPullPressed(idxState, position)) {
 				// Trigger has been quickly tapped on the soft press
 				triggerState[idxState] = DstState::QuickSoftTap;
-				handleButtonChange(softIndex, true);
+				GetButton(softIndex)->handleButtonChange(true, time_now, getSetting(SettingID::TURBO_PERIOD), getSetting(SettingID::HOLD_PRESS_TIME));
 			}
-			else if (pressed == 1.0)
+			else if (position == 1.0)
 			{
 				// Trigger has been full pressed quickly
 				triggerState[idxState] = DstState::QuickFullPress;
-				handleButtonChange(fullIndex, true);
+				GetButton(fullIndex)->handleButtonChange(true, time_now, getSetting(SettingID::TURBO_PERIOD), getSetting(SettingID::HOLD_PRESS_TIME));
 			}
 			else if (buttons[int(softIndex)].GetPressDurationMS(time_now) >= getSetting(SettingID::TRIGGER_SKIP_DELAY)) {
 				triggerState[idxState] = DstState::SoftPress;
 				// Reset the time for hold soft press purposes.
 				buttons[int(softIndex)]._press_times = time_now;
-				handleButtonChange(softIndex, true);
+				GetButton(softIndex)->handleButtonChange(true, time_now, getSetting(SettingID::TURBO_PERIOD), getSetting(SettingID::HOLD_PRESS_TIME));
 			}
 			// Else, time passes as soft press is being held, waiting to see if the soft binding should be skipped
 			break;
 		case DstState::PressStartResp:
-			if (pressed <= getSetting(SettingID::TRIGGER_THRESHOLD)) {
+			if (!isSoftPullPressed(idxState, position)) {
 				// Soft press is being released
 				triggerState[idxState] = DstState::NoPress;
-				handleButtonChange(softIndex, false);
+				GetButton(softIndex)->handleButtonChange(false, time_now, getSetting(SettingID::TURBO_PERIOD), getSetting(SettingID::HOLD_PRESS_TIME));
 			}
-			else if (pressed == 1.0)
+			else if (position == 1.0)
 			{
 				// Trigger has been full pressed quickly
 				triggerState[idxState] = DstState::QuickFullPress;
-				handleButtonChange(softIndex, false); // Remove soft press
-				handleButtonChange(fullIndex, true);
+				GetButton(softIndex)->handleButtonChange(false, time_now, getSetting(SettingID::TURBO_PERIOD), getSetting(SettingID::HOLD_PRESS_TIME)); // Remove soft press
+				GetButton(fullIndex)->handleButtonChange(true, time_now, getSetting(SettingID::TURBO_PERIOD), getSetting(SettingID::HOLD_PRESS_TIME));
 			}
 			else
 			{
 				if (buttons[int(softIndex)].GetPressDurationMS(time_now) >= getSetting(SettingID::TRIGGER_SKIP_DELAY)) {
 					triggerState[idxState] = DstState::SoftPress;
 				}
-				handleButtonChange(softIndex, true);
+				GetButton(softIndex)->handleButtonChange(true, time_now, getSetting(SettingID::TURBO_PERIOD), getSetting(SettingID::HOLD_PRESS_TIME));
 			}
 			break;
 		case DstState::QuickSoftTap:
 			// Soft trigger is already released. Send release now!
 			triggerState[idxState] = DstState::NoPress;
-			handleButtonChange(softIndex, false);
+			GetButton(softIndex)->handleButtonChange(false, time_now, getSetting(SettingID::TURBO_PERIOD), getSetting(SettingID::HOLD_PRESS_TIME));
 			break;
 		case DstState::QuickFullPress:
-			if (pressed < 1.0f) {
+			if (position < 1.0f) {
 				// Full press is being release
 				triggerState[idxState] = DstState::QuickFullRelease;
-				handleButtonChange(fullIndex, false);
+				GetButton(fullIndex)->handleButtonChange(false, time_now, getSetting(SettingID::TURBO_PERIOD), getSetting(SettingID::HOLD_PRESS_TIME));
 			}
 			else {
 				// Full press is being held
-				handleButtonChange(fullIndex, true);
+				GetButton(fullIndex)->handleButtonChange(true, time_now, getSetting(SettingID::TURBO_PERIOD), getSetting(SettingID::HOLD_PRESS_TIME));
 			}
 			break;
 		case DstState::QuickFullRelease:
-			if (pressed <= getSetting(SettingID::TRIGGER_THRESHOLD)) {
+			if (!isSoftPullPressed(idxState, position)) {
 				triggerState[idxState] = DstState::NoPress;
 			}
-			else if (pressed == 1.0f)
+			else if (position == 1.0f)
 			{
 				// Trigger is being full pressed again
 				triggerState[idxState] = DstState::QuickFullPress;
-				handleButtonChange(fullIndex, true);
+				GetButton(fullIndex)->handleButtonChange(true, time_now, getSetting(SettingID::TURBO_PERIOD), getSetting(SettingID::HOLD_PRESS_TIME));
 			}
 			// else wait for the the trigger to be fully released
 			break;
 		case DstState::SoftPress:
-			if (pressed <= getSetting(SettingID::TRIGGER_THRESHOLD)) {
+			if (!isSoftPullPressed(idxState, position)) {
 				// Soft press is being released
 				triggerState[idxState] = DstState::NoPress;
-				handleButtonChange(softIndex, false);
+				GetButton(softIndex)->handleButtonChange(false, time_now, getSetting(SettingID::TURBO_PERIOD), getSetting(SettingID::HOLD_PRESS_TIME));
 			}
 			else // Soft Press is being held
 			{
-				handleButtonChange(softIndex, true);
 
 				if ((mode == TriggerMode::MAY_SKIP || mode == TriggerMode::NO_SKIP || mode == TriggerMode::MAY_SKIP_R)
-					&& pressed == 1.0)
+					&& position == 1.0)
 				{
 					// Full press is allowed in addition to soft press
 					triggerState[idxState] = DstState::DelayFullPress;
-					handleButtonChange(fullIndex, true);
+					GetButton(fullIndex)->handleButtonChange(true, time_now, getSetting(SettingID::TURBO_PERIOD), getSetting(SettingID::HOLD_PRESS_TIME));
+				}
+				else if (mode == TriggerMode::NO_SKIP_EXCLUSIVE && position == 1.0)
+				{
+					GetButton(softIndex)->handleButtonChange(false, time_now, getSetting(SettingID::TURBO_PERIOD), getSetting(SettingID::HOLD_PRESS_TIME));
+					triggerState[idxState] = DstState::ExclFullPress;
+					GetButton(fullIndex)->handleButtonChange(true, time_now, getSetting(SettingID::TURBO_PERIOD), getSetting(SettingID::HOLD_PRESS_TIME));
+				}
+				else
+				{
+					GetButton(softIndex)->handleButtonChange(true, time_now, getSetting(SettingID::TURBO_PERIOD), getSetting(SettingID::HOLD_PRESS_TIME));
 				}
 				// else ignore full press on NO_FULL and MUST_SKIP
 			}
 			break;
 		case DstState::DelayFullPress:
-			if (pressed < 1.0)
+			if (position < 1.0)
 			{
 				// Full Press is being released
 				triggerState[idxState] = DstState::SoftPress;
-				handleButtonChange(fullIndex, false);
+				GetButton(fullIndex)->handleButtonChange(false, time_now, getSetting(SettingID::TURBO_PERIOD), getSetting(SettingID::HOLD_PRESS_TIME));
 			}
 			else // Full press is being held
 			{
-				handleButtonChange(fullIndex, true);
+				GetButton(fullIndex)->handleButtonChange(true, time_now, getSetting(SettingID::TURBO_PERIOD), getSetting(SettingID::HOLD_PRESS_TIME));
 			}
 			// Soft press is always held regardless
-			handleButtonChange(softIndex, true);
+			GetButton(softIndex)->handleButtonChange(true, time_now, getSetting(SettingID::TURBO_PERIOD), getSetting(SettingID::HOLD_PRESS_TIME));
+			break;
+		case DstState::ExclFullPress:
+			if (position < 1.0f) {
+				// Full press is being release
+				triggerState[idxState] = DstState::SoftPress;
+				GetButton(fullIndex)->handleButtonChange(false, time_now, getSetting(SettingID::TURBO_PERIOD), getSetting(SettingID::HOLD_PRESS_TIME));
+				GetButton(softIndex)->handleButtonChange(true, time_now, getSetting(SettingID::TURBO_PERIOD), getSetting(SettingID::HOLD_PRESS_TIME));
+			}
+			else
+			{
+				// Full press is being held
+				GetButton(fullIndex)->handleButtonChange(true, time_now, getSetting(SettingID::TURBO_PERIOD), getSetting(SettingID::HOLD_PRESS_TIME));
+			}
 			break;
 		default:
-			// TODO: use magic enum to translate enum # to str
 			COUT << "Error: Trigger " << softIndex << " has invalid state " << triggerState[idxState] << ". Reset to NoPress." << endl;
 			triggerState[idxState] = DstState::NoPress;
 			break;
@@ -1553,6 +1690,12 @@ public:
 		}
 		return false;
 	}
+
+};
+
+function<void(JoyShock *, ButtonID, bool)> ScrollAxis::_handleButtonChange = [] (JoyShock *js, ButtonID id, bool pressed)
+{
+	js->GetButton(id)->handleButtonChange(pressed, js->time_now, js->getSetting(SettingID::TURBO_PERIOD), js->getSetting(SettingID::HOLD_PRESS_TIME));
 };
 
 static void resetAllMappings() {
@@ -1718,17 +1861,17 @@ bool do_IGNORE_OS_MOUSE_SPEED() {
 	return true;
 }
 
-void UpdateAutoload(Switch newValue)
+void UpdateThread(PollingThread *thread, Switch newValue)
 {
-	if (autoLoadThread)
+	if (thread)
 	{
 		if (newValue == Switch::ON)
 		{
-			autoLoadThread->Start();
+			thread->Start();
 		}
 		else if (newValue == Switch::OFF)
 		{
-			autoLoadThread->Stop();
+			thread->Stop();
 		}
 	}
 	else
@@ -1980,10 +2123,10 @@ JoyShock* getJoyShockFromHandle(int handle) {
 	return nullptr;
 }
 
-void processStick(JoyShock* jc, float stickX, float stickY, float lastX, float lastY, float innerDeadzone, float outerDeadzone, RingMode ringMode, StickMode stickMode,
-	ButtonID ringId, ButtonID leftId, ButtonID rightId, ButtonID upId, ButtonID downId, ControllerOrientation controllerOrientation,
-	float mouseCalibrationFactor, float deltaTime, float &acceleration, FloatXY &lastAreaCal, bool& isFlicking, bool &ignoreStickMode,
-	bool &anyStickInput, bool &lockMouse, float &camSpeedX, float &camSpeedY)
+void processStick(JoyShock* jc, float stickX, float stickY, float lastX, float lastY, float innerDeadzone, float outerDeadzone, 
+	RingMode ringMode, StickMode stickMode, ButtonID ringId, ButtonID leftId, ButtonID rightId, ButtonID upId, ButtonID downId,
+	ControllerOrientation controllerOrientation, float mouseCalibrationFactor, float deltaTime, float &acceleration, FloatXY &lastAreaCal,
+	bool& isFlicking, bool &ignoreStickMode, bool &anyStickInput, bool &lockMouse, float &camSpeedX, float &camSpeedY, ScrollAxis *scroll, int touchpadIndex = -1)
 {
 	float temp;
 	switch (controllerOrientation)
@@ -2024,8 +2167,8 @@ void processStick(JoyShock* jc, float stickX, float stickY, float lastX, float l
 	float stickLength = sqrt(stickX * stickX + stickY * stickY);
 	bool ring = ringMode == RingMode::INNER && stickLength > 0.0f && stickLength < 0.7f ||
 	  ringMode == RingMode::OUTER && stickLength > 0.7f;
-	jc->handleButtonChange(ringId, ring);
-
+	jc->GetButton(ringId)->handleButtonChange(ring, jc->time_now, jc->getSetting(SettingID::TURBO_PERIOD), jc->getSetting(SettingID::HOLD_PRESS_TIME));
+	
 	bool rotateOnly = stickMode == StickMode::ROTATE_ONLY;
 	bool flickOnly = stickMode == StickMode::FLICK_ONLY;
 	if (ignoreStickMode && stickMode == StickMode::INVALID && stickX == 0 && stickY == 0)
@@ -2104,16 +2247,37 @@ void processStick(JoyShock* jc, float stickX, float stickY, float lastX, float l
 			lockMouse = true;
 		}
 	}
+	else if (stickMode == StickMode::SCROLL_WHEEL)
+	{
+		if (scroll)
+		{
+			if (stickX == 0 && stickY == 0)
+			{
+				scroll->Reset();
+			}
+			else if (lastX != 0 && lastY != 0)
+			{
+				float lastAngle = atan2f(lastY, lastX) / PI * 180.f;
+				float angle = atan2f(stickY, stickX) / PI * 180.f;
+				if (((lastAngle > 0) ^ (angle > 0)) && fabsf(angle - lastAngle) > 270.f) // Handle loop the loop
+				{
+					lastAngle = lastAngle > 0 ? lastAngle - 360.f : lastAngle + 360.f;
+				}
+				//cout << "Stick moved from " << lastAngle << " to " << angle; // << endl;
+				scroll->ProcessScroll(angle - lastAngle, jc->getSetting<FloatXY>(SettingID::SCROLL_SENS).x());
+			}
+		}
+	}
 	else if (stickMode == StickMode::NO_MOUSE)
 	{ // Do not do if invalid
 		// left!
-		jc->handleButtonChange(leftId, left);
+		jc->GetButton(leftId)->handleButtonChange(left, jc->time_now, jc->getSetting(SettingID::TURBO_PERIOD), jc->getSetting(SettingID::HOLD_PRESS_TIME));
 		// right!
-		jc->handleButtonChange(rightId, right);
+		jc->GetButton(rightId)->handleButtonChange(right, jc->time_now, jc->getSetting(SettingID::TURBO_PERIOD), jc->getSetting(SettingID::HOLD_PRESS_TIME));
 		// up!
-		jc->handleButtonChange(upId, up);
+		jc->GetButton(upId)->handleButtonChange(up, jc->time_now, jc->getSetting(SettingID::TURBO_PERIOD), jc->getSetting(SettingID::HOLD_PRESS_TIME));
 		// down!
-		jc->handleButtonChange(downId, down);
+		jc->GetButton(downId)->handleButtonChange(down, jc->time_now, jc->getSetting(SettingID::TURBO_PERIOD), jc->getSetting(SettingID::HOLD_PRESS_TIME));
 
 		anyStickInput = left | right | up | down; // ring doesn't count
 	}
@@ -2237,7 +2401,7 @@ void joyShockPollCallback(int jcHandle, JOY_SHOCK_STATE state, JOY_SHOCK_STATE l
 		processStick(jc, calX, calY, lastCalX, lastCalY, jc->getSetting(SettingID::LEFT_STICK_DEADZONE_INNER), jc->getSetting(SettingID::LEFT_STICK_DEADZONE_OUTER),
 			jc->getSetting<RingMode>(SettingID::LEFT_RING_MODE), jc->getSetting<StickMode>(SettingID::LEFT_STICK_MODE),
 			ButtonID::LRING, ButtonID::LLEFT, ButtonID::LRIGHT, ButtonID::LUP, ButtonID::LDOWN, controllerOrientation,
-			mouseCalibrationFactor, deltaTime, jc->left_acceleration, jc->left_last_cal, jc->is_flicking_left, jc->ignore_left_stick_mode, leftAny, lockMouse, camSpeedX, camSpeedY);
+			mouseCalibrationFactor, deltaTime, jc->left_acceleration, jc->left_last_cal, jc->is_flicking_left, jc->ignore_left_stick_mode, leftAny, lockMouse, camSpeedX, camSpeedY, &jc->left_scroll);
 	}
 
 	if (jc->controller_type != JS_SPLIT_TYPE_LEFT)
@@ -2250,7 +2414,7 @@ void joyShockPollCallback(int jcHandle, JOY_SHOCK_STATE state, JOY_SHOCK_STATE l
 		processStick(jc, calX, calY, lastCalX, lastCalY, jc->getSetting(SettingID::RIGHT_STICK_DEADZONE_INNER), jc->getSetting(SettingID::RIGHT_STICK_DEADZONE_OUTER),
 			jc->getSetting<RingMode>(SettingID::RIGHT_RING_MODE), jc->getSetting<StickMode>(SettingID::RIGHT_STICK_MODE),
 			ButtonID::RRING, ButtonID::RLEFT, ButtonID::RRIGHT, ButtonID::RUP, ButtonID::RDOWN, controllerOrientation,
-			mouseCalibrationFactor, deltaTime, jc->right_acceleration, jc->right_last_cal, jc->is_flicking_right, jc->ignore_right_stick_mode, rightAny, lockMouse, camSpeedX, camSpeedY);
+			mouseCalibrationFactor, deltaTime, jc->right_acceleration, jc->right_last_cal, jc->is_flicking_right, jc->ignore_right_stick_mode, rightAny, lockMouse, camSpeedX, camSpeedY, &jc->right_scroll);
 	}
 
 	if (jc->controller_type == JS_SPLIT_TYPE_FULL ||
@@ -2278,7 +2442,7 @@ void joyShockPollCallback(int jcHandle, JOY_SHOCK_STATE state, JOY_SHOCK_STATE l
 		processStick(jc, calX, calY, lastCalX, lastCalY, jc->getSetting(SettingID::MOTION_DEADZONE_INNER) / 180.f, jc->getSetting(SettingID::MOTION_DEADZONE_OUTER) / 180.f,
 			jc->getSetting<RingMode>(SettingID::MOTION_RING_MODE), jc->getSetting<StickMode>(SettingID::MOTION_STICK_MODE),
 			ButtonID::MRING, ButtonID::MLEFT, ButtonID::MRIGHT, ButtonID::MUP, ButtonID::MDOWN, controllerOrientation,
-			mouseCalibrationFactor, deltaTime, jc->motion_stick_acceleration, jc->motion_last_cal, jc->is_flicking_motion, jc->ignore_motion_stick_mode, motionAny, lockMouse, camSpeedX, camSpeedY);
+			mouseCalibrationFactor, deltaTime, jc->motion_stick_acceleration, jc->motion_last_cal, jc->is_flicking_motion, jc->ignore_motion_stick_mode, motionAny, lockMouse, camSpeedX, camSpeedY, nullptr);
 
 		float gravLength3D = grav.Length();
 		if (gravLength3D > 0)
@@ -2301,38 +2465,38 @@ void joyShockPollCallback(int jcHandle, JOY_SHOCK_STATE state, JOY_SHOCK_STATE l
 			}
 			float gravDirX = gravSideDir / gravLength3D;
 			float sinLeanThreshold = sin(jc->getSetting(SettingID::LEAN_THRESHOLD) * PI / 180.f);
-			jc->handleButtonChange(ButtonID::LEAN_LEFT, gravDirX < -sinLeanThreshold);
-			jc->handleButtonChange(ButtonID::LEAN_RIGHT, gravDirX > sinLeanThreshold);
+			jc->GetButton(ButtonID::LEAN_LEFT)->handleButtonChange(gravDirX < -sinLeanThreshold, jc->time_now, jc->getSetting(SettingID::TURBO_PERIOD), jc->getSetting(SettingID::HOLD_PRESS_TIME));
+			jc->GetButton(ButtonID::LEAN_RIGHT)->handleButtonChange(gravDirX > sinLeanThreshold, jc->time_now, jc->getSetting(SettingID::TURBO_PERIOD), jc->getSetting(SettingID::HOLD_PRESS_TIME));
 		}
 	}
 
 	// button mappings
 	if (jc->controller_type != JS_SPLIT_TYPE_RIGHT)
 	{
-		jc->handleButtonChange(ButtonID::UP, (state.buttons & JSMASK_UP) > 0);
-		jc->handleButtonChange(ButtonID::DOWN, (state.buttons & JSMASK_DOWN) > 0);
-		jc->handleButtonChange(ButtonID::LEFT, (state.buttons & JSMASK_LEFT) > 0);
-		jc->handleButtonChange(ButtonID::RIGHT, (state.buttons & JSMASK_RIGHT) > 0);
-		jc->handleButtonChange(ButtonID::L, (state.buttons & JSMASK_L) > 0);
-		jc->handleButtonChange(ButtonID::MINUS, (state.buttons & JSMASK_MINUS) > 0);
-		jc->handleButtonChange(ButtonID::CAPTURE, (state.buttons & JSMASK_CAPTURE) > 0);
-		jc->handleButtonChange(ButtonID::L3, (state.buttons & JSMASK_LCLICK) > 0);
+		jc->GetButton(ButtonID::UP)->handleButtonChange((state.buttons & JSMASK_UP) > 0, jc->time_now, jc->getSetting(SettingID::TURBO_PERIOD), jc->getSetting(SettingID::HOLD_PRESS_TIME));
+		jc->GetButton(ButtonID::DOWN)->handleButtonChange((state.buttons & JSMASK_DOWN) > 0, jc->time_now, jc->getSetting(SettingID::TURBO_PERIOD), jc->getSetting(SettingID::HOLD_PRESS_TIME));
+		jc->GetButton(ButtonID::LEFT)->handleButtonChange((state.buttons & JSMASK_LEFT) > 0, jc->time_now, jc->getSetting(SettingID::TURBO_PERIOD), jc->getSetting(SettingID::HOLD_PRESS_TIME));
+		jc->GetButton(ButtonID::RIGHT)->handleButtonChange((state.buttons & JSMASK_RIGHT) > 0, jc->time_now, jc->getSetting(SettingID::TURBO_PERIOD), jc->getSetting(SettingID::HOLD_PRESS_TIME));
+		jc->GetButton(ButtonID::L)->handleButtonChange((state.buttons & JSMASK_L) > 0, jc->time_now, jc->getSetting(SettingID::TURBO_PERIOD), jc->getSetting(SettingID::HOLD_PRESS_TIME));
+		jc->GetButton(ButtonID::MINUS)->handleButtonChange((state.buttons & JSMASK_MINUS) > 0, jc->time_now, jc->getSetting(SettingID::TURBO_PERIOD), jc->getSetting(SettingID::HOLD_PRESS_TIME));
+		jc->GetButton(ButtonID::CAPTURE)->handleButtonChange((state.buttons & JSMASK_CAPTURE) > 0, jc->time_now, jc->getSetting(SettingID::TURBO_PERIOD), jc->getSetting(SettingID::HOLD_PRESS_TIME));
+		jc->GetButton(ButtonID::L3)->handleButtonChange((state.buttons & JSMASK_LCLICK) > 0, jc->time_now, jc->getSetting(SettingID::TURBO_PERIOD), jc->getSetting(SettingID::HOLD_PRESS_TIME));
 		jc->handleTriggerChange(ButtonID::ZL, ButtonID::ZLF, jc->getSetting<TriggerMode>(SettingID::ZL_MODE), state.lTrigger);
 	}
 	if (jc->controller_type != JS_SPLIT_TYPE_LEFT)
 	{
-		jc->handleButtonChange(ButtonID::E, (state.buttons & JSMASK_E) > 0);
-		jc->handleButtonChange(ButtonID::S, (state.buttons & JSMASK_S) > 0);
-		jc->handleButtonChange(ButtonID::N, (state.buttons & JSMASK_N) > 0);
-		jc->handleButtonChange(ButtonID::W, (state.buttons & JSMASK_W) > 0);
-		jc->handleButtonChange(ButtonID::R, (state.buttons & JSMASK_R) > 0);
-		jc->handleButtonChange(ButtonID::PLUS, (state.buttons & JSMASK_PLUS) > 0);
-		jc->handleButtonChange(ButtonID::HOME, (state.buttons & JSMASK_HOME) > 0);
-		jc->handleButtonChange(ButtonID::R3, (state.buttons & JSMASK_RCLICK) > 0);
+		jc->GetButton(ButtonID::E)->handleButtonChange((state.buttons & JSMASK_E) > 0, jc->time_now, jc->getSetting(SettingID::TURBO_PERIOD), jc->getSetting(SettingID::HOLD_PRESS_TIME));
+		jc->GetButton(ButtonID::S)->handleButtonChange((state.buttons & JSMASK_S) > 0, jc->time_now, jc->getSetting(SettingID::TURBO_PERIOD), jc->getSetting(SettingID::HOLD_PRESS_TIME));
+		jc->GetButton(ButtonID::N)->handleButtonChange((state.buttons & JSMASK_N) > 0, jc->time_now, jc->getSetting(SettingID::TURBO_PERIOD), jc->getSetting(SettingID::HOLD_PRESS_TIME));
+		jc->GetButton(ButtonID::W)->handleButtonChange((state.buttons & JSMASK_W) > 0, jc->time_now, jc->getSetting(SettingID::TURBO_PERIOD), jc->getSetting(SettingID::HOLD_PRESS_TIME));
+		jc->GetButton(ButtonID::R)->handleButtonChange((state.buttons & JSMASK_R) > 0, jc->time_now, jc->getSetting(SettingID::TURBO_PERIOD), jc->getSetting(SettingID::HOLD_PRESS_TIME));
+		jc->GetButton(ButtonID::PLUS)->handleButtonChange((state.buttons & JSMASK_PLUS) > 0, jc->time_now, jc->getSetting(SettingID::TURBO_PERIOD), jc->getSetting(SettingID::HOLD_PRESS_TIME));
+		jc->GetButton(ButtonID::HOME)->handleButtonChange((state.buttons & JSMASK_HOME) > 0, jc->time_now, jc->getSetting(SettingID::TURBO_PERIOD), jc->getSetting(SettingID::HOLD_PRESS_TIME));
+		jc->GetButton(ButtonID::R3)->handleButtonChange((state.buttons & JSMASK_RCLICK) > 0, jc->time_now, jc->getSetting(SettingID::TURBO_PERIOD), jc->getSetting(SettingID::HOLD_PRESS_TIME));
 		jc->handleTriggerChange(ButtonID::ZR, ButtonID::ZRF, jc->getSetting<TriggerMode>(SettingID::ZR_MODE), state.rTrigger);
 	}
-	jc->handleButtonChange(ButtonID::SL, (state.buttons & JSMASK_SL) > 0);
-	jc->handleButtonChange(ButtonID::SR, (state.buttons & JSMASK_SR) > 0);
+	jc->GetButton(ButtonID::SL)->handleButtonChange((state.buttons & JSMASK_SL) > 0, jc->time_now, jc->getSetting(SettingID::TURBO_PERIOD), jc->getSetting(SettingID::HOLD_PRESS_TIME));
+	jc->GetButton(ButtonID::SR)->handleButtonChange((state.buttons & JSMASK_SR) > 0, jc->time_now, jc->getSetting(SettingID::TURBO_PERIOD), jc->getSetting(SettingID::HOLD_PRESS_TIME));
 
 	// Handle buttons before GYRO because some of them may affect the value of blockGyro
 	auto gyro = jc->getSetting<GyroSettings>(SettingID::GYRO_ON); // same result as getting GYRO_OFF
@@ -2356,7 +2520,6 @@ void joyShockPollCallback(int jcHandle, JOY_SHOCK_STATE state, JOY_SHOCK_STATE l
 	// Apply gyro modifiers in the queue from oldest to newest (thus giving priority to most recent)
 	for (auto pair : jc->btnCommon->gyroActionQueue)
 	{
-		// TODO: logic optimization
 		if (pair.second.code == GYRO_ON_BIND)
 			blockGyro = false;
 		else if (pair.second.code == GYRO_OFF_BIND)
@@ -2511,6 +2674,15 @@ bool AutoLoadPoll(void *param)
 	return true;
 }
 
+bool MinimizePoll(void *param)
+{
+	if (isConsoleMinimized())
+	{
+		HideConsole();
+	}
+	return true;
+}
+
 void beforeShowTrayMenu()
 {
 	if (!tray || !*tray) CERR << "ERROR: Cannot create tray item." << endl;
@@ -2524,9 +2696,7 @@ void beforeShowTrayMenu()
 		});
 		tray->AddMenuItem(U("AutoLoad"), [](bool isChecked)
 			{
-				isChecked ?
-					autoLoadThread->Start() :
-					autoLoadThread->Stop();
+				autoloadSwitch = isChecked ? Switch::ON : Switch::OFF;
 			}, bind(&PollingThread::isRunning, autoLoadThread.get()));
 
 		if (Whitelister::IsHIDCerberusRunning())
@@ -2575,6 +2745,12 @@ void beforeShowTrayMenu()
 			WriteToConsole("CALCULATE_REAL_WORLD_CALIBRATION");
 			ShowConsole();
 		});
+		tray->AddMenuItem(U("Hide when minimized"), [](bool isChecked)
+			{
+				hide_minimized = isChecked ? Switch::ON : Switch::OFF;
+				if (!isChecked)
+					UnhideConsole();
+			}, bind(&PollingThread::isRunning, minimizeThread.get()));
 		tray->AddMenuItem(U("Quit"), []()
 		{
 			WriteToConsole("QUIT");
@@ -2771,28 +2947,29 @@ class GyroButtonAssignment : public JSMAssignment<GyroSettings>
 private:
 	const bool _always_off;
 
-	bool GyroParser(in_string data)
+	static bool GyroParser(JSMCommand* cmd, in_string data)
 	{
+		auto inst = dynamic_cast<GyroButtonAssignment*>(cmd);
 		if (data.empty())
 		{
-			GyroSettings value(_var);
+			GyroSettings value(inst->_var);
 			//No assignment? Display current assignment
-			COUT << (value.always_off ? string("GYRO_ON") : string("GYRO_OFF")) << " = " << value << endl;;
+			cout << (value.always_off ? string("GYRO_ON") : string("GYRO_OFF")) << " = " << value << endl;;
 		}
 		else
 		{
 			stringstream ss(data);
 			// Read the value
 			GyroSettings value;
-			value.always_off = _always_off; // Added line from DefaultParser
+			value.always_off = inst->_always_off; // Added line from DefaultParser
 			ss >> value;
 			if (!ss.fail())
 			{
-				GyroSettings oldVal = _var;
-				_var = value;
+				GyroSettings oldVal = inst->_var;
+				inst->_var = value;
 				// Command succeeded if the value requested was the current one
 				// or if the new value is different from the old.
-				return value == oldVal || _var != oldVal; // Command processed successfully
+				return value == oldVal || inst->_var != oldVal; // Command processed successfully
 			}
 			// Couldn't read the value
 		}
@@ -2802,21 +2979,42 @@ private:
 
 	void DisplayGyroSettingValue(GyroSettings value)
 	{
-		COUT << (value.always_off ? string("GYRO_ON") : string("GYRO_OFF")) << " is set to " << value << endl;;
+		cout << (value.always_off ? string("GYRO_ON") : string("GYRO_OFF")) << " is set to " << value << endl;;
 	}
 public:
-	GyroButtonAssignment(SettingID id, bool always_off)
-		: JSMAssignment(magic_enum::enum_name(id).data(), gyro_settings)
+	GyroButtonAssignment(in_string name, JSMVariable<GyroSettings>& setting, bool always_off)
+		: JSMAssignment(name, setting)
 		, _always_off(always_off)
 	{
-		SetParser(bind(&GyroButtonAssignment::GyroParser, this, placeholders::_2));
+		SetParser(&GyroButtonAssignment::GyroParser);
 		_var.RemoveOnChangeListener(_listenerId);
 	}
 
-	GyroButtonAssignment *SetListener()
+	GyroButtonAssignment(SettingID id, bool always_off)
+		: GyroButtonAssignment(magic_enum::enum_name(id).data(), gyro_settings, always_off)
+	{
+	}
+
+	GyroButtonAssignment* SetListener()
 	{
 		_listenerId = _var.AddOnChangeListener(bind(&GyroButtonAssignment::DisplayGyroSettingValue, this, placeholders::_1));
 		return this;
+	}
+
+	virtual unique_ptr<JSMCommand> GetModifiedCmd(char op, in_string chord) override
+	{
+		auto optBtn = magic_enum::enum_cast<ButtonID>(chord);
+		auto settingVar = dynamic_cast<JSMSetting<GyroSettings>*>(&_var);
+		if (optBtn > ButtonID::NONE && op == ',' && settingVar)
+		{
+			//Create Modeshift
+			string name = chord + op + _displayName;
+			unique_ptr<JSMCommand> chordAssignment(new GyroButtonAssignment(name, *settingVar->AtChord(*optBtn), _always_off));
+			chordAssignment->SetHelp(_help)->SetParser(bind(&GyroButtonAssignment::ModeshiftParser, *optBtn, settingVar, _parse, placeholders::_1, placeholders::_2))
+				->SetTaskOnDestruction(bind(&JSMSetting<GyroSettings>::ProcessModeshiftRemoval, settingVar, *optBtn));
+			return chordAssignment;
+		}
+		return JSMCommand::GetModifiedCmd(op, chord);
 	}
 
 	virtual ~GyroButtonAssignment() = default;
@@ -2856,7 +3054,7 @@ private:
 			}
 			COUT << "Enter HELP [cmd1] [cmd2] ... for details on specific commands." << endl;
 		}
-		else
+		else if(registry->hasCommand(arg))
 		{
 			auto help = registry->GetHelp(arg);
 			if (!help.empty())
@@ -2889,6 +3087,8 @@ public:
 #ifdef _WIN32
 int __stdcall wWinMain(HINSTANCE hInstance, HINSTANCE prevInstance, LPWSTR cmdLine, int cmdShow) {
 	auto trayIconData = hInstance;
+	CmdRegistry commandRegistry;
+
 #else
 int main(int argc, char *argv[]) {
 	static_cast<void>(argc);
@@ -2907,11 +3107,9 @@ int main(int argc, char *argv[]) {
 	initConsole(&CleanUp);
 	ColorStream<&cout, FOREGROUND_GREEN | FOREGROUND_INTENSITY>() << "Welcome to JoyShockMapper version " << version << '!' << endl;
 	//if (whitelister) COUT << "JoyShockMapper was successfully whitelisted!" << endl;
-	// prepare for input
-	connectDevices();
-	JslSetCallback(&joyShockPollCallback);
-	tray->Show();
-
+	autoLoadThread.reset(new PollingThread(&AutoLoadPoll, &commandRegistry, 1000, autoloadSwitch.get() == Switch::ON)); // Start by default
+	minimizeThread.reset(new PollingThread(&MinimizePoll, nullptr, 1000, hide_minimized.get() == Switch::ON)); // Start by default
+	
 	left_stick_mode.SetFilter(&filterStickMode)->
 		AddOnChangeListener(bind(&UpdateRingModeFromStickMode, &left_ring_mode, ::placeholders::_1));
 	right_stick_mode.SetFilter(&filterStickMode)->
@@ -2940,7 +3138,7 @@ int main(int argc, char *argv[]) {
 	stick_power.SetFilter(&filterFloat);
 	real_world_calibration.SetFilter(&filterFloat);
 	in_game_sens.SetFilter(bind(&fmaxf, 0.0001f, ::placeholders::_2));
-	trigger_threshold.SetFilter(&filterClamp01);
+	trigger_threshold.SetFilter(&filterFloat);
 	aim_x_sign.SetFilter(&filterInvalidValue<AxisMode, AxisMode::INVALID>);
 	aim_y_sign.SetFilter(&filterInvalidValue<AxisMode, AxisMode::INVALID>);
 	gyro_x_sign.SetFilter(&filterInvalidValue<AxisMode, AxisMode::INVALID>);
@@ -2961,7 +3159,7 @@ int main(int argc, char *argv[]) {
 	motion_deadzone_inner.SetFilter(&filterPositive);
 	motion_deadzone_outer.SetFilter(&filterPositive);
 	lean_threshold.SetFilter(&filterPositive);
-	mouse_ring_radius.SetFilter([](float c, float n) { return n <= screen_resolution_y ? floorf(n) : c; });
+	mouse_ring_radius.SetFilter([] (float c, float n) { return n <= screen_resolution_y ? floorf(n) : c; });
 	trackball_decay.SetFilter(&filterPositive);
 	screen_resolution_x.SetFilter(&filterPositive);
 	screen_resolution_y.SetFilter(&filterPositive);
@@ -2973,23 +3171,28 @@ int main(int argc, char *argv[]) {
 	dbl_press_window.SetFilter(&filterPositive);
 	hold_press_time.SetFilter(&filterHoldPressDelay);
 	currentWorkingDir.SetFilter( [] (PathString current, PathString next) { return SetCWD(string(next)) ? next : current; });
-	autoloadSwitch.SetFilter(&filterInvalidValue<Switch, Switch::INVALID>)->AddOnChangeListener(&UpdateAutoload);
+	autoloadSwitch.SetFilter(&filterInvalidValue<Switch, Switch::INVALID>)->AddOnChangeListener(bind(&UpdateThread, autoLoadThread.get(), placeholders::_1));
+	hide_minimized.SetFilter(&filterInvalidValue<Switch, Switch::INVALID>)->AddOnChangeListener(bind(&UpdateThread, minimizeThread.get(), placeholders::_1));
 	virtual_controller.SetFilter(&UpdateVirtualController);
-
+	scroll_sens.SetFilter(&filterFloatPair);
+	light_bar.AddOnChangeListener([](Color newColor)
+		{
+			for (auto devicePair : handle_to_joyshock)
+			{
+				JslSetLightColour(devicePair.first, newColor.raw);
+			}
+		});
 	currentWorkingDir = string(&cmdLine[0], &cmdLine[wcslen(cmdLine)]);
-	CmdRegistry commandRegistry;
-
-	autoLoadThread.reset(new PollingThread(&AutoLoadPoll, &commandRegistry, 1000, true)); // Start by default
+	
 	if (autoLoadThread && autoLoadThread->isRunning())
-	{
 		COUT << "AutoLoad is enabled. Configurations in \"" << AUTOLOAD_FOLDER() << "\" folder will get loaded when matching application is in focus." << endl;
-	}
-	else COUT << "[AUTOLOAD] AutoLoad is unavailable" << endl;
+	else 
+		CERR << "AutoLoad is unavailable" << endl;
 
 
 	for (auto &mapping : mappings) // Add all button mappings as commands
 	{
-		commandRegistry.Add(new JSMAssignment<Mapping>(mapping.getName(), mapping));
+		commandRegistry.Add((new JSMAssignment<Mapping>(mapping))->SetHelp(buttonHelpMap.at(mapping._id)));
 	}
 	commandRegistry.Add((new JSMAssignment<FloatXY>(min_gyro_sens))
 		->SetHelp("Minimum gyro sensitivity when turning controller at or below MIN_GYRO_THRESHOLD.\nYou can assign a second value as a different vertical sensitivity."));
@@ -3008,7 +3211,7 @@ int main(int argc, char *argv[]) {
 	commandRegistry.Add((new JSMAssignment<float>(in_game_sens))
 		->SetHelp("Set this value to the sensitivity you use in game. It is used by stick FLICK and AIM modes as well as GYRO aiming."));
 	commandRegistry.Add((new JSMAssignment<float>(trigger_threshold))
-		->SetHelp("Set this to a value between 0 and 1. This is the threshold at which a soft press binding is triggered."));
+		->SetHelp("Set this to a value between 0 and 1. This is the threshold at which a soft press binding is triggered. Or set the value to -1 to use hair trigger mode"));
 	commandRegistry.Add((new JSMMacro("RESET_MAPPINGS"))->SetMacro(bind(&do_RESET_MAPPINGS, &commandRegistry))
 		->SetHelp("Delete all custom bindings and reset to default.\nHOME and CAPTURE are set to CALIBRATE on both tap and hold by default."));
 	commandRegistry.Add((new JSMMacro("NO_GYRO_BUTTON"))->SetMacro(bind(&do_NO_GYRO_BUTTON))
@@ -3099,13 +3302,12 @@ int main(int argc, char *argv[]) {
 	commandRegistry.Add((new JSMAssignment<ControllerOrientation>(controller_orientation))
 	    ->SetHelp("Let the stick modes account for how you're holding the controller:\nFORWARD, LEFT, RIGHT, BACKWARD"));
 	commandRegistry.Add((new JSMAssignment<TriggerMode>(zlMode))
-		->SetHelp("Controllers with a right analog trigger can use one of the following dual stage trigger modes:\nNO_FULL, NO_SKIP, MAY_SKIP, MUST_SKIP, MAY_SKIP_R, MUST_SKIP_R"));
+		->SetHelp("Controllers with a right analog trigger can use one of the following dual stage trigger modes:\nNO_FULL, NO_SKIP, MAY_SKIP, MUST_SKIP, MAY_SKIP_R, MUST_SKIP_R, NO_SKIP_EXCLUSIVE"));
 	commandRegistry.Add((new JSMAssignment<TriggerMode>(zrMode))
-		->SetHelp("Controllers with a left analog trigger can use one of the following dual stage trigger modes:\nNO_FULL, NO_SKIP, MAY_SKIP, MUST_SKIP, MAY_SKIP_R, MUST_SKIP_R"));
+		->SetHelp("Controllers with a left analog trigger can use one of the following dual stage trigger modes:\nNO_FULL, NO_SKIP, MAY_SKIP, MUST_SKIP, MAY_SKIP_R, MUST_SKIP_R, NO_SKIP_EXCLUSIVE"));
 	auto *autoloadCmd = new JSMAssignment<Switch>("AUTOLOAD", autoloadSwitch);
-	currentWorkingDir.AddOnChangeListener(bind(&RefreshAutoloadHelp, autoloadCmd));
     commandRegistry.Add(autoloadCmd);
-	RefreshAutoloadHelp(autoloadCmd);
+	currentWorkingDir.AddOnChangeListener(bind(&RefreshAutoloadHelp, autoloadCmd), true);
 	commandRegistry.Add((new JSMMacro("README"))->SetMacro(bind(&do_README))
 		->SetHelp("Open the latest JoyShockMapper README in your browser."));
 	commandRegistry.Add((new JSMMacro("WHITELIST_SHOW"))->SetMacro(bind(&do_WHITELIST_SHOW))
@@ -3146,6 +3348,8 @@ int main(int argc, char *argv[]) {
 		->SetHelp("Sets the amount of time in milliseconds within which the user needs to press a button twice before enabling the double press mappings. This setting does not support modeshift."));
 	commandRegistry.Add((new JSMAssignment<PathString>("JSM_DIRECTORY", currentWorkingDir))
 		->SetHelp("If AUTOLOAD doesn't work properly, set this value to the path to the directory holding the JoyShockMapper.exe file. Make sure a folder named \"AutoLoad\" exists there."));
+	commandRegistry.Add((new JSMAssignment<Color>(light_bar))
+		->SetHelp("Changes the color bar of the DS4. Either enter as a hex code (xRRGGBB), as three decimal values between 0 and 255 (RRR GGG BBB), or as a common color name in all caps and underscores."));
 	commandRegistry.Add(new HelpCmd(commandRegistry));
 	commandRegistry.Add((new JSMAssignment<ControllerScheme>(magic_enum::enum_name(SettingID::VIRTUAL_CONTROLLER).data(), virtual_controller))
 		->SetHelp("Sets the vigem virtual controller type. Can be NONE (default), XBOX (360) or DS4 (PS4)."));
@@ -3162,7 +3366,11 @@ int main(int argc, char *argv[]) {
 
 	Mapping::_isCommandValid = bind(&CmdRegistry::isCommandValid, &commandRegistry, placeholders::_1);
 
-	do_RESET_MAPPINGS(&commandRegistry);
+	connectDevices();
+	JslSetCallback(&joyShockPollCallback);
+	tray->Show();
+
+	do_RESET_MAPPINGS(&commandRegistry); // onreset.txt
 	if (commandRegistry.loadConfigFile("onstartup.txt"))
 	{
 		COUT << "Finished executing startup file." << endl;

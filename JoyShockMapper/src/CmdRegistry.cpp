@@ -118,6 +118,18 @@ bool CmdRegistry::Add(JSMCommand* newCommand)
 	return false;
 }
 
+bool CmdRegistry::Remove(in_string name)
+{
+	// If I allow multiple commands with the same name, I should have a way to specify which one I want to remove.
+	CmdMap::iterator cmd = find_if(_registry.begin(), _registry.end(), bind(&CmdRegistry::findCommandWithName, name, placeholders::_1));
+	if (cmd != _registry.end())
+	{
+		_registry.erase(cmd);
+		return true;
+	}
+	return false;
+}
+
 bool CmdRegistry::findCommandWithName(in_string name, CmdMap::value_type& pair)
 {
 	return name == pair.first;
@@ -208,7 +220,7 @@ void CmdRegistry::processLine(const string& line)
 
 		if (!hasProcessed)
 		{
-			CERR << "Unrecognized command: \"" << trimmedLine << "\"\nEnter HELP to display all commands." << endl;
+			cout << "Unrecognized command: \"" << trimmedLine << "\"\nEnter HELP to display all commands." << endl;
 		}
 	}
 	// else ignore empty lines
@@ -220,6 +232,11 @@ void CmdRegistry::GetCommandList(vector<string>& outList)
 	for (auto& cmd : _registry)
 		outList.push_back(cmd.first);
 	return;
+}
+
+bool CmdRegistry::hasCommand(in_string name) const
+{
+	return _registry.find(name) != _registry.end();
 }
 
 string CmdRegistry::GetHelp(in_string command)

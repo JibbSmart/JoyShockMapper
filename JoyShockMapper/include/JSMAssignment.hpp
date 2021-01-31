@@ -39,13 +39,12 @@ protected:
 			string fwd_args(results.empty() ? arguments : results[1].str());
 			if (!_parse(this, fwd_args))
 			{
-				CERR << "Error when parsing the command " << _displayName << endl 
-					 << _help << endl; // Parsing has failed. Show help.
+				cout << _help << endl; // Parsing has failed. Show help.
 			}
 		}
 		else
 		{
-			// If no if case processed the command, it has been entered wrong.
+			// If no if case processed the command,; it has been entered wrong.
 			return false;
 		}
 		return true; // Command is completely processed
@@ -176,6 +175,10 @@ public:
 	{ }
 
 	JSMAssignment(JSMSetting<T>& var)
+		: JSMAssignment(magic_enum::enum_name(var._id).data(), var)
+	{ }
+
+	JSMAssignment(JSMButton& var)
 		: JSMAssignment(magic_enum::enum_name(var._id).data(), var)
 	{ }
 

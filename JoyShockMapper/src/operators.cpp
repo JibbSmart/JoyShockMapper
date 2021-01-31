@@ -1,9 +1,11 @@
 #include "JoyShockMapper.h"
 #include "InputHelpers.h"
+#include <ColorCodes.h>
 
 #include <cstring>
 #include <sstream>
 #include <memory>
+#include <algorithm>
 
 static optional<float> getFloat(const string &str, size_t *newpos = nullptr)
 {
@@ -141,7 +143,7 @@ ostream &operator <<(ostream &out, GyroSettings gyro_settings)
 		if (gyro_settings.button == ButtonID::NONE)
 			out << "No button disables or enables gyro";
 		else if(gyro_settings.button != ButtonID::INVALID)
-			out << gyro_settings.button;  //TODO: button to string conversion
+			out << gyro_settings.button;
 		break;
 	default:
 		out << "INVALID";
@@ -216,4 +218,47 @@ istream& operator >> (istream& in, PathString& fxy)
 	in.getline(&fxy[0], fxy.size());
 	fxy.resize(strlen(fxy.c_str()));
 	return in;
+}
+
+istream &operator >> (istream &in, Color &color)
+{
+	if (in.peek() == 'x')
+	{
+		char pound;
+		in >> pound >> std::hex >> color.raw;
+	}
+	else if (in.peek() >= 'A' && in.peek() <= 'Z')
+	{
+		string s;
+		in >> s;
+		auto code = colorCodeMap.find(s);
+		if (code == colorCodeMap.end())
+		{
+			in.setstate(in.failbit);
+		}
+		else
+		{
+			color.raw = code->second;
+		}
+	}
+	else
+	{
+		int r, g, b;
+		in >> r >> g >> b;
+		color.rgb.r = uint8_t(clamp(r, 0, 255));
+		color.rgb.g = uint8_t(clamp(g, 0, 255));
+		color.rgb.b = uint8_t(clamp(b, 0, 255));
+	}
+	return in;
+}
+
+ostream &operator << (ostream &out, Color color)
+{
+	out << 'x' << std::hex << int(color.rgb.r) << int(color.rgb.g) << int(color.rgb.b);
+	return out;
+}
+
+bool operator ==(const Color &lhs, const Color &rhs)
+{
+	return lhs.raw == rhs.raw;
 }
