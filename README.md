@@ -1,7 +1,8 @@
-# JoyShockMapper
-The Sony PlayStation DualSense, DualShock 4, Nintendo Switch JoyCons (used in pairs), and Nintendo Switch Pro Controller have much in common. They have many of the features expected of modern game controllers. They also have an incredibly versatile and underutilised input that their biggest rival (Microsoft's Xbox One controller) doesn't have: a 3-axis gyroscope (from here on, “gyro”).
 
-My goal with JoyShockMapper is to enable you to play PC games with DS, DS4, JoyCons, and Pro Controllers even better than you can on their respective consoles -- and demonstrate that more games should use these features in these ways.
+# JoyShockMapper
+The Sony PlayStation DualShock 4, Nintendo Switch JoyCons (used in pairs), and Nintendo Switch Pro Controller have much in common. They have many of the features expected of modern game controllers. They also have an incredibly versatile and underutilised input that their biggest rival (Microsoft's Xbox One controller) doesn't have: a 3-axis gyroscope (from here on, “gyro”).
+
+My goal with JoyShockMapper is to enable you to play PC games with DS4, JoyCons, and Pro Controllers even better than you can on their respective consoles -- and demonstrate that more games should use these features in these ways.
 
 **Download JoyShockMapper to use right away [here](https://github.com/JibbSmart/JoyShockMapper/releases)**!
 
@@ -11,7 +12,6 @@ JoyShockMapper works on Windows and uses JoyShockLibrary to read inputs from con
 
 ## Contents
 * **[Installation for Devs](#installation-for-devs)**
-  * **[Linux specific notes](#linux-specific-notes)**
 * **[Installation for Players](#installation-for-players)**
 * **[Quick Start](#quick-start)**
 * **[Commands](#commands)**
@@ -23,25 +23,15 @@ JoyShockMapper works on Windows and uses JoyShockLibrary to read inputs from con
 	* **[Double Press](#15-double-press)**
 	* **[Gyro Button](#16-gyro-button)**
   * **[Analog Triggers](#2-analog-triggers)**
-  * **[Stick Configuration](#3-stick-configuration)**
-    * **[Standard AIM mode](#31-standard-aim-mode)**
-    * **[FLICK mode and variants](#32-flick-mode-and-variants)**
-    * **[Other mouse modes](#33-other-mouse-modes)**
-    * **[Digital modes](#34-digital-modes)**
-    * **[Motion Stick and lean bindings](#35-motion-stick-and-lean-bindings)**
+  * **[Stick Mouse Inputs](#3-stick-mouse-inputs)**
+    * **[Motion Stick](#31-motion-stick)**
   * **[Gyro Mouse Inputs](#4-gyro-mouse-inputs)**
   * **[Real World Calibration](#5-real-world-calibration)**
-    * **[Prerequisites](#51-prerequisites)**
-    * **[Calculating the real world calibration in a 3D game](#52-calculating-the-real-world-calibration-in-a-3d-game)**
-    * **[Calculating the real world calibration in a 2D game](#53-calculating-the-real-world-calibration-in-a-2d-game)**
-  * **[Modeshifts](#6-modeshifts)**
-  * **[Miscellaneous Commands](#7-miscellaneous-commands)**
-  * **[Configuration Files](#configuration-files)**
-    * **[OnStartup.txt](#1-onstartuptxt)**
-    * **[OnReset.txt](#2-onresettxt)**
-    * **[Autoload](#3-autoload)**
-* **[Troubleshooting](#troubleshooting)**
+  * **[ViGEm Virtual Controller](#6-vigem-virtual-controller)**
+  * **[Modeshifts](#7-modeshifts)**
+  * **[Miscellaneous Commands](#8-miscellaneous-commands)**
 * **[Known and Perceived Issues](#known-and-perceived-issues)**
+* **[Troubleshooting](#troubleshooting)**
 * **[Credits](#credits)**
 * **[Helpful Resources](#helpful-resources)**
 * **[License](#license)**
@@ -103,46 +93,50 @@ The application will work on both X11 and Wayland, though focused window detecti
 ## Installation for Players
 The latest version of JoyShockMapper can always be found [here](https://github.com/JibbSmart/JoyShockMapper/releases). All you have to do is run JoyShockMapper.exe.
 
-Included is a folder called GyroConfigs. This includes templates for creating new configurations for 2D and 3D games, and configuration files that include the settings used for simple [Real World Calibration](#5-real-world-calibration).
+Included is a folder called GyroConfigs. This includes templates for creating new configurations for 2D and 3D games, and configuration files that include the settings used for simple [Real World Calibration](#4-real-world-calibration).
 
 ## Quick Start
-1. Connect your DualSense, DualShock 4, JoyCons, or Pro Controller. Bluetooth support for the DualShock 4 is experimental for now, as is USB support for Switch controllers. The DualSense is currently only supported by USB.
+1. Connect your DualShock 4, JoyCons, or Pro Controller. Bluetooth support for the DualShock 4 is experimental for now, as is USB support for Switch controllers.
 
 2. Run the JoyShockMapper executable, and you should see a console window welcoming you to JoyShockMapper.
-    * In the console you can start entering bindings : [button name] = [key name]. See [Digital Inputs section](#1-digital-inputs) for details on how buttons and keys are named.
-    * [Sticks](#3-stick-mouse-inputs), the [gyro](#4-gyro-mouse-inputs) and [Sony's analog triggers](#2-analog-triggers) require some more configuration: typically some MODE you want to set, a sensitivity value and some other settings. Each is explained in the corresponding section. They follow the same format : [setting name] = [value]
-	* Buttons and settings will display their current values if you only enter their name in the console.
-	* Settings can display a short description of what they do if you enter [setting name] HELP
-	* There are quite a few commands that do not work as assignments like above but just runs a function. For example RECONNECT\_CONTROLLERS will update the controller listing, and RESET\_MAPPINGS will set all settings and bindings to default. README will lead you to this document!
-	* You will find a JoyShockMapper icon in the system tray: right click on it to display a quick list of commands and configuration files.
+    * If you want to connect your controller after starting JoyShockMapper, you can use the command RECONNECT\_CONTROLLERS to connect these controllers.
+	* The ```HELP``` command will show you the list of all available commands. You can display help from multiple commands at once by typing ```HELP [cmd1] [cmd2] ...```
+	* All settings can display their current value by typing entering it's name, and display their help by entering ```[cmd] HELP```
+	* Bring up the latest version of this README in your browser by entering ```README```
 
-3. JoyShockMapper can load all the commands contained in a text file.
-	* Enter the file's path and name in the console. If the file path is too long, or contains unusual characters, enter the relative path instead (eg: GyroConfigs/config.txt).
-    * Every line of the text file will be run as a command typed directly into the console. The pound # symbol starts a comment until the end of the line and will be ignored by JoyShockMapper.
-    * You can find example configuration files in the GyroConfigs folder. Files can refer one another : feel free to edit those in GyroConfigs as your customized gyro configuration for example.
-    * Find more details in the [Configuration Files](#configuration-files) section.
+3. Drag in a configuration file and hit enter to load all the settings in that file.
+    * Configuration files are just text files. Every command in a text file is a command you can type directly into the console window yourself. See "Commands" below for a comprehensive guide to JoyShockMapper's commands.
+    * Example configuration files are included in the GyroConfigs folder.
+    * If the file path is very, very long, or contains unusual characters, **this may not work**. In that case, type in the relative path (eg: GyroConfigs/config.txt) and hit enter.
 
-4. If you're using a configuration that utilises gyro controls, the gyro will need to be calibrated (to be told what "not moving" is). See [Gyro Mouse Inputs section](#4-gyro-mouse-inputs) for more info on that, but here's the short version:
+4. If you're using a configuration that utilises gyro controls, the gyro will need to be calibrated (to be told what "not moving" is). See "Gyro Mouse Inputs" under "Commands" below for more info on that, but here's the short version:
 	* Put all controllers down on a still surface;
 	* Enter the command RESTART\_GYRO\_CALIBRATION to begin calibrating them;
 	* After just a couple of seconds, enter the command FINISH\_GYRO\_CALIBRATION to finish calibrating them.
-	* These commands are also accessible via the tray icon contextual menu as well.
-    * JoyShockMapper relies on a Real World Calibration value for some features such as flick stick. If you didn't find this value in the [online database](http://gyrowiki.jibbsmart.com/games), check the [Real World Calibration](#5-real-world-calibration) section to calculate it yourself.
 
-5. If you run into some issues, make sure you check the [Troubleshooting](#troubleshooting) section and [Known and Perceived Issues](#known-and-perceived-issues). If you couldn't find your answer, you can find more help online on the [GyroGaming subreddit](https://www.reddit.com/r/GyroGaming/) and its [affiliated Discord Server](https://discord.gg/4w7pCqj).
+5. A good configuration file has also been calibrated to map sensitivity settings to useful real world values. This makes it easy to have consistent settings between different games that have different scales for their own sensitivity settings. See [Real World Calibration](#4-real-world-calibration) below for more info on that.
+
+6. JoyShockMapper can automatically load a configuration file for your games each time the game window enters focus. Drop the file in the **AutoLoad** folder, next to the executable. JoyShockMapper will look for a name based on the executable name of the program that's in focus. When it goes into focus and AUTOLOAD is enabled (which it is by default), JoyShockMapper will tell you the name of the file it's looking for - case insensitive. You can turn it off by entering the command ```AUTOLOAD = OFF```. You can enable it again with ```AUTOLOAD = ON```. If your files don't seem to get picked up, you can manually set where to look for the AutoLoad folder by entering the command ```JSM_DIRECTORY = C:\Program Files\JSM``` for example. You can also set your working directory as a command line argument when running JSM.
+
+7. Games that have native support for your controller, such as *Apex Legends* with DualShock 4, sometimes don't have the option to ignore your controller. Projects like HIDGuardian / HIDCerberus allow you to mask devices from all application except those that you *whitelist*. If you do have HIDCerberus installed and running, JoyShockMapper can be added to the whitelist by entering the command ```WHITELIST_ADD```, removed with the command ```WHITELIST_REMOVE```, and you can display the HIDCerberus configuration page in your browser by entering ```WHITELIST_SHOW```.
 
 ## Commands
-Commands can be executed by simply typing them into the JoyShockMapper console windows and hitting 'enter'. You can see the list of all available commands by entering ```HELP```, or all commands containing STICK by typing ```HELP STICK``` for example. Since there's a quite a lot of them, they are organized in this document by what part of the controller or software they affect.
+Commands can be executed by simply typing them into the JoyShockMapper console windows and hitting 'enter'. You can also put a bunch of commands into a text file and, by typing in the path to the file in JoyShockMapper (either the full path or the path relative to the JoyShockMapper executable) and hitting 'enter', execute all those commands. I refer to such a file as a "configuration file". In Windows, you can also drag and drop a file from Explorer into the JoyShockMapper console window to enter the full path of that file.
 
-Commands can *mostly* be split into 8 categories:
+A configuration file can also contain references to other configuration files. This can simplify sharing settings across different games -- if you have preferred stick and gyro settings, you can keep them in a separate file, and have all other configuration files reference that file instead of copying all the stick and gyro settings themselves.
 
-1. **[Digital Inputs](#1-digital-inputs)**. These are the simplest. Map a button press or stick movement to a key or mouse button. There are many binding options available, such as tap & hold, simultaneous press, chorded press and more.
-2. **[Analog Triggers](#2-analog-triggers)**. The DualSense and Dualshock 4 controllers have 2 analog triggers: L2 and R2. JoyShockMapper can set different bindings on both "soft pull" and "full pull" of the trigger, maximizing use of those triggers. This feature is unavailable to controllers that have digital triggers, like the Nintendo Pro and Joycons.
-3. **[Stick Configuration](#3-stick-configuration)**. Joysticks can drive the mouse or trigger key presses in many different ways, such as flick stick or scroll_wheel. They need to be set a mode, and some settings particular to that mode. This is all explained in this section.
+Commands can *mostly* be split into 4 categories:
+
+1. **[Digital Inputs](#1-digital-inputs)**. These are the simplest. Map a button press or stick movement to a key or mouse button. There are many binding options available, such as tap & hold, simultaneous press and chorded press.
+2. **[Analog Triggers](#2-analog-triggers)**. The Dualshock 4 controller has 2 analog triggers: L2 and R2. JoyShockMapper can set different bindings on both "soft pull" and "full pull" of the trigger, maximizing use of those triggers. This feature is unavailable to controllers that have digital triggers, like the Nintendo Pro and Joycons.
+3. **[Stick Mouse Inputs](#3-stick-mouse-inputs)**. You can move the mouse with stick inputs and/or gyro inputs. Stick mouse has two different modes:
+	* **Aim stick**. This is your traditional/legacy stick aiming.
+	* **Flick stick**. Map the flick or rotation of a stick to the same rotation in game. More on that later.
 4. **[Gyro Mouse Inputs](#4-gyro-mouse-inputs)**. Controlling the mouse with gyro generally provides far more precision than controlling it with a stick. Think of a gyro as a mouse on an invisible, frictionless mousepad. The mousepad extends however far you're comfortable rotating the controller. For games where you control the camera directly, stick mouse inputs provide convenient ways to complete big turns with little precision, while gyro mouse inputs allow you to make more precise, quick movements within a relatively limited range.
-5. **[Real World Calibration](#5-real-world-calibration)**. This calibration value makes it possible for *flick stick* to work correctly, for the gyro and aim stick settings to have meaningful real-life values, and for players to share the same settings between different games.
-6. **[Modeshifts](#6-modeshifts)**. The controller configuration can dynamically change depending on the current button presses, in a way akin to chorded presses. This is handy to handle weapon wheels for example. These are called modeshifts to echo the Steam Input naming convention.
-8. **[Miscellaneous Commands](#7-miscellaneous-commands)**. These don't fit in the above categories, but are nevertheless useful. They typically are related to JoyShockMapper itself rather than the controller configuration.
+5. **[Real World Calibration](#5-real-world-calibration)**. Calibrating correctly makes it possible for *flick stick* to work correctly, for the gyro and aim stick settings to have meaningful real-life values, and for players to share the same settings between different games.
+6. **[ViGEm Virtual Controller](#6-vigem-virtual-controller)**. JoyShockMapper can connect to Nefarius' ViGEm bus software to create virtual xbox controllers and virtual DS4 controllers. You can find the [latest release at this link](https://github.com/ViGEm/ViGEmBus/releases/latest).
+7. **[Modeshifts](#7-modeshifts)**. Various settings can be reconfigured depending on the controller's current button presses, in a way akin to chorded presses. This is handy to handle weapon wheels for example. These are called modeshifts to echo the Steam Input naming convention.
+8. **[Miscellaneous Commands](#8-miscellaneous-commands)**. These don't fit in the above categories, but are nevertheless useful.
 
 So let's dig into the available commands.
 
@@ -155,24 +149,27 @@ For example, to map directional pad LEFT to the F1 key, you'd enter:
 
 ```LEFT = F1```
 
-One important feature of JoyShockMapper is that a configuration that works for a PlayStation controller works the same for a pair of JoyCons or a Pro Controller. Because JoyCons can have slightly more inputs than the DualShock 4 (the ```SL``` and ```SR``` buttons are unique to the JoyCons), the button names are *mostly* from the Nintendo devices. The main exceptions are the face buttons and the stick-clicks. Because they are named more concisely, the stick-clicks are named after the DualShock 4: ```L3``` and ```R3```.
+One important feature of JoyShockMapper is that a configuration that works for the DualShock 4 works the same for a pair of JoyCons or a Pro Controller. Because JoyCons can have slightly more inputs than the DualShock 4 (the ```SL``` and ```SR``` buttons are unique to the JoyCons), the button names are *mostly* from the Nintendo devices. The main exceptions are the face buttons and the stick-clicks. Because they are named more concisely, the stick-clicks are named after the DualShock 4: ```L3``` and ```R3```.
 
 The face buttons are a more complicated matter.
 
-The Xbox layout has become the defacto layout for PC controllers. Most PC gamers who use some sort of controller will be familiar with the Xbox layout, whether from Xbox controllers, Steam controller, or other 3rd party controllers that can be interpreted by a game as an Xbox controller. Even PlayStation users will be somewhat used to interpreting Xbox face button names. Nintendo devices have the *same* face buttons in a *different* layout. X and Y are swapped, and so are A and B. Nintendo's layout has also been around for longer, but is less familiar to PC players.
+The Xbox layout has become the defacto layout for PC controllers. Most PC gamers who use some sort of controller will be familiar with the Xbox layout, whether from Xbox controllers, Steam controller, or other 3rd party controllers that can be interpreted by a game as an Xbox controller. Even DualShock 4 users will be somewhat used to interpreting Xbox face button names. Nintendo devices have the *same* face buttons in a *different* layout. X and Y are swapped, and so are A and B. Nintendo's layout has also been around for longer, but is less familiar to PC players.
 
 So the best solution, in my opinion, is to use *neither* layout, and use an unambiguous layout with button names that aren't used by *any* controller, but still have obvious positions: the *cardinal layout*. North, East, South, West, denoted by ```N```, ```E```, ```S```, ```W```, respectively.
 
 So, here's the complete list of digital inputs:
 
 ```
-UP, DOWN, LEFT, RIGHT: D-pad directional buttons
+UP: Up on the d-pad
+DOWN: Down on the d-pad
+LEFT: Left on the d-pad
+RIGHT: Right on the d-pad
 L: L1 or L, the top left shoulder button
 ZL: L2 or ZL, the bottom left shoulder button (or trigger)
 R: R1 or R, the top right shoulder button
 ZR: R2 or ZR, the bottom right shoulder button
-ZRF: Full pull binding of right trigger, only on controllers with analog triggers
-ZLF: Full pull binding of left trigger, only on controllers with analog triggers
+ZRF: Full pull binding of right trigger, only on DS4
+ZLF: Full pull binding of left trigger, only on DS4
 -: Share or -
 +: Options or +
 HOME: PS or Home
@@ -185,13 +182,23 @@ N: The North face button, △ or X
 E: The East face button, ○ or A
 S: The South face button, ⨉ or B
 W: The West face button, □ or Y
-LUP, LDOWN, LLEFT, LRIGHT: Left stick tilted up, down left or right
+LUP: Left stick tilted up
+LDOWN: Left stick tilted down
+LLEFT: Left stick tilted left
+LRIGHT: Left stick tilted right
 LRING: Left ring binding, either inner or outer.
-RUP, RDOWN, RLEFT, RRIGHT: Right stick tilted up, down, left or right
+RUP: Right stick tilted up
+RDOWN: Right stick tilted down
+RLEFT: Right stick tilted left
+RRIGHT: Right stick tilted right
 RRING: Right ring binding, either inner or outer.
-MUP, MDOWN, MLEFT, MRIGHT: Motion stick tilted forward, back, left or right
+MUP: Motion stick tilted forward
+MDOWN: Motion stick tilted back
+MLEFT: Motion stick tilted left
+MRIGHT: Motion stick tilted right
 MRING: Motion ring binding, either inner or outer.
-LEAN_LEFT, LEAN_RIGHT: Tilt the controller to the left or right
+LEAN_LEFT: Tilt the controller to the left
+LEAN_RIGHT: Tilt the controller to the right
 ```
 
 These can all be mapped to the following keyboard and mouse inputs:
@@ -206,15 +213,11 @@ UP, DOWN, LEFT, RIGHT: the arrow keys
 LCONTROL, RCONTROL, CONTROL: left Ctrl, right Ctrl, generic Ctrl, respectively
 LALT, RALT, ALT: left Alt, right Alt, generic Alt, respectively
 LSHIFT, RSHIFT, SHIFT: left Shift, right Shift, generic Shift, respectively
-LWINDOWS, RWINDOWS, CONTEXT: Both Windows keys and the context menu key
-TAB, ESC, ENTER, SPACE, BACKSPACE, CAPS_LOCK, SCROLL_LOCK, NUM_LOCK, 
-PAGEUP, PAGEDOWN, HOME, END, INSERT, DELETE
+TAB, ESC, ENTER, SPACE, BACKSPACE, CAPS_LOCK
+PAGEUP, PAGEDOWN, HOME, END, INSERT, DELETE,
 LMOUSE, MMOUSE, RMOUSE: mouse left click, middle click and right click respectively
 BMOUSE, FMOUSE: mouse back (button 4) click and mouse forward (button 5) click respectively
 SCROLLUP, SCROLLDOWN: scroll the mouse wheel up, down, respectively
-VOLUME_UP, VOLUME_DOWN, MUTE: Volume controls
-NEXT_TRACK, PREV_TRACK, STOP_TRACK, PLAY_PAUSE: media control
-SCREENSHOT: print screen button
 NONE: No input
 CALIBRATE: recalibrate gyro when pressing this input
 GYRO_ON, GYRO_OFF: Enable or disable gyro
@@ -254,27 +257,23 @@ If you want □ to 'reload' when tapped, but do nothing at all when held, you ca
 W = R NONE
 ```
 
-The time to hold the button before enabling the hold binding can be changed by assigning a number of milliseconds to ```HOLD_PRESS_TIME```. The default value is 150 milliseconds.
+The time to hold the button before enabling the hold binding can be changed by assigning a number of milliseconds to ```HOLD_PRESS_TIME```.
 
 See the tap press and hold press event modifiers below for more details on how keybinds are applied.
 
 #### 1.2 Binding Modifiers
 
-Taps and holds are the most common bindings used on a controller. But sometimes, you will find the need to require bindings that are somewhat more complicated, either because you want to work around an in-game behaviour, or you want to create some unusual key press combination. In any case, JoyShockMapper allows you to highly customize how mappings are assigned to your button through binding modifiers.
+There are two kinds of modifiers that can be applied to key bindings: action modifiers and event modifiers. They are represented by symbols added before and after the key name repectively. And each binding can only ever have one of each. You can however have multiple keys bound to the same events, thus sending multiple key presses at once.
 
-Before we dive in, there's a few notions to understand. A key press always involves a key down and a key up **action**. In a simple binding, JoyShockMapper will match the button down and button up **events** with a key down and key up action respectively. However when you use Tap and Hold bindings, JoyShockMapper will bind the key down and key up to **different events** that will happen a certain time while the button is down and after the button is released. Some bindings do not have a matching "key up" action such as scroll wheel bindings and console command bindings.
+**Action modifiers** come in two kinds: **toggle (^)** and **instant (!)**. Using either of these modifiers will make it so that nothing is bound to the release of the button press.
+* ^ Toggle makes it so that the key will alternate between applying and releasing the key press at each press.
+* ! Instant sends both the key press and release at the same time
 
-There are two kinds of modifiers that can be applied to key bindings: action modifiers and event modifiers. They are represented by symbols added before and after the key name respectively. And each binding can only ever have one of each. You can however have multiple keys bound to the same events, thus sending multiple key presses at once.
-
-**Action modifiers** affect how the **key down** and **key up** actions are bound to the events. They come in two kinds: **toggle (^)** and **instant (!)**.
-* ^ Toggle makes it so that the key will alternate between applying and releasing the key at each press.
-* ! Instant will send the key up action very shortly after the key down, making it seem instant.
-
-**Event Modifiers** affect what button events the key up and key down actions will be bound to. They come in five kinds: **start press (\\)**, **release press (/)**, **tap press (')**, **hold press (_)**,\ and **turbo (+)**.
-* \\ Start press is the default event modifier when there is only a single key bind. It will apply the key down action as soon as the button is pressed and the key up when the button is released by default. This can be useful to have a key held while other keys are being activated.
+**Event Modifiers** come in five kinds: **tap press (')**, **hold press (_)**, **start press (\\)**, **release press (/)** and **turbo (+)**.
+* ' Tap press is the default event modifier for the first key bind when there are multiple of them. It will apply the key press when the button is released if the total press time is less than the ```HOLD_PRESS_TIME```. The key press is released a short time after, with that time being longer for gyro related action and calibration, unless an action modifier instructs otherwise.
+* _ Hold press is the default event modifier for the second key bind when there are multiple of them. It will apply the key only after the button is held down for the defined amount of time. The key is released when the button is released as well, unless an action modifier instructs otherwise.
+* \\ Start press is the default event modifier when there is only a single key bind. It will apply the key press as soon as the button is pressed and releases the key when the button is released, unless an action modifier instructs otherwise. This can be useful to have a key held while other keys are being activated.
 * \/ Release press will apply the binding when the button is released. A binding on release press needs an action modifier to be valid.
-* ' Tap press is the default event modifier for the first key bind when there are multiple of them. It will apply the key press when the button is released if the total press time is less than the ```HOLD_PRESS_TIME```. By default the key press is released a short time after, with that time being longer for gyro related actions and calibration.
-* _ Hold press is the default event modifier for the second key bind when there are multiple of them. It will apply the key only after the button is held down for the ```HOLD_PRESS_TIME```. By default, the key is released when the button is released as well.
 * \+ Turbo will apply a key press repeatedly (with consideration of action modifiers), resulting in a fast pulsing of the key. The turbo pulsing starts only after the button has been held for ```HOLD_PRESS_TIME```.
 
 These modifiers can enable you to work around in game tap and holds, or convert one form of press into another. Here's a few example of how you can make use of those modifiers.
@@ -290,27 +289,7 @@ UP,UP = !ENTER\ LSHIFT\ !G\ !L\ !SPACE\ !H\ !F\ !ENTER/ # Pre recorded message
 UP,E = BACKSPACE+    # Erase pre recorded message if I change my mind
 ```
 
-Take note that the Simultaneous Press and Double Press bindings (but not Chorded Press) below introduce delays in the raising of the events (notably StartPress) until the right mapping is determined. Those time windows are not added but events will be pushed together within a frame or two.
-
-Finally, Here is a graph containing a comprehensive description of when the button events are raised over the course of a press.
-```
-                                        less than 150 ms hold time
-    150 ms hold time    80ms turbo period          V         500 ms for gyro and calibration
-            V                 V                    |------|< actions or 40 ms otherwise
-______|-----|---|---|---|---|---|--|___________|---|____________
-      \____________________________/           \___/      |
-      |     |   |   |   |   |   |  |           |   |      |
-     (a)   (b) (c) (c) (c) (c) (c)(d)         (a) (d)    (g)
-           (c)                    (f)             (e)
-a: start press \
-b: hold press _
-c: turbo +
-d: release press /
-e: tap press '
-f: hold release
-g: tap release
-Events a, b, c, d and e have an Instant Release event attached to them 40ms after they occur.
-```
+Take note that the Simultaneous Press and Double Press bindings (but not Chorded Press) below introduce delays in the raising of the events until the right mapping is determined. Time windows are not added but events will be pushed together within a frame or two.
 
 #### 1.3 Simultaneous Press
 JoyShockMapper additionally allows you to map simultaneous button presses to different mappings. For example you can bind character abilities on your bumpers and an ultimate ability on both like this:
@@ -399,7 +378,7 @@ If you're using ```GYRO_TRACKBALL``` or its single-axis variants, you can use **
 
 ### 2. Analog Triggers
 
-The following section only applies to the PlayStation controllers (DS/DS4) because they are the only supported controllers that have analog triggers.
+The following section only applies to the DS4 controller because it is the only supported controller that has analog triggers.
 
 Analog triggers report a value between 0% and 100% representing how far you are pulling the trigger. Binding a digital button to an analog trigger is done using a threashold value. The button press is sent when the trigger value crosses the threashold value, sitting between 0% and 100%. The default threashold value is 0, meaning the slightest press of the trigger sends the button press. This is great for responsiveness, but could result in accidental presses. The threashold can be customized by running the following command:
 
@@ -440,7 +419,7 @@ Using MUST_SKIP mode makes sure that once you start firing, reaching the full pu
 
 The "Responsive" variants of the skip modes enable a different behaviour that can give you a better experience than the original versions in specific circumstances. A typical example is when the soft binding is a mode-like binding like ADS or crouch, and there is no hold or simultaneous press binding on that soft press. The difference is that the soft binding is actived as soon as the trigger crosses the threshold, giving the desired responsive feeling, but gets removed if the full press is reached quickly, thus still allowing you to hip fire for example. This will result in a hopefully negligeable scope glitch but grants a snappier ADS activation.
 
-### 3. Stick Configuration
+### 3. Stick Mouse Inputs
 Each stick has 7 different operation modes:
 
 ```
@@ -481,17 +460,7 @@ INNER_RING: Same as _STICK_MODE = NO_MOUSE and _RING_MODE = INNER
 OUTER_RING: Same as _STICK_MODE = NO_MOUSE and _RING_MODE = OUTER
 ```
 
-If you're holding the controller in an unusual orientation (such as for comfort reasons or when using a single JoyCon), you can set **CONTROLLER\_ORIENTATION** to reflect how you're holding the controller:
-* **FORWARD** is the default.
-* **LEFT** is for when you're holding the controller rotated to its left.
-* **RIGHT** is for when you're holding the controller rotated to its right.
-* **BACKWARD** is for when you're holding teh controller rotated 180°.
-
-Once set, JoyShockMapper will rearrange the stick's X and Y axis data to match your perspective. CONTROLLER\_ORIENTATION only affects sticks (including motion stick). It doesn't affect the arrangement of the face buttons, d-pad, etc.
-
 Let's have a look at all the different operations modes.
-
-#### 3.1 Standard AIM mode
 
 When using the ```AIM``` stick mode, there are a few important commands:
 
@@ -501,8 +470,6 @@ When using the ```AIM``` stick mode, there are a few important commands:
 * **STICK\_ACCELERATION\_RATE** (default 0.0 multiplier increase per second) - When the stick is pressed fully, this option allows you to increase the camera turning velocity over time. The unit for this setting is a multiplier for STICK\_SENS per second. For example, 2.0 with a STICK\_SENS of 100 will cause the camera turn rate to accelerate from 100 degrees per second to 300 degrees per second over 1 second.
 * **STICK\_ACCELERATION\_CAP** (default 1000000.0 multiplier) - You may want to set a limit on the camera turn velocity when STICK\_ACCELERATION\_RATE is non-zero. For example, setting STICK\_ACCELERATION\_CAP to 2.0 will mean that your camera turn speed won't accelerate past double the STICK\_SENS setting. This has no effect when STICK\_ACCELERATION\_RATE is zero.
 * **STICK\_DEADZONE\_INNER** and **STICK\_DEADZONE\_OUTER** (default 0.15 and 0.1, respectively) - Controller thumbsticks can be a little imprecise. When you release the stick, it probably won't return exactly to the centre. STICK\_DEADZONE\_INNER lets you say how much of the stick's range will be considered "centre". If the stick position is within this distance from the centre, it'll be considered to have no stick input. STICK\_DEADZONE\_OUTER does the same for the outer edge. If the stick position is within this distance from the outer edge, it'll be considered fully pressed. Everything in-between is scaled accordingly. You can set the deadzones individually for each stick with **LEFT\_STICK\_DEADZONE\_INNER**, **LEFT\_STICK\_DEADZONE\_OUTER**, **RIGHT\_STICK\_DEADZONE\_INNER**, **RIGHT\_STICK\_DEADZONE\_OUTER**.
-
-#### 3.2 FLICK mode and variants
 
 When using the ```FLICK``` stick mode, there is less to configure. There are no deadzones and no sensitivity. When you press the stick in a direction, JoyShockMapper just takes the angle of the stick input and translates it into the same in-game direction relative to where your camera is already facing, before smoothly moving the camera to point in that direction in a small fraction of a second. Once already pressed, rotating the *flick stick* X degrees will then instantly turn the in-game camera X degrees. This provides a very natural way to quickly turn around, respond to gun-fire from off-screen, or make gradual turns without moving the controller.
 
@@ -517,17 +484,13 @@ Keep in mind that, once tilted, rotating the stick will rotate the camera instan
 * **FLICK\_SNAP\_STRENGTH** (default 1.0) - If you have a snap mode other than NONE set, this value gives you the strength of its snapping, ranging from 0 (no snapping) to 1 (full snapping).
 * **FLICK\_DEADZONE\_ANGLE** (default 0.0 degrees) - Sometimes you want to prepare for turning quickly without flicking. Pushing the stick perfectly forward is near impossible so you end up turning a little, losing the angle you are trying to hold. This setting creates a deadzone for forward flicks: moving the thumbstick forward within this range will be treated as flicking at a 0 degree angle, basically putting you in rotation mode directly. The value is applied in both left and right directions separately: setting this to 15 creates a total deadzone arc of 30 degrees.
 
-**\*Developer note:** The DualSense and DualShock 4's stick input resolution is low enough that small *flick stick* rotations can be jittery. JoyShockMapper applies some smoothing just to very small changes in the *flick stick* angle, which is very effective at covering this up. Larger movements are not smoothed at all. This is more thoroughly explained for developers to implement in their own games on [GyroWiki](http://gyrowiki.jibbsmart.com). JoyShockMapper automatically calculates different smoothing thresholds for the PlayStation and Switch controllers, but you can override the smoothing threshold by setting ROTATE\_SMOOTH\_OVERRIDE any small number, or to 0 to disable smoothing, or to -1 to return to the automatically calculated threshold.
+**\*Developer note:** The DualShock 4's stick input resolution is low enough that small *flick stick* rotations can be jittery. JoyShockMapper applies some smoothing just to very small changes in the *flick stick* angle, which is very effective at covering this up. Larger movements are not smoothed at all. This is more thoroughly explained for developers to implement in their own games on [GyroWiki](http://gyrowiki.jibbsmart.com). JoyShockMapper automatically calculates different smoothing thresholds for the DualShock 4 and Switch controllers, but you can override the smoothing threshold by setting ROTATE\_SMOOTH\_OVERRIDE any small number, or to 0 to disable smoothing, or to -1 to return to the automatically calculated threshold.
 
 The ```FLICK_ONLY``` and ```ROTATE_ONLY``` stick modes work the same as flick stick with some features blocked out. The former means you'll get the initial flick, but no subsequent rotation when rotating the stick. The latter means you won't get the initial flick, but subsequent rotations will work.
-
-#### 3.3 Other mouse modes
 
 When using the ```MOUSE_RING``` stick mode, tilting the stick will put the mouse cursor in a position offset from the centre of the screen by your stick position. This mode is primarily intended for twin-stick shooters. To do this, the application needs to know your screen resolution (SCREEN\_RESOLUTION\_X and SCREEN\_RESOLUTION\_Y) and how far you want the cursor to sit from the centre of the screen (MOUSE\_RING\_RADIUS). When this mode is in operation (i.e. the stick is not at rest), all other mouse movements are ignored.
 
 When using the ```MOUSE_AREA``` stick mode, the stick value directly sets the mouse position. So moving the stick rightward gradually all the way to the edge will move the cursor at the same speed for a number of pixel equal to the value of ```MOUSE_RING_RADIUS``` ; and moving the stick back to the middle will move the cursor back again to where it started. Contrary to the previous mode, this mode can operate in conjunction with other mouse inputs, such as gyro.
-
-#### 3.4 Digital modes
 
 When using stick mode ```NO_MOUSE```, JSM will use the stick's UP DOWN LEFT and RIGHT bindings in a cross gate layout. There is a small square deadzone to ignore very small stick moves.
 
@@ -541,7 +504,15 @@ LEFT_RING_MODE = INNER
 LRING = LALT # Walk
 ```
 
-#### 3.5 Motion Stick and lean bindings
+If you're holding the controller in an unusual orientation (such as for comfort reasons or when using a single JoyCon), you can set **CONTROLLER\_ORIENTATION** to reflect how you're holding the controller:
+* **FORWARD** is the default.
+* **LEFT** is for when you're holding the controller rotated to its left.
+* **RIGHT** is for when you're holding the controller rotated to its right.
+* **BACKWARD** is for when you're holding teh controller rotated 180°.
+
+CONTROLLER\_ORIENTATION only affects sticks (including motion stick). It doesn't affect the arrangement of the face buttons, d-pad, etc.
+
+#### 3.1 Motion Stick
 Using the motion sensors, you can treat your whole controller as a stick. The "Motion Stick" can do everything that a regular stick can do:
 * **MOTION\_STICK\_MODE** (default NO\_MOUSE) - All the same options as LEFT\_STICK\_MODE and RIGHT\_STICK\_MODE.
 * **MOTION\_RING\_MODE** (default OUTER) - All the same options as LEFT\_RING\_MODE and RIGHT\_RING\_MODE.
@@ -600,13 +571,11 @@ One might argue that such a cutoff is too high, and it just needs to be set lowe
 ### 5. Real World Calibration
 *Flick stick*, aim stick, and gyro mouse inputs all rely on REAL\_WORLD\_CALIBRATION to provide useful values that can be shared between games and with other players. Furthermore, if REAL\_WORLD\_CALIBRATION is set incorrectly, *flick stick* flicks will not correspond to the direction you press the stick at all.
 
-Every game requires a unique REAL\_WORLD\_CALIBRATION value in order for these other settings to work correctly. This actually really simplifies sharing configuration files, because once one person has calculated an accurate REAL\_WORLD\_CALIBRATION value for a given game, they can share it with anyone else for the same game. [GyroWiki](http://gyrowiki.jibbsmart.com/games) has a database of games and their corresponding REAL\_WORLD\_CALIBRATION (as well as other settings unique to that game). You can use this to avoid having to calculate this value in games you want to play with JoyShockMapper, or if a game isn't in that database, you can help other players by calculating its REAL\_WORLD\_CALIBRATION yourself and contributing it to [GyroWiki](http://gyrowiki.jibbsmart.com/games)!
+Every game requires a unique REAL\_WORLD\_CALIBRATION value in order for these other settings to work correctly. This actually really simplifies sharing configuration files, because once one person has calculated an accurate REAL\_WORLD\_CALIBRATION value for a given game, they can share it with anyone else for the same game. [GyroWiki](http://gyrowiki.jibbsmart.com) has a database of games and their corresponding REAL\_WORLD\_CALIBRATION (as well as other settings unique to that game). You can use this to avoid having to calculate this value in games you want to play with JoyShockMapper, or if a game isn't in that database, you can help other players by calculating its REAL\_WORLD\_CALIBRATION yourself and contributing it to [GyroWiki](http://gyrowiki.jibbsmart.com)!
 
 For 3D games where the mouse directly controls the camera, REAL\_WORLD\_CALIBRATION is a multiplier to turn a given angle in degrees into a mouse input that turns the camera the same angle in-game.
 
 For 2D games where the mouse directly controls an on-screen cursor, REAL\_WORLD\_CALIBRATION is a multiplier to turn a given fraction of a full turn into a mouse input that moves the same fraction of the full width of the screen (at 1920x1080 resolution in games where resolution affects cursor speed relative to the size of the screen).
-
-#### 5.1 Prerequisites
 
 Before we get into how to accurately calculate a good REAL\_WORLD\_CALIBRATION value for a given game, we first need to address two other things that can affect mouse sensitivity:
 
@@ -628,8 +597,6 @@ The only complication is that some games *aren’t* affected by Windows’ point
 In summary, when preparing to share a configuration file for others to use, please consider whether COUNTER\_OS\_MOUSE\_SPEED should be included. When using someone else’s configuration file, please remember to set the file’s IN\_GAME\_SENS to whatever *your* in-game mouse sensitivity is.
 
 Once you've done this, you're ready to **calculate your game's REAL\_WORLD\_CALIBRATION value**.
-
-#### 5.2 Calculating the real world calibration in a 3D game
 
 For *3D games where the mouse directly controls the camera*, the most accurate way to calculate a good REAL\_WORLD\_CALIBRATION value is to enable *flick stick* along with a first-guess REAL\_WORLD\_CALIBRATION value like so:
 
@@ -656,8 +623,6 @@ If you want to be even more precise, you can do more than one turn. If, for exam
 
 You can do this with non-integer turns, as well, such as 0.5 for a half turn.
 
-#### 5.3 Calculating the real world calibration in a 2D game
-
 For *2D games where the mouse directly controls an on-screen cursor*, *flick stick* doesn't have a practical use in general gameplay, but it's still the most useful way to calculate your REAL\_WORLD\_CALIBRATION value. Again, make sure your IN\_GAME\_SENS and COUNTER\_OS\_MOUSE\_SPEED are set as needed, and then we'll start by enabling *flick stick* alongside a first guess at the REAL\_WORLD\_CALIBRATION.
 
 ```
@@ -679,9 +644,80 @@ You don't have to tell JoyShockMapper whether you're calibrating for a 2D game o
 
 With such a calibrated 2D game, you can choose your GYRO\_SENS or other settings by thinking about how much you want to turn your controller to move across the whole screen. A GYRO\_SENS of *1* would require a complete rotation of the controller to move from one side of the screen to the other, which is quite unreasonable! But a GYRO\_SENS of *8* means you only have to turn the controller one eighth of a complete rotation (45 degrees) to move from one side of the other, which is probably quite reasonable.
 
-### 6. Modeshifts
+### 6. ViGEm Virtual Controller
 
-Almost all settings described in previous sections that are assignations (i.e.: uses an equal sign '=') can be chorded like a regular button mapping. This is called a modeshift because you are reconfiguring the controller when specific buttons are pressed. The only *exceptions* are those listed here below.
+JoyShockMapper can create a virtual xbox or DS4 controller thanks to Nefarius' ViGEm Bus and ViGEm Client softwares. The former needs to be installed by the user before the latter can be used. Once installed, you can set which virtual device you desire to create for each connected device using the command ```VIRTUAL_CONTROLLER = XBOX``` or ```VIRTUAL_CONTROLLER = DS4```. The default value is NONE, which is no virtual controller at all. Rumble doesn't work just yet, but should be fixed in a few updates. Using virtual controllers is most likely to work well only if whitelisting is active (HIDGuardian/HIDCerberus), in order to hide the original controller entry from the game.
+
+#### 6.1 Xbox bindings
+If you have set the virtual controller to the xbox scheme, then the following becomes available to you:
+* **New digital bindings**
+```
+X_A, X_B, X_X, X_Y : The xbox face button diamond
+X_LB, X_RB : The xbox bumper buttons
+X_LS, X_RS : The xbox stick click buttons
+X_BACK, X_START : The xbox control buttons
+X_UP, X_DOWN, X_LEFT, X_RIGHT : The xbox dpad directions
+# There is no HOME or CAPTURE (XSX) button binding yet in ViGEm
+```
+
+* **New stick mode available**
+```
+LEFT_STICK_MODE = LEFT_STICK
+RIGHT_STICK_MODE = RIGHT_STICK
+```
+
+* **New trigger mode available**
+```
+ZL_MODE = X_LT
+ZR_MODE = X_RT
+```
+
+You will also a default xbox layout in the GyroConfigs folder that you can use to set up a standard xbox controller configuration. But of course, you can remap buttons elsewhere, or combine them in using the event modifiers, chords, simultaneous presses and such.
+
+```
+# Map the dpad as chords of the face buttons
+L3 = NONE
+L3,N = X_UP
+L3,W = X_LEFT
+L3,S = X_DOWN
+L3,E = X_RIGHT
+
+S,S = X_LS # Double click jump to sprint instead
+
+L+R = X_RS # I don't like to stick click often
+
+MOTION_STICK_MODE = RIGHT_STICK # Gyro driving
+```
+
+#### 6.1 DS4 bindings
+
+ViGEm also the ability to emulate a dualshock 4 controller. This can allow you to use a switch pro as a DS4 in a game that has this support built in for example. Seeting the virtual controller to DS4 enables the use of these features as well. Take note that these names are aliases to the xbox names.
+
+* **New digital bindings**
+```
+PS_CROSS, PS_CIRCLE, PS_SQUARE, PS_TRIANGLE : The playstation face button diamond
+PS_L1, PS_R1 : The playstation bumper buttons
+PS_L3, PS_R3 : The playstation stick click buttons
+PS_SHARE, PS_OPTIONS : The playstation control buttons
+PS_UP, PS_DOWN, PS_LEFT, PS_RIGHT : The playstation dpad directions
+PS_HOME, PS_PAD_CLICK : The playstation home and pad click buttons
+```
+
+* **New stick mode available** These are exactly the same as the xbox names
+```
+LEFT_STICK_MODE = LEFT_STICK
+RIGHT_STICK_MODE = RIGHT_STICK
+```
+
+* **New trigger mode available**. JoyShockMapper will display the trigger mode as the xbox name : the trigger will still work properly.
+```
+ZL_MODE = PS_L2
+ZR_MODE = PS_R2
+```
+
+### 7. Modeshifts
+
+Almost all settings described in previous sections that are assignations (i.e.: uses an equal sign '=') can be chorded like a regular button mapping. This is called a modeshift because you are reconfiguring the controller when specific buttons are enabled. The only *exceptions* are those listed here below.
 ```
 AUTOLOAD
 JSM_DIRECTORY
@@ -721,71 +757,40 @@ To remove an existing modeshift you have to assign ```NONE``` to the chord.
 ZLF,GYRO_SENS = NONE
 ```
 
-### 7. Miscellaneous Commands
+### 8. Miscellaneous Commands
 There are a few other useful commands that don't fall under the above categories:
 
 * **RESET\_MAPPINGS** - This will reset all JoyShockMapper's settings to their default values. This way you don't have to manually unset button mappings or other settings when making a big change. It can be useful to always start your configuration files with the RESET\_MAPPINGS command. The only exceptions to this are the calibration state and AUTOLOAD.
 * **RECONNECT\_CONTROLLERS** - Controllers connected after JoyShockMapper starts will be ignored until you tell it to RECONNECT\_CONTROLLERS. When this happens, all gyro calibration will reset on all controllers.
-* **\# comments** - Any line or part of a line that begins with '\#' will be ignored. Use this to organise/annotate your configuration files, or to temporarily remove commands that you may want to add later.
 * **JOYCON\_GYRO\_MASK** (default IGNORE\_LEFT) - Most games that use gyro controls on Switch ignore the left JoyCon's gyro to avoid confusing behaviour when the JoyCons are held separately while playing. This is the default behaviour in JoyShockMapper. But you can also choose to IGNORE\_RIGHT, IGNORE\_BOTH, or USE\_BOTH.
+* **\# comments** - Any line or part of a line that begins with '\#' will be ignored. Use this to organise/annotate your configuration files, or to temporarily remove commands that you may want to add later.
 * **JOYCON\_MOTION\_MASK** (default IGNORE\_RIGHT) - To avoid confusing behaviour when the JoyCons are held separately while playing, you can have one JoyCon ignored for MOTION\_STICK related functions. Since we ignore the left JoyCon by default for gyro, we ignore the right JoyCon by default for motion stick. But you can also choose to IGNORE\_RIGHT, IGNORE\_BOTH, or USE\_BOTH.
+* **\# comments** - Any line or part of a line that begins with '\#' will be ignored. Use this to organise/annotate your configuration files, or to temporarily remove commands that you may want to add later.
 * **SLEEP** - Cause the program to sleep (or wait) for a given number of seconds. The given value must be greater than 0 and less than or equal to 10. Or, omit the value and it will sleep for one second. This command may help automate calibration.
-```WHITELIST_ADD``` and ```RECONNECT_CONTROLLERS``` in the startup file.
-* **README** will lead you to this document.
-* **HELP** Will display a list of all commands, all commands containing a given string, or the specific help for all the exact command names given to it.
-
-## Configuration Files
-
-All of the commands layed out in the previous section can be saved in a text file and run all at once. In Windows, you can also drag and drop a file from Explorer into the JoyShockMapper console window to enter the full path of that file. These configuration files can additionally reference one another. This allows you to group a few settings as a "building block" for your configurations: such as your gyro sensitivity and acceleration preferences.
-
-If you enter a relative path to the file, it should be relative to the folder where JoyShockMapper.exe is located. If however your files don't seem to get picked up, you can manually set where to look for the configuration files by entering the command ```JSM_DIRECTORY = D:\JSM``` for example. You can also set that working directory as a command line argument when running JoyShockMapper, which can be done in a shortcut properties. Putting all your configuration files in a synchronized folder allows you to have those configurations across all computers you use for gaming!
-
-What more? There are some configuration files that can be run automatically to streamline your experience.
-
-### 1. OnStartup.txt
-
-When JoyShockMapper first boots up, it will attempt to load the commands found in the file OnStartup.txt. This file should be in the JSM_DIRECTORY, which is next to your executable by default. This is a great place to automatically calibrate the gyro, and load a default configuration for navigating the OS, and whitelisting JoyShockMapper.
-
-### 2. OnReset.txt
-
-This configuration is found in the same location as OnStartup.txt explained above. This file is run each time RESET\_MAPPINGS is called, as well as before OnStartup.txt. This file is a good spot to have a CALIBRATE button for your controller, which you will typically always need.
-
-### 3. Autoload feature
-
-JoyShockMapper can automatically load a configuration file for your games each time the game window enters focus. Drop the file in the **AutoLoad** folder where JSM_DIRECTORY refers to. JoyShockMapper will look for a name based on the executable name of the program that's in focus. When it goes into focus and autoload is enabled (which it is by default), JoyShockMapper will tell you the name of the file it's looking for - case insensitive.
-
-This enables the user to swap focus between your text editor of choice and the game, and each time the configuration will be automatically reloaded with your latest edits (assuming you've saved!). This system also avoids to step on your toes by **NOT** reloading your configuration if you do change focus between JoyShockMapper itself and the game: any mappings you enter by hand won't be thrown away when you return to your game.
-
-Autoload can be turned off by entering the command ```AUTOLOAD = OFF```. You can enable it again with ```AUTOLOAD = ON```.
-
+* ***onstartup.txt*** - This is not a command. But if a file called '*onstartup.txt*' is found in the current working directory on startup, its contents will be loaded and executed right away. If you prefer that AutoLoad is disabled, put ```AUTOLOAD = OFF``` in here to have it disabled at startup. If you use HIDGuardian / HIDCerberus and always want to whitelist JSM and then reconnect controllers, just put ```WHITELIST_ADD``` and ```RECONNECT_CONTROLLERS``` in the startup file.
+* ***onreset.txt*** - This is also not a command. But if a file called '*onreset.txt*' is found in the current working directory when the ```RESET_MAPPINGS``` command is called, this config will be loaded and executed right afterwards.
 
 ## Troubleshooting
 Some third-party devices that work as controllers on Switch or PS4 may not work with JoyShockMapper. It only _officially_ supports first-party controllers. Issues may still arise with those, though. Reach out, and hopefully we can figure out where the problem is.
 
 But first, here are some common problems that are worth checking first.
 
-* In some circumstances, the JoyShockMapper console is responding to controller input and the mouse is responding to gyro movements, but the game you're playing isn't responding to it. This can happen when you launch the game (or it's launcher) as an administrator. JoyShockMapper must also be launched with administrator rights in order to send keyboard and mouse events to the game. Windows shortcuts can be set to always run as admininstrator in the properties window.
+The JoyShockMapper console will tell you how many devices are connected, and will output information with most inputs (button presses or releases, tilting the stick). However, the only way to test that the gyro is working is to enable it and see if you can move the mouse. The quickest way to check if gyro input is working without loading a config is to just enter the command ```GYRO_SENS = 1``` and then move the controller. Don't forget that you might need to calibrate the gyro if the mouse is moving even when the controller isn't.
 
-* The JoyShockMapper console will tell you how many devices are connected, and will output information with most inputs (button presses or releases, tilting the stick). However, the only way to test that the gyro is working is to enable it and see if you can move the mouse. The quickest way to check if gyro input is working without loading a config is to just enter the command ```GYRO_SENS = 1``` and then move the controller. Don't forget that you might need to calibrate the gyro if the mouse is moving even when the controller isn't.
+Many users of JoyShockMapper rely on tools like HIDGuardian to hide controller input from the game. If JSM isn't recognising your controller, maybe you haven't whitelisted JoyShockMapper.
 
-* Many users of JoyShockMapper rely on tools like HIDGuardian to hide controller input from the game. If JSM isn't recognising your controller, maybe you haven't whitelisted JoyShockMapper. Enter WHITELIST_ADD to do so. You can also add this command to your OnStartup.txt script to do it everytime.
+In some circumstances, the JoyShockMapper console is responding to controller input and the mouse is responding to gyro movements, but the game you're playing isn't responding to it. This can happen when the you launch the game as an administrator. JoyShockMapper must also be launched with administrator rights in order to send keyboard and mouse events to the game.
 
-* Some users have found stick inputs to be unresponsive in one or more directions. This can happen if the stick isn't using enough of the range available to it. In this case, increasing STICK\_DEADZONE\_OUTER can help. In the same way, the stick might be reporting a direction as pressed even when it's not touched. This happens when STICK\_DEADZONE\_INNER is too small.
+Some users have found stick inputs to be unresponsive in one or more directions. This can happen if the stick isn't using enough of the range available to it. In this case, increasing STICK\_DEADZONE\_OUTER can help. In the same way, the stick might be reporting a direction as pressed even when it's not touched. This happens when STICK\_DEADZONE\_INNER is too small.
 
 ## Known and Perceived Issues
 ### Polling rate
-New mouse and keyboard events are only sent when JoyShockMapper gets a new message from the controller. This means if your game's and display's refresh rates are higher than the controller's poll rate, sometimes the game and display will update without moving the mouse, even if you'd normally expect the mouse to move. The DualSense and DualShock 4 send 250 messages a second, which is plenty for even extremely high refresh rate displays. But JoyCons and Pro Controllers send 66.67 messages a second, which means you might encounter stuttering movements when playing (and displaying) above 66.67 frames per second. A future version of JoyShockMapper may work around this problem by repeating messages up to a desired refresh rate.
+New mouse and keyboard events are only sent when JoyShockMapper gets a new message from the controller. This means if your game's and display's refresh rates are higher than the controller's poll rate, sometimes the game and display will update without moving the mouse, even if you'd normally expect the mouse to move. The DualShock 4 sends 250 messages a second, which is plenty for even extremely high refresh rate displays. But JoyCons and Pro Controllers send 66.67 messages a second, which means you might encounter stuttering movements when playing (and displaying) above 66.67 frames per second. A future version of JoyShockMapper may work around this problem by repeating messages up to a desired refresh rate.
 
 ### Bluetooth connectivity
 JoyCons and Pro Controllers normally only communicate by Bluetooth. Some Bluetooth adapters can't keep up with these devices, resulting in **laggy input**. This is especially common when more than one device is connected (such as when using a pair of JoyCons). There is nothing JoyShockMapper or JoyShockLibrary can do about this. JoyShockMapper experimentally supports connecting Switch controllers by USB.
 
-Bluetooth support for the DualShock 4 is incomoplete in JoyShockMapper, and isn't working for everyone. Please let me know if you encounter any issues with it.
-
-### Extended Characters
-JoyShockMapper currently only handles paths with regular ASCII extended characters. If some file paths have non-latin characters, they will not be recognized. You can set JSM_DIRECTORY to a folder where the absolute path does not contain any of those characters and put all of your configuration files, Autoload and GyroConfigs folders there instead.
-
-### Joycon controllers
-JoyShockMapper considers all joycons to be part of a single controller. When using a pair of complementary joycons, this enables the use of chord presses across controllers for example. But this may create issues if using two joycons for two different players, or using three joycons or more. Keep that in mind when making or using configurations with joycons.
+Bluetooth support for the DualShock 4 is new in JoyShockMapper, and isn't working for everyone. Please let me know if you encounter any issues with it.
 
 ## Credits
 I'm Julian "Jibb" Smart, and I made JoyShockMapper. As of version 1.3, JoyShockMapper has benefited from substantial community contributions. Huge thanks to the following contributors:
@@ -794,7 +799,6 @@ I'm Julian "Jibb" Smart, and I made JoyShockMapper. As of version 1.3, JoyShockM
 * Contributer (icon art)
 * Sunny Ye (translation)
 * Romeo Calota (linux and general portability)
-* Garrett (code)
 
 Have a look at the CHANGELOG for a better idea of who contributed what. Nicolas, in particular, regularly contributes a lot of work. He is responsible for a lot of the cool quality-of-life and advanced mapping features.
 
@@ -806,8 +810,6 @@ JoyShockMapper relies a lot on [JoyShockLibrary](https://github.com/jibbsmart/Jo
   * How developers can do a better job implementing gyro controls;
   * How to use JoyShockMapper;
   * User editable collection of user configurations and tips for using JoyShockMapper with a bunch of games.
-*[GyroGaming subreddit](https://www.reddit.com/r/GyroGaming/)
-*[GyroGaming discord server](https://discord.gg/4w7pCqj).
 
 ## License
 JoyShockMapper is licensed under the MIT License - see [LICENSE.md](LICENSE.md).
