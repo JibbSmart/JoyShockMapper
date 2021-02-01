@@ -81,11 +81,12 @@ JSMVariable<float> sim_press_window = JSMVariable<float>(50.0f);
 JSMVariable<float> dbl_press_window = JSMVariable<float>(200.0f);
 JSMSetting<Color> light_bar = JSMSetting<Color>(SettingID::LIGHT_BAR, 0xFFFFFF);
 JSMSetting<FloatXY> scroll_sens = JSMSetting<FloatXY>(SettingID::SCROLL_SENS, { 30.f, 30.f });
-JSMVariable<PathString> currentWorkingDir = JSMVariable<PathString>(GetCWD());
 JSMVariable<Switch> autoloadSwitch = JSMVariable<Switch>(Switch::ON);
-vector<JSMButton> mappings; // array enables use of for each loop and other i/f
-JSMVariable<ControllerScheme> virtual_controller = JSMVariable<ControllerScheme>(ControllerScheme::NONE);
 JSMVariable<Switch> hide_minimized = JSMVariable<Switch>(Switch::OFF);
+JSMVariable<ControllerScheme> virtual_controller = JSMVariable<ControllerScheme>(ControllerScheme::NONE);
+
+JSMVariable<PathString> currentWorkingDir = JSMVariable<PathString>(GetCWD());
+vector<JSMButton> mappings; // array enables use of for each loop and other i/f
 mutex loading_lock;
 
 float os_mouse_speed = 1.0;
@@ -105,13 +106,13 @@ public:
 	// All digital buttons need a reference to the same instance of a the common structure within the same controller.
 	// It enables the buttons to synchronize and be aware of the state of the whole controller.
 	struct Common {
-		Common()
+		Common(Gamepad::Notification virtualControllerCallback)
 		{
 			chordStack.push_front(ButtonID::NONE); //Always hold mapping none at the end to handle modeshifts and chords
 			_referenceCount++;
 			if (virtual_controller.get() != ControllerScheme::NONE)
 			{
-				_vigemController.reset(new Gamepad(virtual_controller.get()));
+				_vigemController.reset(new Gamepad(virtual_controller.get(), virtualControllerCallback));
 			}
 		}
 		deque<pair<ButtonID, KeyCode>> gyroActionQueue; // Queue of gyro control actions currently in effect
@@ -1039,6 +1040,8 @@ public:
 	float lastGyroAbsY = 0.f;
 	int lastGyroIndexX = 0;
 	int lastGyroIndexY = 0;
+
+	Color _light_bar;
 	
 	JoyShock(int handle)
 		: intHandle(handle)
@@ -1050,8 +1053,9 @@ public:
 		, buttons()
 		, right_scroll(this, ButtonID::RLEFT, ButtonID::RRIGHT)
 		, left_scroll(this, ButtonID::LLEFT, ButtonID::LRIGHT)
+		, _light_bar(*light_bar.get())
 	{
-		btnCommon = new DigitalButton::Common();
+		btnCommon = new DigitalButton::Common(bind(&JoyShock::handleViGEmNotification, this, placeholders::_1, placeholders::_2, placeholders::_3));
 		btnCommon->_getMatchingSimBtn = bind(&JoyShock::GetMatchingSimBtn, this, placeholders::_1);
 
 		buttons.reserve(MAPPING_SIZE);
@@ -1060,6 +1064,8 @@ public:
 			buttons.push_back( DigitalButton(btnCommon, ButtonID(i), handle) );
 		}
 		ResetSmoothSample();
+		CheckVigemState();
+		JslSetLightColour(handle, getSetting<Color>(SettingID::LIGHT_BAR).raw);
 	}
 
 	JoyShock(int handle, DigitalButton::Common* sharedButtonCommon)
@@ -1072,6 +1078,7 @@ public:
 		, buttons()
 		, right_scroll(this, ButtonID::RLEFT, ButtonID::RRIGHT)
 		, left_scroll(this, ButtonID::LLEFT, ButtonID::LRIGHT)
+		, _light_bar(*light_bar.get())
 	{
 		btnCommon->IncrementReferenceCounter();
 		buttons.reserve(MAPPING_SIZE);
@@ -1082,6 +1089,7 @@ public:
 		ResetSmoothSample();
 
 		CheckVigemState();
+		JslSetLightColour(handle, getSetting<Color>(SettingID::LIGHT_BAR).raw);
 	}
 
 	~JoyShock()
@@ -1103,18 +1111,18 @@ public:
 		return true;
 	}
 
-	static void handleViGEmNotification(shared_ptr<JoyShock> js, UCHAR largeMotor, UCHAR smallMotor, Indicator indicator)
+	void handleViGEmNotification(UCHAR largeMotor, UCHAR smallMotor, Indicator indicator)
 	{
-		int type = JslGetControllerType(js->intHandle);
+		int type = JslGetControllerType(intHandle);
 		if (virtual_controller == ControllerScheme::XBOX && (type <= JS_TYPE_PRO_CONTROLLER))
 		{
-			JslSetPlayerNumber(js->intHandle, indicator.led);
+			JslSetPlayerNumber(intHandle, indicator.led);
 		}
 		else if (virtual_controller == ControllerScheme::DS4 && (type >= JS_TYPE_DS4))
 		{
-			JslSetLightColour(js->intHandle, indicator.colorCode);
+			JslSetLightColour(intHandle, indicator.colorCode);
 		}
-		JslSetRumble(js->intHandle, smallMotor, largeMotor);
+		JslSetRumble(intHandle, smallMotor, largeMotor);
 	}
 
 	template<typename E>
@@ -1355,6 +1363,23 @@ public:
 		}
 		stringstream ss;
 		ss << "Index " << index << " is not a valid GyroSetting";
+		throw invalid_argument(ss.str().c_str());
+	}
+
+	template<>
+	Color getSetting<Color>(SettingID index)
+	{
+		if (index == SettingID::LIGHT_BAR)
+		{
+			// Look at active chord mappings starting with the latest activates chord
+			for (auto activeChord = btnCommon->chordStack.begin(); activeChord != btnCommon->chordStack.end(); activeChord++)
+			{
+				auto opt = light_bar.get(*activeChord);
+				if (opt) return *opt;
+			}
+		}
+		stringstream ss;
+		ss << "Index " << index << " is not a valid Color";
 		throw invalid_argument(ss.str().c_str());
 	}
 
@@ -1756,6 +1781,10 @@ static void resetAllMappings() {
 	hold_press_time.Reset();
 	sim_press_window.Reset();
 	dbl_press_window.Reset();
+	light_bar.Reset();
+	scroll_sens.Reset();
+	autoloadSwitch.Reset();
+	hide_minimized.Reset();
 	virtual_controller.Reset();
 
 	os_mouse_speed = 1.0f;
@@ -2616,6 +2645,12 @@ void joyShockPollCallback(int jcHandle, JOY_SHOCK_STATE state, JOY_SHOCK_STATE l
 	{
 		jc->btnCommon->_vigemController->update(); // Check for initialized built-in
 	}
+	auto newColor = jc->getSetting<Color>(SettingID::LIGHT_BAR);
+	if (jc->_light_bar != newColor)
+	{
+		JslSetLightColour(jcHandle, newColor.raw);
+		jc->_light_bar = newColor;
+	}
 	jc->callback_lock.unlock();
 }
 
@@ -2762,10 +2797,18 @@ void beforeShowTrayMenu()
 void CleanUp()
 {
 	tray->Hide();
+	
+	// Clear controller color and rumble
+	for (auto js : handle_to_joyshock)
+	{
+		JslSetLightColour(js.first, 0);
+		JslSetRumble(js.first, 0, 0);
+	}
 	JslDisconnectAndDisposeAll();
+	handle_to_joyshock.clear(); // Destroy Vigem Gamepads
+	
 	ReleaseConsole();
 	whitelister.Remove();
-	handle_to_joyshock.clear(); // Destroy Vigem Gamepads before client
 }
 
 float filterClamp01(float current, float next)
@@ -3175,13 +3218,7 @@ int main(int argc, char *argv[]) {
 	hide_minimized.SetFilter(&filterInvalidValue<Switch, Switch::INVALID>)->AddOnChangeListener(bind(&UpdateThread, minimizeThread.get(), placeholders::_1));
 	virtual_controller.SetFilter(&UpdateVirtualController);
 	scroll_sens.SetFilter(&filterFloatPair);
-	light_bar.AddOnChangeListener([](Color newColor)
-		{
-			for (auto devicePair : handle_to_joyshock)
-			{
-				JslSetLightColour(devicePair.first, newColor.raw);
-			}
-		});
+	// light_bar needs no filter or listener. The callback polls and updates the color.
 	currentWorkingDir = string(&cmdLine[0], &cmdLine[wcslen(cmdLine)]);
 	
 	if (autoLoadThread && autoLoadThread->isRunning())
@@ -3353,6 +3390,15 @@ int main(int argc, char *argv[]) {
 	commandRegistry.Add(new HelpCmd(commandRegistry));
 	commandRegistry.Add((new JSMAssignment<ControllerScheme>(magic_enum::enum_name(SettingID::VIRTUAL_CONTROLLER).data(), virtual_controller))
 		->SetHelp("Sets the vigem virtual controller type. Can be NONE (default), XBOX (360) or DS4 (PS4)."));
+	commandRegistry.Add((new JSMMacro("RUMBLE"))->SetMacro([](JSMMacro *, in_string) {
+		for (auto js : handle_to_joyshock)
+		{
+			JslSetRumble(js.first, 255, 255);
+			Sleep(2000);
+			JslSetRumble(js.first, 0, 0);
+		}
+		return true;
+		}));
 
 	bool quit = false;
 	commandRegistry.Add((new JSMMacro("QUIT"))

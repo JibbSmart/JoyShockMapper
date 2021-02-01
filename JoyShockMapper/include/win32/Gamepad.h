@@ -1,12 +1,11 @@
 #pragma once
 
 #include "JoyShockMapper.h"
-#include <functional>
 
 // Forward Declare and typedefs
 typedef struct _VIGEM_TARGET_T *PVIGEM_TARGET;
 typedef struct _VIGEM_CLIENT_T *PVIGEM_CLIENT;
-typedef struct _XINPUT_GAMEPAD XINPUT_GAMEPAD;
+typedef struct _XUSB_REPORT XUSB_REPORT;
 typedef struct _DS4_REPORT DS4_REPORT;
 typedef enum _VIGEM_ERRORS VIGEM_ERRORS;
 
@@ -69,6 +68,6 @@ private:
 	Notification _notification = nullptr;
 	std::string _errorMsg;
 	PVIGEM_TARGET _gamepad = nullptr;
-	unique_ptr<XINPUT_GAMEPAD> _stateX360;
+	unique_ptr<XUSB_REPORT> _stateX360;
 	unique_ptr<DS4_REPORT> _stateDS4;
 };

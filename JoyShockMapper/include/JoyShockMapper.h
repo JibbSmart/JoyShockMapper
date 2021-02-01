@@ -50,6 +50,7 @@ constexpr WORD X_LS = 0xF2;
 constexpr WORD X_RS = 0xF3;
 constexpr WORD X_BACK = 0xF4;
 constexpr WORD X_START = 0xF5;
+constexpr WORD X_GUIDE = 0xB8;
 
 constexpr WORD PS_UP = 0xE8;
 constexpr WORD PS_DOWN = 0xE9;

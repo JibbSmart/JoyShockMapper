@@ -1,14 +1,5 @@
 #include "win32/Gamepad.h"
-#include <Xinput.h>
-#include <algorithm>
-
-//
-// Windows basic types 'n' fun
-//
-
 #include "ViGEm/Client.h"
-#include <string>
-#include <sstream>
 
 //
 // Link against SetupAPI
@@ -156,11 +147,11 @@ void Gamepad::ds4Notification(
 }
 
 Gamepad::Gamepad(ControllerScheme scheme)
-	: _stateX360( new XINPUT_GAMEPAD )
+	: _stateX360( new XUSB_REPORT )
 	, _stateDS4( new DS4_REPORT )
 	, _notification()
 {
-	XUSB_REPORT_INIT(reinterpret_cast<PXUSB_REPORT>(_stateX360.get()));
+	XUSB_REPORT_INIT(_stateX360.get());
 	DS4_REPORT_INIT(_stateDS4.get());
 
 	std::stringstream ss;
@@ -310,46 +301,49 @@ void Gamepad::setButtonX360(KeyCode btn, bool pressed) {
 	switch (btn.code)
 	{
 	case X_UP:
-		op(_stateX360->wButtons, XINPUT_GAMEPAD_DPAD_UP);
+		op(_stateX360->wButtons, XUSB_GAMEPAD_DPAD_UP);
 		break;
 	case X_DOWN:
-		op(_stateX360->wButtons, XINPUT_GAMEPAD_DPAD_DOWN);
+		op(_stateX360->wButtons, XUSB_GAMEPAD_DPAD_DOWN);
 		break;
 	case X_LEFT:
-		op(_stateX360->wButtons, XINPUT_GAMEPAD_DPAD_LEFT);
+		op(_stateX360->wButtons, XUSB_GAMEPAD_DPAD_LEFT);
 		break;
 	case X_RIGHT:
-		op(_stateX360->wButtons, XINPUT_GAMEPAD_DPAD_RIGHT);
+		op(_stateX360->wButtons, XUSB_GAMEPAD_DPAD_RIGHT);
 		break;
 	case X_LB:
-		op(_stateX360->wButtons, XINPUT_GAMEPAD_LEFT_SHOULDER);
+		op(_stateX360->wButtons, XUSB_GAMEPAD_LEFT_SHOULDER);
 		break;
 	case X_BACK:
-		op(_stateX360->wButtons, XINPUT_GAMEPAD_BACK);
+		op(_stateX360->wButtons, XUSB_GAMEPAD_BACK);
 		break;
 	case X_X:
-		op(_stateX360->wButtons, XINPUT_GAMEPAD_X);
+		op(_stateX360->wButtons, XUSB_GAMEPAD_X);
 		break;
 	case X_A:
-		op(_stateX360->wButtons, XINPUT_GAMEPAD_A);
+		op(_stateX360->wButtons, XUSB_GAMEPAD_A);
 		break;
 	case X_Y:
-		op(_stateX360->wButtons, XINPUT_GAMEPAD_Y);
+		op(_stateX360->wButtons, XUSB_GAMEPAD_Y);
 		break;
 	case X_B:
-		op(_stateX360->wButtons, XINPUT_GAMEPAD_B);
+		op(_stateX360->wButtons, XUSB_GAMEPAD_B);
 		break;
 	case X_RB:
-		op(_stateX360->wButtons, XINPUT_GAMEPAD_RIGHT_SHOULDER);
+		op(_stateX360->wButtons, XUSB_GAMEPAD_RIGHT_SHOULDER);
 		break;
 	case X_START:
-		op(_stateX360->wButtons, XINPUT_GAMEPAD_START);
+		op(_stateX360->wButtons, XUSB_GAMEPAD_START);
 		break;
 	case X_LS:
-		op(_stateX360->wButtons, XINPUT_GAMEPAD_LEFT_THUMB);
+		op(_stateX360->wButtons, XUSB_GAMEPAD_LEFT_THUMB);
 		break;
 	case X_RS:
-		op(_stateX360->wButtons, XINPUT_GAMEPAD_RIGHT_THUMB);
+		op(_stateX360->wButtons, XUSB_GAMEPAD_RIGHT_THUMB);
+		break;
+	case X_GUIDE:
+		op(_stateX360->wButtons, XUSB_GAMEPAD_GUIDE);
 		break;
 	default:
 		break;
@@ -682,7 +676,7 @@ void Gamepad::update()
 			break;
 		case VIGEM_TARGET_TYPE::Xbox360Wired:
 		case VIGEM_TARGET_TYPE::XboxOneWired:
-			vigem_target_x360_update(VigemClient::get(), _gamepad, *reinterpret_cast<XUSB_REPORT*>(_stateX360.get()));
+			vigem_target_x360_update(VigemClient::get(), _gamepad, *_stateX360.get());
 			break;
 		}
 	}

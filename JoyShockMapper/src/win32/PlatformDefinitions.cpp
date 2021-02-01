@@ -419,7 +419,7 @@ WORD nameToKey(const std::string &name)
 	{
 		return X_START;
 	}
-	if (name.compare("PS_HOME") == 0)
+	if (name.compare("X_GUIDE") == 0 || name.compare("PS_HOME") == 0)
 	{
 		return PS_HOME;
 	}
