@@ -3,7 +3,7 @@ The Sony PlayStation DualSense, DualShock 4, Nintendo Switch JoyCons (used in pa
 
 My goal with JoyShockMapper is to enable you to play PC games with DS, DS4, JoyCons, and Pro Controllers even better than you can on their respective consoles -- and demonstrate that more games should use these features in these ways.
 
-**Download JoyShockMapper to use right away [here](https://github.com/JibbSmart/JoyShockMapper/releases)**!
+**Download JoyShockMapper to use right away [here](https://github.com/Electronicks/JoyShockMapper/releases)**!
 
 For developers, this is also a reference implementation for using [JoyShockLibrary](https://github.com/jibbsmart/JoyShockLibrary) to read inputs from DualShock 4, JoyCons, and Pro Controller in your games. It's also a reference implementation for many of the best practices described on [GyroWiki](http://gyrowiki.jibbsmart.com).
 
@@ -35,6 +35,8 @@ JoyShockMapper works on Windows and uses JoyShockLibrary to read inputs from con
     * **[Calculating the real world calibration in a 3D game](#52-calculating-the-real-world-calibration-in-a-3d-game)**
     * **[Calculating the real world calibration in a 2D game](#53-calculating-the-real-world-calibration-in-a-2d-game)**
   * **[ViGEm Virtual Controller](#6-vigem-virtual-controller)**
+    * **[Xbox bindings](#61-xbox-bindings)**
+    * **[DS4 bindings](#62-ds4-bindings)**
   * **[Modeshifts](#7-modeshifts)**
   * **[Miscellaneous Commands](#8-miscellaneous-commands)**
 * **[Configuration Files](#configuration-files)**
@@ -690,7 +692,7 @@ With such a calibrated 2D game, you can choose your GYRO\_SENS or other settings
 
 ### 6. ViGEm Virtual Controller
 
-JoyShockMapper can create a virtual xbox or DS4 controller thanks to Nefarius' ViGEm Bus and ViGEm Client softwares. The former needs to be installed by the user before the latter can be used. Once installed, you can set which virtual device you desire to create for each connected device using the command ```VIRTUAL_CONTROLLER = XBOX``` or ```VIRTUAL_CONTROLLER = DS4```. The default value is NONE, which is no virtual controller at all. Rumble doesn't work just yet, but should be fixed in a few updates. Using virtual controllers is most likely to work well only if whitelisting is active (HIDGuardian/HIDCerberus), in order to hide the original controller entry from the game.
+JoyShockMapper can create a virtual xbox or DS4 controller thanks to Nefarius' ViGEm Bus and ViGEm Client softwares. The former needs to be installed by the user before the latter can be used. Once installed, you can set which virtual device you desire to create for each connected device using the command ```VIRTUAL_CONTROLLER = XBOX``` or ```VIRTUAL_CONTROLLER = DS4```. The default value is ```NONE```, which is no virtual controller at all. Rumble will then work on DS4 controllers, but obviously support is game dependant. Using virtual controllers is most likely to work well only if whitelisting is active (HIDGuardian/HIDCerberus), in order to hide the original controller entry from the game and only expose the virtual one. Funny thing to note is that hiding DS4s with HIDGuardian will also hide the virtual DS4 from ViGEm, since Windows cannot tell the virtual controller form the physical one.
 
 #### 6.1 Xbox bindings
 If you have set the virtual controller to the xbox scheme, then the following becomes available to you:

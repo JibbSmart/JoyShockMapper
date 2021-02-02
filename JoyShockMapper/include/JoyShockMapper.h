@@ -34,6 +34,10 @@ constexpr WORD GYRO_TRACK_X = 0x8D;
 constexpr WORD GYRO_TRACK_Y = 0x8E;
 constexpr WORD GYRO_TRACKBALL = 0x8F;
 constexpr WORD COMMAND_ACTION = 0x97; // Run command
+constexpr WORD RUMBLE = 0xE6;
+
+constexpr const char * SMALL_RUMBLE = "R0080";
+constexpr const char * BIG_RUMBLE = "RFF00";
 
 // Xinput buttons
 constexpr WORD X_UP = 0xE8;
@@ -116,39 +120,6 @@ enum class ButtonID
 				// insert more analog triggers here
 	ZRF,		// =  LAST_ANALOG_TRIGGER
 	SIZE,		// Not a button
-
-	// Virtual buttons configured on the touchpad. The number of buttons vary dynamically, but they each need a different ID
-	TUP, // FIRST_TOUCH_BUTTON
-	TDOWN,
-	TLEFT,
-	TRIGHT,
-	TRING,
-	T1,
-	T2,
-	T3,
-	T4,
-	T5,
-	T6,
-	T7,
-	T8,
-	T9,
-	T10,
-	T11,
-	T12,
-	T13,
-	T14,
-	T15,
-	T16,
-	T17,
-	T18,
-	T19,
-	T20,
-	T21,
-	T22,
-	T23,
-	T24,
-	T25,
-	// Add as necessary...
 };
 
 // Help strings for each button
@@ -264,13 +235,6 @@ enum class BtnEvent { OnPress, OnTap, OnHold, OnTurbo, OnRelease, OnTapRelease, 
 enum class Switch : char { OFF, ON, INVALID, }; // Used to parse autoload assignment
 enum class ControllerScheme { NONE, XBOX, DS4, INVALID };
 
-enum class TouchpadMode
-{
-	GRID_AND_STICK,		// Grid and Stick ?
-	MOUSE, // gestures to be added as part of this mode
-	INVALID
-};
-
 // Workaround default string streaming operator
 class PathString : public string // Should be wstring
 {
@@ -316,6 +280,16 @@ struct KeyCode
 	{
 		if (code == COMMAND_ACTION)
 			name = keyName.substr(1, keyName.size() - 2); // Remove opening and closing quotation marks
+		else if (keyName.compare("SMALL_RUMBLE") == 0)
+		{
+			name = SMALL_RUMBLE;
+			code = RUMBLE;
+		}
+		else if (keyName.compare("BIG_RUMBLE") == 0)
+		{
+			name = BIG_RUMBLE;
+			code = RUMBLE;
+		}
 		else if (code != 0)
 			name = keyName;
 	}

@@ -119,6 +119,26 @@ WORD nameToKey(const std::string &name)
 			}
 		}
 	}
+	if (length == 5)
+	{
+		auto pchar = name.c_str();
+		if (*pchar++ == 'R')
+		{
+			while (*pchar != '\0')
+			{
+				if (*pchar < '0' && *pchar > 'F')
+				{
+					break;
+				}
+				pchar++;
+			}
+			if (*pchar == '\0')
+			{
+				return RUMBLE;
+			}
+			// Else it's not a rumble command. Could be RIGHT for example
+		}
+	}
 	if (length > 2 && name[0] == '"' && name[length - 1] == '"')
 	{
 		return COMMAND_ACTION;

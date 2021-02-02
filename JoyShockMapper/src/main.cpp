@@ -304,6 +304,12 @@ public:
 		}
 	}
 
+	void SetRumble(int smallRumble, int bigRumble)
+	{
+		COUT << "Rumbling at " << smallRumble << " and " << bigRumble << endl;
+		JslSetRumble(_deviceHandle, smallRumble, bigRumble);
+	}
+
 	void ApplyBtnPress(KeyCode key)
 	{
 		if (key.code >= X_UP && key.code <= X_START || key.code == PS_HOME || key.code == PS_PAD_CLICK)
@@ -394,7 +400,7 @@ public:
 
 	void handleButtonChange(bool pressed, chrono::steady_clock::time_point time_now, float turboTime, float holdTime)
 	{
-		if (_id < ButtonID::SIZE || _id >= ButtonID::T1) // Can't chord touch stick buttons?!?
+		if (_id < ButtonID::SIZE)
 		{
 			auto foundChord = find(_common->chordStack.begin(), _common->chordStack.end(), _id);
 			if (!pressed)
@@ -600,8 +606,8 @@ istream &operator >> (istream &in, Mapping &mapping)
 
 	mapping._command = valueName;
 	stringstream ss;
-
-	while (regex_match(valueName, results, regex(R"(\s*([!\^]?)((\".*?\")|\w*[0-9A-Z]|\W)([\\\/+'_]?)\s*(.*))")) && !results[0].str().empty())
+	const char * rgx = R"(\s*([!\^]?)((\".*?\")|\w*[0-9A-Z]|\W)([\\\/+'_]?)\s*(.*))";
+	while (regex_match(valueName, results, regex(rgx)) && !results[0].str().empty())
 	{
 		if (count > 0) ss << " and ";
 		Mapping::ActionModifier actMod = results[1].str().empty() ? Mapping::ActionModifier::None :
@@ -754,6 +760,17 @@ bool Mapping::AddMapping(KeyCode key, EventModifier evtMod, ActionModifier actMo
 		}
 		apply = bind(&WriteToConsole, key.name);
 		release = OnEventAction();
+	}
+	else if (key.code == RUMBLE)
+	{
+		union Rumble
+		{
+			int raw;
+			array<UCHAR, 2> bytes;
+		} rumble;
+		rumble.raw = stoi(key.name.substr(1, 4), nullptr, 16);
+		apply = bind(&DigitalButton::SetRumble, placeholders::_1, rumble.bytes[0], rumble.bytes[1]);
+		release = bind(&DigitalButton::SetRumble, placeholders::_1, 0, 0);
 	}
 	else // if (key.code != NO_HOLD_MAPPED)
 	{
@@ -1828,8 +1845,9 @@ void connectDevices(bool mergeJoycons = true) {
 
 	if (numConnected == 1) {
 		COUT << "1 device connected" << endl;
-	}
-	else {
+	} else if(numConnected == 0) {
+		CERR << numConnected << " devices connected" << endl;
+	} else {
 		COUT << numConnected << " devices connected" << endl;
 	}
 	//if (!IsVisible())
@@ -1860,7 +1878,7 @@ bool do_RESET_MAPPINGS(CmdRegistry *registry) {
 	{
 		if (!registry->loadConfigFile("onreset.txt"))
 		{
-			COUT << "There is no onreset.txt file to load." << endl;
+			COUT_INFO << "There is no onreset.txt file to load." << endl;
 		}
 	}
 	return true;
@@ -2155,7 +2173,7 @@ JoyShock* getJoyShockFromHandle(int handle) {
 void processStick(JoyShock* jc, float stickX, float stickY, float lastX, float lastY, float innerDeadzone, float outerDeadzone, 
 	RingMode ringMode, StickMode stickMode, ButtonID ringId, ButtonID leftId, ButtonID rightId, ButtonID upId, ButtonID downId,
 	ControllerOrientation controllerOrientation, float mouseCalibrationFactor, float deltaTime, float &acceleration, FloatXY &lastAreaCal,
-	bool& isFlicking, bool &ignoreStickMode, bool &anyStickInput, bool &lockMouse, float &camSpeedX, float &camSpeedY, ScrollAxis *scroll, int touchpadIndex = -1)
+	bool& isFlicking, bool &ignoreStickMode, bool &anyStickInput, bool &lockMouse, float &camSpeedX, float &camSpeedY, ScrollAxis *scroll)
 {
 	float temp;
 	switch (controllerOrientation)
@@ -3392,15 +3410,8 @@ int main(int argc, char *argv[]) {
 	commandRegistry.Add(new HelpCmd(commandRegistry));
 	commandRegistry.Add((new JSMAssignment<ControllerScheme>(magic_enum::enum_name(SettingID::VIRTUAL_CONTROLLER).data(), virtual_controller))
 		->SetHelp("Sets the vigem virtual controller type. Can be NONE (default), XBOX (360) or DS4 (PS4)."));
-	commandRegistry.Add((new JSMMacro("RUMBLE"))->SetMacro([](JSMMacro *, in_string) {
-		for (auto js : handle_to_joyshock)
-		{
-			JslSetRumble(js.first, 255, 255);
-			Sleep(2000);
-			JslSetRumble(js.first, 0, 0);
-		}
-		return true;
-		}));
+	commandRegistry.Add((new JSMAssignment<FloatXY>(scroll_sens))
+		->SetHelp("Scrolling sensitivity for sticks."));
 
 	bool quit = false;
 	commandRegistry.Add((new JSMMacro("QUIT"))
@@ -3422,6 +3433,10 @@ int main(int argc, char *argv[]) {
 	if (commandRegistry.loadConfigFile("onstartup.txt"))
 	{
 		COUT << "Finished executing startup file." << endl;
+	}
+	else
+	{
+		COUT_INFO << "There is no onstartup.txt file to load." << endl;
 	}
 
 	// The main loop is simple and reads like pseudocode
