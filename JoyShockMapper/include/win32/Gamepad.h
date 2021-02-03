@@ -19,9 +19,9 @@ union Indicator
 class Gamepad
 {
 public:
-	typedef function<void(UCHAR largeMotor, UCHAR smallMotor, Indicator indicator)> Notification;
+	typedef function<void(UCHAR largeMotor, UCHAR smallMotor, Indicator indicator)> Callback;
 	Gamepad(ControllerScheme scheme);
-	Gamepad(ControllerScheme scheme, Notification notification);
+	Gamepad(ControllerScheme scheme, Callback notification);
 	virtual ~Gamepad();
 
 	bool isInitialized(std::string *errorMsg = nullptr);
@@ -65,7 +65,7 @@ private:
 	void setButtonX360(KeyCode btn, bool pressed);
 	void setButtonDS4(KeyCode btn, bool pressed);
 
-	Notification _notification = nullptr;
+	Callback _notification = nullptr;
 	std::string _errorMsg;
 	PVIGEM_TARGET _gamepad = nullptr;
 	unique_ptr<XUSB_REPORT> _stateX360;

@@ -191,7 +191,7 @@ Gamepad::Gamepad(ControllerScheme scheme)
 	}
 }
 
-Gamepad::Gamepad(ControllerScheme scheme, Notification notification)
+Gamepad::Gamepad(ControllerScheme scheme, Callback notification)
 	: Gamepad(scheme)
 {
 	_notification = notification;

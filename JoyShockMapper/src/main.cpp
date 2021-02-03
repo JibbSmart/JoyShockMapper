@@ -96,7 +96,7 @@ unique_ptr<PollingThread> minimizeThread;
 unique_ptr<TrayIcon> tray;
 bool devicesCalibrating = false;
 Whitelister whitelister(false);
-unordered_map<int, shared_ptr<JoyShock>> handle_to_joyshock;
+unordered_map<int, unique_ptr<JoyShock>> handle_to_joyshock;
 
 // This class holds all the logic related to a single digital button. It does not hold the mapping but only a reference
 // to it. It also contains it's various states, flags and data.
@@ -106,10 +106,9 @@ public:
 	// All digital buttons need a reference to the same instance of a the common structure within the same controller.
 	// It enables the buttons to synchronize and be aware of the state of the whole controller.
 	struct Common {
-		Common(Gamepad::Notification virtualControllerCallback)
+		Common(Gamepad::Callback virtualControllerCallback)
 		{
 			chordStack.push_front(ButtonID::NONE); //Always hold mapping none at the end to handle modeshifts and chords
-			_referenceCount++;
 			if (virtual_controller.get() != ControllerScheme::NONE)
 			{
 				_vigemController.reset(new Gamepad(virtual_controller.get(), virtualControllerCallback));
@@ -120,26 +119,6 @@ public:
 		deque<ButtonID> chordStack; // Represents the current active buttons in order from most recent to latest
 		unique_ptr<Gamepad> _vigemController;
 		function<DigitalButton* (ButtonID)> _getMatchingSimBtn;
-
-	private:
-		int _referenceCount = 0;
-
-	public:
-		void IncrementReferenceCounter()
-		{
-			_referenceCount++;
-		}
-
-		bool DecrementReferenceCounter()
-		{
-			_referenceCount--;
-			if (_referenceCount == 0)
-			{
-				delete this;
-				return false;
-			}
-			return true;
-		}
 	};
 
 	static bool findQueueItem(pair<ButtonID, KeyCode> &pair, ButtonID btn)
@@ -148,7 +127,7 @@ public:
 	}
 
 
-	DigitalButton(DigitalButton::Common* btnCommon, ButtonID id, int deviceHandle)
+	DigitalButton(shared_ptr<DigitalButton::Common> btnCommon, ButtonID id, int deviceHandle)
 		: _id(id)
 		, _btnState(BtnState::NoPress)
 		, _common(btnCommon)
@@ -165,7 +144,7 @@ public:
 
 	const ButtonID _id; // Always ID first for easy debugging
 	BtnState _btnState = BtnState::NoPress;
-	Common* _common;
+	shared_ptr<Common> _common;
 	const JSMButton &_mapping;
 	chrono::steady_clock::time_point _press_times;
 	unique_ptr<Mapping> _keyToRelease; // At key press, remember what to release
@@ -1031,7 +1010,7 @@ public:
 	float motion_stick_acceleration = 1.0;
 	vector<DstState> triggerState; // State of analog triggers when skip mode is active
 	vector<deque<float>> prevTriggerPosition;
-	DigitalButton::Common* btnCommon;
+	shared_ptr<DigitalButton::Common> btnCommon;
 
 	// Modeshifting the stick mode can create quirky behaviours on transition. These flags
 	// will be set upon returning to standard mode and ignore stick inputs until the stick
@@ -1060,7 +1039,7 @@ public:
 
 	Color _light_bar;
 	
-	JoyShock(int handle)
+	JoyShock(int handle, shared_ptr<DigitalButton::Common> sharedButtonCommon = nullptr)
 		: intHandle(handle)
 		, poll_rate(JslGetPollRate(handle))
 		, controller_type(JslGetControllerSplitType(handle))
@@ -1071,8 +1050,9 @@ public:
 		, right_scroll(this, ButtonID::RLEFT, ButtonID::RRIGHT)
 		, left_scroll(this, ButtonID::LLEFT, ButtonID::LRIGHT)
 		, _light_bar(*light_bar.get())
-	{
-		btnCommon = new DigitalButton::Common(bind(&JoyShock::handleViGEmNotification, this, placeholders::_1, placeholders::_2, placeholders::_3));
+		, btnCommon (sharedButtonCommon ? sharedButtonCommon : 
+			shared_ptr<DigitalButton::Common>(new DigitalButton::Common(bind(&JoyShock::handleViGEmNotification, this, placeholders::_1, placeholders::_2, placeholders::_3))))
+	{	
 		btnCommon->_getMatchingSimBtn = bind(&JoyShock::GetMatchingSimBtn, this, placeholders::_1);
 
 		buttons.reserve(MAPPING_SIZE);
@@ -1085,34 +1065,7 @@ public:
 		JslSetLightColour(handle, getSetting<Color>(SettingID::LIGHT_BAR).raw);
 	}
 
-	JoyShock(int handle, DigitalButton::Common* sharedButtonCommon)
-		: intHandle(handle)
-		, poll_rate(JslGetPollRate(handle))
-		, controller_type(JslGetControllerSplitType(handle))
-		, stick_step_size(JslGetStickStep(handle))
-		, triggerState(NUM_ANALOG_TRIGGERS, DstState::NoPress)
-		, btnCommon(sharedButtonCommon)
-		, buttons()
-		, right_scroll(this, ButtonID::RLEFT, ButtonID::RRIGHT)
-		, left_scroll(this, ButtonID::LLEFT, ButtonID::LRIGHT)
-		, _light_bar(*light_bar.get())
-	{
-		btnCommon->IncrementReferenceCounter();
-		buttons.reserve(MAPPING_SIZE);
-		for (int i = 0; i < MAPPING_SIZE; ++i)
-		{
-			buttons.push_back(DigitalButton(btnCommon, ButtonID(i), handle));
-		}
-		ResetSmoothSample();
-
-		CheckVigemState();
-		JslSetLightColour(handle, getSetting<Color>(SettingID::LIGHT_BAR).raw);
-	}
-
-	~JoyShock()
-	{
-		btnCommon->DecrementReferenceCounter();
-	}
+	~JoyShock() { }
 
 	bool CheckVigemState()
 	{
@@ -1817,14 +1770,14 @@ void connectDevices(bool mergeJoycons = true) {
 	{
 		JslGetConnectedDeviceHandles(&deviceHandles[0], numConnected);
 
-		for (auto handle : deviceHandles) {
-
+		for (auto handle : deviceHandles)
+		{
 			// map handles to extra local data
 			auto type = JslGetControllerSplitType(handle);
 			if (mergeJoycons && type != JS_SPLIT_TYPE_FULL)
 			{
 				auto otherJoyCon = find_if(handle_to_joyshock.begin(), handle_to_joyshock.end(),
-					[type](auto pair)
+					[type](auto &pair)
 					{
 						return type == JS_SPLIT_TYPE_LEFT && pair.second->controller_type == JS_SPLIT_TYPE_RIGHT ||
 							type == JS_SPLIT_TYPE_RIGHT && pair.second->controller_type == JS_SPLIT_TYPE_LEFT;
@@ -1832,13 +1785,14 @@ void connectDevices(bool mergeJoycons = true) {
 				if (otherJoyCon != handle_to_joyshock.end())
 				{
 					// The second JC points to the same common buttons as the other one.
-					shared_ptr<JoyShock> js(new JoyShock(handle,
-						otherJoyCon->second->btnCommon));
+					JoyShock* js = new JoyShock(handle,
+						otherJoyCon->second->btnCommon);
 					handle_to_joyshock.emplace(handle, js);
+					numConnected--;
 					continue;
 				}
 			}
-			shared_ptr<JoyShock> js(new JoyShock(handle));
+			JoyShock* js = new JoyShock(handle);
 			handle_to_joyshock.emplace(handle, js);
 		}
 	}
@@ -1891,7 +1845,7 @@ bool do_RECONNECT_CONTROLLERS(in_string arguments) {
 		return false;
 	COUT << "Reconnecting controllers: " << arguments << endl;
 	JslDisconnectAndDisposeAll();
-	connectDevices();
+	connectDevices(mergeJoycons);
 	JslSetCallback(&joyShockPollCallback);
 	return true;
 }
@@ -2817,7 +2771,7 @@ void CleanUp()
 	tray->Hide();
 	
 	// Clear controller color and rumble
-	for (auto js : handle_to_joyshock)
+	for (auto &js : handle_to_joyshock)
 	{
 		JslSetLightColour(js.first, 0);
 		JslSetRumble(js.first, 0, 0);
@@ -2885,7 +2839,7 @@ Mapping filterMapping(Mapping current, Mapping next)
 			COUT << "Before using this mapping, you need to set VIRTUAL_CONTROLLER." << endl;
 			return current;
 		}
-		for (auto js : handle_to_joyshock)
+		for (auto &js : handle_to_joyshock)
 		{
 			if (js.second->CheckVigemState() == false)
 				return current;
@@ -2896,7 +2850,7 @@ Mapping filterMapping(Mapping current, Mapping next)
 
 TriggerMode filterTriggerMode(TriggerMode current, TriggerMode next)
 {
-	for (auto js : handle_to_joyshock)
+	for (auto &js : handle_to_joyshock)
 	{
 		if (JslGetControllerType(js.first) != JS_TYPE_DS4 && next != TriggerMode::NO_FULL)
 		{
@@ -2911,7 +2865,7 @@ TriggerMode filterTriggerMode(TriggerMode current, TriggerMode next)
 			COUT << "Before using this trigger mode, you need to set VIRTUAL_CONTROLLER." << endl;
 			return current;
 		}
-		for (auto js : handle_to_joyshock)
+		for (auto &js : handle_to_joyshock)
 		{
 			if (js.second->CheckVigemState() == false)
 				return current;
@@ -2929,7 +2883,7 @@ StickMode filterStickMode(StickMode current, StickMode next)
 			COUT << "Before using this stick mode, you need to set VIRTUAL_CONTROLLER." << endl;
 			return current;
 		}
-		for (auto js : handle_to_joyshock)
+		for (auto &js : handle_to_joyshock)
 		{
 			if (js.second->CheckVigemState() == false)
 				return current;
@@ -2952,18 +2906,18 @@ void UpdateRingModeFromStickMode(JSMVariable<RingMode> *stickRingMode, StickMode
 
 ControllerScheme UpdateVirtualController(ControllerScheme prevScheme, ControllerScheme nextScheme)
 {
-	for (auto js : handle_to_joyshock)
+	for (auto &js : handle_to_joyshock)
 	{
 		if (!js.second->btnCommon->_vigemController || 
 			js.second->btnCommon->_vigemController->getType() != nextScheme)
 		{
 			js.second->btnCommon->_vigemController.reset(
 				nextScheme == ControllerScheme::NONE ? nullptr : 
-				new Gamepad(nextScheme, bind(&JoyShock::handleViGEmNotification, js.second, placeholders::_1, placeholders::_2, placeholders::_3)));
+				new Gamepad(nextScheme, bind(&JoyShock::handleViGEmNotification, js.second.get(), placeholders::_1, placeholders::_2, placeholders::_3)));
 		}
 	}
 	bool success = true;
-	for (auto js : handle_to_joyshock)
+	for (auto &js : handle_to_joyshock)
 	{
 		if (!js.second->CheckVigemState())
 		{
