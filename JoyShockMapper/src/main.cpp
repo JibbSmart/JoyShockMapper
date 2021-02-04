@@ -1078,6 +1078,11 @@ public:
 				CERR << "[ViGEm Client] " << error << endl;
 				return false;
 			}
+			else if (btnCommon->_vigemController->getType() != virtual_controller.get())
+			{
+				CERR << "[ViGEm Client] The controller is of the wrong type!" << endl;
+				return false;
+			}
 		}
 		return true;
 	}
@@ -2932,16 +2937,19 @@ ControllerScheme UpdateVirtualController(ControllerScheme prevScheme, Controller
 				new Gamepad(nextScheme, bind(&JoyShock::handleViGEmNotification, js.second.get(), placeholders::_1, placeholders::_2, placeholders::_3)));
 		}
 	}
-	bool success = true;
+	return nextScheme;
+}
+
+void OnVirtualControllerChange(ControllerScheme newScheme)
+{
 	for (auto &js : handle_to_joyshock)
 	{
+		// Display an error message if any vigem is no good.
 		if (!js.second->CheckVigemState())
 		{
-			return prevScheme;
+			break;
 		}
 	}
-
-	return nextScheme;
 }
 
 void RefreshAutoloadHelp(JSMAssignment<Switch> *autoloadCmd)
@@ -3204,7 +3212,7 @@ int main(int argc, char *argv[]) {
 	currentWorkingDir.SetFilter( [] (PathString current, PathString next) { return SetCWD(string(next)) ? next : current; });
 	autoloadSwitch.SetFilter(&filterInvalidValue<Switch, Switch::INVALID>)->AddOnChangeListener(bind(&UpdateThread, autoLoadThread.get(), placeholders::_1));
 	hide_minimized.SetFilter(&filterInvalidValue<Switch, Switch::INVALID>)->AddOnChangeListener(bind(&UpdateThread, minimizeThread.get(), placeholders::_1));
-	virtual_controller.SetFilter(&UpdateVirtualController);
+	virtual_controller.SetFilter(&UpdateVirtualController)->AddOnChangeListener(&OnVirtualControllerChange);
 	scroll_sens.SetFilter(&filterFloatPair);
 	// light_bar needs no filter or listener. The callback polls and updates the color.
 	currentWorkingDir = string(&cmdLine[0], &cmdLine[wcslen(cmdLine)]);
