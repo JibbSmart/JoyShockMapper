@@ -113,9 +113,10 @@ enum class ButtonID
 	MDOWN,		
 	MLEFT,		
 	MRIGHT,		
-	MRING,		
+	MRING,
 	LEAN_LEFT,  
 	LEAN_RIGHT, 
+	TOUCH,		// Touch anywhere on the touchpad
 	ZLF,		// = FIRST_ANALOG_TRIGGER
 				// insert more analog triggers here
 	ZRF,		// =  LAST_ANALOG_TRIGGER

@@ -41,6 +41,7 @@ const map<ButtonID, string> buttonHelpMap
 	{ButtonID::MRING, "Motion ring binding, either inner or outer."},
 	{ButtonID::LEAN_LEFT, "Tilt the controller to the left"},
 	{ButtonID::LEAN_RIGHT, "Tilt the controller to the right"},
+	{ButtonID::TOUCH, "The touchpad is being touched"},
 	{ButtonID::ZLF, "Full pull binding of left trigger, only on controllers with analog triggers"},
 	{ButtonID::ZRF, "Full pull binding of right trigger, only on controllers with analog triggers"},
 };

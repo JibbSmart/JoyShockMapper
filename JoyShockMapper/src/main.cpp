@@ -21,6 +21,7 @@ function<bool(in_string)> Mapping::_isCommandValid = function<bool(in_string)>()
 
 class JoyShock;
 void joyShockPollCallback(int jcHandle, JOY_SHOCK_STATE state, JOY_SHOCK_STATE lastState, IMU_STATE imuState, IMU_STATE lastImuState, float deltaTime);
+void TouchCallback(int jcHandle, TOUCH_STATE touchState, TOUCH_STATE lastTouchState, float delta_time);
 
 // Contains all settings that can be modeshifted. They should be accessed only via Joyshock::getSetting
 JSMSetting<StickMode> left_stick_mode = JSMSetting<StickMode>(SettingID::LEFT_STICK_MODE, StickMode::NO_MOUSE);
@@ -698,7 +699,7 @@ void Mapping::ProcessEvent(BtnEvent evt, DigitalButton &button, in_string displa
 			COUT << displayName << ": held" << endl;
 			break;
 		case BtnEvent::OnTurbo:
-			cout << displayName << ": turbo" << endl;
+			COUT << displayName << ": turbo" << endl;
 			break;
 		}
 		//COUT << button._id << " processes event " << evt << endl;
@@ -1844,9 +1845,11 @@ bool do_RECONNECT_CONTROLLERS(in_string arguments) {
 	if (!mergeJoycons && arguments.compare("SPLIT") != 0)
 		return false;
 	COUT << "Reconnecting controllers: " << arguments << endl;
+    JslSetTouchCallback(nullptr);
 	JslDisconnectAndDisposeAll();
 	connectDevices(mergeJoycons);
 	JslSetCallback(&joyShockPollCallback);
+	JslSetTouchCallback(&TouchCallback);
 	return true;
 }
 
@@ -2295,6 +2298,19 @@ void processStick(JoyShock* jc, float stickX, float stickY, float lastX, float l
 		{
 			jc->btnCommon->_vigemController->setRightStick(stickX, stickY);
 		}
+	}
+}
+
+void TouchCallback(int jcHandle, TOUCH_STATE touchState, TOUCH_STATE lastTouchState, float delta_time)
+{
+	JoyShock *js = getJoyShockFromHandle(jcHandle);
+	if (js)
+	{
+		js->callback_lock.lock();
+
+		js->GetButton(ButtonID::TOUCH)->handleButtonChange(touchState.t0Down || touchState.t1Down, js->time_now, js->getSetting(SettingID::TURBO_PERIOD), js->getSetting(SettingID::HOLD_PRESS_TIME));
+
+		js->callback_lock.unlock();
 	}
 }
 
@@ -3381,6 +3397,7 @@ int main(int argc, char *argv[]) {
 
 	connectDevices();
 	JslSetCallback(&joyShockPollCallback);
+	JslSetTouchCallback(&TouchCallback);
 	tray->Show();
 
 	do_RESET_MAPPINGS(&commandRegistry); // onreset.txt
