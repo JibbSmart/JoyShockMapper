@@ -125,7 +125,6 @@ extern const char *BASE_JSM_CONFIG_FOLDER();
 
 extern unsigned long GetCurrentProcessId();
 
-
 #else
 #error "Unknown platform"
 #endif

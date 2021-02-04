@@ -126,7 +126,7 @@ WORD nameToKey(const std::string &name)
 		{
 			while (*pchar != '\0')
 			{
-				if (*pchar < '0' && *pchar > 'F')
+				if ( *pchar < '0' || *pchar > 'F' || (*pchar > '9' && *pchar < 'A'))
 				{
 					break;
 				}

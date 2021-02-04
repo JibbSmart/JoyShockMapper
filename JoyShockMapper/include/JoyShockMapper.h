@@ -39,7 +39,7 @@ constexpr WORD RUMBLE = 0xE6;
 constexpr const char * SMALL_RUMBLE = "R0080";
 constexpr const char * BIG_RUMBLE = "RFF00";
 
-// Xinput buttons
+// XInput buttons
 constexpr WORD X_UP = 0xE8;
 constexpr WORD X_DOWN = 0xE9;
 constexpr WORD X_LEFT = 0xEA;
@@ -56,6 +56,7 @@ constexpr WORD X_BACK = 0xF4;
 constexpr WORD X_START = 0xF5;
 constexpr WORD X_GUIDE = 0xB8;
 
+// DS4 buttons
 constexpr WORD PS_UP = 0xE8;
 constexpr WORD PS_DOWN = 0xE9;
 constexpr WORD PS_LEFT = 0xEA;

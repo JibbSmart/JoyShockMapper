@@ -197,6 +197,7 @@ RRING: Right ring binding, either inner or outer.
 MUP, MDOWN, MLEFT, MRIGHT: Motion stick tilted forward, back, left or right
 MRING: Motion ring binding, either inner or outer.
 LEAN_LEFT, LEAN_RIGHT: Tilt the controller to the left or right
+TOUCH : The Playstation touchpad is being touched
 ```
 
 These can all be mapped to the following keyboard and mouse inputs:
@@ -227,6 +228,7 @@ GYRO_INVERT, GYRO_INV_X, GYRO_INV_Y: Invert gyro, or in just the x or y axes, re
 GYRO_TRACKBALL, GYRO_TRACK_X, GYRO_TRACK_Y: Keep last gyro input, or in just the x or y axes, respectively
 ; ' , . / \ [ ] + - `
 "any console command": Any console command can be run on button press, including loading a file
+SMALL_RUMBLE, BIG_RUMBLE, Rhhhh: rumble commands. The 'h' are capital hex digits, such as 'R8000' or 'RFFFF'
 ```
 
 For example, in a game where R is 'reload' and E is 'use’, you can do the following to map □ to 'reload' and △ to 'use':
@@ -807,14 +809,13 @@ ZLF,GYRO_SENS = NONE
 There are a few other useful commands that don't fall under the above categories:
 
 * **RESET\_MAPPINGS** - This will reset all JoyShockMapper's settings to their default values. This way you don't have to manually unset button mappings or other settings when making a big change. It can be useful to always start your configuration files with the RESET\_MAPPINGS command. The only exceptions to this are the calibration state and AUTOLOAD.
-* **RECONNECT\_CONTROLLERS** - Controllers connected after JoyShockMapper starts will be ignored until you tell it to RECONNECT\_CONTROLLERS. When this happens, all gyro calibration will reset on all controllers.
+* **RECONNECT\_CONTROLLERS** - Controllers connected after JoyShockMapper starts will be ignored until you tell it to RECONNECT\_CONTROLLERS. When this happens, all gyro calibration will reset on all controllers. You can add MERGE or SPLIT to indicate whether you want all joycons under a single controller or separate controllers.
 * **\# comments** - Any line or part of a line that begins with '\#' will be ignored. Use this to organise/annotate your configuration files, or to temporarily remove commands that you may want to add later.
 * **JOYCON\_GYRO\_MASK** (default IGNORE\_LEFT) - Most games that use gyro controls on Switch ignore the left JoyCon's gyro to avoid confusing behaviour when the JoyCons are held separately while playing. This is the default behaviour in JoyShockMapper. But you can also choose to IGNORE\_RIGHT, IGNORE\_BOTH, or USE\_BOTH.
 * **JOYCON\_MOTION\_MASK** (default IGNORE\_RIGHT) - To avoid confusing behaviour when the JoyCons are held separately while playing, you can have one JoyCon ignored for MOTION\_STICK related functions. Since we ignore the left JoyCon by default for gyro, we ignore the right JoyCon by default for motion stick. But you can also choose to IGNORE\_RIGHT, IGNORE\_BOTH, or USE\_BOTH.
 * **SLEEP** - Cause the program to sleep (or wait) for a given number of seconds. The given value must be greater than 0 and less than or equal to 10. Or, omit the value and it will sleep for one second. This command may help automate calibration.
 * **LIGHT_BAR** - Set the DS4 light bar to the assigned color. You can assign either a 6 hex digit code precedded by 'x', three decimal values for red, green and blue between 0 and 255, or simply a [common color name](https://www.rapidtables.com/web/color/RGB_Color.html#color-table) in capitals and underscore.
 * **HIDE_MINIMIZED** - Some users like having JSM hidden in the notification area. You can hide JSM when minimized by setting this to ON. OFF is the default value.
-* ***onstartup.txt*** - This is not a command. But if a file called '*onstartup.txt*' is found in the current working directory on startup, its contents will be loaded and executed right away. If you prefer that AutoLoad is disabled, put ```AUTOLOAD = OFF``` in here to have it disabled at startup. If you use HIDGuardian / HIDCerberus and always want to whitelist JSM and then reconnect controllers, just put ```WHITELIST_ADD``` and ```RECONNECT_CONTROLLERS``` in the startup file.
 * **README** will lead you to this document.
 * **HELP** Will display a list of all commands, all commands containing a given string, or the specific help for all the exact command names given to it.
 
@@ -857,6 +858,7 @@ But first, here are some common problems that are worth checking first.
 * Some users have found stick inputs to be unresponsive in one or more directions. This can happen if the stick isn't using enough of the range available to it. In this case, increasing STICK\_DEADZONE\_OUTER can help. In the same way, the stick might be reporting a direction as pressed even when it's not touched. This happens when STICK\_DEADZONE\_INNER is too small.
 
 ## Known and Perceived Issues
+
 ### Polling rate
 New mouse and keyboard events are only sent when JoyShockMapper gets a new message from the controller. This means if your game's and display's refresh rates are higher than the controller's poll rate, sometimes the game and display will update without moving the mouse, even if you'd normally expect the mouse to move. The DualSense and DualShock 4 send 250 messages a second, which is plenty for even extremely high refresh rate displays. But JoyCons and Pro Controllers send 66.67 messages a second, which means you might encounter stuttering movements when playing (and displaying) above 66.67 frames per second. A future version of JoyShockMapper may work around this problem by repeating messages up to a desired refresh rate.
 
@@ -869,7 +871,7 @@ Bluetooth support for the DualShock 4 is incomoplete in JoyShockMapper, and isn'
 JoyShockMapper currently only handles paths with regular ASCII extended characters. If some file paths have non-latin characters, they will not be recognized. You can set JSM_DIRECTORY to a folder where the absolute path does not contain any of those characters and put all of your configuration files, Autoload and GyroConfigs folders there instead.
 
 ### Joycon controllers
-JoyShockMapper considers all joycons to be part of a single controller. When using a pair of complementary joycons, this enables the use of chord presses across controllers for example. But this may create issues if using two joycons for two different players, or using three joycons or more. Keep that in mind when making or using configurations with joycons.
+JoyShockMapper considers all joycons to be part of a single controller by default r when reconnecting controllers with MERGE argument. When using a pair of complementary joycons, this enables the use of chord presses across controllers for example. But this may create issues if using two joycons for two different players, or using three joycons or more. Keep that in mind when making or using configurations with joycons.
 
 ## Credits
 I'm Julian "Jibb" Smart, and I made JoyShockMapper. As of version 1.3, JoyShockMapper has benefited from substantial community contributions. Huge thanks to the following contributors:

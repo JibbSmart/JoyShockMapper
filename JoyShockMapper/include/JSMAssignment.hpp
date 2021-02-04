@@ -39,7 +39,7 @@ protected:
 			string fwd_args(results.empty() ? arguments : results[1].str());
 			if (!_parse(this, fwd_args))
 			{
-				cout << _help << endl; // Parsing has failed. Show help.
+				COUT << _help << endl; // Parsing has failed. Show help.
 			}
 		}
 		else
