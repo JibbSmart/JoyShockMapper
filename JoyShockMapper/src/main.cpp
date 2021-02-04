@@ -5,9 +5,11 @@
 #include "TrayIcon.h"
 #include "JSMAssignment.hpp"
 #include "quatMaths.cpp"
+#include "win32/Gamepad.h"
 
 #include <mutex>
 #include <deque>
+#include <iomanip>
 
 #pragma warning(disable:4996) // Disable deprecated API warnings
 
@@ -19,6 +21,7 @@ function<bool(in_string)> Mapping::_isCommandValid = function<bool(in_string)>()
 
 class JoyShock;
 void joyShockPollCallback(int jcHandle, JOY_SHOCK_STATE state, JOY_SHOCK_STATE lastState, IMU_STATE imuState, IMU_STATE lastImuState, float deltaTime);
+void TouchCallback(int jcHandle, TOUCH_POINT point0, TOUCH_POINT point1, float delta_time);
 
 // Contains all settings that can be modeshifted. They should be accessed only via Joyshock::getSetting
 JSMSetting<StickMode> left_stick_mode = JSMSetting<StickMode>(SettingID::LEFT_STICK_MODE, StickMode::NO_MOUSE);
@@ -78,10 +81,8 @@ JSMSetting<float> hold_press_time = JSMSetting<float>(SettingID::HOLD_PRESS_TIME
 JSMVariable<float> sim_press_window = JSMVariable<float>(50.0f);
 JSMVariable<float> dbl_press_window = JSMVariable<float>(200.0f);
 JSMSetting<Color> light_bar = JSMSetting<Color>(SettingID::LIGHT_BAR, 0xFFFFFF);
-JSMVariable<PathString> currentWorkingDir = JSMVariable<PathString>(GetCWD());
+JSMSetting<FloatXY> scroll_sens = JSMSetting<FloatXY>(SettingID::SCROLL_SENS, { 30.f, 30.f });
 JSMVariable<Switch> autoloadSwitch = JSMVariable<Switch>(Switch::ON);
-vector<JSMButton> mappings; // array enables use of for each loop and other i/f
-vector<JSMButton> touch_buttons; // array of virtual buttons on the touchpad grid
 JSMVariable<FloatXY> grid_size = JSMVariable(FloatXY{ 2.f, 1.f }); // Default left side and right side button
 JSMSetting<TouchpadMode> touchpad_mode = JSMSetting<TouchpadMode>(SettingID::TOUCHPAD_MODE, TouchpadMode::GRID_AND_STICK);
 JSMSetting<StickMode> touch_stick_mode = JSMSetting<StickMode>(SettingID::TOUCH_STICK_MODE, StickMode::NO_MOUSE);
@@ -90,7 +91,11 @@ JSMSetting<float> touch_deadzone_inner = JSMSetting<float>(SettingID::TOUCH_DEAD
 JSMSetting<RingMode> touch_ring_mode = JSMSetting<RingMode>(SettingID::TOUCH_RING_MODE, RingMode::OUTER);
 JSMSetting<FloatXY> touchpad_sens = JSMSetting<FloatXY>(SettingID::TOUCHPAD_SENS, { 1.f, 1.f });
 JSMVariable<Switch> hide_minimized = JSMVariable<Switch>(Switch::OFF);
-JSMSetting<FloatXY> scroll_sens = JSMSetting<FloatXY>(SettingID::SCROLL_SENS, { 30.f, 30.f });
+JSMVariable<ControllerScheme> virtual_controller = JSMVariable<ControllerScheme>(ControllerScheme::NONE);
+
+JSMVariable<PathString> currentWorkingDir = JSMVariable<PathString>(GetCWD());
+vector<JSMButton> touch_buttons; // array of virtual buttons on the touchpad grid
+vector<JSMButton> mappings; // array enables use of for each loop and other i/f
 
 mutex loading_lock;
 
@@ -101,7 +106,7 @@ unique_ptr<PollingThread> minimizeThread;
 unique_ptr<TrayIcon> tray;
 bool devicesCalibrating = false;
 Whitelister whitelister(false);
-unordered_map<int, shared_ptr<JoyShock>> handle_to_joyshock;
+unordered_map<int, unique_ptr<JoyShock>> handle_to_joyshock;
 
 // This class holds all the logic related to a single digital button. It does not hold the mapping but only a reference
 // to it. It also contains it's various states, flags and data.
@@ -111,37 +116,19 @@ public:
 	// All digital buttons need a reference to the same instance of a the common structure within the same controller.
 	// It enables the buttons to synchronize and be aware of the state of the whole controller.
 	struct Common {
-		Common(int deviceHandle)
-			: _deviceHandle(deviceHandle)
+		Common(Gamepad::Callback virtualControllerCallback)
 		{
 			chordStack.push_front(ButtonID::NONE); //Always hold mapping none at the end to handle modeshifts and chords
-			_referenceCount++;
+			if (virtual_controller.get() != ControllerScheme::NONE)
+			{
+				_vigemController.reset(new Gamepad(virtual_controller.get(), virtualControllerCallback));
+			}
 		}
 		deque<pair<ButtonID, KeyCode>> gyroActionQueue; // Queue of gyro control actions currently in effect
 		deque<pair<ButtonID, KeyCode>> activeTogglesQueue;
 		deque<ButtonID> chordStack; // Represents the current active buttons in order from most recent to latest
-		const int _deviceHandle;
-		function<DigitalButton *(ButtonID)> _getMatchingSimBtn;
-
-		private:
-		int _referenceCount;
-
-		public:
-		void IncrementReferenceCounter()
-		{
-			_referenceCount++;
-		}
-
-		bool DecrementReferenceCounter()
-		{
-			_referenceCount--;
-			if (_referenceCount == 0)
-			{
-				delete this;
-				return false;
-			}
-			return true;
-		}
+		unique_ptr<Gamepad> _vigemController;
+		function<DigitalButton* (ButtonID)> _getMatchingSimBtn;
 	};
 
 	static bool findQueueItem(pair<ButtonID, KeyCode> &pair, ButtonID btn)
@@ -150,7 +137,7 @@ public:
 	}
 
 
-	DigitalButton(DigitalButton::Common* btnCommon, ButtonID id)
+	DigitalButton(shared_ptr<DigitalButton::Common> btnCommon, ButtonID id, int deviceHandle)
 		: _id(id)
 		, _btnState(BtnState::NoPress)
 		, _common(btnCommon)
@@ -160,13 +147,14 @@ public:
 		, _turboCount(0)
 		, _simPressMaster(nullptr)
 		, _instantReleaseQueue()
+		, _deviceHandle(deviceHandle)
 	{
 		_instantReleaseQueue.reserve(2);
 	}
 
 	const ButtonID _id; // Always ID first for easy debugging
 	BtnState _btnState = BtnState::NoPress;
-	Common* _common;
+	shared_ptr<Common> _common;
 	const JSMButton &_mapping;
 	chrono::steady_clock::time_point _press_times;
 	unique_ptr<Mapping> _keyToRelease; // At key press, remember what to release
@@ -174,14 +162,15 @@ public:
 	unsigned int _turboCount;
 	DigitalButton * _simPressMaster;
 	vector<BtnEvent> _instantReleaseQueue;
+	int _deviceHandle;
 
 	bool CheckInstantRelease(BtnEvent instantEvent)
 	{
 		auto instant = find(_instantReleaseQueue.begin(), _instantReleaseQueue.end(), instantEvent);
 		if (instant != _instantReleaseQueue.end())
 		{
-			//cout << "Button " << _id << " releases instant " << instantEvent << endl;
-			_keyToRelease->ProcessEvent(BtnEvent::OnInstantRelease, this, _nameToRelease);
+			//COUT << "Button " << _id << " releases instant " << instantEvent << endl;
+			_keyToRelease->ProcessEvent(BtnEvent::OnInstantRelease, *this, _nameToRelease);
 			_instantReleaseQueue.erase(instant);
 			return true;
 		}
@@ -201,8 +190,8 @@ public:
 				}
 				if (elapsed_time > hold_ms)
 				{
-					_keyToRelease->ProcessEvent(BtnEvent::OnHold, this, _nameToRelease);
-					_keyToRelease->ProcessEvent(BtnEvent::OnTurbo, this, _nameToRelease);
+					_keyToRelease->ProcessEvent(BtnEvent::OnHold, *this, _nameToRelease);
+					_keyToRelease->ProcessEvent(BtnEvent::OnTurbo, *this, _nameToRelease);
 					_turboCount++;
 				}
 			}
@@ -214,7 +203,7 @@ public:
 				}
 				if (floorf((elapsed_time - hold_ms) / turbo_ms) >= _turboCount)
 				{
-					_keyToRelease->ProcessEvent(BtnEvent::OnTurbo, this, _nameToRelease);
+					_keyToRelease->ProcessEvent(BtnEvent::OnTurbo, *this, _nameToRelease);
 					_turboCount++;
 				}
 				if (elapsed_time > hold_ms + _turboCount * turbo_ms + MAGIC_INSTANT_DURATION)
@@ -225,16 +214,16 @@ public:
 		}
 		else // not pressed
 		{
-			_keyToRelease->ProcessEvent(BtnEvent::OnRelease, this, _nameToRelease);
+			_keyToRelease->ProcessEvent(BtnEvent::OnRelease, *this, _nameToRelease);
 			if (_turboCount == 0)
 			{
-				_keyToRelease->ProcessEvent(BtnEvent::OnTap, this, _nameToRelease);
+				_keyToRelease->ProcessEvent(BtnEvent::OnTap, *this, _nameToRelease);
 				_btnState = BtnState::TapRelease;
 				_press_times = time_now; // Start counting tap duration
 			}
 			else
 			{
-				_keyToRelease->ProcessEvent(BtnEvent::OnHoldRelease, this, _nameToRelease);
+				_keyToRelease->ProcessEvent(BtnEvent::OnHoldRelease, *this, _nameToRelease);
 				if (_instantReleaseQueue.empty())
 				{
 					_btnState = BtnState::NoPress;
@@ -272,15 +261,15 @@ public:
 
 	void StartCalibration()
 	{
-		printf("Starting continuous calibration\n");
-		JslResetContinuousCalibration(_common->_deviceHandle);
-		JslStartContinuousCalibration(_common->_deviceHandle);
+		COUT << "Starting continuous calibration" << endl;
+		JslResetContinuousCalibration(_deviceHandle);
+		JslStartContinuousCalibration(_deviceHandle);
 	}
 
 	void FinishCalibration()
 	{
-		JslPauseContinuousCalibration(_common->_deviceHandle);
-		printf("Gyro calibration set\n");
+		JslPauseContinuousCalibration(_deviceHandle);
+		COUT << "Gyro calibration set" << endl;
 		ClearAllActiveToggle(KeyCode("CALIBRATE"));
 	}
 
@@ -304,17 +293,33 @@ public:
 		}
 	}
 
-	void ApplyBtnPress(KeyCode keyCode)
+	void SetRumble(int smallRumble, int bigRumble)
 	{
-		if(keyCode.code != NO_HOLD_MAPPED)
+		COUT << "Rumbling at " << smallRumble << " and " << bigRumble << endl;
+		JslSetRumble(_deviceHandle, smallRumble, bigRumble);
+	}
+
+	void ApplyBtnPress(KeyCode key)
+	{
+		if (key.code >= X_UP && key.code <= X_START || key.code == PS_HOME || key.code == PS_PAD_CLICK)
 		{
-			pressKey(keyCode, true);
+			if(_common->_vigemController)
+				_common->_vigemController->setButton(key, true);
+		}
+		else if(key.code != NO_HOLD_MAPPED)
+		{
+			pressKey(key, true);
 		}
 	}
 
 	void ApplyBtnRelease(KeyCode key)
 	{
-		if (key.code != NO_HOLD_MAPPED)
+		if (key.code >= X_UP && key.code <= X_START || key.code == PS_HOME || key.code == PS_PAD_CLICK)
+		{
+			if (_common->_vigemController)
+				_common->_vigemController->setButton(key, false);
+		}
+		else if (key.code != NO_HOLD_MAPPED)
 		{
 			pressKey(key, false);
 			ClearAllActiveToggle(key);
@@ -341,7 +346,7 @@ public:
 
 	void RegisterInstant(BtnEvent evt)
 	{
-		//cout << "Button " << _id << " registers instant " << evt << endl;
+		//COUT << "Button " << _id << " registers instant " << evt << endl;
 		_instantReleaseQueue.push_back(evt);
 	}
 
@@ -365,7 +370,7 @@ public:
 		_keyToRelease.reset(new Mapping(*btn._keyToRelease));
 		_nameToRelease = btn._nameToRelease;
 		_simPressMaster = &btn;
-		//cout << btn << " is the master button" << endl;
+		//COUT << btn << " is the master button" << endl;
 	}
 
 	void ClearKey()
@@ -419,7 +424,7 @@ public:
 				else
 				{
 					_btnState = BtnState::BtnPress;
-					GetPressMapping()->ProcessEvent(BtnEvent::OnPress, this, _nameToRelease);
+					GetPressMapping()->ProcessEvent(BtnEvent::OnPress, *this, _nameToRelease);
 				}
 			}
 			break;
@@ -435,7 +440,7 @@ public:
 			}
 			if (pressed || GetPressDurationMS(time_now) > _keyToRelease->getTapDuration())
 			{
-				GetPressMapping()->ProcessEvent(BtnEvent::OnTapRelease, this, _nameToRelease);
+				GetPressMapping()->ProcessEvent(BtnEvent::OnTapRelease, *this, _nameToRelease);
 				_btnState = BtnState::NoPress;
 				ClearKey();
 			}
@@ -456,7 +461,7 @@ public:
 				simBtn->_press_times = time_now;
 				simBtn->SyncSimPress(*this);
 
-				_keyToRelease->ProcessEvent(BtnEvent::OnPress, this, _nameToRelease);
+				_keyToRelease->ProcessEvent(BtnEvent::OnPress, *this, _nameToRelease);
 			}
 			else if (!pressed || GetPressDurationMS(time_now) > sim_press_window)
 			{
@@ -470,7 +475,7 @@ public:
 				else
 				{
 					_btnState = BtnState::BtnPress;
-					GetPressMapping()->ProcessEvent(BtnEvent::OnPress, this, _nameToRelease);
+					GetPressMapping()->ProcessEvent(BtnEvent::OnPress, *this, _nameToRelease);
 					//_press_times = time_now;
 				}
 			}
@@ -505,7 +510,7 @@ public:
 		case BtnState::DblPressStart:
 			if (GetPressDurationMS(time_now) > dbl_press_window)
 			{
-				GetPressMapping()->ProcessEvent(BtnEvent::OnPress, this, _nameToRelease);
+				GetPressMapping()->ProcessEvent(BtnEvent::OnPress, *this, _nameToRelease);
 				_btnState = BtnState::BtnPress;
 				//_press_times = time_now; // Reset Timer
 			}
@@ -526,7 +531,7 @@ public:
 			{
 				_btnState = BtnState::BtnPress;
 				_press_times = time_now; // Reset Timer to raise a tap
-				GetPressMapping()->ProcessEvent(BtnEvent::OnPress, this, _nameToRelease);
+				GetPressMapping()->ProcessEvent(BtnEvent::OnPress, *this, _nameToRelease);
 			}
 			else if (pressed)
 			{
@@ -534,7 +539,7 @@ public:
 				_press_times = time_now;
 				_keyToRelease.reset(new Mapping(_mapping.getDblPressMap()->second));
 				_nameToRelease = _mapping.getName(_id);
-				_mapping.getDblPressMap()->second.get().ProcessEvent(BtnEvent::OnPress, this, _nameToRelease);
+				_mapping.getDblPressMap()->second.get().ProcessEvent(BtnEvent::OnPress, *this, _nameToRelease);
 			}
 			break;
 		case BtnState::DblPressNoPressHold:
@@ -542,7 +547,7 @@ public:
 			{
 				_btnState = BtnState::BtnPress;
 				// Don't reset timer to preserve hold press behaviour
-				GetPressMapping()->ProcessEvent(BtnEvent::OnPress, this, _nameToRelease);
+				GetPressMapping()->ProcessEvent(BtnEvent::OnPress, *this, _nameToRelease);
 			}
 			else if (pressed)
 			{
@@ -550,7 +555,7 @@ public:
 				_press_times = time_now;
 				_keyToRelease.reset(new Mapping(_mapping.getDblPressMap()->second));
 				_nameToRelease = _mapping.getName(_id);
-				_mapping.getDblPressMap()->second.get().ProcessEvent(BtnEvent::OnPress, this, _nameToRelease);
+				_mapping.getDblPressMap()->second.get().ProcessEvent(BtnEvent::OnPress, *this, _nameToRelease);
 			}
 			break;
 		case BtnState::DblPressPress:
@@ -576,7 +581,7 @@ public:
 
 ostream &operator << (ostream &out, Mapping mapping)
 {
-	out << mapping.command;
+	out << mapping._command;
 	return out;
 }
 
@@ -588,10 +593,10 @@ istream &operator >> (istream &in, Mapping &mapping)
 	smatch results;
 	int count = 0;
 
-	mapping.command = valueName;
+	mapping._command = valueName;
 	stringstream ss;
-
-	while (regex_match(valueName, results, regex(R"(\s*([!\^]?)((\".*?\")|\w*[0-9A-Z]|\W)([\\\/+'_]?)\s*(.*))")) && !results[0].str().empty())
+	const char * rgx = R"(\s*([!\^]?)((\".*?\")|\w*[0-9A-Z]|\W)([\\\/+'_]?)\s*(.*))";
+	while (regex_match(valueName, results, regex(rgx)) && !results[0].str().empty())
 	{
 		if (count > 0) ss << " and ";
 		Mapping::ActionModifier actMod = results[1].str().empty() ? Mapping::ActionModifier::None :
@@ -660,7 +665,7 @@ istream &operator >> (istream &in, Mapping &mapping)
 		count++;
 	} // Next item
 
-	mapping.description = ss.str();
+	mapping._description = ss.str();
 
 	return in;
 }
@@ -668,7 +673,7 @@ istream &operator >> (istream &in, Mapping &mapping)
 bool operator ==(const Mapping &lhs, const Mapping &rhs)
 {
 	// Very flawfull :(
-	return lhs.command == rhs.command;
+	return lhs._command == rhs._command;
 }
 
 Mapping::Mapping(in_string mapping)
@@ -681,41 +686,41 @@ Mapping::Mapping(in_string mapping)
 	}
 }
 
-void Mapping::ProcessEvent(BtnEvent evt, DigitalButton *button, in_string displayName) const
+void Mapping::ProcessEvent(BtnEvent evt, DigitalButton &button, in_string displayName) const
 {
-	// cout << button._id << " processes event " << evt << endl;
-	auto entry = eventMapping.find(evt);
-	if (entry != eventMapping.end() && entry->second) // Skip over empty entries
+	// COUT << button._id << " processes event " << evt << endl;
+	auto entry = _eventMapping.find(evt);
+	if (entry != _eventMapping.end() && entry->second) // Skip over empty entries
 	{
 		switch (evt)
 		{
 		case BtnEvent::OnPress:
-			cout << displayName << ": true" << endl;
+			COUT << displayName << ": true" << endl;
 			break;
 		case BtnEvent::OnRelease:
 		case BtnEvent::OnHoldRelease:
-			cout << displayName << ": false" << endl;
+			COUT << displayName << ": false" << endl;
 			break;
 		case BtnEvent::OnTap:
-			cout << displayName << ": tapped" << endl;
+			COUT << displayName << ": tapped" << endl;
 			break;
 		case BtnEvent::OnHold:
-			cout << displayName << ": held" << endl;
+			COUT << displayName << ": held" << endl;
 			break;
 		case BtnEvent::OnTurbo:
-			cout << displayName << ": turbo" << endl;
+			COUT << displayName << ": turbo" << endl;
 			break;
 		}
-		//cout << button._id << " processes event " << evt << endl;
+		//COUT << button._id << " processes event " << evt << endl;
 		if(entry->second)
-			entry->second(button);
+			entry->second(&button);
 	}
 }
 
 void Mapping::InsertEventMapping(BtnEvent evt, OnEventAction action)
 {
-	auto existingActions = eventMapping.find(evt);
-	eventMapping[evt] = existingActions == eventMapping.end() ? action :
+	auto existingActions = _eventMapping.find(evt);
+	_eventMapping[evt] = existingActions == _eventMapping.end() ? action :
 		bind(&RunAllActions, placeholders::_1, 2, existingActions->second, action); // Chain with already existing mapping, if any
 }
 
@@ -726,27 +731,39 @@ bool Mapping::AddMapping(KeyCode key, EventModifier evtMod, ActionModifier actMo
 	{
 		apply = bind(&DigitalButton::StartCalibration, placeholders::_1);
 		release = bind(&DigitalButton::FinishCalibration, placeholders::_1);
-		tapDurationMs = MAGIC_EXTENDED_TAP_DURATION; // Unused in regular press
+		_tapDurationMs = MAGIC_EXTENDED_TAP_DURATION; // Unused in regular press
 	}
 	else if (key.code >= GYRO_INV_X && key.code <= GYRO_TRACKBALL)
 	{
 		apply = bind(&DigitalButton::ApplyGyroAction, placeholders::_1, key);
 		release = bind(&DigitalButton::RemoveGyroAction, placeholders::_1);
-		tapDurationMs = MAGIC_EXTENDED_TAP_DURATION; // Unused in regular press
+		_tapDurationMs = MAGIC_EXTENDED_TAP_DURATION; // Unused in regular press
 	}
 	else if (key.code == COMMAND_ACTION)
 	{
 		_ASSERT_EXPR(Mapping::_isCommandValid, "You need to assign a function to this field. It should be a function that validates the command line.");
 		if (!Mapping::_isCommandValid(key.name))
 		{
-			cout << "Error: \"" << key.name << "\" is not a valid command" << endl;
+			COUT << "Error: \"" << key.name << "\" is not a valid command" << endl;
 			return false;
 		}
 		apply = bind(&WriteToConsole, key.name);
 		release = OnEventAction();
 	}
+	else if (key.code == RUMBLE)
+	{
+		union Rumble
+		{
+			int raw;
+			array<UCHAR, 2> bytes;
+		} rumble;
+		rumble.raw = stoi(key.name.substr(1, 4), nullptr, 16);
+		apply = bind(&DigitalButton::SetRumble, placeholders::_1, rumble.bytes[0], rumble.bytes[1]);
+		release = bind(&DigitalButton::SetRumble, placeholders::_1, 0, 0);
+	}
 	else // if (key.code != NO_HOLD_MAPPED)
 	{
+		_hasViGEmBtn |= (key.code >= X_UP && key.code <= X_START) || key.code == PS_HOME || key.code == PS_PAD_CLICK; // Set flag if vigem button
 		apply = bind(&DigitalButton::ApplyBtnPress, placeholders::_1, key);
 		release = bind(&DigitalButton::ApplyBtnRelease, placeholders::_1, key);
 	}
@@ -830,13 +847,13 @@ class TouchStick
 public:
 	vector<DigitalButton> buttons; // Each touchstick gets it's own digital buttons. Is that smart?
 
-	TouchStick(int index, DigitalButton::Common &common)
+	TouchStick(int index, shared_ptr<DigitalButton::Common> common, int handle)
 		: _index(index)
 	{
 		buttons.reserve(5);
 		for (ButtonID id = ButtonID(FIRST_TOUCH_BUTTON); id <= ButtonID::TRING; id = ButtonID(int(id) + 1))
 		{
-			buttons.push_back(DigitalButton(&common, id));
+			buttons.push_back(DigitalButton(common, id, handle));
 		}
 	}
 
@@ -1042,7 +1059,7 @@ public:
 	float motion_stick_acceleration = 1.0;
 	vector<DstState> triggerState; // State of analog triggers when skip mode is active
 	vector<deque<float>> prevTriggerPosition;
-	DigitalButton::Common* btnCommon;
+	shared_ptr<DigitalButton::Common> btnCommon;
 
 	// Modeshifting the stick mode can create quirky behaviours on transition. These flags
 	// will be set upon returning to standard mode and ignore stick inputs until the stick
@@ -1069,11 +1086,13 @@ public:
 	int lastGyroIndexX = 0;
 	int lastGyroIndexY = 0;
 
-	JoyShock(int uniqueHandle, float pollRate, int controllerSplitType, float stickStepSize)
-		: intHandle(uniqueHandle)
-		, poll_rate(pollRate)
-		, controller_type(controllerSplitType)
-		, stick_step_size(stickStepSize)
+	Color _light_bar;
+	
+	JoyShock(int handle, shared_ptr<DigitalButton::Common> sharedButtonCommon = nullptr)
+		: intHandle(handle)
+		, poll_rate(JslGetPollRate(handle))
+		, controller_type(JslGetControllerSplitType(handle))
+		, stick_step_size(JslGetStickStep(handle))
 		, triggerState(NUM_ANALOG_TRIGGERS, DstState::NoPress)
 		, prevTriggerPosition(NUM_ANALOG_TRIGGERS, deque<float>(MAGIC_TRIGGER_SMOOTHING, 0.f))
 		, buttons()
@@ -1081,54 +1100,56 @@ public:
 		, touchpads()
 		, right_scroll(this, ButtonID::RLEFT, ButtonID::RRIGHT)
 		, left_scroll(this, ButtonID::LLEFT, ButtonID::LRIGHT)
+        , _light_bar(*light_bar.get())
 		, touch_scroll_x(this, ButtonID::TLEFT, ButtonID::TRIGHT, 0)
 		, touch_scroll_y(this, ButtonID::TDOWN, ButtonID::TUP, 0)
+        , btnCommon (sharedButtonCommon ? sharedButtonCommon : 
+			shared_ptr<DigitalButton::Common>(new DigitalButton::Common(bind(&JoyShock::handleViGEmNotification, this, placeholders::_1, placeholders::_2, placeholders::_3))))
 	{
-		btnCommon = new DigitalButton::Common(uniqueHandle);
 		btnCommon->_getMatchingSimBtn = bind(&JoyShock::GetMatchingSimBtn, this, placeholders::_1);
 
 		buttons.reserve(MAPPING_SIZE);
 		for (int i = 0; i < MAPPING_SIZE; ++i)
 		{
-			buttons.push_back( DigitalButton(btnCommon, ButtonID(i)) );
+			buttons.push_back( DigitalButton(btnCommon, ButtonID(i), handle) );
 		}
 		ResetSmoothSample();
+		CheckVigemState();
+		JslSetLightColour(handle, getSetting<Color>(SettingID::LIGHT_BAR).raw);
 		for (int i = 0; i < MAX_NO_OF_TOUCH; ++i) {
-			touchpads.push_back(TouchStick(i, *btnCommon));
+			touchpads.push_back(TouchStick(i, btnCommon, intHandle));
 		}
 		updateGridSize(grid_size.get().x() * grid_size.get().y() + 5);
 	}
 
-	JoyShock(int uniqueHandle, float pollRate, int controllerSplitType, float stickStepSize, DigitalButton::Common* sharedButtonCommon)
-		: intHandle(uniqueHandle)
-		, poll_rate(pollRate)
-		, controller_type(controllerSplitType)
-		, stick_step_size(stickStepSize)
-		, triggerState(NUM_ANALOG_TRIGGERS, DstState::NoPress)
-		, prevTriggerPosition(NUM_ANALOG_TRIGGERS, deque<float>(MAGIC_TRIGGER_SMOOTHING, 0.f))
-		, btnCommon(sharedButtonCommon)
-		, buttons()
-		, right_scroll(this, ButtonID::RLEFT, ButtonID::RRIGHT)
-		, left_scroll(this, ButtonID::LLEFT, ButtonID::LRIGHT)
-		, touch_scroll_x(this, ButtonID::TLEFT, ButtonID::TRIGHT)
-		, touch_scroll_y(this, ButtonID::TDOWN, ButtonID::TUP)
+	~JoyShock() { }
+
+	bool CheckVigemState()
 	{
-		btnCommon->IncrementReferenceCounter();
-		buttons.reserve(MAPPING_SIZE);
-		for (int i = 0; i < MAPPING_SIZE; ++i)
+		if (virtual_controller.get() != ControllerScheme::NONE)
 		{
-			buttons.push_back(DigitalButton(btnCommon, ButtonID(i)));
+			string error = "There is no controller object";
+			if (!btnCommon->_vigemController || btnCommon->_vigemController->isInitialized(&error) == false)
+			{
+				CERR << "[ViGEm Client] " << error << endl;
+				return false;
+			}
 		}
-		ResetSmoothSample();
-		for (int i = 0; i < MAX_NO_OF_TOUCH; ++i) {
-			touchpads.push_back(TouchStick(i, *btnCommon));
-		}
-		updateGridSize(grid_size.get().x() * grid_size.get().y());
+		return true;
 	}
 
-	~JoyShock()
+	void handleViGEmNotification(UCHAR largeMotor, UCHAR smallMotor, Indicator indicator)
 	{
-		btnCommon->DecrementReferenceCounter();
+		int type = JslGetControllerType(intHandle);
+		if (virtual_controller == ControllerScheme::XBOX && (type <= JS_TYPE_PRO_CONTROLLER))
+		{
+			JslSetPlayerNumber(intHandle, indicator.led);
+		}
+		else if (virtual_controller == ControllerScheme::DS4 && (type >= JS_TYPE_DS4))
+		{
+			JslSetLightColour(intHandle, indicator.colorCode);
+		}
+		JslSetRumble(intHandle, smallMotor, largeMotor);
 	}
 
 	template<typename E>
@@ -1390,6 +1411,23 @@ public:
 		throw invalid_argument(ss.str().c_str());
 	}
 
+	template<>
+	Color getSetting<Color>(SettingID index)
+	{
+		if (index == SettingID::LIGHT_BAR)
+		{
+			// Look at active chord mappings starting with the latest activates chord
+			for (auto activeChord = btnCommon->chordStack.begin(); activeChord != btnCommon->chordStack.end(); activeChord++)
+			{
+				auto opt = light_bar.get(*activeChord);
+				if (opt) return *opt;
+			}
+		}
+		stringstream ss;
+		ss << "Index " << index << " is not a valid Color";
+		throw invalid_argument(ss.str().c_str());
+	}
+
 public:
 
 	DigitalButton *GetMatchingSimBtn(ButtonID index)
@@ -1496,16 +1534,29 @@ public:
 
 	void handleTriggerChange(ButtonID softIndex, ButtonID fullIndex, TriggerMode mode, float position)
 	{
-		if (JslGetControllerType(intHandle) != JS_TYPE_DS4)
+		if (JslGetControllerType(intHandle) != JS_TYPE_DS4 && mode != TriggerMode::X_LT && mode != TriggerMode::X_RT)
 		{
 			// Override local variable because the controller has digital triggers. Effectively ignore Full Pull binding.
 			mode = TriggerMode::NO_FULL;
 		}
 
+		if (mode == TriggerMode::X_LT)
+		{
+			if (btnCommon->_vigemController)
+				btnCommon->_vigemController->setLeftTrigger(position);
+			return;
+		}
+		else if (mode == TriggerMode::X_RT)
+		{
+			if (btnCommon->_vigemController)
+				btnCommon->_vigemController->setRightTrigger(position);
+			return;
+		}
+
 		auto idxState = int(fullIndex) - FIRST_ANALOG_TRIGGER; // Get analog trigger index
 		if (idxState < 0 || idxState >= (int)triggerState.size())
 		{
-			cout << "Error: Trigger " << fullIndex << " does not exist in state map. Dual Stage Trigger not possible." << endl;
+			COUT << "Error: Trigger " << fullIndex << " does not exist in state map. Dual Stage Trigger not possible." << endl;
 			return;
 		}
 
@@ -1676,7 +1727,7 @@ public:
 			}
 			break;
 		default:
-			cout << "Error: Trigger " << softIndex << " has invalid state " << triggerState[idxState] << ". Reset to NoPress." << endl;
+			COUT << "Error: Trigger " << softIndex << " has invalid state " << triggerState[idxState] << ". Reset to NoPress." << endl;
 			triggerState[idxState] = DstState::NoPress;
 			break;
 		}
@@ -1721,7 +1772,7 @@ public:
 			gridButtons.pop_back();
 
 		for (int i = int(ButtonID::T1) + gridButtons.size(); gridButtons.size() < numberOfButtons; ++i)
-			gridButtons.push_back(DigitalButton(btnCommon, ButtonID(i)));
+			gridButtons.push_back(DigitalButton(btnCommon, ButtonID(i), intHandle));
 	}
 };
 
@@ -1797,75 +1848,67 @@ static void resetAllMappings() {
 	touchpad_sens.Reset();
 	light_bar.Reset();
 	scroll_sens.Reset();
+	autoloadSwitch.Reset();
+	hide_minimized.Reset();
+	virtual_controller.Reset();
 	for_each(touch_buttons.begin(), touch_buttons.end(), [] (auto &map) { map.Reset(); });
 	
 	os_mouse_speed = 1.0f;
 	last_flick_and_rotation = 0.0f;
 }
 
-void connectDevices() {
+void connectDevices(bool mergeJoycons = true) {
 	handle_to_joyshock.clear();
 	int numConnected = JslConnectDevices();
-	int* deviceHandles = new int[numConnected];
+	vector<int> deviceHandles(numConnected, 0);
 
-	JslGetConnectedDeviceHandles(deviceHandles, numConnected);
+	if (numConnected > 0)
+	{
+		JslGetConnectedDeviceHandles(&deviceHandles[0], numConnected);
 
-	for (int i = 0; i < numConnected; i++) {
-
-		// map handles to extra local data
-		int handle = deviceHandles[i];
-		auto type = JslGetControllerSplitType(handle);
-		if (type != JS_SPLIT_TYPE_FULL)
+		for (auto handle : deviceHandles)
 		{
-			auto otherJoyCon = find_if(handle_to_joyshock.begin(), handle_to_joyshock.end(),
-				[type](auto pair)
-				{
-					return type == JS_SPLIT_TYPE_LEFT && pair.second->controller_type == JS_SPLIT_TYPE_RIGHT ||
-						   type == JS_SPLIT_TYPE_RIGHT && pair.second->controller_type == JS_SPLIT_TYPE_LEFT;
-				});
-			if (otherJoyCon != handle_to_joyshock.end())
+			// map handles to extra local data
+			auto type = JslGetControllerSplitType(handle);
+			if (mergeJoycons && type != JS_SPLIT_TYPE_FULL)
 			{
-				// The second JC points to the same common buttons as the other one.
-				JoyShock *js = new JoyShock(handle,
-					JslGetPollRate(handle),
-					JslGetControllerSplitType(handle),
-					JslGetStickStep(handle),
-					otherJoyCon->second->btnCommon);
-				handle_to_joyshock.emplace(deviceHandles[i], js);
-				continue;
+				auto otherJoyCon = find_if(handle_to_joyshock.begin(), handle_to_joyshock.end(),
+					[type](auto &pair)
+					{
+						return type == JS_SPLIT_TYPE_LEFT && pair.second->controller_type == JS_SPLIT_TYPE_RIGHT ||
+							type == JS_SPLIT_TYPE_RIGHT && pair.second->controller_type == JS_SPLIT_TYPE_LEFT;
+					});
+				if (otherJoyCon != handle_to_joyshock.end())
+				{
+					// The second JC points to the same common buttons as the other one.
+					JoyShock* js = new JoyShock(handle,
+						otherJoyCon->second->btnCommon);
+					handle_to_joyshock.emplace(handle, js);
+					numConnected--;
+					continue;
+				}
 			}
+			JslSetLightColour(handle, light_bar.get()->raw);
+			JoyShock* js = new JoyShock(handle);
+			handle_to_joyshock.emplace(handle, js);
 		}
-		JslSetLightColour(handle, light_bar.get()->raw);
-		JoyShock* js = new JoyShock(handle,
-			JslGetPollRate(handle),
-			JslGetControllerSplitType(handle),
-			JslGetStickStep(handle));
-		handle_to_joyshock.emplace(deviceHandles[i], js);
-
-		// calibration?
-		//JslStartContinuousCalibration(deviceHandles[i]);
 	}
 
-	string msg;
 	if (numConnected == 1) {
-		msg = "1 device connected\n";
+		COUT << "1 device connected" << endl;
+	} else if(numConnected == 0) {
+		CERR << numConnected << " devices connected" << endl;
+	} else {
+		COUT << numConnected << " devices connected" << endl;
 	}
-	else {
-		stringstream ss;
-		ss << numConnected << " devices connected" << endl;
-		msg = ss.str();
-	}
-	printf("%s\n", msg.c_str());
 	//if (!IsVisible())
 	//{
 	//	tray->SendToast(wstring(msg.begin(), msg.end()));
 	//}
 
 	//if (numConnected != 0) {
-	//	printf("All devices have started continuous gyro calibration\n");
+	//	COUT << "All devices have started continuous gyro calibration" << endl;
 	//}
-
-	delete[] deviceHandles;
 }
 
 void SimPressCrossUpdate(ButtonID sim, ButtonID origin, Mapping newVal)
@@ -1880,34 +1923,40 @@ bool do_NO_GYRO_BUTTON() {
 }
 
 bool do_RESET_MAPPINGS(CmdRegistry *registry) {
-	printf("Resetting all mappings to defaults\n");
+	COUT << "Resetting all mappings to defaults" << endl;
 	resetAllMappings();
 	if (registry)
 	{
 		if (!registry->loadConfigFile("onreset.txt"))
 		{
-			cout << "There is no onreset.txt file to load." << endl;
+			COUT_INFO << "There is no onreset.txt file to load." << endl;
 		}
 	}
 	return true;
 }
 
-bool do_RECONNECT_CONTROLLERS() {
-	printf("Reconnecting controllers\n");
+bool do_RECONNECT_CONTROLLERS(in_string arguments) {
+	bool mergeJoycons = false;
+	mergeJoycons |= (arguments.empty() || arguments.compare("MERGE") == 0);
+	if (!mergeJoycons && arguments.compare("SPLIT") != 0)
+		return false;
+	COUT << "Reconnecting controllers: " << arguments << endl;
+    JslSetTouchCallback(nullptr);
 	JslDisconnectAndDisposeAll();
-	connectDevices();
+	connectDevices(mergeJoycons);
 	JslSetCallback(&joyShockPollCallback);
+	JslSetTouchCallback(&TouchCallback);
 	return true;
 }
 
 bool do_COUNTER_OS_MOUSE_SPEED() {
-	printf("Countering OS mouse speed setting\n");
+	COUT << "Countering OS mouse speed setting" << endl;
 	os_mouse_speed = getMouseSpeed();
 	return true;
 }
 
 bool do_IGNORE_OS_MOUSE_SPEED() {
-	printf("Ignoring OS mouse speed setting\n");
+	COUT << "Ignoring OS mouse speed setting" << endl;
 	os_mouse_speed = 1.0;
 	return true;
 }
@@ -1927,7 +1976,7 @@ void UpdateThread(PollingThread *thread, Switch newValue)
 	}
 	else
 	{
-		cout << "The thread is unavailable" << endl;
+		CERR << "AutoLoad is unavailable" << endl;
 	}
 }
 
@@ -1939,24 +1988,24 @@ bool do_CALCULATE_REAL_WORLD_CALIBRATION(in_string argument) {
 			numRotations = stof(argument);
 		}
 		catch (invalid_argument ia) {
-			printf("Can't convert \"%s\" to a number\n", argument.c_str());
+			COUT << "Can't convert \"" << argument << "\" to a number" << endl;
 			return false;
 		}
 	}
 	if (numRotations == 0) {
-		printf("Can't calculate calibration from zero rotations\n");
+		COUT << "Can't calculate calibration from zero rotations" << endl;
 	}
 	else if (last_flick_and_rotation == 0) {
-		printf("Need to use the flick stick at least once before calculating an appropriate calibration value\n");
+		COUT << "Need to use the flick stick at least once before calculating an appropriate calibration value" << endl;
 	}
 	else {
-		printf("Recommendation: REAL_WORLD_CALIBRATION = %.5g\n", *real_world_calibration.get() * last_flick_and_rotation / numRotations);
+		COUT << "Recommendation: REAL_WORLD_CALIBRATION = " << setprecision(5) << (*real_world_calibration.get() * last_flick_and_rotation / numRotations) << endl;
 	}
 	return true;
 }
 
 bool do_FINISH_GYRO_CALIBRATION() {
-	printf("Finishing continuous calibration for all devices\n");
+	COUT << "Finishing continuous calibration for all devices" << endl;
 	for (auto iter = handle_to_joyshock.begin(); iter != handle_to_joyshock.end(); ++iter) {
 		JslPauseContinuousCalibration(iter->second->intHandle);
 	}
@@ -1965,7 +2014,7 @@ bool do_FINISH_GYRO_CALIBRATION() {
 }
 
 bool do_RESTART_GYRO_CALIBRATION() {
-	printf("Restarting continuous calibration for all devices\n");
+	COUT << "Restarting continuous calibration for all devices" << endl;
 	for (auto iter = handle_to_joyshock.begin(); iter != handle_to_joyshock.end(); ++iter) {
 		JslResetContinuousCalibration(iter->second->intHandle);
 		JslStartContinuousCalibration(iter->second->intHandle);
@@ -1976,7 +2025,7 @@ bool do_RESTART_GYRO_CALIBRATION() {
 
 bool do_SET_MOTION_STICK_NEUTRAL()
 {
-	printf("Setting neutral motion stick orientation...\n");
+	COUT << "Setting neutral motion stick orientation..." << endl;
 	for (auto iter = handle_to_joyshock.begin(); iter != handle_to_joyshock.end(); ++iter)
 	{
 		iter->second->set_neutral_quat = true;
@@ -1996,41 +2045,41 @@ bool do_SLEEP(in_string argument)
 		}
 		catch (invalid_argument ia)
 		{
-			printf("Can't convert \"%s\" to a number\n", argument.c_str());
+			COUT << "Can't convert \"" << argument << "\" to a number" << endl;
 			return false;
 		}
 	}
 
 	if (sleepTime <= 0)
 	{
-		printf("Sleep time must be greater than 0 and less than or equal to 10\n");
+		COUT << "Sleep time must be greater than 0 and less than or equal to 10" << endl;
 		return false;
 	}
 
 	if (sleepTime > 10)
 	{
-		printf("Sleep is capped at 10s per command\n");
+		COUT << "Sleep is capped at 10s per command" << endl;
 		sleepTime = 10.f;
 	}
-	printf("Sleeping for %.3f second(s)...\n", sleepTime);
+	COUT << "Sleeping for " << setprecision(3) << sleepTime << " second(s)..." << endl;
 	std::this_thread::sleep_for(std::chrono::milliseconds((int)(sleepTime * 1000)));
-	printf("Finished sleeping.\n");
+	COUT << "Finished sleeping." << endl;
 
 	return true;
 }
 
 bool do_README() {
-	printf("Opening online help in your browser\n");
+	COUT << "Opening online help in your browser" << endl;
 	auto err = ShowOnlineHelp();
 	if (err != 0)
 	{
-		printf("Could not open online help. Error #%d\n", err);
+		COUT << "Could not open online help. Error #" << err << endl;;
 	}
 	return true;
 }
 
 bool do_WHITELIST_SHOW() {
-	printf("Your PID is %lu\n", GetCurrentProcessId()); // WinAPI call!
+	COUT << "Your PID is " << GetCurrentProcessId() << endl;
 	Whitelister::ShowHIDCerberus();
 	return true;
 }
@@ -2039,18 +2088,18 @@ bool do_WHITELIST_ADD() {
 	whitelister.Add();
 	if (whitelister)
 	{
-		printf("JoyShockMapper was successfully whitelisted\n");
+		COUT << "JoyShockMapper was successfully whitelisted" << endl;
 	}
 	else
 	{
-		printf("Whitelisting failed!\n");
+		CERR << "Whitelisting failed!" << endl;
 	}
 	return true;
 }
 
 bool do_WHITELIST_REMOVE() {
 	whitelister.Remove();
-	printf("JoyShockMapper removed from whitelist\n");
+	COUT << "JoyShockMapper removed from whitelist" << endl;
 	return true;
 }
 
@@ -2068,7 +2117,7 @@ static float handleFlickStick(float calX, float calY, float lastCalX, float last
 	}
 	if (stickLength >= flickStickThreshold) {
 		float stickAngle = atan2(-offsetX, offsetY);
-		//printf(", %.4f\n", lastOffsetLength);
+		//COUT << ", %.4f\n", lastOffsetLength);
 		if (!isFlicking) {
 			// bam! new flick!
 			isFlicking = true;
@@ -2099,7 +2148,7 @@ static float handleFlickStick(float calX, float calY, float lastCalX, float last
 				jc->ResetSmoothSample();
 				jc->flick_rotation_counter = stickAngle; // track all rotation for this flick
 				// TODO: All these printfs should be hidden behind a setting. User might not want them.
-				printf("Flick: %.3f degrees\n", stickAngle * (180.0f / (float)PI));
+				COUT << "Flick: " << setprecision(3) << stickAngle * (180.0f / (float)PI) << " degrees" << endl;
 			}
 		}
 		else {
@@ -2332,6 +2381,20 @@ void processStick(JoyShock* jc, float stickX, float stickY, float lastX, float l
 
 		anyStickInput = left | right | up | down; // ring doesn't count
 	}
+	else if (stickMode == StickMode::LEFT_STICK)
+	{
+		if (jc->btnCommon->_vigemController)
+		{
+			jc->btnCommon->_vigemController->setLeftStick(stickX, stickY);
+		}
+	}
+	else if (stickMode == StickMode::RIGHT_STICK)
+	{
+		if (jc->btnCommon->_vigemController)
+		{
+			jc->btnCommon->_vigemController->setRightStick(stickX, stickY);
+		}
+	}
 }
 
 void TouchStick::handleTouchStickChange(JoyShock *js, bool down, short movX, short movY, float delta_time)
@@ -2506,10 +2569,10 @@ void TouchCallback(int jcHandle, TOUCH_POINT point0, TOUCH_POINT point1, float d
 
 void joyShockPollCallback(int jcHandle, JOY_SHOCK_STATE state, JOY_SHOCK_STATE lastState, IMU_STATE imuState, IMU_STATE lastImuState, float deltaTime) {
 
-	//printf("DS4 accel: %.4f, %.4f, %.4f\n", imuState.accelX, imuState.accelY, imuState.accelZ);
-	//printf("\tDS4 gyro: %.4f, %.4f, %.4f\n", imuState.gyroX, imuState.gyroY, imuState.gyroZ);
+	//COUT << "DS4 accel: %.4f, %.4f, %.4f\n", imuState.accelX, imuState.accelY, imuState.accelZ);
+	//COUT << "\tDS4 gyro: %.4f, %.4f, %.4f\n", imuState.gyroX, imuState.gyroY, imuState.gyroZ);
 	MOTION_STATE motion = JslGetMotionState(jcHandle);
-	//printf("\tDS4 quat: %.4f, %.4f, %.4f, %.4f | accel: %.4f, %.4f, %.4f | grav: %.4f, %.4f, %.4f\n",
+	//COUT << "\tDS4 quat: %.4f, %.4f, %.4f, %.4f | accel: %.4f, %.4f, %.4f | grav: %.4f, %.4f, %.4f\n",
 	//	motion.quatW, motion.quatX, motion.quatY, motion.quatZ,
 	//	motion.accelX, motion.accelY, motion.accelZ,
 	//	motion.gravX, motion.gravY, motion.gravZ);
@@ -2521,7 +2584,7 @@ void joyShockPollCallback(int jcHandle, JOY_SHOCK_STATE state, JOY_SHOCK_STATE l
 	bool motionAny = false;
 	// get jc from handle
 	JoyShock* jc = getJoyShockFromHandle(jcHandle);
-	//printf("Controller %d\n", jcHandle);
+	//COUT << "Controller %d\n", jcHandle);
 	if (jc == nullptr) return;
 	jc->callback_lock.lock();
 	if (jc->set_neutral_quat)
@@ -2531,10 +2594,10 @@ void joyShockPollCallback(int jcHandle, JOY_SHOCK_STATE state, JOY_SHOCK_STATE l
 		jc->neutralQuatY = motion.quatY;
 		jc->neutralQuatZ = motion.quatZ;
 		jc->set_neutral_quat = false;
-		printf("Neutral orientation for device %d set...\n", jc->intHandle);
+		COUT << "Neutral orientation for device " << jc->intHandle << " set..." << endl;
 	}
 	jc->controller_type = JslGetControllerSplitType(jcHandle); // Reassign at each call? :( Low impact function
-	//printf("Found a match for %d\n", jcHandle);
+	//COUT << "Found a match for %d\n", jcHandle);
 	float gyroX = 0.0;
 	float gyroY = 0.0;
 	int mouse_x_flag = (int)jc->getSetting<GyroAxisMask>(SettingID::MOUSE_X_FROM_GYRO_AXIS);
@@ -2564,7 +2627,7 @@ void joyShockPollCallback(int jcHandle, JOY_SHOCK_STATE state, JOY_SHOCK_STATE l
 	if (numGyroSamples < 1) numGyroSamples = 1; // need at least 1 sample
 	auto threshold = jc->getSetting(SettingID::GYRO_SMOOTH_THRESHOLD);
 	jc->GetSmoothedGyro(gyroX, gyroY, gyroLength, threshold / 2.0f, threshold, int(numGyroSamples), gyroX, gyroY);
-	//printf("%d Samples for threshold: %0.4f\n", numGyroSamples, gyro_smooth_threshold * maxSmoothingSamples);
+	//COUT << "%d Samples for threshold: %0.4f\n", numGyroSamples, gyro_smooth_threshold * maxSmoothingSamples);
 
 	// now, honour gyro_cutoff_speed
 	gyroLength = sqrt(gyroX * gyroX + gyroY * gyroY);
@@ -2813,11 +2876,21 @@ void joyShockPollCallback(int jcHandle, JOY_SHOCK_STATE state, JOY_SHOCK_STATE l
 		(jc->controller_type == JS_SPLIT_TYPE_FULL ||
 		(jc->controller_type & (int)jc->getSetting<JoyconMask>(SettingID::JOYCON_GYRO_MASK)) == 0))
 	{
-		//printf("GX: %0.4f GY: %0.4f GZ: %0.4f\n", imuState.gyroX, imuState.gyroY, imuState.gyroZ);
+		//COUT << "GX: %0.4f GY: %0.4f GZ: %0.4f\n", imuState.gyroX, imuState.gyroY, imuState.gyroZ);
 		float mouseCalibration = jc->getSetting(SettingID::REAL_WORLD_CALIBRATION) / os_mouse_speed / jc->getSetting(SettingID::IN_GAME_SENS);
 		shapedSensitivityMoveMouse(gyroX * gyro_x_sign_to_use, gyroY * gyro_y_sign_to_use, jc->getSetting<FloatXY>(SettingID::MIN_GYRO_SENS), jc->getSetting<FloatXY>(SettingID::MAX_GYRO_SENS),
 			jc->getSetting(SettingID::MIN_GYRO_THRESHOLD), jc->getSetting(SettingID::MAX_GYRO_THRESHOLD), deltaTime,
 			camSpeedX * jc->getSetting(SettingID::STICK_AXIS_X), -camSpeedY * jc->getSetting(SettingID::STICK_AXIS_Y), mouseCalibration);
+	}
+	if (jc->btnCommon->_vigemController)
+	{
+		jc->btnCommon->_vigemController->update(); // Check for initialized built-in
+	}
+	auto newColor = jc->getSetting<Color>(SettingID::LIGHT_BAR);
+	if (jc->_light_bar != newColor)
+	{
+		JslSetLightColour(jcHandle, newColor.raw);
+		jc->_light_bar = newColor;
 	}
 	jc->callback_lock.unlock();
 }
@@ -2853,25 +2926,25 @@ bool AutoLoadPoll(void *param)
 		string path(AUTOLOAD_FOLDER());
 		auto files = ListDirectory(path);
 		auto noextmodule = windowModule.substr(0, windowModule.find_first_of('.'));
-		printf("[AUTOLOAD] \"%s\" in focus: ", windowTitle.c_str()); // looking for config : " , );
+		COUT_INFO << "[AUTOLOAD] \"" << windowTitle << "\" in focus: "; // looking for config : " , );
 		bool success = false;
 		for (auto file : files)
 		{
 			auto noextconfig = file.substr(0, file.find_first_of('.'));
 			if (iequals(noextconfig, noextmodule))
 			{
-				printf("loading \"AutoLoad\\%s.txt\".\n", noextconfig.c_str());
+				COUT_INFO << "loading \"AutoLoad\\" << noextconfig << ".txt\"." << endl;
 				loading_lock.lock();
 				registry->processLine(path + file);
 				loading_lock.unlock();
-				printf("[AUTOLOAD] Loading completed\n");
+				COUT_INFO << "[AUTOLOAD] Loading completed" << endl;
 				success = true;
 				break;
 			}
 		}
 		if (!success)
 		{
-			printf("create \"AutoLoad\\%s.txt\" to autoload for this application.\n", noextmodule.c_str());
+			COUT_INFO << "create \"AutoLoad\\" << noextmodule << ".txt\" to autoload for this application." << endl;
 		}
 	}
 	return true;
@@ -2888,7 +2961,7 @@ bool MinimizePoll(void *param)
 
 void beforeShowTrayMenu()
 {
-	if (!tray || !*tray) printf("ERROR: Cannot create tray item.\n");
+	if (!tray || !*tray) CERR << "ERROR: Cannot create tray item." << endl;
 	else
 	{
 		tray->ClearMenuMap();
@@ -2965,7 +3038,16 @@ void beforeShowTrayMenu()
 void CleanUp()
 {
 	tray->Hide();
+	
+	// Clear controller color and rumble
+	for (auto &js : handle_to_joyshock)
+	{
+		JslSetLightColour(js.first, 0);
+		JslSetRumble(js.first, 0, 0);
+	}
 	JslDisconnectAndDisposeAll();
+	handle_to_joyshock.clear(); // Destroy Vigem Gamepads
+	
 	ReleaseConsole();
 	whitelister.Remove();
 }
@@ -3009,7 +3091,7 @@ float filterHoldPressDelay(float c, float next)
 {
 	if (next <= sim_press_window || next >= dbl_press_window)
 	{
-		cout << SettingID::HOLD_PRESS_TIME << " can only be set to a value between those of " <<
+		CERR << SettingID::HOLD_PRESS_TIME << " can only be set to a value between those of " <<
 			SettingID::SIM_PRESS_WINDOW << " (" << sim_press_window << "ms) and " <<
 			SettingID::DBL_PRESS_WINDOW << " (" << dbl_press_window << "ms) exclusive." << endl;
 		return c;
@@ -3019,20 +3101,64 @@ float filterHoldPressDelay(float c, float next)
 
 Mapping filterMapping(Mapping current, Mapping next)
 {
+	if (next.hasViGEmBtn())
+	{
+		if (virtual_controller.get() == ControllerScheme::NONE)
+		{
+			COUT << "Before using this mapping, you need to set VIRTUAL_CONTROLLER." << endl;
+			return current;
+		}
+		for (auto &js : handle_to_joyshock)
+		{
+			if (js.second->CheckVigemState() == false)
+				return current;
+		}
+	}
 	return next.isValid() ? next : current;
 }
 
-TriggerMode triggerModeNotification(TriggerMode current, TriggerMode next)
+TriggerMode filterTriggerMode(TriggerMode current, TriggerMode next)
 {
-	for (auto js : handle_to_joyshock)
+	for (auto &js : handle_to_joyshock)
 	{
 		if (JslGetControllerType(js.first) != JS_TYPE_DS4 && next != TriggerMode::NO_FULL)
 		{
-			printf("WARNING: Dual Stage Triggers are only valid on analog triggers. Full pull bindings will be ignored on non DS4 controllers.\n");
+			COUT_WARN << "WARNING: Dual Stage Triggers are only valid on analog triggers. Full pull bindings will be ignored on non DS4 controllers." << endl;
 			break;
 		}
 	}
-	return next;
+	if (next == TriggerMode::X_LT || next == TriggerMode::X_RT)
+	{
+		if (virtual_controller.get() == ControllerScheme::NONE)
+		{
+			COUT << "Before using this trigger mode, you need to set VIRTUAL_CONTROLLER." << endl;
+			return current;
+		}
+		for (auto &js : handle_to_joyshock)
+		{
+			if (js.second->CheckVigemState() == false)
+				return current;
+		}
+	}
+	return filterInvalidValue<TriggerMode, TriggerMode::INVALID>(current, next);
+}
+
+StickMode filterStickMode(StickMode current, StickMode next)
+{
+	if (next == StickMode::LEFT_STICK || next == StickMode::RIGHT_STICK)
+	{
+		if (virtual_controller.get() == ControllerScheme::NONE)
+		{
+			COUT << "Before using this stick mode, you need to set VIRTUAL_CONTROLLER." << endl;
+			return current;
+		}
+		for (auto &js : handle_to_joyshock)
+		{
+			if (js.second->CheckVigemState() == false)
+				return current;
+		}
+	}
+	return filterInvalidValue<StickMode, StickMode::INVALID>(current, next);
 }
 
 void UpdateRingModeFromStickMode(JSMVariable<RingMode> *stickRingMode, StickMode newValue)
@@ -3045,6 +3171,30 @@ void UpdateRingModeFromStickMode(JSMVariable<RingMode> *stickRingMode, StickMode
 	{
 		*stickRingMode = RingMode::OUTER;
 	}
+}
+
+ControllerScheme UpdateVirtualController(ControllerScheme prevScheme, ControllerScheme nextScheme)
+{
+	for (auto &js : handle_to_joyshock)
+	{
+		if (!js.second->btnCommon->_vigemController || 
+			js.second->btnCommon->_vigemController->getType() != nextScheme)
+		{
+			js.second->btnCommon->_vigemController.reset(
+				nextScheme == ControllerScheme::NONE ? nullptr : 
+				new Gamepad(nextScheme, bind(&JoyShock::handleViGEmNotification, js.second.get(), placeholders::_1, placeholders::_2, placeholders::_3)));
+		}
+	}
+	bool success = true;
+	for (auto &js : handle_to_joyshock)
+	{
+		if (!js.second->CheckVigemState())
+		{
+			return prevScheme;
+		}
+	}
+
+	return nextScheme;
 }
 
 void RefreshAutoloadHelp(JSMAssignment<Switch> *autoloadCmd)
@@ -3070,7 +3220,7 @@ void OnNewGridDimensions(CmdRegistry *registry, FloatXY newGridDims)
 		}
 
 		// For all joyshocks, remove extra touch DigitalButtons
-		for (auto js : handle_to_joyshock)
+		for (auto &js : handle_to_joyshock)
 		{
 			js.second->callback_lock.lock();
 			js.second->updateGridSize(numberOfButtons);
@@ -3093,7 +3243,7 @@ void OnNewGridDimensions(CmdRegistry *registry, FloatXY newGridDims)
 		}
 
 		// For all joyshocks, remove extra touch DigitalButtons
-		for (auto js : handle_to_joyshock)
+		for (auto &js : handle_to_joyshock)
 		{
 			js.second->callback_lock.lock();
 			js.second->updateGridSize(numberOfButtons);
@@ -3106,8 +3256,8 @@ void OnNewGridDimensions(CmdRegistry *registry, FloatXY newGridDims)
 class GyroSensAssignment : public JSMAssignment<FloatXY>
 {
 public:
-	GyroSensAssignment(in_string name, JSMSetting<FloatXY>& gyroSens)
-		: JSMAssignment(name, string(magic_enum::enum_name(gyroSens._id)), gyroSens)
+	GyroSensAssignment(SettingID id, JSMSetting<FloatXY>& gyroSens)
+		: JSMAssignment(magic_enum::enum_name(id).data(), string(magic_enum::enum_name(gyroSens._id)), gyroSens)
 	{
 		// min and max gyro sens already have a listener
 		gyroSens.RemoveOnChangeListener(_listenerId);
@@ -3117,8 +3267,8 @@ public:
 class StickDeadzoneAssignment : public JSMAssignment<float>
 {
 public:
-	StickDeadzoneAssignment(in_string name, JSMSetting<float> &stickDeadzone)
-	  : JSMAssignment(name, string(magic_enum::enum_name(stickDeadzone._id)), stickDeadzone)
+	StickDeadzoneAssignment(SettingID id, JSMSetting<float> &stickDeadzone)
+	  : JSMAssignment(magic_enum::enum_name(id).data(), string(magic_enum::enum_name(stickDeadzone._id)), stickDeadzone)
 	{
 		// min and max gyro sens already have a listener
 		stickDeadzone.RemoveOnChangeListener(_listenerId);
@@ -3130,7 +3280,7 @@ class GyroButtonAssignment : public JSMAssignment<GyroSettings>
 private:
 	const bool _always_off;
 
-	static bool GyroParser(JSMCommand *cmd, in_string data)
+	static bool GyroParser(JSMCommand* cmd, in_string data)
 	{
 		auto inst = dynamic_cast<GyroButtonAssignment*>(cmd);
 		if (data.empty())
@@ -3165,7 +3315,7 @@ private:
 		cout << (value.always_off ? string("GYRO_ON") : string("GYRO_OFF")) << " is set to " << value << endl;;
 	}
 public:
-	GyroButtonAssignment(in_string name, JSMVariable<GyroSettings> &setting, bool always_off)
+	GyroButtonAssignment(in_string name, JSMVariable<GyroSettings>& setting, bool always_off)
 		: JSMAssignment(name, setting)
 		, _always_off(always_off)
 	{
@@ -3173,7 +3323,12 @@ public:
 		_var.RemoveOnChangeListener(_listenerId);
 	}
 
-	GyroButtonAssignment *SetListener()
+	GyroButtonAssignment(SettingID id, bool always_off)
+		: GyroButtonAssignment(magic_enum::enum_name(id).data(), gyro_settings, always_off)
+	{
+	}
+
+	GyroButtonAssignment* SetListener()
 	{
 		_listenerId = _var.AddOnChangeListener(bind(&GyroButtonAssignment::DisplayGyroSettingValue, this, placeholders::_1));
 		return this;
@@ -3218,31 +3373,31 @@ private:
 
 	// The run function is nothing like the delegate. See how I use the bind function
 	// below to hard-code the pointer parameter and the instance pointer 'this'.
-	void RunHelp(CmdRegistry *registry)
+	bool RunHelp(CmdRegistry *registry)
 	{
 		if (arg.empty())
 		{
 			// Show all commands
-			cout << "Here's the list of all commands." << endl;
+			COUT << "Here's the list of all commands." << endl;
 			vector<string> list;
 			registry->GetCommandList(list);
 			for (auto cmd : list)
 			{
-				cout << "    " << cmd << endl;
+				COUT << "    " << cmd << endl;
 			}
-			cout << "Enter HELP [cmd1] [cmd2] ... for details on specific commands." << endl;
+			COUT << "Enter HELP [cmd1] [cmd2] ... for details on specific commands." << endl;
 		}
 		else if(registry->hasCommand(arg))
 		{
 			auto help = registry->GetHelp(arg);
 			if (!help.empty())
 			{
-				cout << arg << " :" << endl <<
+				COUT << arg << " :" << endl <<
 					"    " << help << endl;
 			}
 			else
 			{
-				cout << arg << " is not a recognized command" << endl;
+				COUT << arg << " is not a recognized command" << endl;
 			}
 		}
 		else
@@ -3259,6 +3414,7 @@ private:
 			}
 			cout << "Enter HELP [cmd1] [cmd2] ... for details on specific commands." << endl;
 		}
+		return true;
 	}
 public:
 	HelpCmd(CmdRegistry &reg)
@@ -3294,19 +3450,19 @@ int main(int argc, char *argv[]) {
 		newButton.SetFilter(&filterMapping);
 		mappings.push_back(newButton);
 	}
-	
 	tray.reset(new TrayIcon(trayIconData, &beforeShowTrayMenu ));
 	// console
 	initConsole(&CleanUp);
-	printf("Welcome to JoyShockMapper version %s!\n", version);
+	ColorStream<&cout, FOREGROUND_GREEN | FOREGROUND_INTENSITY>() << "Welcome to JoyShockMapper version " << version << '!' << endl;
+	//if (whitelister) COUT << "JoyShockMapper was successfully whitelisted!" << endl;
 	autoLoadThread.reset(new PollingThread(&AutoLoadPoll, &commandRegistry, 1000, autoloadSwitch.get() == Switch::ON)); // Start by default
 	minimizeThread.reset(new PollingThread(&MinimizePoll, nullptr, 1000, hide_minimized.get() == Switch::ON)); // Start by default
-
-	left_stick_mode.SetFilter(&filterInvalidValue<StickMode, StickMode::INVALID>)->
+	
+	left_stick_mode.SetFilter(&filterStickMode)->
 		AddOnChangeListener(bind(&UpdateRingModeFromStickMode, &left_ring_mode, ::placeholders::_1));
-	right_stick_mode.SetFilter(&filterInvalidValue<StickMode, StickMode::INVALID>)->
+	right_stick_mode.SetFilter(&filterStickMode)->
 		AddOnChangeListener(bind(&UpdateRingModeFromStickMode, &right_ring_mode, ::placeholders::_1));
-	motion_stick_mode.SetFilter(&filterInvalidValue<StickMode, StickMode::INVALID>)->
+	motion_stick_mode.SetFilter(&filterStickMode)->
 		AddOnChangeListener(bind(&UpdateRingModeFromStickMode, &motion_ring_mode, ::placeholders::_1));
 	left_ring_mode.SetFilter(&filterInvalidValue<RingMode, RingMode::INVALID>);
 	right_ring_mode.SetFilter(&filterInvalidValue<RingMode, RingMode::INVALID>);
@@ -3320,10 +3476,8 @@ int main(int argc, char *argv[]) {
 	joycon_gyro_mask.SetFilter(&filterInvalidValue<JoyconMask, JoyconMask::INVALID>);
 	joycon_motion_mask.SetFilter(&filterInvalidValue<JoyconMask, JoyconMask::INVALID>);
 	controller_orientation.SetFilter(&filterInvalidValue<ControllerOrientation, ControllerOrientation::INVALID>);
-	zlMode.SetFilter(&filterInvalidValue<TriggerMode, TriggerMode::INVALID>);
-	zrMode.SetFilter(&filterInvalidValue<TriggerMode, TriggerMode::INVALID>);
-	zlMode.SetFilter(&triggerModeNotification);
-	zrMode.SetFilter(&triggerModeNotification);
+	zlMode.SetFilter(&filterTriggerMode);
+	zrMode.SetFilter(&filterTriggerMode);
 	flick_snap_mode.SetFilter(&filterInvalidValue<FlickSnapMode, FlickSnapMode::INVALID>);
 	min_gyro_sens.SetFilter(&filterFloatPair);
 	max_gyro_sens.SetFilter(&filterFloatPair);
@@ -3365,8 +3519,8 @@ int main(int argc, char *argv[]) {
 	dbl_press_window.SetFilter(&filterPositive);
 	hold_press_time.SetFilter(&filterHoldPressDelay);
 	currentWorkingDir.SetFilter( [] (PathString current, PathString next) { return SetCWD(string(next)) ? next : current; });
-	autoloadSwitch.SetFilter(&filterInvalidValue<Switch, Switch::INVALID>)->AddOnChangeListener(bind(&UpdateThread, autoLoadThread.get(), placeholders::_1 ));
-	hide_minimized.SetFilter(&filterInvalidValue<Switch, Switch::INVALID>)->AddOnChangeListener(bind(&UpdateThread, minimizeThread.get(), placeholders::_1 ));
+	autoloadSwitch.SetFilter(&filterInvalidValue<Switch, Switch::INVALID>)->AddOnChangeListener(bind(&UpdateThread, autoLoadThread.get(), placeholders::_1));
+	hide_minimized.SetFilter(&filterInvalidValue<Switch, Switch::INVALID>)->AddOnChangeListener(bind(&UpdateThread, minimizeThread.get(), placeholders::_1));
 	grid_size.SetFilter([](auto current, auto next)
 		{
 			float floorX = floorf(next.x());
@@ -3384,26 +3538,22 @@ int main(int argc, char *argv[]) {
 		{
 			return filterPositive(current, floorf(next));
 		});
-	light_bar.AddOnChangeListener([](Color newColor)
-		{
-			for (auto devicePair : handle_to_joyshock)
-			{
-				JslSetLightColour(devicePair.first, newColor.raw);
-			}
-		});
-
+	virtual_controller.SetFilter(&UpdateVirtualController);
+	scroll_sens.SetFilter(&filterFloatPair);
+	// light_bar needs no filter or listener. The callback polls and updates the color.
 	currentWorkingDir = string(&cmdLine[0], &cmdLine[wcslen(cmdLine)]);
 	
 	if (autoLoadThread && autoLoadThread->isRunning())
-	{
-		printf("AutoLoad is enabled. Configurations in \"%s\" folder will get loaded when matching application is in focus.\n", AUTOLOAD_FOLDER());
-	}
-	else printf("[AUTOLOAD] AutoLoad is unavailable\n");
+		COUT << "AutoLoad is enabled. Configurations in \"" << AUTOLOAD_FOLDER() << "\" folder will get loaded when matching application is in focus." << endl;
+	else 
+		CERR << "AutoLoad is unavailable" << endl;
 
 
 	for (auto &mapping : mappings) // Add all button mappings as commands
 	{
-		commandRegistry.Add((new JSMAssignment<Mapping>(mapping))->SetHelp(buttonHelpMap.at(mapping._id)));
+		stringstream ss;
+		ss << mapping._id; // Use the streaming operator to properly create + and -
+		commandRegistry.Add((new JSMAssignment<Mapping>(ss.str(), mapping))->SetHelp(buttonHelpMap.at(mapping._id)));
 	}
 	commandRegistry.Add((new JSMAssignment<FloatXY>(min_gyro_sens))
 		->SetHelp("Minimum gyro sensitivity when turning controller at or below MIN_GYRO_THRESHOLD.\nYou can assign a second value as a different vertical sensitivity."));
@@ -3433,9 +3583,9 @@ int main(int argc, char *argv[]) {
 		->SetHelp("Set a mouse mode for the right stick. Valid values are the following:\nNO_MOUSE, AIM, FLICK, FLICK_ONLY, ROTATE_ONLY, MOUSE_RING, MOUSE_AREA, OUTER_RING, INNER_RING"));
 	commandRegistry.Add((new JSMAssignment<StickMode>(motion_stick_mode))
 	    ->SetHelp("Set a mouse mode for the motion-stick -- the whole controller is treated as a stick. Valid values are the following:\nNO_MOUSE, AIM, FLICK, FLICK_ONLY, ROTATE_ONLY, MOUSE_RING, MOUSE_AREA, OUTER_RING, INNER_RING"));
-	commandRegistry.Add((new GyroButtonAssignment("GYRO_OFF", gyro_settings, false))
+	commandRegistry.Add((new GyroButtonAssignment(SettingID::GYRO_OFF, false))
 		->SetHelp("Assign a controller button to disable the gyro when pressed."));
-	commandRegistry.Add((new GyroButtonAssignment("GYRO_ON", gyro_settings, true))->SetListener() // Set only one listener
+	commandRegistry.Add((new GyroButtonAssignment(SettingID::GYRO_ON, true))->SetListener() // Set only one listener
 		->SetHelp("Assign a controller button to enable the gyro when pressed."));
 	commandRegistry.Add((new JSMAssignment<AxisMode>(aim_x_sign))
 		->SetHelp("When in AIM mode, set stick X axis inversion. Valid values are the following:\nSTANDARD or 1, and INVERTED or -1"));
@@ -3445,19 +3595,19 @@ int main(int argc, char *argv[]) {
 		->SetHelp("Set gyro X axis inversion. Valid values are the following:\nSTANDARD or 1, and INVERTED or -1"));
 	commandRegistry.Add((new JSMAssignment<AxisMode>(gyro_y_sign))
 		->SetHelp("Set gyro Y axis inversion. Valid values are the following:\nSTANDARD or 1, and INVERTED or -1"));
-	commandRegistry.Add((new JSMMacro("RECONNECT_CONTROLLERS"))->SetMacro(bind(&do_RECONNECT_CONTROLLERS))
-		->SetHelp("Look for newly connected controllers."));
+	commandRegistry.Add((new JSMMacro("RECONNECT_CONTROLLERS"))->SetMacro(bind(&do_RECONNECT_CONTROLLERS, placeholders::_2))
+		->SetHelp("Look for newly connected controllers. Specify MERGE (default) or SPLIT whether you want to consider joycons as a single or separate controllers."));
 	commandRegistry.Add((new JSMMacro("COUNTER_OS_MOUSE_SPEED"))->SetMacro(bind(do_COUNTER_OS_MOUSE_SPEED))
 		->SetHelp("JoyShockMapper will load the user's OS mouse sensitivity value to consider it in its calculations."));
 	commandRegistry.Add((new JSMMacro("IGNORE_OS_MOUSE_SPEED"))->SetMacro(bind(do_IGNORE_OS_MOUSE_SPEED))
 		->SetHelp("Disable JoyShockMapper's consideration of the the user's OS mouse sensitivity value."));
-	commandRegistry.Add((new JSMAssignment<JoyconMask>("JOYCON_GYRO_MASK", joycon_gyro_mask))
+	commandRegistry.Add((new JSMAssignment<JoyconMask>(joycon_gyro_mask))
 		->SetHelp("When using two Joycons, select which one will be used for gyro. Valid values are the following:\nUSE_BOTH, IGNORE_LEFT, IGNORE_RIGHT, IGNORE_BOTH"));
-	commandRegistry.Add((new JSMAssignment<JoyconMask>("JOYCON_MOTION_MASK", joycon_motion_mask))
+	commandRegistry.Add((new JSMAssignment<JoyconMask>(joycon_motion_mask))
 	    ->SetHelp("When using two Joycons, select which one will be used for non-gyro motion. Valid values are the following:\nUSE_BOTH, IGNORE_LEFT, IGNORE_RIGHT, IGNORE_BOTH"));
-	commandRegistry.Add((new GyroSensAssignment("GYRO_SENS", min_gyro_sens))
+	commandRegistry.Add((new GyroSensAssignment(SettingID::GYRO_SENS, min_gyro_sens))
 		->SetHelp("Sets a gyro sensitivity to use. This sets both MIN_GYRO_SENS and MAX_GYRO_SENS to the same values. You can assign a second value as a different vertical sensitivity."));
-	commandRegistry.Add((new GyroSensAssignment("GYRO_SENS", max_gyro_sens))->SetHelp(""));
+	commandRegistry.Add((new GyroSensAssignment(SettingID::GYRO_SENS, max_gyro_sens))->SetHelp(""));
 	commandRegistry.Add((new JSMAssignment<float>(flick_time))
 		->SetHelp("Sets how long a flick takes in seconds. This value is used by stick FLICK mode."));
 	commandRegistry.Add((new JSMAssignment<float>(flick_time_exponent))
@@ -3484,12 +3634,12 @@ int main(int argc, char *argv[]) {
 		->SetHelp("Defines a radius of the right stick within which all values will be ignored. This value can only be between 0 and 1 but it should be small. Stick input out of this radius will be adjusted."));
 	commandRegistry.Add((new JSMAssignment<float>(right_stick_deadzone_outer))
 		->SetHelp("Defines a distance from the right stick's outer edge for which the stick will be considered fully tilted. This value can only be between 0 and 1 but it should be small. Stick input out of this deadzone will be adjusted."));
-	commandRegistry.Add((new StickDeadzoneAssignment("STICK_DEADZONE_INNER", left_stick_deadzone_inner))
+	commandRegistry.Add((new StickDeadzoneAssignment(SettingID::STICK_DEADZONE_INNER, left_stick_deadzone_inner))
 		->SetHelp("Defines a radius of the both left and right sticks within which all values will be ignored. This value can only be between 0 and 1 but it should be small. Stick input out of this radius will be adjusted."));
-	commandRegistry.Add((new StickDeadzoneAssignment("STICK_DEADZONE_INNER", right_stick_deadzone_inner))->SetHelp(""));
-	commandRegistry.Add((new StickDeadzoneAssignment("STICK_DEADZONE_OUTER", left_stick_deadzone_outer))
+	commandRegistry.Add((new StickDeadzoneAssignment(SettingID::STICK_DEADZONE_INNER, right_stick_deadzone_inner))->SetHelp(""));
+	commandRegistry.Add((new StickDeadzoneAssignment(SettingID::STICK_DEADZONE_OUTER, left_stick_deadzone_outer))
 		->SetHelp("Defines a distance from both sticks' outer edge for which the stick will be considered fully tilted. This value can only be between 0 and 1 but it should be small. Stick input out of this deadzone will be adjusted."));
-	commandRegistry.Add((new StickDeadzoneAssignment("STICK_DEADZONE_OUTER", right_stick_deadzone_outer))->SetHelp(""));
+	commandRegistry.Add((new StickDeadzoneAssignment(SettingID::STICK_DEADZONE_OUTER, right_stick_deadzone_outer))->SetHelp(""));
 	commandRegistry.Add((new JSMAssignment<float>(motion_deadzone_inner))
 		->SetHelp("Defines a radius of the motion-stick within which all values will be ignored. This value can only be between 0 and 1 but it should be small. Stick input out of this radius will be adjusted."));
 	commandRegistry.Add((new JSMAssignment<float>(motion_deadzone_outer))
@@ -3572,10 +3722,13 @@ int main(int argc, char *argv[]) {
 	commandRegistry.Add((new JSMAssignment<FloatXY>(touchpad_sens))
 		->SetHelp("Changes the sensitivity of the touchpad when set as a mouse. Enter a second value for a different vertical sensitivity."));
 	commandRegistry.Add(new HelpCmd(commandRegistry));
+	commandRegistry.Add((new JSMAssignment<ControllerScheme>(magic_enum::enum_name(SettingID::VIRTUAL_CONTROLLER).data(), virtual_controller))
+		->SetHelp("Sets the vigem virtual controller type. Can be NONE (default), XBOX (360) or DS4 (PS4)."));
 	commandRegistry.Add((new JSMAssignment<Switch>("HIDE_MINIMIZED", hide_minimized))
 		->SetHelp("JSM will be hidden in the notification area when minimized if this setting is ON. Otherwise it stays in the taskbar."));
 	commandRegistry.Add((new JSMAssignment<FloatXY>(scroll_sens))
 		->SetHelp("Scrolling sensitivity for sticks and touchpad in degrees. Second value is used for touchpad pinch-strech gestures."));
+
 
 	bool quit = false;
 	commandRegistry.Add((new JSMMacro("QUIT"))
@@ -3583,6 +3736,7 @@ int main(int argc, char *argv[]) {
 			{
 				quit = true;
 				WriteToConsole(""); // If ran from autoload thread, you need to send RETURN to resume the main loop and check the quit flag.
+				return true;
 			})
 		->SetHelp("Close the application.")
 	);
@@ -3597,7 +3751,11 @@ int main(int argc, char *argv[]) {
 	do_RESET_MAPPINGS(&commandRegistry); // onreset.txt
 	if (commandRegistry.loadConfigFile("onstartup.txt"))
 	{
-		printf("Finished executing startup file.\n");
+		COUT << "Finished executing startup file." << endl;
+	}
+	else
+	{
+		COUT_INFO << "There is no onstartup.txt file to load." << endl;
 	}
 
 	// The main loop is simple and reads like pseudocode

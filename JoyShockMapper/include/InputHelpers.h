@@ -31,7 +31,7 @@ inline void shapedSensitivityMoveMouse(float x, float y, std::pair<float, float>
 	// apply calibration factor
 	// get input velocity
 	float magnitude = sqrt(x * x + y * y);
-	// printf("Gyro mag: %.4f\n", magnitude);
+	// COUT << "Gyro mag: " << setprecision(4) << magnitude << endl;
 	// calculate position on minThreshold to maxThreshold scale
 	magnitude -= minThreshold;
 	if (magnitude < 0.0f)

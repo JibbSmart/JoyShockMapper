@@ -41,10 +41,14 @@ unique_ptr<JSMCommand> JSMCommand::GetModifiedCmd(char op, in_string chord)
 bool JSMCommand::ParseData(in_string arguments)
 {
 	_ASSERT_EXPR(_parse, L"There is no function defined to parse this command.");
-	if (arguments.compare("HELP") == 0 || !_parse(this, arguments))
+	if (arguments.compare("HELP") == 0)
 	{
 		// Parsing has failed. Show help.
-		cout << _help << endl;
+		COUT << _help << endl;
+	}
+	else if (!_parse(this, arguments))
+	{
+		CERR << _help << endl;
 	}
 	return true; // Command is completely processed
 }
@@ -53,9 +57,13 @@ CmdRegistry::CmdRegistry()
 {
 }
 
-
-bool CmdRegistry::loadConfigFile(in_string fileName) {
+bool CmdRegistry::loadConfigFile(string fileName) {
 	// https://stackoverflow.com/questions/2602013/read-whole-ascii-file-into-c-stdstring
+
+	// Trim away quotation marks from drag and drop
+	if (*fileName.begin() == '\"' && *(fileName.end() - 1) == '\"')
+		fileName = fileName.substr(1, fileName.size() - 2);
+
 	ifstream file(fileName);
 	if (!file.is_open())
 	{
@@ -63,7 +71,7 @@ bool CmdRegistry::loadConfigFile(in_string fileName) {
 	}
 	if (file)
 	{
-		printf("Loading commands from file %s\n", fileName.c_str());
+		COUT << "Loading commands from file " << fileName << endl;
 		// https://stackoverflow.com/questions/6892754/creating-a-simple-configuration-file-and-parser-in-c
 		string line;
 		while (getline(file, line)) {
@@ -247,7 +255,16 @@ bool JSMMacro::DefaultParser(JSMCommand* cmd, in_string arguments)
 	auto macroCmd = static_cast<JSMMacro*>(cmd);
 	// Developper protection to remind you to set a parser.
 	_ASSERT_EXPR(macroCmd->_macro, L"No Macro was set for this command.");
-	macroCmd->_macro(macroCmd, arguments);
+	if (arguments.compare(0, 4, "HELP") == 0)
+	{
+		// Show help.
+		COUT << macroCmd->_help << endl;
+	}
+	else if(!macroCmd->_macro(macroCmd, arguments))
+	{
+		CERR << "Error when parsing the command " << macroCmd->_name << endl
+			<< macroCmd->_help << endl; // Parsing has failed. Show help.
+	}
 	return true;
 }
 

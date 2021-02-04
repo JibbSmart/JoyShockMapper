@@ -119,6 +119,26 @@ WORD nameToKey(const std::string &name)
 			}
 		}
 	}
+	if (length == 5)
+	{
+		auto pchar = name.c_str();
+		if (*pchar++ == 'R')
+		{
+			while (*pchar != '\0')
+			{
+				if (*pchar < '0' && *pchar > 'F')
+				{
+					break;
+				}
+				pchar++;
+			}
+			if (*pchar == '\0')
+			{
+				return RUMBLE;
+			}
+			// Else it's not a rumble command. Could be RIGHT for example
+		}
+	}
 	if (length > 2 && name[0] == '"' && name[length - 1] == '"')
 	{
 		return COMMAND_ACTION;
@@ -362,6 +382,70 @@ WORD nameToKey(const std::string &name)
 	if (name.compare("GYRO_OFF") == 0)
 	{
 		return GYRO_OFF_BIND;
+	}
+	if (name.compare("X_UP") == 0 || name.compare("PS_UP") == 0)
+	{
+		return X_UP;
+	}
+	if (name.compare("X_DOWN") == 0 || name.compare("PS_DOWN") == 0)
+	{
+		return X_DOWN;
+	}
+	if (name.compare("X_LEFT") == 0 || name.compare("PS_LEFT") == 0)
+	{
+		return X_LEFT;
+	}
+	if (name.compare("X_RIGHT") == 0 || name.compare("PS_RIGHT") == 0)
+	{
+		return X_RIGHT;
+	}
+	if (name.compare("X_LB") == 0 || name.compare("PS_L1") == 0)
+	{
+		return X_LB;
+	}
+	if (name.compare("X_RB") == 0 || name.compare("PS_R1") == 0)
+	{
+		return X_RB;
+	}
+	if (name.compare("X_X") == 0 || name.compare("PS_SQUARE") == 0)
+	{
+		return X_X;
+	}
+	if (name.compare("X_A") == 0 || name.compare("PS_CROSS") == 0)
+	{
+		return X_A;
+	}
+	if (name.compare("X_Y") == 0 || name.compare("PS_TRIANGLE") == 0)
+	{
+		return X_Y;
+	}
+	if (name.compare("X_B") == 0 || name.compare("PS_CIRCLE") == 0)
+	{
+		return X_B;
+	}
+	if (name.compare("X_LS") == 0 || name.compare("PS_L3") == 0)
+	{
+		return X_LS;
+	}
+	if (name.compare("X_RS") == 0 || name.compare("PS_R3") == 0)
+	{
+		return X_RS;
+	}
+	if (name.compare("X_BACK") == 0 || name.compare("PS_SHARE") == 0)
+	{
+		return X_BACK;
+	}
+	if (name.compare("X_START") == 0 || name.compare("PS_OPTIONS") == 0)
+	{
+		return X_START;
+	}
+	if (name.compare("X_GUIDE") == 0 || name.compare("PS_HOME") == 0)
+	{
+		return PS_HOME;
+	}
+	if (name.compare("PS_PAD_CLICK") == 0)
+	{
+		return PS_PAD_CLICK;
 	}
 	return 0x00;
 }

@@ -5,6 +5,22 @@
 #ifdef _WIN32
 
 #include <Windows.h>
+#include <iostream>
+#include <sstream>
+
+constexpr uint16_t DEFAULT_COLOR = FOREGROUND_RED | FOREGROUND_GREEN | FOREGROUND_BLUE; // White
+
+template<std::ostream* stdio, uint16_t color>
+struct ColorStream : public stringstream
+{
+	~ColorStream()
+	{
+		HANDLE hStdout = GetStdHandle(STD_ERROR_HANDLE);
+		SetConsoleTextAttribute(hStdout, color);
+		(*stdio) << str();
+		SetConsoleTextAttribute(hStdout, DEFAULT_COLOR);
+	}
+};
 
 #define U(string) L##string
 
@@ -108,6 +124,7 @@ extern const char *GYRO_CONFIGS_FOLDER();
 extern const char *BASE_JSM_CONFIG_FOLDER();
 
 extern unsigned long GetCurrentProcessId();
+
 
 #else
 #error "Unknown platform"

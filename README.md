@@ -3,7 +3,7 @@ The Sony PlayStation DualSense, DualShock 4, Nintendo Switch JoyCons (used in pa
 
 My goal with JoyShockMapper is to enable you to play PC games with DS, DS4, JoyCons, and Pro Controllers even better than you can on their respective consoles -- and demonstrate that more games should use these features in these ways.
 
-**Download JoyShockMapper to use right away [here](https://github.com/JibbSmart/JoyShockMapper/releases)**!
+**Download JoyShockMapper to use right away [here](https://github.com/Electronicks/JoyShockMapper/releases)**!
 
 For developers, this is also a reference implementation for using [JoyShockLibrary](https://github.com/jibbsmart/JoyShockLibrary) to read inputs from DualShock 4, JoyCons, and Pro Controller in your games. It's also a reference implementation for many of the best practices described on [GyroWiki](http://gyrowiki.jibbsmart.com).
 
@@ -34,7 +34,10 @@ JoyShockMapper works on Windows and uses JoyShockLibrary to read inputs from con
     * **[Prerequisites](#51-prerequisites)**
     * **[Calculating the real world calibration in a 3D game](#52-calculating-the-real-world-calibration-in-a-3d-game)**
     * **[Calculating the real world calibration in a 2D game](#53-calculating-the-real-world-calibration-in-a-2d-game)**
-  * **[Modeshifts](#6-modeshifts)**
+  * **[ViGEm Virtual Controller](#6-vigem-virtual-controller)**
+    * **[Xbox bindings](#61-xbox-bindings)**
+    * **[DS4 bindings](#62-ds4-bindings)**
+  * **[Modeshifts](#7-modeshifts)**
   * **[Touchpad](#7-touchpad)**
     * **[Touch Sticks](#71-touch-stick)**
   * **[Miscellaneous Commands](#8-miscellaneous-commands)**
@@ -691,7 +694,78 @@ You don't have to tell JoyShockMapper whether you're calibrating for a 2D game o
 
 With such a calibrated 2D game, you can choose your GYRO\_SENS or other settings by thinking about how much you want to turn your controller to move across the whole screen. A GYRO\_SENS of *1* would require a complete rotation of the controller to move from one side of the screen to the other, which is quite unreasonable! But a GYRO\_SENS of *8* means you only have to turn the controller one eighth of a complete rotation (45 degrees) to move from one side of the other, which is probably quite reasonable.
 
-### 6. Modeshifts
+### 6. ViGEm Virtual Controller
+
+JoyShockMapper can create a virtual xbox or DS4 controller thanks to Nefarius' ViGEm Bus and ViGEm Client softwares. The former needs to be installed by the user before the latter can be used. Once installed, you can set which virtual device you desire to create for each connected device using the command ```VIRTUAL_CONTROLLER = XBOX``` or ```VIRTUAL_CONTROLLER = DS4```. The default value is ```NONE```, which is no virtual controller at all. Rumble will then work on DS4 controllers, but obviously support is game dependant. Using virtual controllers is most likely to work well only if whitelisting is active (HIDGuardian/HIDCerberus), in order to hide the original controller entry from the game and only expose the virtual one. Funny thing to note is that hiding DS4s with HIDGuardian will also hide the virtual DS4 from ViGEm, since Windows cannot tell the virtual controller form the physical one.
+
+#### 6.1 Xbox bindings
+If you have set the virtual controller to the xbox scheme, then the following becomes available to you:
+* **New digital bindings**
+```
+X_A, X_B, X_X, X_Y : The xbox face button diamond
+X_LB, X_RB : The xbox bumper buttons
+X_LS, X_RS : The xbox stick click buttons
+X_BACK, X_START, X_GUIDE : The xbox control buttons
+X_UP, X_DOWN, X_LEFT, X_RIGHT : The xbox dpad directions
+# There is no HOME or CAPTURE (XSX) button binding yet in ViGEm
+```
+
+* **New stick mode available**
+```
+LEFT_STICK_MODE = LEFT_STICK
+RIGHT_STICK_MODE = RIGHT_STICK
+```
+
+* **New trigger mode available**
+```
+ZL_MODE = X_LT
+ZR_MODE = X_RT
+```
+
+You will also a default xbox layout in the GyroConfigs folder that you can use to set up a standard xbox controller configuration. But of course, you can remap buttons elsewhere, or combine them in using the event modifiers, chords, simultaneous presses and such.
+
+```
+# Map the dpad as chords of the face buttons
+L3 = NONE
+L3,N = X_UP
+L3,W = X_LEFT
+L3,S = X_DOWN
+L3,E = X_RIGHT
+
+S,S = X_LS # Double click jump to sprint instead
+
+L+R = X_RS # I don't like to stick click often
+
+MOTION_STICK_MODE = RIGHT_STICK # Gyro driving
+```
+
+#### 6.1 DS4 bindings
+
+ViGEm also the ability to emulate a dualshock 4 controller. This can allow you to use a switch pro as a DS4 in a game that has this support built in for example. Seeting the virtual controller to DS4 enables the use of these features as well. Take note that these names are aliases to the xbox names.
+
+* **New digital bindings**
+```
+PS_CROSS, PS_CIRCLE, PS_SQUARE, PS_TRIANGLE : The playstation face button diamond
+PS_L1, PS_R1 : The playstation bumper buttons
+PS_L3, PS_R3 : The playstation stick click buttons
+PS_SHARE, PS_OPTIONS : The playstation control buttons
+PS_UP, PS_DOWN, PS_LEFT, PS_RIGHT : The playstation dpad directions
+PS_HOME, PS_PAD_CLICK : The playstation home and pad click buttons
+```
+
+* **New stick mode available** These are exactly the same as the xbox names
+```
+LEFT_STICK_MODE = LEFT_STICK
+RIGHT_STICK_MODE = RIGHT_STICK
+```
+
+* **New trigger mode available**. JoyShockMapper will display the trigger mode as the xbox name : the trigger will still work properly.
+```
+ZL_MODE = PS_L2
+ZR_MODE = PS_R2
+```
+
+### 7. Modeshifts
 
 Almost all settings described in previous sections that are assignations (i.e.: uses an equal sign '=') can be chorded like a regular button mapping. This is called a modeshift because you are reconfiguring the controller when specific buttons are pressed. The only *exceptions* are those listed here below.
 ```
@@ -732,6 +806,7 @@ To remove an existing modeshift you have to assign ```NONE``` to the chord.
 ```
 ZLF,GYRO_SENS = NONE
 ```
+
 ### 7. Touchpad
 
 The touchpad always offers the ```TOUCH``` button binding. It will be pressed if there is any touch point active. This binding will overlap with other touch buttons and can be useful to disable gyro for example, or bring up the game map.
