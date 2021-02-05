@@ -9,9 +9,10 @@
 #include <sstream>
 
 constexpr uint16_t DEFAULT_COLOR = FOREGROUND_RED | FOREGROUND_GREEN | FOREGROUND_BLUE; // White
+#define FOREGROUND_YELLOW FOREGROUND_RED | FOREGROUND_GREEN
 
 template<std::ostream* stdio, uint16_t color>
-struct ColorStream : public stringstream
+struct ColorStream : public std::stringstream
 {
 	~ColorStream()
 	{
@@ -124,6 +125,24 @@ extern const char *GYRO_CONFIGS_FOLDER();
 extern const char *BASE_JSM_CONFIG_FOLDER();
 
 extern unsigned long GetCurrentProcessId();
+
+// https://www.theurbanpenguin.com/4184-2/
+#define FOREGROUND_BLUE      34 // text color is blue.
+#define FOREGROUND_GREEN     32 // text color is green.
+#define FOREGROUND_RED       31 // text color is red.
+#define FOREGROUND_YELLOW    33 // Text color is yellow
+#define FOREGROUND_INTENSITY 0x0100 // text color is bold.
+#define DEFAULT_COLOR        37 // text color is white
+
+template<std::ostream* stdio, uint16_t color>
+struct ColorStream : public std::stringstream
+{
+	~ColorStream()
+	{
+
+		(*stdio) << "\033[" << (color >> 8) << ';' << (color & 0x00FF) << 'm' << str() << "\033[0;" << DEFAULT_COLOR << 'm';
+	}
+};
 
 #else
 #error "Unknown platform"
