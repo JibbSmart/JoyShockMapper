@@ -3134,7 +3134,6 @@ int main(int argc, char *argv[]) {
 		newButton.SetFilter(&filterMapping);
 		mappings.push_back(newButton);
 	}
-	tray.reset(new TrayIcon(trayIconData, &beforeShowTrayMenu ));
 	// console
 	initConsole(&CleanUp);
 	ColorStream<&cout, FOREGROUND_GREEN | FOREGROUND_INTENSITY>() << "Welcome to JoyShockMapper version " << version << '!' << endl;
@@ -3207,8 +3206,11 @@ int main(int argc, char *argv[]) {
 	virtual_controller.SetFilter(&UpdateVirtualController)->AddOnChangeListener(&OnVirtualControllerChange);
 	scroll_sens.SetFilter(&filterFloatPair);
 	// light_bar needs no filter or listener. The callback polls and updates the color.
-
+#if _WIN32
 	currentWorkingDir = string(&cmdLine[0], &cmdLine[wcslen(cmdLine)]);
+#else
+	currentWorkingDir = string(argv[0]);
+#endif
 	CmdRegistry commandRegistry;
 
 	autoLoadThread.reset(new PollingThread(&AutoLoadPoll, &commandRegistry, 1000, true)); // Start by default
@@ -3399,6 +3401,7 @@ int main(int argc, char *argv[]) {
 	connectDevices();
 	JslSetCallback(&joyShockPollCallback);
 	JslSetTouchCallback(&TouchCallback);
+	tray.reset(new TrayIcon(trayIconData, &beforeShowTrayMenu));
 	tray->Show();
 
 	do_RESET_MAPPINGS(&commandRegistry); // onreset.txt
