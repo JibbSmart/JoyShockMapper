@@ -3,6 +3,22 @@
 Most recent updates will appear first.
 This is a summary of new features and bugfixes. Read the README to learn how to use the features mentioned here.
 
+## 3.0.0
+Nicolas added ViGEm support for virtual xbox and DS4 for buttons, triggers and sticks as well as rumble forwarding.
+Added colored console lines
+Added DS4 rumble commands and light bar setting
+Added hair trigger soft press as a negative threshold and trigger modes SCROLL_WHEEL and NO_SKIP_EXCLUSIVE
+Added ability to hide JSM from the taskbar when minimized, with a checkbox in the tray icon
+Added help strings for button mapping
+Handle drag n drop files into the console better
+Improve command error handling
+
+### Features
+* New Bindings: TOUCH, T1-T25 touch buttons, Touch stick bindings
+* New settings for touch joystick such as mode, inner deadzone, and stick radius
+* Assigning a negative value to trigger threshold enables hair trigger
+* New setting HIDE_MINIMIZED will hide JSM when set to ON. OFF is default
+
 ## 2.1.1
 Nicolas added more keybinds.
 

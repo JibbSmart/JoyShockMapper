@@ -70,8 +70,8 @@ int pressMouse(KeyCode vkKey, bool isPressed) {
 	input.mi.mouseData = std::get<2>(val);
 	if (input.mi.dwFlags) { // Ignore if there's no event ID (ex: "wheel release")
 		auto result = SendInput(1, &input, sizeof(input));
-		//printf("%s\n", vkKey.name);
-		//printf("\t%d\n", vkKey.code);
+		//COUT << vkKey.name << endl;
+		//COUT << vkKey.code << endl;
 		return result;
 	}
 	return 0;
@@ -128,7 +128,7 @@ void moveMouse(float x, float y) {
 
 	accumulatedX -= applicableX;
 	accumulatedY -= applicableY;
-	//printf("%0.4f %0.4f\n", accumulatedX, accumulatedY);
+	//COUT << setprecision(4) << accumulatedX << ' ' << accumulatedY << endl;
 
 	INPUT input;
 	input.type = INPUT_MOUSE;
@@ -184,7 +184,7 @@ BOOL WriteToConsole(const std::string& command)
 	DWORD written;
 	if (WriteConsoleInput(GetStdHandle(STD_INPUT_HANDLE), inputs.data(), inputs.size(), &written) == FALSE) {
 		auto err = GetLastError();
-		printf("Error writing to console input: %lu\n", err);
+		CERR << "Error writing to console input: " << err << endl;
 	}
 	FlushConsoleInputBuffer(GetStdHandle(STD_INPUT_HANDLE));
 	return written == inputs.size();
@@ -280,14 +280,14 @@ std::vector<std::string> ListDirectory(std::string directory)
 
 		{
 			fileListing.push_back(ffd.cFileName);
-			//printf("File: %s\n", ffd.cFileName);
+			//COUT << "File: " << ffd.cFileName << endl;
 		}
 	} while (FindNextFileA(hFind, &ffd) != 0);
 
 	auto dwError = GetLastError();
 	if (dwError != ERROR_NO_MORE_FILES)
 	{
-		printf("Error code %d raised with FindNextFile()\n", dwError);
+		CERR << "Error code " << dwError << " raised with FindNextFile()" << endl;
 	}
 
 	FindClose(hFind);
@@ -354,7 +354,8 @@ DWORD WINAPI PollingThread::pollFunction(void *param)
 
 DWORD ShowOnlineHelp()
 {
-	printf("See the latest user manual at the web page below:\nhttps://github.com/JibbSmart/JoyShockMapper/blob/master/README.md\n");
+	COUT << "See the latest user manual at the web page below:" << endl 
+		 << "https://github.com/JibbSmart/JoyShockMapper/blob/master/README.md" << endl;
 	return 0;
 	// SECURE CODING! https://www.oreilly.com/library/view/secure-programming-cookbook/0596003943/ch01s08.html
 	//STARTUPINFOA startupInfo;
@@ -374,6 +375,11 @@ DWORD ShowOnlineHelp()
 void HideConsole()
 {
 	ShowWindow(GetConsoleWindow(), SW_HIDE);
+}
+
+void UnhideConsole()
+{
+	ShowWindow(GetConsoleWindow(), SW_SHOWMINIMIZED);
 }
 
 void ShowConsole()

@@ -34,60 +34,103 @@ constexpr WORD GYRO_TRACK_X = 0x8D;
 constexpr WORD GYRO_TRACK_Y = 0x8E;
 constexpr WORD GYRO_TRACKBALL = 0x8F;
 constexpr WORD COMMAND_ACTION = 0x97; // Run command
+constexpr WORD RUMBLE = 0xE6;
+
+constexpr const char * SMALL_RUMBLE = "R0080";
+constexpr const char * BIG_RUMBLE = "RFF00";
+
+// XInput buttons
+constexpr WORD X_UP = 0xE8;
+constexpr WORD X_DOWN = 0xE9;
+constexpr WORD X_LEFT = 0xEA;
+constexpr WORD X_RIGHT = 0xEB;
+constexpr WORD X_LB = 0xEC;
+constexpr WORD X_RB = 0xED;
+constexpr WORD X_X = 0xEE;
+constexpr WORD X_A = 0xEF;
+constexpr WORD X_Y = 0xF0;
+constexpr WORD X_B = 0xF1;
+constexpr WORD X_LS = 0xF2;
+constexpr WORD X_RS = 0xF3;
+constexpr WORD X_BACK = 0xF4;
+constexpr WORD X_START = 0xF5;
+constexpr WORD X_GUIDE = 0xB8;
+
+// DS4 buttons
+constexpr WORD PS_UP = 0xE8;
+constexpr WORD PS_DOWN = 0xE9;
+constexpr WORD PS_LEFT = 0xEA;
+constexpr WORD PS_RIGHT = 0xEB;
+constexpr WORD PS_L1 = 0xEC;
+constexpr WORD PS_R1 = 0xED;
+constexpr WORD PS_SQUARE = 0xEE;
+constexpr WORD PS_CROSS = 0xEF;
+constexpr WORD PS_TRIANGLE = 0xF0;
+constexpr WORD PS_CIRCLE = 0xF1;
+constexpr WORD PS_L3 = 0xF2;
+constexpr WORD PS_R3 = 0xF3;
+constexpr WORD PS_SHARE = 0xF4;
+constexpr WORD PS_OPTIONS = 0xF5;
+constexpr WORD PS_HOME = 0xB8;
+constexpr WORD PS_PAD_CLICK = 0xB9;
 
 // All enums should have an INVALID field for proper use with templated << and >> operators
 
 enum class ButtonID
 {
 	INVALID =		-2, // Represents an error in user input
-	NONE,		// = -1  Represents no button when explicitely stated by the user. Not to be confused with NO_HOLD_MAPPED which is no action bound.
-	UP,			// = 0
-	DOWN,		// = 1
-	LEFT,		// = 2
-	RIGHT,		// = 3
-	L,			// = 4
-	ZL,			// = 5
-	MINUS,		// = 6
-	CAPTURE,	// = 7
-	E,			// = 8
-	S,			// = 9
-	N,			// = 10
-	W,			// = 11
-	R,			// = 12
-	ZR,			// = 13
-	PLUS,		// = 14
-	HOME,		// = 15
-	SL,			// = 16
-	SR,			// = 17
-	L3,			// = 18
-	R3,			// = 19
-	LUP,		// = 20
-	LDOWN,		// = 21
-	LLEFT,		// = 22
-	LRIGHT,		// = 23
-	LRING,		// = 24
-	RUP,		// = 25
-	RDOWN,		// = 26
-	RLEFT,		// = 27
-	RRIGHT,		// = 28
-	RRING,		// = 29
-	MUP,        // = 30
-	MDOWN,		// = 31
-	MLEFT,		// = 32
-	MRIGHT,		// = 33
-	MRING,		// = 34
-	LEAN_LEFT,   // = 35
-	LEAN_RIGHT,  // = 36
-	ZLF,		// = 37  FIRST_ANALOG_TRIGGER
+	NONE,		//  Represents no button when explicitely stated by the user. Not to be confused with NO_HOLD_MAPPED which is no action bound.
+	UP,			// = 0 as the first index
+	DOWN,		
+	LEFT,		
+	RIGHT,		
+	L,			
+	ZL,			
+	MINUS,		
+	CAPTURE,	
+	E,			
+	S,			
+	N,			
+	W,			
+	R,			
+	ZR,			
+	PLUS,		
+	HOME,		
+	SL,			
+	SR,			
+	L3,			
+	R3,			
+	LUP,		
+	LDOWN,		
+	LLEFT,		
+	LRIGHT,		
+	LRING,		
+	RUP,		
+	RDOWN,		
+	RLEFT,		
+	RRIGHT,		
+	RRING,		
+	MUP,        
+	MDOWN,		
+	MLEFT,		
+	MRIGHT,		
+	MRING,
+	LEAN_LEFT,  
+	LEAN_RIGHT, 
+	TOUCH,		// Touch anywhere on the touchpad
+	ZLF,		// = FIRST_ANALOG_TRIGGER
 				// insert more analog triggers here
-	ZRF,		// = 38 // LAST_ANALOG_TRIGGER
-	SIZE,		// = 39
+	ZRF,		// =  LAST_ANALOG_TRIGGER
+	SIZE,		// Not a button
 };
+
+// Help strings for each button
+extern const map<ButtonID, string> buttonHelpMap;
 
 enum class SettingID
 {
 	INVALID = -2,			// Represents an error in user input
-	MIN_GYRO_SENS = int(ButtonID::SIZE) + 1, // 40
+	MIN_GYRO_SENS = int(ButtonID::SIZE) + 1, // Legacy but int value not used
 	MAX_GYRO_SENS,
 	MIN_GYRO_THRESHOLD,
 	MAX_GYRO_THRESHOLD,
@@ -122,6 +165,8 @@ enum class SettingID
 	STICK_ACCELERATION_CAP, 
 	LEFT_STICK_DEADZONE_INNER,
 	LEFT_STICK_DEADZONE_OUTER,
+	STICK_DEADZONE_INNER,
+	STICK_DEADZONE_OUTER,
 	CALCULATE_REAL_WORLD_CALIBRATION,
 	FINISH_GYRO_CALIBRATION,
 	RESTART_GYRO_CALIBRATION,
@@ -156,7 +201,10 @@ enum class SettingID
 	TURBO_PERIOD,
 	HOLD_PRESS_TIME,
 	SIM_PRESS_WINDOW, // Unchorded setting
-	DBL_PRESS_WINDOW  // Unchorded setting
+	DBL_PRESS_WINDOW,  // Unchorded setting
+	LIGHT_BAR,
+	SCROLL_SENS,
+	VIRTUAL_CONTROLLER,
 };
 
 // constexpr are like #define but with respect to typeness
@@ -167,23 +215,25 @@ constexpr int NUM_ANALOG_TRIGGERS = int(LAST_ANALOG_TRIGGER) - int(FIRST_ANALOG_
 constexpr float MAGIC_TAP_DURATION = 40.0f; // in milliseconds.
 constexpr float MAGIC_INSTANT_DURATION = 40.0f; // in milliseconds
 constexpr float MAGIC_EXTENDED_TAP_DURATION = 500.0f; // in milliseconds
+constexpr int MAGIC_TRIGGER_SMOOTHING = 5; // in samples
 
 enum class ControllerOrientation { FORWARD, LEFT, RIGHT, BACKWARD, INVALID };
 enum class RingMode { OUTER, INNER, INVALID };
-enum class StickMode { NO_MOUSE, AIM, FLICK, FLICK_ONLY, ROTATE_ONLY, MOUSE_RING, MOUSE_AREA, OUTER_RING, INNER_RING, INVALID };
+enum class StickMode { NO_MOUSE, AIM, FLICK, FLICK_ONLY, ROTATE_ONLY, MOUSE_RING, MOUSE_AREA, OUTER_RING, INNER_RING, SCROLL_WHEEL, LEFT_STICK, RIGHT_STICK, INVALID };
 enum class FlickSnapMode { NONE, FOUR, EIGHT, INVALID };
 enum class AxisMode { STANDARD = 1, INVERTED = -1, INVALID = 0 }; // valid values are true!
-enum class TriggerMode { NO_FULL, NO_SKIP, MAY_SKIP, MUST_SKIP, MAY_SKIP_R, MUST_SKIP_R, INVALID };
+enum class TriggerMode { NO_FULL, NO_SKIP, MAY_SKIP, MUST_SKIP, MAY_SKIP_R, MUST_SKIP_R, NO_SKIP_EXCLUSIVE, X_LT, X_RT, PS_L2 = X_LT, PS_R2 = X_RT, INVALID };
 enum class GyroAxisMask { NONE = 0, X = 1, Y = 2, Z = 4, INVALID = 8 };
 enum class JoyconMask { USE_BOTH, IGNORE_LEFT, IGNORE_RIGHT, IGNORE_BOTH, INVALID };
 enum class GyroIgnoreMode { BUTTON, LEFT_STICK, RIGHT_STICK, INVALID };
-enum class DstState { NoPress, PressStart, QuickSoftTap, QuickFullPress, QuickFullRelease, SoftPress, DelayFullPress, PressStartResp, INVALID };
+enum class DstState { NoPress, PressStart, QuickSoftTap, QuickFullPress, QuickFullRelease, SoftPress, DelayFullPress, PressStartResp, ExclFullPress, INVALID };
 enum class BtnState {
 	NoPress, BtnPress, TapRelease, WaitSim, SimPress, SimRelease,
 	DblPressStart, DblPressNoPressTap, DblPressNoPressHold, DblPressPress, InstRelease, INVALID
 };
 enum class BtnEvent { OnPress, OnTap, OnHold, OnTurbo, OnRelease, OnTapRelease, OnHoldRelease, OnInstantRelease, INVALID };
 enum class Switch : char { OFF, ON, INVALID, }; // Used to parse autoload assignment
+enum class ControllerScheme { NONE, XBOX, DS4, INVALID };
 
 // Workaround default string streaming operator
 class PathString : public string // Should be wstring
@@ -193,6 +243,20 @@ public:
 	PathString(in_string path)
 		: string(path)
 	{}
+};
+
+union Color
+{
+	Color(uint32_t color = 0x00ffffff)
+		: raw (color) {}
+	uint32_t raw;
+	struct RGB_t
+	{
+		uint8_t b;
+		uint8_t g;
+		uint8_t r;
+		uint8_t a; // unused. animation? (blink, pulse, etc)
+	} rgb;
 };
 
 // Needs to be accessed publicly
@@ -216,11 +280,21 @@ struct KeyCode
 	{
 		if (code == COMMAND_ACTION)
 			name = keyName.substr(1, keyName.size() - 2); // Remove opening and closing quotation marks
+		else if (keyName.compare("SMALL_RUMBLE") == 0)
+		{
+			name = SMALL_RUMBLE;
+			code = RUMBLE;
+		}
+		else if (keyName.compare("BIG_RUMBLE") == 0)
+		{
+			name = BIG_RUMBLE;
+			code = RUMBLE;
+		}
 		else if (code != 0)
 			name = keyName;
 	}
 
-	inline operator bool()
+	inline bool isValid()
 	{
 		return code != 0;
 	}
@@ -232,7 +306,7 @@ struct KeyCode
 
 	inline bool operator !=(const KeyCode& rhs)
 	{
-		return !operator=(rhs);
+		return !operator==(rhs);
 	}
 };
 
@@ -267,6 +341,7 @@ struct GyroSettings {
 
 
 class DigitalButton;
+class JoyShock;
 
 typedef function<void(DigitalButton *)> OnEventAction;
 
@@ -285,12 +360,14 @@ public:
 	// This functor nees to be set to way to validate a command line string;
 	static function<bool(in_string)> _isCommandValid;
 
-	string description = "no input";
-	string command;
+	string _description = "no input";
+	string _command;
 
 private:
-	map<BtnEvent, OnEventAction> eventMapping;
-	float tapDurationMs = MAGIC_TAP_DURATION;
+	map<BtnEvent, OnEventAction> _eventMapping;
+	float _tapDurationMs = MAGIC_TAP_DURATION;
+	bool _hasViGEmBtn = false;
+
 	void InsertEventMapping(BtnEvent evt, OnEventAction action);
 	static void RunBothActions(DigitalButton *btn, OnEventAction action1, OnEventAction action2);
 
@@ -307,19 +384,25 @@ public:
 
 	inline bool isValid() const
 	{
-		return !eventMapping.empty();
+		return !_eventMapping.empty();
 	}
 
 	inline float getTapDuration() const
 	{
-		return tapDurationMs;
+		return _tapDurationMs;
 	}
 
 	inline void clear()
 	{
-		eventMapping.clear();
-		description.clear();
-		tapDurationMs = MAGIC_TAP_DURATION;
+		_eventMapping.clear();
+		_description.clear();
+		_tapDurationMs = MAGIC_TAP_DURATION;
+		_hasViGEmBtn = false;
+	}
+
+	inline bool hasViGEmBtn() const
+	{
+		return _hasViGEmBtn;
 	}
 };
 
@@ -354,6 +437,8 @@ ostream &operator << (ostream &out, ButtonID rhv);
 istream &operator >>(istream &in, FlickSnapMode &fsm);
 ostream &operator <<(ostream &out, FlickSnapMode fsm);
 
+istream& operator >>(istream& in, TriggerMode& tm); // Handle L2 / R2
+
 istream &operator >>(istream &in, GyroSettings &gyro_settings);
 ostream &operator <<(ostream &out, GyroSettings gyro_settings);
 bool operator ==(const GyroSettings &lhs, const GyroSettings &rhs);
@@ -378,7 +463,22 @@ inline bool operator !=(const FloatXY &lhs, const FloatXY &rhs)
 	return !(lhs == rhs);
 }
 
+
+istream &operator >> (istream &in, Color &color);
+ostream &operator << (ostream &out, Color color);
+bool operator ==(const Color &lhs, const Color &rhs);
+inline bool operator !=(const Color &lhs, const Color &rhs)
+{
+	return !(lhs == rhs);
+}
+
 istream& operator >> (istream& in, AxisMode& am);
 // AxisMode can use the templated operator for writing
 
 istream& operator >> (istream& in, PathString& fxy);
+
+// This trickery doesn't work in Linux does it? :(
+#define CERR ColorStream<&std::cerr, FOREGROUND_RED | FOREGROUND_INTENSITY>()
+#define COUT ColorStream<&std::cout, FOREGROUND_GREEN>()
+#define COUT_INFO ColorStream<&cout, FOREGROUND_BLUE | FOREGROUND_INTENSITY>()
+#define COUT_WARN ColorStream<&cout, FOREGROUND_RED | FOREGROUND_GREEN | FOREGROUND_INTENSITY>()
