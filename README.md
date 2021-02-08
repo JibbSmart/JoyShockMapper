@@ -721,8 +721,6 @@ New mouse and keyboard events are only sent when JoyShockMapper gets a new messa
 ### Bluetooth connectivity
 JoyCons and Pro Controllers normally only communicate by Bluetooth. Some Bluetooth adapters can't keep up with these devices, resulting in **laggy input**. This is especially common when more than one device is connected (such as when using a pair of JoyCons). There is nothing JoyShockMapper or JoyShockLibrary can do about this. JoyShockMapper experimentally supports connecting Switch controllers by USB.
 
-Bluetooth support for the DualShock 4 is incomoplete in JoyShockMapper, and isn't working for everyone. Please let me know if you encounter any issues with it.
-
 ## Credits
 I'm Julian "Jibb" Smart, and I made JoyShockMapper. As of version 1.3, JoyShockMapper has benefited from substantial community contributions. Huge thanks to the following contributors:
 * Nicolas (code)
@@ -731,6 +729,7 @@ I'm Julian "Jibb" Smart, and I made JoyShockMapper. As of version 1.3, JoyShockM
 * Sunny Ye (translation)
 * Romeo Calota (linux and general portability)
 * Garrett (code)
+* Robin (linux and controller support)
 
 Have a look at the CHANGELOG for a better idea of who contributed what. Nicolas, in particular, regularly contributes a lot of work. He is responsible for a lot of the cool quality-of-life and advanced mapping features.
 

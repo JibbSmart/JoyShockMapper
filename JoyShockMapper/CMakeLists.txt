@@ -91,7 +91,7 @@ target_include_directories (
 CPMAddPackage (
     NAME JoyShockLibrary
     GITHUB_REPOSITORY JibbSmart/JoyShockLibrary
-    VERSION 2.1.0
+    VERSION 2.2.0
 )
 
 target_link_libraries (
