@@ -17,6 +17,7 @@
 #include <memory.h>
 #include <tchar.h>
 #include <algorithm>
+#include <chrono>
 
 #include "win32/resource.h"
 //#include "wintoastlib.h"
@@ -84,6 +85,7 @@ WindowsTrayIcon::WindowsTrayIcon(HINSTANCE hInstance, std::function<void()> befo
 	, _menuMap()
 	, _thread (0)
 	, _beforeShow(beforeShow)
+	,_init(false)
 {
 	registry.push_back(this);
 
@@ -104,7 +106,9 @@ WindowsTrayIcon::WindowsTrayIcon(HINSTANCE hInstance, std::function<void()> befo
 		MessageHandlerLoop,       // thread function name
 		this,          // argument to thread function 
 		0,                      // use default creation flags 
-		nullptr);			   // returns the thread identifier 
+		nullptr);			   // returns the thread identifier
+
+        Sleep(100); // Longest measured time was 33ms, but performance depends on CPU speed. 100ms should be plenty.
 }
 
 WindowsTrayIcon::~WindowsTrayIcon()
@@ -259,6 +263,8 @@ BOOL WindowsTrayIcon::InitInstance()
 	//Shell_NotifyIcon(NIM_ADD, &_niData);
 	
 	// call ShowWindow here to make the dialog initially visible
+
+    _init = true;
 
 	return TRUE;
 }
