@@ -1,5 +1,6 @@
+#include "SDL.h"
 #include "JoyShockMapper.h"
-#include "JoyShockLibrary.h"
+#include "GamepadMotion.hpp"
 #include "InputHelpers.h"
 #include "Whitelister.h"
 #include "TrayIcon.h"
@@ -18,7 +19,10 @@ const Mapping Mapping::NO_MAPPING = Mapping("NONE");
 function<bool(in_string)> Mapping::_isCommandValid = function<bool(in_string)>();
 
 class JoyShock;
-void joyShockPollCallback(int jcHandle, JOY_SHOCK_STATE state, JOY_SHOCK_STATE lastState, IMU_STATE imuState, IMU_STATE lastImuState, float deltaTime);
+#define JS_SPLIT_TYPE_LEFT 1
+#define JS_SPLIT_TYPE_RIGHT 2
+#define JS_SPLIT_TYPE_FULL 3
+void joyShockPollCallback(JoyShock* jc, float deltaTime);
 
 // Contains all settings that can be modeshifted. They should be accessed only via Joyshock::getSetting
 JSMSetting<StickMode> left_stick_mode = JSMSetting<StickMode>(SettingID::LEFT_STICK_MODE, StickMode::NO_MOUSE);
@@ -79,9 +83,13 @@ JSMVariable<float> sim_press_window = JSMVariable<float>(50.0f);
 JSMVariable<float> dbl_press_window = JSMVariable<float>(200.0f);
 JSMVariable<PathString> currentWorkingDir = JSMVariable<PathString>(GetCWD());
 JSMVariable<Switch> autoloadSwitch = JSMVariable<Switch>(Switch::ON);
-vector<JSMButton> mappings; // array enables use of for each loop and other i/f
+JSMVariable<int> tick_time = JSMSetting<int>(SettingID::TICK_TIME, 3);
+  vector<JSMButton> mappings; // array enables use of for each loop and other i/f
 
 mutex loading_lock;
+mutex controller_lock;
+
+bool keep_polling = true;
 
 float os_mouse_speed = 1.0;
 float last_flick_and_rotation = 0.0;
@@ -676,7 +684,11 @@ public:
 	const int MaxGyroSamples = 64;
 	const int NumSamples = 64;
 	int intHandle;
-	mutex callback_lock;
+	SDL_GameController* sdl_controller;
+	GamepadMotion motion;
+
+	bool has_gyro;
+	bool has_accel;
 
 	vector<DigitalButton> buttons;
 	chrono::steady_clock::time_point started_flick;
@@ -692,9 +704,7 @@ public:
 	FloatXY right_last_cal;
 	FloatXY motion_last_cal;
 
-	float poll_rate;
 	int controller_type = 0;
-	float stick_step_size;
 
 	float left_acceleration = 1.0;
 	float right_acceleration = 1.0;
@@ -727,13 +737,14 @@ public:
 	int lastGyroIndexX = 0;
 	int lastGyroIndexY = 0;
 
-	JoyShock(int uniqueHandle, float pollRate, int controllerSplitType, float stickStepSize)
-		: intHandle(uniqueHandle)
-		, poll_rate(pollRate)
-		, controller_type(controllerSplitType)
-		, stick_step_size(stickStepSize)
-		, triggerState(NUM_ANALOG_TRIGGERS, DstState::NoPress)
-		, buttons()
+	JoyShock(int uniqueHandle, SDL_GameController *gameController, int controllerSplitType, bool hasGyro, bool hasAccel)
+	  : intHandle(uniqueHandle)
+	  , sdl_controller(gameController)
+	  , controller_type(controllerSplitType)
+	  , has_gyro(hasGyro)
+	  , has_accel(hasAccel)
+	  , triggerState(NUM_ANALOG_TRIGGERS, DstState::NoPress)
+	  , buttons()
 	{
 		btnCommon = new DigitalButton::Common();
 		buttons.reserve(MAPPING_SIZE);
@@ -744,11 +755,12 @@ public:
 		ResetSmoothSample();
 	}
 
-	JoyShock(int uniqueHandle, float pollRate, int controllerSplitType, float stickStepSize, DigitalButton::Common* sharedButtonCommon)
+	JoyShock(int uniqueHandle, SDL_GameController *gameController, int controllerSplitType, bool hasGyro, bool hasAccel, DigitalButton::Common *sharedButtonCommon)
 	  : intHandle(uniqueHandle)
-	  , poll_rate(pollRate)
+	  , sdl_controller(gameController)
 	  , controller_type(controllerSplitType)
-	  , stick_step_size(stickStepSize)
+	  , has_gyro(hasGyro)
+	  , has_accel(hasAccel)
 	  , triggerState(NUM_ANALOG_TRIGGERS, DstState::NoPress)
 	  , btnCommon(sharedButtonCommon)
 	  , buttons()
@@ -765,6 +777,7 @@ public:
 	~JoyShock()
 	{
 		btnCommon->DecrementReferenceCounter();
+		SDL_GameControllerClose(sdl_controller);
 	}
 
 	template<typename E>
@@ -830,6 +843,8 @@ public:
 			case SettingID::FLICK_SNAP_MODE:
 				opt = GetOptionalSetting<E>(flick_snap_mode, *activeChord);
 				break;
+			case SettingID::TICK_TIME:
+				opt = GetOptionalSetting<E>(tick_time, *activeChord);
 			}
 			if (opt) return *opt;
 		}
@@ -1548,51 +1563,64 @@ static void resetAllMappings() {
 	hold_press_time.Reset();
 	sim_press_window.Reset();
 	dbl_press_window.Reset();
+	tick_time.Reset();
 
 	os_mouse_speed = 1.0f;
 	last_flick_and_rotation = 0.0f;
 }
 
 void connectDevices() {
+	controller_lock.lock();
+
 	handle_to_joyshock.clear();
-	int numConnected = JslConnectDevices();
+	int numConnected = SDL_NumJoysticks();
 	int* deviceHandles = new int[numConnected];
 
-	JslGetConnectedDeviceHandles(deviceHandles, numConnected);
-
 	for (int i = 0; i < numConnected; i++) {
+		if (!SDL_IsGameController(i)) {
+			continue;
+		}
+		SDL_GameController *g = SDL_GameControllerOpen(i);
 
-		// map handles to extra local data
-		int handle = deviceHandles[i];
-		auto type = JslGetControllerSplitType(handle);
-		if (type != JS_SPLIT_TYPE_FULL)
+		bool hasGyro = false;
+		bool hasAccel = false;
+		if (SDL_GameControllerHasSensor(g, SDL_SENSOR_GYRO)) {
+			hasGyro = true;
+			SDL_GameControllerSetSensorEnabled(g, SDL_SENSOR_GYRO, SDL_TRUE);
+		}
+
+		if (SDL_GameControllerHasSensor(g, SDL_SENSOR_ACCEL))
 		{
-			auto otherJoyCon = find_if(handle_to_joyshock.begin(), handle_to_joyshock.end(),
-				[type](auto pair)
-				{
-					return type == JS_SPLIT_TYPE_LEFT && pair.second->controller_type == JS_SPLIT_TYPE_RIGHT ||
-						   type == JS_SPLIT_TYPE_RIGHT && pair.second->controller_type == JS_SPLIT_TYPE_LEFT;
-				});
-			if (otherJoyCon != handle_to_joyshock.end())
-			{
-				// The second JC points to the same common buttons as the other one.
-				JoyShock *js = new JoyShock(handle,
-					JslGetPollRate(handle),
-					JslGetControllerSplitType(handle),
-					JslGetStickStep(handle),
-					otherJoyCon->second->btnCommon);
-				handle_to_joyshock.emplace(deviceHandles[i], js);
-				continue;
+			hasAccel = true;
+			SDL_GameControllerSetSensorEnabled(g, SDL_SENSOR_ACCEL, SDL_TRUE);
+		}
+
+		int vid = SDL_GameControllerGetVendor(g);
+		int pid = SDL_GameControllerGetProduct(g);
+		int type = JS_SPLIT_TYPE_FULL;
+		if (vid == 0x057e) {
+			if (pid == 0x2006) {
+				type = JS_SPLIT_TYPE_LEFT;
+			}
+			else if (pid == 0x2007) {
+				type = JS_SPLIT_TYPE_RIGHT;
 			}
 		}
-		JoyShock* js = new JoyShock(handle,
-			JslGetPollRate(handle),
-			JslGetControllerSplitType(handle),
-			JslGetStickStep(handle));
+		auto otherJoyCon = find_if(handle_to_joyshock.begin(), handle_to_joyshock.end(),
+			[type](auto pair) {
+				return type == JS_SPLIT_TYPE_LEFT && pair.second->controller_type == JS_SPLIT_TYPE_RIGHT ||
+					type == JS_SPLIT_TYPE_RIGHT && pair.second->controller_type == JS_SPLIT_TYPE_LEFT;
+			});
+		if (otherJoyCon != handle_to_joyshock.end())
+		{
+			// The second JC points to the same common buttons as the other one.
+			JoyShock *js = new JoyShock(i, g, type, hasGyro, hasAccel,
+			  otherJoyCon->second->btnCommon);
+			handle_to_joyshock.emplace(deviceHandles[i], js);
+			continue;
+		}
+		JoyShock *js = new JoyShock(i, g, type, hasGyro, hasAccel);
 		handle_to_joyshock.emplace(deviceHandles[i], js);
-
-		// calibration?
-		//JslStartContinuousCalibration(deviceHandles[i]);
 	}
 
 	string msg;
@@ -1615,6 +1643,32 @@ void connectDevices() {
 	//}
 
 	delete[] deviceHandles;
+
+	controller_lock.unlock();
+}
+
+void pollDevices()
+{
+	controller_lock.lock();
+
+	while (keep_polling) {
+		controller_lock.lock();
+		
+		SDL_GameControllerUpdate();
+
+		for (auto iter = handle_to_joyshock.begin(); iter != handle_to_joyshock.end(); ++iter)
+		{
+			shared_ptr<JoyShock> joyShock = iter->second;
+			auto timeNow = chrono::steady_clock::now();
+			float deltaTime = ((float)chrono::duration_cast<chrono::microseconds>(timeNow - joyShock->time_now).count()) / 1000000.0f;
+			joyShock->time_now = timeNow;
+			joyShockPollCallback(joyShock.get(), deltaTime);
+		}
+
+		controller_lock.unlock();
+
+		SDL_Delay(tick_time);
+	}
 }
 
 void SimPressCrossUpdate(ButtonID sim, ButtonID origin, Mapping newVal)
@@ -2062,7 +2116,30 @@ void processStick(JoyShock* jc, float stickX, float stickY, float lastX, float l
 	}
 }
 
-void joyShockPollCallback(int jcHandle, JOY_SHOCK_STATE state, JOY_SHOCK_STATE lastState, IMU_STATE imuState, IMU_STATE lastImuState, float deltaTime) {
+void joyShockPollCallback(JoyShock* jc, float deltaTime) {
+	if (jc == nullptr)
+		return;
+
+	SDL_GameController *gameController = jc->sdl_controller;
+	GamepadMotion& motion = jc->motion;
+
+	float rawGyro[3] = { 0.f };
+	if (jc->has_gyro)
+	{
+		SDL_GameControllerGetSensorData(gameController, SDL_SENSOR_GYRO, rawGyro, 3);
+	}
+	float rawAccel[3] = { 0.f };
+	if (jc->has_accel)
+	{
+		SDL_GameControllerGetSensorData(gameController, SDL_SENSOR_ACCEL, rawAccel, 3);
+	}
+
+	float toDegrees = 180.f / PI;
+	float toGs = 1.f / 9.8f;
+	motion.ProcessMotion(rawGyro[0] * toDegrees, rawGyro[1] * toDegrees, rawGyro[2] * toDegrees, rawAccel[0] * toGs, rawAccel[1] * toGs, rawAccel[2] * toGs, deltaTime);
+
+	float gyroX, gyroY, gyroZ;
+	motion.GetCalibratedGyro(gyroX, gyroY, gyroZ);
 
 	//printf("DS4 accel: %.4f, %.4f, %.4f\n", imuState.accelX, imuState.accelY, imuState.accelZ);
 	//printf("\tDS4 gyro: %.4f, %.4f, %.4f\n", imuState.gyroX, imuState.gyroY, imuState.gyroZ);
@@ -2077,11 +2154,8 @@ void joyShockPollCallback(int jcHandle, JOY_SHOCK_STATE state, JOY_SHOCK_STATE l
 	bool leftAny = false;
 	bool rightAny = false;
 	bool motionAny = false;
-	// get jc from handle
-	JoyShock* jc = getJoyShockFromHandle(jcHandle);
 	//printf("Controller %d\n", jcHandle);
-	if (jc == nullptr) return;
-	jc->callback_lock.lock();
+
 	if (jc->set_neutral_quat)
 	{
 		jc->neutralQuatW = motion.quatW;
@@ -2118,7 +2192,7 @@ void joyShockPollCallback(int jcHandle, JOY_SHOCK_STATE state, JOY_SHOCK_STATE l
 	float gyroLength = sqrt(gyroX * gyroX + gyroY * gyroY);
 	// do gyro smoothing
 	// convert gyro smooth time to number of samples
-	auto numGyroSamples = jc->poll_rate * jc->getSetting(SettingID::GYRO_SMOOTH_TIME); // samples per second * seconds = samples
+	auto numGyroSamples = 1.f / tick_time * jc->getSetting(SettingID::GYRO_SMOOTH_TIME); // samples per second * seconds = samples
 	if (numGyroSamples < 1) numGyroSamples = 1; // need at least 1 sample
 	auto threshold = jc->getSetting(SettingID::GYRO_SMOOTH_THRESHOLD);
 	jc->GetSmoothedGyro(gyroX, gyroY, gyroLength, threshold / 2.0f, threshold, int(numGyroSamples), gyroX, gyroY);
@@ -2238,26 +2312,26 @@ void joyShockPollCallback(int jcHandle, JOY_SHOCK_STATE state, JOY_SHOCK_STATE l
 	// button mappings
 	if (jc->controller_type != JS_SPLIT_TYPE_RIGHT)
 	{
-		jc->handleButtonChange(ButtonID::UP, (state.buttons & JSMASK_UP) > 0);
-		jc->handleButtonChange(ButtonID::DOWN, (state.buttons & JSMASK_DOWN) > 0);
-		jc->handleButtonChange(ButtonID::LEFT, (state.buttons & JSMASK_LEFT) > 0);
-		jc->handleButtonChange(ButtonID::RIGHT, (state.buttons & JSMASK_RIGHT) > 0);
-		jc->handleButtonChange(ButtonID::L, (state.buttons & JSMASK_L) > 0);
-		jc->handleButtonChange(ButtonID::MINUS, (state.buttons & JSMASK_MINUS) > 0);
-		jc->handleButtonChange(ButtonID::CAPTURE, (state.buttons & JSMASK_CAPTURE) > 0);
-		jc->handleButtonChange(ButtonID::L3, (state.buttons & JSMASK_LCLICK) > 0);
+		jc->handleButtonChange(ButtonID::UP, SDL_GameControllerGetButton(gameController, SDL_CONTROLLER_BUTTON_DPAD_UP));
+		jc->handleButtonChange(ButtonID::DOWN, SDL_GameControllerGetButton(gameController, SDL_CONTROLLER_BUTTON_DPAD_DOWN));
+		jc->handleButtonChange(ButtonID::LEFT, SDL_GameControllerGetButton(gameController, SDL_CONTROLLER_BUTTON_DPAD_LEFT));
+		jc->handleButtonChange(ButtonID::RIGHT, SDL_GameControllerGetButton(gameController, SDL_CONTROLLER_BUTTON_DPAD_RIGHT));
+		jc->handleButtonChange(ButtonID::L, SDL_GameControllerGetButton(gameController, SDL_CONTROLLER_BUTTON_LEFTSHOULDER));
+		jc->handleButtonChange(ButtonID::MINUS, SDL_GameControllerGetButton(gameController, SDL_CONTROLLER_BUTTON_BACK));
+		jc->handleButtonChange(ButtonID::CAPTURE, SDL_GameControllerGetButton(gameController, SDL_CONTROLLER_BUTTON_MISC1)); // TODO: for backwards compatibility, we need to detect PS controllers and do touchpad click here instead
+		jc->handleButtonChange(ButtonID::L3, SDL_GameControllerGetButton(gameController, SDL_CONTROLLER_BUTTON_LEFTSTICK));
 		jc->handleTriggerChange(ButtonID::ZL, ButtonID::ZLF, jc->getSetting<TriggerMode>(SettingID::ZL_MODE), state.lTrigger);
 	}
 	if (jc->controller_type != JS_SPLIT_TYPE_LEFT)
 	{
-		jc->handleButtonChange(ButtonID::E, (state.buttons & JSMASK_E) > 0);
-		jc->handleButtonChange(ButtonID::S, (state.buttons & JSMASK_S) > 0);
-		jc->handleButtonChange(ButtonID::N, (state.buttons & JSMASK_N) > 0);
-		jc->handleButtonChange(ButtonID::W, (state.buttons & JSMASK_W) > 0);
-		jc->handleButtonChange(ButtonID::R, (state.buttons & JSMASK_R) > 0);
-		jc->handleButtonChange(ButtonID::PLUS, (state.buttons & JSMASK_PLUS) > 0);
-		jc->handleButtonChange(ButtonID::HOME, (state.buttons & JSMASK_HOME) > 0);
-		jc->handleButtonChange(ButtonID::R3, (state.buttons & JSMASK_RCLICK) > 0);
+		jc->handleButtonChange(ButtonID::E, SDL_GameControllerGetButton(gameController, SDL_CONTROLLER_BUTTON_B));
+		jc->handleButtonChange(ButtonID::S, SDL_GameControllerGetButton(gameController, SDL_CONTROLLER_BUTTON_A));
+		jc->handleButtonChange(ButtonID::N, SDL_GameControllerGetButton(gameController, SDL_CONTROLLER_BUTTON_Y));
+		jc->handleButtonChange(ButtonID::W, SDL_GameControllerGetButton(gameController, SDL_CONTROLLER_BUTTON_X));
+		jc->handleButtonChange(ButtonID::R, SDL_GameControllerGetButton(gameController, SDL_CONTROLLER_BUTTON_RIGHTSHOULDER));
+		jc->handleButtonChange(ButtonID::PLUS, SDL_GameControllerGetButton(gameController, SDL_CONTROLLER_BUTTON_START));
+		jc->handleButtonChange(ButtonID::HOME, SDL_GameControllerGetButton(gameController, SDL_CONTROLLER_BUTTON_GUIDE));
+		jc->handleButtonChange(ButtonID::R3, SDL_GameControllerGetButton(gameController, SDL_CONTROLLER_BUTTON_RIGHTSTICK));
 		jc->handleTriggerChange(ButtonID::ZR, ButtonID::ZRF, jc->getSetting<TriggerMode>(SettingID::ZR_MODE), state.rTrigger);
 	}
 	jc->handleButtonChange(ButtonID::SL, (state.buttons & JSMASK_SL) > 0);
@@ -2378,7 +2452,6 @@ void joyShockPollCallback(int jcHandle, JOY_SHOCK_STATE state, JOY_SHOCK_STATE l
 			jc->getSetting(SettingID::MIN_GYRO_THRESHOLD), jc->getSetting(SettingID::MAX_GYRO_THRESHOLD), deltaTime,
 			camSpeedX * jc->getSetting(SettingID::STICK_AXIS_X), -camSpeedY * jc->getSetting(SettingID::STICK_AXIS_Y), mouseCalibration);
 	}
-	jc->callback_lock.unlock();
 }
 
 // https://stackoverflow.com/a/25311622/1130520 says this is why filenames obtained by fgets don't work
@@ -2511,7 +2584,8 @@ void beforeShowTrayMenu()
 void CleanUp()
 {
 	tray->Hide();
-	JslDisconnectAndDisposeAll();
+	keep_polling = false;
+	SDL_Quit();
 	ReleaseConsole();
 	whitelister.Remove();
 }
@@ -2561,6 +2635,11 @@ float filterHoldPressDelay(float c, float next)
 		return c;
 	}
 	return next;
+}
+
+float filterTickTime(int c, int next)
+{
+	return max(1, min(100, next));
 }
 
 Mapping filterMapping(Mapping current, Mapping next)
@@ -2739,6 +2818,16 @@ public:
 	}
 };
 
+void initSDL() {
+	SDL_SetHint(SDL_HINT_GAMECONTROLLER_USE_BUTTON_LABELS, "0");
+	SDL_SetHint(SDL_HINT_JOYSTICK_ALLOW_BACKGROUND_EVENTS, "1");
+	SDL_SetHint(SDL_HINT_JOYSTICK_HIDAPI_JOY_CONS, "1");
+	SDL_SetHint(SDL_HINT_JOYSTICK_HIDAPI_SWITCH_HOME_LED, "0");
+	SDL_SetHint(SDL_HINT_JOYSTICK_HIDAPI_PS4_RUMBLE, "1");
+	SDL_SetHint(SDL_HINT_JOYSTICK_HIDAPI_PS5_RUMBLE, "1");
+	SDL_SetHint(SDL_HINT_JOYSTICK_THREAD, "1");
+	SDL_Init(SDL_INIT_GAMECONTROLLER);
+}
 
 //int main(int argc, char *argv[]) {
 #ifdef _WIN32
@@ -2762,8 +2851,8 @@ int main(int argc, char *argv[]) {
 	printf("Welcome to JoyShockMapper version %s!\n", version);
 	//if (whitelister) printf("JoyShockMapper was successfully whitelisted!\n");
 	// prepare for input
+	initSDL();
 	connectDevices();
-	JslSetCallback(&joyShockPollCallback);
     tray.reset(new TrayIcon(trayIconData, &beforeShowTrayMenu ));
     tray->Show();
 
@@ -2829,6 +2918,7 @@ int main(int argc, char *argv[]) {
 	sim_press_window.SetFilter(&filterPositive);
 	dbl_press_window.SetFilter(&filterPositive);
 	hold_press_time.SetFilter(&filterHoldPressDelay);
+	tick_time.SetFilter(&filterTickTime);
 	currentWorkingDir.SetFilter( [] (PathString current, PathString next) { return SetCWD(string(next)) ? next : current; });
 	autoloadSwitch.SetFilter(&filterInvalidValue<Switch, Switch::INVALID>)->AddOnChangeListener(&UpdateAutoload);
 
@@ -3004,6 +3094,8 @@ int main(int argc, char *argv[]) {
 		->SetHelp("Sets the amount of time in milliseconds within which both buttons of a simultaneous press needs to be pressed before enabling the sim press mappings. This setting does not support modeshift."));
 	commandRegistry.Add((new JSMAssignment<float>("DBL_PRESS_WINDOW", dbl_press_window))
 		->SetHelp("Sets the amount of time in milliseconds within which the user needs to press a button twice before enabling the double press mappings. This setting does not support modeshift."));
+	commandRegistry.Add((new JSMAssignment<int>("TICK_TIME", tick_time))
+	    ->SetHelp("Sets the time in milliseconds that JoyShockMaper waits before reading from each controller again."));
 	commandRegistry.Add((new JSMAssignment<PathString>("JSM_DIRECTORY", currentWorkingDir))
 		->SetHelp("If AUTOLOAD doesn't work properly, set this value to the path to the directory holding the JoyShockMapper.exe file. Make sure a folder named \"AutoLoad\" exists there."));
 	commandRegistry.Add(new HelpCmd(commandRegistry));

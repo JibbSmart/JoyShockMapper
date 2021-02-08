@@ -27,6 +27,7 @@ add_executable (
     include/JSMVariable.hpp
     include/Whitelister.h
     include/JoyShockMapper.h
+    include/GamepadMotion.hpp
 )
 
 if (WINDOWS)
@@ -52,14 +53,6 @@ if (WINDOWS)
     )
 
     set (BUILD_SHARED_LIBS ON)
-
-    add_custom_command(
-        TARGET ${BINARY_NAME}
-        POST_BUILD
-        COMMAND ${CMAKE_COMMAND} -E copy
-            "$<TARGET_FILE:JoyShockLibrary>"
-            "$<TARGET_FILE_DIR:${PROJECT_NAME}>/$<TARGET_FILE_NAME:JoyShockLibrary>"
-    )
 
 	 add_definitions(/bigobj)
 endif ()
@@ -87,20 +80,10 @@ target_include_directories (
     "${PROJECT_BINARY_DIR}/${PROJECT_NAME}/include"
 )
 
-CPMAddPackage (
-    NAME JoyShockLibrary
-    GITHUB_REPOSITORY JibbSmart/JoyShockLibrary
-    VERSION 2.2.0
-)
-
 target_link_libraries (
     ${BINARY_NAME} PRIVATE
     Platform::Dependencies
-    JoyShockLibrary
-)
-
-install (
-    TARGETS ${BINARY_NAME} JoyShockLibrary
+    SDL2
 )
 
 CPMAddPackage (

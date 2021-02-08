@@ -155,6 +155,7 @@ enum class SettingID
 	TRIGGER_SKIP_DELAY,
 	TURBO_PERIOD,
 	HOLD_PRESS_TIME,
+	TICK_TIME,
 	SIM_PRESS_WINDOW, // Unchorded setting
 	DBL_PRESS_WINDOW  // Unchorded setting
 };
