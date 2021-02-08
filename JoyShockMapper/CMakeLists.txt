@@ -6,8 +6,7 @@ git_describe(GIT_TAG --tags --dirty=_d)
 string(REGEX REPLACE "^v([0-9]+)\\..*" "\\1" JSM_VERSION_MAJOR "${GIT_TAG}")
 string(REGEX REPLACE "^v[0-9]+\\.([0-9]+).*" "\\1" JSM_VERSION_MINOR "${GIT_TAG}")
 string(REGEX REPLACE "^v[0-9]+\\.[0-9]+\\.([0-9]+).*" "\\1" JSM_VERSION_PATCH "${GIT_TAG}")
-string(REGEX REPLACE "^v[0-9]+\\.[0-9]+\\.[0-9]+(-?[0-9]*).*" "\\1" JSM_VERSION_TWEAK "${GIT_TAG}")
-set(JSM_VERSION "v${JSM_VERSION_MAJOR}.${JSM_VERSION_MINOR}.${JSM_VERSION_PATCH}${JSM_VERSION_TWEAK}")
+set(JSM_VERSION "v${JSM_VERSION_MAJOR}.${JSM_VERSION_MINOR}.${JSM_VERSION_PATCH}")
 
 message(STATUS "JSM version is " ${JSM_VERSION})
 
