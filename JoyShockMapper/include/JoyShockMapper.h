@@ -217,7 +217,7 @@ constexpr float MAGIC_INSTANT_DURATION = 40.0f; // in milliseconds
 constexpr float MAGIC_EXTENDED_TAP_DURATION = 500.0f; // in milliseconds
 constexpr int MAGIC_TRIGGER_SMOOTHING = 5; // in samples
 
-enum class ControllerOrientation { FORWARD, LEFT, RIGHT, BACKWARD, INVALID };
+enum class ControllerOrientation { FORWARD, LEFT, RIGHT, BACKWARD, JOYCON_SIDEWAYS, INVALID };
 enum class RingMode { OUTER, INNER, INVALID };
 enum class StickMode { NO_MOUSE, AIM, FLICK, FLICK_ONLY, ROTATE_ONLY, MOUSE_RING, MOUSE_AREA, OUTER_RING, INNER_RING, SCROLL_WHEEL, LEFT_STICK, RIGHT_STICK, INVALID };
 enum class FlickSnapMode { NONE, FOUR, EIGHT, INVALID };

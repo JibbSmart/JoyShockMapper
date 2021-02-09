@@ -34,7 +34,7 @@ JSMSetting<GyroAxisMask> mouse_x_from_gyro = JSMSetting<GyroAxisMask>(SettingID:
 JSMSetting<GyroAxisMask> mouse_y_from_gyro = JSMSetting<GyroAxisMask>(SettingID::MOUSE_Y_FROM_GYRO_AXIS, GyroAxisMask::X);
 JSMSetting<GyroSettings> gyro_settings = JSMSetting<GyroSettings>(SettingID::GYRO_ON, GyroSettings()); // Ignore mode none means no GYRO_OFF button
 JSMSetting<JoyconMask> joycon_gyro_mask = JSMSetting<JoyconMask>(SettingID::JOYCON_GYRO_MASK, JoyconMask::IGNORE_LEFT);
-JSMSetting<JoyconMask> joycon_motion_mask = JSMSetting<JoyconMask>(SettingID::JOYCON_GYRO_MASK, JoyconMask::IGNORE_RIGHT);
+JSMSetting<JoyconMask> joycon_motion_mask = JSMSetting<JoyconMask>(SettingID::JOYCON_MOTION_MASK, JoyconMask::IGNORE_RIGHT);
 JSMSetting<TriggerMode> zlMode = JSMSetting<TriggerMode>(SettingID::ZL_MODE, TriggerMode::NO_FULL);
 JSMSetting<TriggerMode> zrMode = JSMSetting<TriggerMode>(SettingID::ZR_MODE, TriggerMode::NO_FULL);;
 JSMSetting<FlickSnapMode> flick_snap_mode = JSMSetting<FlickSnapMode>(SettingID::FLICK_SNAP_MODE, FlickSnapMode::NONE);
@@ -120,6 +120,7 @@ public:
 		deque<ButtonID> chordStack; // Represents the current active buttons in order from most recent to latest
 		unique_ptr<Gamepad> _vigemController;
 		function<DigitalButton* (ButtonID)> _getMatchingSimBtn;
+		mutex callback_lock; // Needs to be in the common struct for both joycons to use the same
 	};
 
 	static bool findQueueItem(pair<ButtonID, KeyCode> &pair, ButtonID btn)
@@ -977,7 +978,6 @@ public:
 	const int MaxGyroSamples = 64;
 	const int NumSamples = 64;
 	int intHandle;
-	mutex callback_lock;
 
 	vector<DigitalButton> buttons;
 	chrono::steady_clock::time_point started_flick;
@@ -1149,6 +1149,21 @@ public:
 				break;
 			case SettingID::CONTROLLER_ORIENTATION:
 				opt = GetOptionalSetting<E>(controller_orientation, *activeChord);
+				if (opt && int(*opt) == int(ControllerOrientation::JOYCON_SIDEWAYS))
+				{
+					if(controller_type == JS_SPLIT_TYPE_LEFT)
+					{
+						opt = optional<E>(static_cast<E>(ControllerOrientation::LEFT));
+					}
+					else if(controller_type == JS_SPLIT_TYPE_RIGHT)
+					{
+						opt = optional<E>(static_cast<E>(ControllerOrientation::RIGHT));
+					}
+					else
+					{
+						opt = optional<E>(static_cast<E>(ControllerOrientation::FORWARD));
+					}
+				}
 				break;
 			case SettingID::ZR_MODE:
 				opt = GetOptionalSetting<E>(zrMode, *activeChord);
@@ -1762,6 +1777,15 @@ static void resetAllMappings() {
 	last_flick_and_rotation = 0.0f;
 }
 
+// Convert number to bitmap
+constexpr int PlayerNumber(size_t n)
+{
+	int i = 0;
+	while (n-- > 0)
+		i = (i << 1) | 1;
+	return i;
+}
+
 void connectDevices(bool mergeJoycons = true) {
 	handle_to_joyshock.clear();
 	int numConnected = JslConnectDevices();
@@ -1785,6 +1809,7 @@ void connectDevices(bool mergeJoycons = true) {
 					});
 				if (otherJoyCon != handle_to_joyshock.end())
 				{
+					JslSetPlayerNumber(handle, PlayerNumber(handle_to_joyshock.size()));
 					// The second JC points to the same common buttons as the other one.
 					JoyShock* js = new JoyShock(handle,
 						otherJoyCon->second->btnCommon);
@@ -1793,6 +1818,7 @@ void connectDevices(bool mergeJoycons = true) {
 					continue;
 				}
 			}
+			JslSetPlayerNumber(handle, PlayerNumber(handle_to_joyshock.size() + 1));
 			JoyShock* js = new JoyShock(handle);
 			handle_to_joyshock.emplace(handle, js);
 		}
@@ -1840,17 +1866,18 @@ bool do_RESET_MAPPINGS(CmdRegistry *registry) {
 }
 
 bool do_RECONNECT_CONTROLLERS(in_string arguments) {
-	bool mergeJoycons = false;
-	mergeJoycons |= (arguments.empty() || arguments.compare("MERGE") == 0);
-	if (!mergeJoycons && arguments.compare("SPLIT") != 0)
-		return false;
-	COUT << "Reconnecting controllers: " << arguments << endl;
-    JslSetTouchCallback(nullptr);
-	JslDisconnectAndDisposeAll();
-	connectDevices(mergeJoycons);
-	JslSetCallback(&joyShockPollCallback);
-	JslSetTouchCallback(&TouchCallback);
-	return true;
+	bool mergeJoycons = arguments.empty() || (arguments.compare("MERGE") == 0);
+	if (mergeJoycons || arguments.rfind("SPLIT", 0) == 0)
+	{
+		COUT << "Reconnecting controllers: " << arguments << endl;
+		JslSetTouchCallback(nullptr);
+		JslDisconnectAndDisposeAll();
+		connectDevices(mergeJoycons);
+		JslSetCallback(&joyShockPollCallback);
+		JslSetTouchCallback(&TouchCallback);
+		return true;
+	}
+	return false;
 }
 
 bool do_COUNTER_OS_MOUSE_SPEED() {
@@ -2306,11 +2333,9 @@ void TouchCallback(int jcHandle, TOUCH_STATE touchState, TOUCH_STATE lastTouchSt
 	JoyShock *js = getJoyShockFromHandle(jcHandle);
 	if (js)
 	{
-		js->callback_lock.lock();
-
+		lock_guard guard(js->btnCommon->callback_lock); // the guard unlocks when it goes out of scope.
+		
 		js->GetButton(ButtonID::TOUCH)->handleButtonChange(touchState.t0Down || touchState.t1Down, js->time_now, js->getSetting(SettingID::TURBO_PERIOD), js->getSetting(SettingID::HOLD_PRESS_TIME));
-
-		js->callback_lock.unlock();
 	}
 }
 
@@ -2333,7 +2358,7 @@ void joyShockPollCallback(int jcHandle, JOY_SHOCK_STATE state, JOY_SHOCK_STATE l
 	JoyShock* jc = getJoyShockFromHandle(jcHandle);
 	//COUT << "Controller %d\n", jcHandle);
 	if (jc == nullptr) return;
-	jc->callback_lock.lock();
+	lock_guard guard(jc->btnCommon->callback_lock); // the guard unlocks when it goes out of scope.
 	if (jc->set_neutral_quat)
 	{
 		jc->neutralQuatW = motion.quatW;
@@ -2639,7 +2664,6 @@ void joyShockPollCallback(int jcHandle, JOY_SHOCK_STATE state, JOY_SHOCK_STATE l
 		JslSetLightColour(jcHandle, newColor.raw);
 		jc->_light_bar = newColor;
 	}
-	jc->callback_lock.unlock();
 }
 
 // https://stackoverflow.com/a/25311622/1130520 says this is why filenames obtained by fgets don't work
@@ -2785,12 +2809,14 @@ void beforeShowTrayMenu()
 void CleanUp()
 {
 	tray->Hide();
-	
+	HideConsole();
 	// Clear controller color and rumble
 	for (auto &js : handle_to_joyshock)
 	{
 		JslSetLightColour(js.first, 0);
 		JslSetRumble(js.first, 0, 0);
+		JslSetPlayerNumber(js.first, 0b1001);
+		Sleep(50);
 	}
 	JslDisconnectAndDisposeAll();
 	handle_to_joyshock.clear(); // Destroy Vigem Gamepads

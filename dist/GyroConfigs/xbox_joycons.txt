@@ -1,0 +1,51 @@
+# This configuration file sets up joycons held sideways as xbox controllers.
+# Sticks are left sticks, and the button diamond is mapped, bumpers are bumpers
+# and the back/start are mapped on the central buttons left and right respectively.
+# The gyro serves as a motion stick for the controller right stick and both bumpers
+# enable right stick click. There is no binding for triggers and the dpad.
+# Additionally, The motion neutral can be set with stick click + start
+# and gyro calibration with double clicking the larger control button
+
+RECONNECT_CONTROLLERS SPLIT # Each joycon is its own controller
+VIRTUAL_CONTROLLER = XBOX # Each joycon is an xbox controller
+
+# Common bindings
+CONTROLLER_ORIENTATION = JOYCON_SIDEWAYS
+JOYCON_MOTION_MASK = USE_BOTH
+MOTION_STICK_MODE = RIGHT_STICK
+
+# The left joycon
+LEFT_STICK_MODE = LEFT_STICK
+L3 = X_LS
+LEFT = X_A
+DOWN = X_B
+UP = X_X
+RIGHT = X_Y
+SL = X_LB
+SR = X_RB
+SL+SR = X_RS
+CAPTURE = X_START
+- = X_BACK
+L = NONE
+ZL = NONE
+ZL_MODE = NO_FULL
+L3,CAPTURE = "SET_MOTION_STICK_NEUTRAL" # occurs on all controllers!!!
+CAPTURE,CAPTURE = CALIBRATE CALIBRATE
+
+#The right joycon
+RIGHT_STICK_MODE = LEFT_STICK
+R3 = X_LS
+E = X_A
+N = X_B
+S = X_X
+W = X_Y
+# SL = X_LB
+# SR = X_RB
+# SL+SR = X_RS
++ = X_START
+HOME = X_BACK
+R = NONE
+ZR_MODE = NO_FULL
+ZR = NONE
+R3,+ = "SET_MOTION_STICK_NEUTRAL" # occurs on all controllers!!!
+HOME,HOME = CALIBRATE CALIBRATE
