@@ -1,7 +1,9 @@
+#include <Windows.h>
 #include "win32/Gamepad.h"
 #include "ViGEm/Client.h"
 
 #include <algorithm>
+#include <sstream>
 
 //
 // Link against SetupAPI

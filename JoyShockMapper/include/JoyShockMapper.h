@@ -1,7 +1,6 @@
 #pragma once
 
 #include "JSMVersion.h"
-#include "PlatformDefinitions.h"
 #include "magic_enum.hpp"
 
 #include <map>

@@ -1,6 +1,7 @@
 #include <cstdlib>
 
 #include "JoyShockMapper.h"
+#include "PlatformDefinitions.h"
 #include "InputHelpers.h"
 
 const char *AUTOLOAD_FOLDER() {

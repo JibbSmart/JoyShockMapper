@@ -1,5 +1,6 @@
 #include "JoyShockMapper.h"
 #include "JoyShockLibrary.h"
+#include "PlatformDefinitions.h"
 #include "InputHelpers.h"
 #include "Whitelister.h"
 #include "TrayIcon.h"
@@ -1859,7 +1860,9 @@ bool do_RESET_MAPPINGS(CmdRegistry *registry) {
 	{
 		if (!registry->loadConfigFile("onreset.txt"))
 		{
-			COUT_INFO << "There is no onreset.txt file to load." << endl;
+			COUT << "There is no ";
+			COUT_INFO << "onreset.txt";
+			COUT << " file to load." << endl;
 		}
 	}
 	return true;
@@ -1907,7 +1910,7 @@ void UpdateThread(PollingThread *thread, Switch newValue)
 	}
 	else
 	{
-		COUT << "AutoLoad is unavailable" << endl;
+		COUT << "The thread does not exist" << endl;
 	}
 }
 
@@ -2878,7 +2881,7 @@ Mapping filterMapping(Mapping current, Mapping next)
 	{
 		if (virtual_controller.get() == ControllerScheme::NONE)
 		{
-			COUT << "Before using this mapping, you need to set VIRTUAL_CONTROLLER." << endl;
+			COUT_WARN << "Before using this mapping, you need to set VIRTUAL_CONTROLLER." << endl;
 			return current;
 		}
 		for (auto &js : handle_to_joyshock)
@@ -2904,7 +2907,7 @@ TriggerMode filterTriggerMode(TriggerMode current, TriggerMode next)
 	{
 		if (virtual_controller.get() == ControllerScheme::NONE)
 		{
-			COUT << "Before using this trigger mode, you need to set VIRTUAL_CONTROLLER." << endl;
+			COUT_WARN << "Before using this trigger mode, you need to set VIRTUAL_CONTROLLER." << endl;
 			return current;
 		}
 		for (auto &js : handle_to_joyshock)
@@ -2922,7 +2925,7 @@ StickMode filterStickMode(StickMode current, StickMode next)
 	{
 		if (virtual_controller.get() == ControllerScheme::NONE)
 		{
-			COUT << "Before using this stick mode, you need to set VIRTUAL_CONTROLLER." << endl;
+			COUT_WARN << "Before using this stick mode, you need to set VIRTUAL_CONTROLLER." << endl;
 			return current;
 		}
 		for (auto &js : handle_to_joyshock)
@@ -3164,8 +3167,24 @@ int main(int argc, char *argv[]) {
 	initConsole(&CleanUp);
 	ColorStream<&cout, FOREGROUND_GREEN | FOREGROUND_INTENSITY>() << "Welcome to JoyShockMapper version " << version << '!' << endl;
 	//if (whitelister) COUT << "JoyShockMapper was successfully whitelisted!" << endl;
-	minimizeThread.reset(new PollingThread(&MinimizePoll, nullptr, 1000, hide_minimized.get() == Switch::ON)); // Start by default
-	
+	// Threads need to be created before listeners
+	CmdRegistry commandRegistry;
+	minimizeThread.reset(new PollingThread("Minimize thread", &MinimizePoll, nullptr, 1000, hide_minimized.get() == Switch::ON)); // Start by default
+	autoLoadThread.reset(new PollingThread("Autoload thread", &AutoLoadPoll, &commandRegistry, 1000, autoloadSwitch.get() == Switch::ON)); // Start by default
+
+	if (autoLoadThread && autoLoadThread->isRunning())
+	{
+		COUT << "AUTOLOAD is enabled. Files in ";
+		COUT_INFO << AUTOLOAD_FOLDER();
+		COUT << " folder will get loaded automatically when a matching application is in focus." << endl;
+	}
+	else
+	{
+		CERR << "AutoLoad is unavailable" << endl;
+	}
+
+
+
 	left_stick_mode.SetFilter(&filterStickMode)->
 		AddOnChangeListener(bind(&UpdateRingModeFromStickMode, &left_ring_mode, ::placeholders::_1));
 	right_stick_mode.SetFilter(&filterStickMode)->
@@ -3237,14 +3256,6 @@ int main(int argc, char *argv[]) {
 #else
 	currentWorkingDir = string(argv[0]);
 #endif
-	CmdRegistry commandRegistry;
-
-	autoLoadThread.reset(new PollingThread(&AutoLoadPoll, &commandRegistry, 1000, true)); // Start by default
-	if (autoLoadThread && autoLoadThread->isRunning())
-		COUT << "AutoLoad is enabled. Configurations in \"" << AUTOLOAD_FOLDER() << "\" folder will get loaded when matching application is in focus." << endl;
-	else 
-		CERR << "AutoLoad is unavailable" << endl;
-
 
 	for (auto &mapping : mappings) // Add all button mappings as commands
 	{
@@ -3437,7 +3448,9 @@ int main(int argc, char *argv[]) {
 	}
 	else
 	{
-		COUT_INFO << "There is no onstartup.txt file to load." << endl;
+		COUT << "There is no ";
+		COUT_INFO << "onstartup.txt";
+		COUT << " file to load." << endl;
 	}
 
 	// The main loop is simple and reads like pseudocode

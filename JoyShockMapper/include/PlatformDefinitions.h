@@ -7,15 +7,20 @@
 #include <Windows.h>
 #include <iostream>
 #include <sstream>
+#include <mutex>
 
 constexpr uint16_t DEFAULT_COLOR = FOREGROUND_RED | FOREGROUND_GREEN | FOREGROUND_BLUE; // White
 #define FOREGROUND_YELLOW FOREGROUND_RED | FOREGROUND_GREEN
 
+static std::mutex print_mutex;
+
 template<std::ostream* stdio, uint16_t color>
 struct ColorStream : public std::stringstream
 {
+	// print the string on the stdio
 	~ColorStream()
 	{
+		std::lock_guard<std::mutex> guard(print_mutex);
 		HANDLE hStdout = GetStdHandle(STD_ERROR_HANDLE);
 		SetConsoleTextAttribute(hStdout, color);
 		(*stdio) << str();

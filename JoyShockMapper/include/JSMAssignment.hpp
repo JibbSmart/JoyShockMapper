@@ -37,7 +37,11 @@ protected:
 		else if (arguments.empty() || regex_match(arguments, results, regex(R"(\s*=\s*(.*))")))
 		{
 			string fwd_args(results.empty() ? arguments : results[1].str());
-			if (!_parse(this, fwd_args))
+			if (fwd_args.rfind("DEFAULT", 0) == 0)
+			{
+				_var.Reset();
+			}
+			else if (!_parse(this, fwd_args))
 			{
 				COUT << _help << endl; // Parsing has failed. Show help.
 			}

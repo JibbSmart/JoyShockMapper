@@ -1,6 +1,7 @@
 #pragma once
 
 #include "JoyShockMapper.h"
+#include "PlatformDefinitions.h"
 
 #include <functional>
 #include <string>
@@ -80,11 +81,12 @@ bool SetCWD(in_string newCWD);
 class PollingThread
 {
 public:
-	PollingThread(std::function<bool(void *)> loopContent,
+	PollingThread(const char * label, std::function<bool(void *)> loopContent,
 	  void *funcParam,
 	  DWORD pollPeriodMs,
 	  bool startNow)
-	  : _thread{ 0 }
+	  : _label(label)
+	  , _thread{ 0 }
 	  , _loopContent(loopContent)
 	  , _sleepTimeMs(pollPeriodMs)
 	  , _tid(0)
@@ -114,6 +116,8 @@ public:
 	{
 		return _thread && _continue;
 	}
+
+	const char *_label;
 
 private:
 	static DWORD WINAPI pollFunction(LPVOID param);
