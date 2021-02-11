@@ -1873,7 +1873,6 @@ bool do_RECONNECT_CONTROLLERS(in_string arguments) {
 	if (mergeJoycons || arguments.rfind("SPLIT", 0) == 0)
 	{
 		COUT << "Reconnecting controllers: " << arguments << endl;
-		JslSetTouchCallback(nullptr);
 		JslDisconnectAndDisposeAll();
 		connectDevices(mergeJoycons);
 		JslSetCallback(&joyShockPollCallback);
@@ -2371,7 +2370,6 @@ void joyShockPollCallback(int jcHandle, JOY_SHOCK_STATE state, JOY_SHOCK_STATE l
 		jc->set_neutral_quat = false;
 		COUT << "Neutral orientation for device " << jc->intHandle << " set..." << endl;
 	}
-	jc->controller_type = JslGetControllerSplitType(jcHandle); // Reassign at each call? :( Low impact function
 	//COUT << "Found a match for %d\n", jcHandle);
 	float gyroX = 0.0;
 	float gyroY = 0.0;

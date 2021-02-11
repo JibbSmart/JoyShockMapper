@@ -19,11 +19,15 @@ Improve command error handling
 * Assigning a negative value to trigger threshold enables hair trigger
 * New setting HIDE_MINIMIZED will hide JSM when set to ON. OFF is default
 
-## 2.1.1
-Nicolas added more keybinds.
+## 2.2.0
+Nicolas added more keybinds. Robin fixed issues with building on Linux and improved PlayStation controller support.
 
 ### Features
+* DualSense is now also supported when connected by Bluetooth.
 * New keybinds include: volume control, media control, windows keys and context menu key.
+
+### Bugfixes
+* DualShock 4's gyro should now be correctly activated even when connected by Bluetooth.
 
 ## 2.1.0
 Jibb added experimental support for the DualSense controller (PlayStation 5) when connected by USB.
