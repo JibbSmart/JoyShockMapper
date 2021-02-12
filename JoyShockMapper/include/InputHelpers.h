@@ -63,12 +63,12 @@ inline void shapedSensitivityMoveMouse(float x, float y, std::pair<float, float>
 	  (y * newSensitivityY) * deltaTime + extraVelocityY);
 }
 
-BOOL WriteToConsole(const std::string &command);
+BOOL WriteToConsole(in_string command);
 
 BOOL WINAPI ConsoleCtrlHandler(DWORD dwCtrlType);
 
 // just setting up the console with standard stuff
-void initConsole(std::function<void()> todoOnQuit);
+void initConsole();
 
 std::tuple<std::string, std::string> GetActiveWindowName();
 

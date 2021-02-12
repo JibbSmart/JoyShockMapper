@@ -1819,7 +1819,6 @@ void connectDevices(bool mergeJoycons = true) {
 					continue;
 				}
 			}
-			JslSetPlayerNumber(handle, PlayerNumber(handle_to_joyshock.size() + 1));
 			JoyShock* js = new JoyShock(handle);
 			handle_to_joyshock.emplace(handle, js);
 		}
@@ -2370,6 +2369,9 @@ void joyShockPollCallback(int jcHandle, JOY_SHOCK_STATE state, JOY_SHOCK_STATE l
 		jc->set_neutral_quat = false;
 		COUT << "Neutral orientation for device " << jc->intHandle << " set..." << endl;
 	}
+	auto type = JslGetControllerSplitType(jcHandle);
+	if(jc->controller_type != type)
+		jc->controller_type = type; // Reassign at each call? :( Low impact function
 	//COUT << "Found a match for %d\n", jcHandle);
 	float gyroX = 0.0;
 	float gyroY = 0.0;
@@ -2816,7 +2818,6 @@ void CleanUp()
 	{
 		JslSetLightColour(js.first, 0);
 		JslSetRumble(js.first, 0, 0);
-		JslSetPlayerNumber(js.first, 0b1001);
 		Sleep(50);
 	}
 	JslDisconnectAndDisposeAll();
@@ -3162,7 +3163,7 @@ int main(int argc, char *argv[]) {
 		mappings.push_back(newButton);
 	}
 	// console
-	initConsole(&CleanUp);
+	initConsole();
 	ColorStream<&cout, FOREGROUND_GREEN | FOREGROUND_INTENSITY>() << "Welcome to JoyShockMapper version " << version << '!' << endl;
 	//if (whitelister) COUT << "JoyShockMapper was successfully whitelisted!" << endl;
 	// Threads need to be created before listeners
