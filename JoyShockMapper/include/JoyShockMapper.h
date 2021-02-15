@@ -57,31 +57,33 @@ enum class ButtonID
 	ZR,			// = 13
 	PLUS,		// = 14
 	HOME,		// = 15
-	SL,			// = 16
-	SR,			// = 17
-	L3,			// = 18
-	R3,			// = 19
-	LUP,		// = 20
-	LDOWN,		// = 21
-	LLEFT,		// = 22
-	LRIGHT,		// = 23
-	LRING,		// = 24
-	RUP,		// = 25
-	RDOWN,		// = 26
-	RLEFT,		// = 27
-	RRIGHT,		// = 28
-	RRING,		// = 29
-	MUP,        // = 30
-	MDOWN,		// = 31
-	MLEFT,		// = 32
-	MRIGHT,		// = 33
-	MRING,		// = 34
-	LEAN_LEFT,   // = 35
-	LEAN_RIGHT,  // = 36
-	ZLF,		// = 37  FIRST_ANALOG_TRIGGER
+	LSL,		// = 16
+	LSR,		// = 17
+	RSL,        // = 18
+	RSR,        // = 19
+	L3,			// = 20
+	R3,			// = 21
+	LUP,		// = 22
+	LDOWN,		// = 23
+	LLEFT,		// = 24
+	LRIGHT,		// = 25
+	LRING,		// = 26
+	RUP,		// = 27
+	RDOWN,		// = 28
+	RLEFT,		// = 29
+	RRIGHT,		// = 30
+	RRING,		// = 31
+	MUP,        // = 32
+	MDOWN,		// = 33
+	MLEFT,		// = 34
+	MRIGHT,		// = 35
+	MRING,		// = 36
+	LEAN_LEFT,   // = 37
+	LEAN_RIGHT,  // = 38
+	ZLF,		// = 39  FIRST_ANALOG_TRIGGER
 				// insert more analog triggers here
-	ZRF,		// = 38 // LAST_ANALOG_TRIGGER
-	SIZE,		// = 39
+	ZRF,		// = 40 // LAST_ANALOG_TRIGGER
+	SIZE,		// = 41
 };
 
 enum class SettingID

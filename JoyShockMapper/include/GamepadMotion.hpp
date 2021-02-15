@@ -1,12 +1,86 @@
 // Copyright (c) 2020-2021 Julian "Jibb" Smart
 // Released under the MIT license. See https://github.com/JibbSmart/GamepadMotionHelpers/blob/main/LICENSE for more info
+// Revision 3
 
 #define _USE_MATH_DEFINES
 #include <math.h>
 
-static struct Vec;
-static struct GyroCalibration;
-static struct Motion;
+// You don't need to look at these. These will just be used internally by the GamepadMotion class declared below.
+// You can ignore anything in namespace GamepadMotionHelpers.
+
+namespace GamepadMotionHelpers
+{
+	struct GyroCalibration
+	{
+		float X;
+		float Y;
+		float Z;
+		float AccelMagnitude;
+		int NumSamples;
+	};
+	
+	struct Quat
+	{
+		float w;
+		float x;
+		float y;
+		float z;
+
+		Quat();
+	    Quat(float inW, float inX, float inY, float inZ);
+	    void Set(float inW, float inX, float inY, float inZ);
+	    Quat& operator*=(const Quat& rhs);
+	    friend Quat operator*(Quat lhs, const Quat& rhs);
+	    void Normalize();
+	    Quat Normalized() const;
+	    void Invert();
+	    Quat Inverse() const;
+	};
+
+	struct Vec
+    {
+	    float x;
+	    float y;
+	    float z;
+
+		Vec();
+		Vec(float inX, float inY, float inZ);
+	    void Set(float inX, float inY, float inZ);
+	    float Length() const;
+	    void Normalize();
+	    Vec Normalized() const;
+	    float Dot(const Vec& other) const;
+	    Vec Cross(const Vec& other) const;
+	    Vec& operator+=(const Vec& rhs);
+	    friend Vec operator+(Vec lhs, const Vec& rhs);
+	    Vec& operator-=(const Vec& rhs);
+	    friend Vec operator-(Vec lhs, const Vec& rhs);
+	    Vec& operator*=(const float rhs);
+	    friend Vec operator*(Vec lhs, const float rhs);
+	    Vec& operator/=(const float rhs);
+	    friend Vec operator/(Vec lhs, const float rhs);
+	    Vec& operator*=(const Quat& rhs);
+	    friend Vec operator*(Vec lhs, const Quat& rhs);
+	    Vec operator-() const;
+    };
+
+	struct Motion
+    {
+	    Quat Quaternion;
+	    Vec Accel;
+	    Vec Grav;
+
+	    const int NumGravDirectionSamples = 10;
+	    Vec GravDirectionSamples[10];
+	    int LastGravityIdx = 9;
+	    int NumGravDirectionSamplesCounted = 0;
+	    float TimeCorrecting = 0.0f;
+
+		Motion();
+		void Reset();
+	    void Update(float inGyroX, float inGyroY, float inGyroZ, float inAccelX, float inAccelY, float inAccelZ, float gravityLength, float deltaTime);
+    };
+}
 
 // Note that I'm using a Y-up coordinate system. This is to follow the convention set by the motion sensors in
 // PlayStation controllers, which was what I was using when writing in this. But for the record, Z-up is
@@ -41,10 +115,10 @@ public:
 	void ResetMotion();
 
 private:
-	Vec Gyro;
-	Vec RawAccel;
-	Motion Motion;
-	GyroCalibration GyroCalibration;
+	GamepadMotionHelpers::Vec Gyro;
+	GamepadMotionHelpers::Vec RawAccel;
+	GamepadMotionHelpers::Motion Motion;
+	GamepadMotionHelpers::GyroCalibration GyroCalibration;
 
 	bool IsCalibrating;
 	void PushSensorSamples(float gyroX, float gyroY, float gyroZ, float accelMagnitude);
@@ -53,22 +127,9 @@ private:
 
 ///////////// Everything below here are just implementation details /////////////
 
-static struct GyroCalibration {
-	float X;
-	float Y;
-	float Z;
-	float AccelMagnitude;
-	int NumSamples;
-};
-
-static struct Quat
+namespace GamepadMotionHelpers
 {
-	float w;
-	float x;
-	float y;
-	float z;
-
-	Quat()
+	Quat::Quat()
 	{
 		w = 1.0f;
 		x = 0.0f;
@@ -76,7 +137,7 @@ static struct Quat
 		z = 0.0f;
 	}
 
-	Quat(float inW, float inX, float inY, float inZ)
+	Quat::Quat(float inW, float inX, float inY, float inZ)
 	{
 		w = inW;
 		x = inX;
@@ -91,7 +152,7 @@ static struct Quat
 		return result;
 	}
 
-	void Set(float inW, float inX, float inY, float inZ)
+	void Quat::Set(float inW, float inX, float inY, float inZ)
 	{
 		w = inW;
 		x = inX;
@@ -99,22 +160,22 @@ static struct Quat
 		z = inZ;
 	}
 
-	Quat& operator*=(const Quat& rhs)
+	Quat& Quat::operator*=(const Quat& rhs)
 	{
 		Set(w * rhs.w - x * rhs.x - y * rhs.y - z * rhs.z,
-			w * rhs.x + x * rhs.w + y * rhs.z - z * rhs.y,
-			w * rhs.y - x * rhs.z + y * rhs.w + z * rhs.x,
-			w * rhs.z + x * rhs.y - y * rhs.x + z * rhs.w);
+		  w * rhs.x + x * rhs.w + y * rhs.z - z * rhs.y,
+		  w * rhs.y - x * rhs.z + y * rhs.w + z * rhs.x,
+		  w * rhs.z + x * rhs.y - y * rhs.x + z * rhs.w);
 		return *this;
 	}
 
-	friend Quat operator*(Quat lhs, const Quat& rhs)
-	{
-		lhs *= rhs;
-		return lhs;
-	}
+	Quat operator*(Quat lhs, const Quat& rhs)
+    {
+	    lhs *= rhs;
+	    return lhs;
+    }
 
-	void Normalize()
+	void Quat::Normalize()
 	{
 		//printf("Normalizing: %.4f, %.4f, %.4f, %.4f\n", w, x, y, z);
 		const float length = sqrtf(x * x + y * y + z * z);
@@ -135,14 +196,14 @@ static struct Quat
 		return;
 	}
 
-	Quat Normalized() const
+	Quat Quat::Normalized() const
 	{
 		Quat result = *this;
 		result.Normalize();
 		return result;
 	}
 
-	void Invert()
+	void Quat::Invert()
 	{
 		x = -x;
 		y = -y;
@@ -150,47 +211,40 @@ static struct Quat
 		return;
 	}
 
-	Quat Inverse() const
+	Quat Quat::Inverse() const
 	{
 		Quat result = *this;
 		result.Invert();
 		return result;
 	}
-};
 
-static struct Vec
-{
-	float x;
-	float y;
-	float z;
-
-	Vec()
+	Vec::Vec()
 	{
 		x = 0.0f;
 		y = 0.0f;
 		z = 0.0f;
 	}
 
-	Vec(float inX, float inY, float inZ)
+	Vec::Vec(float inX, float inY, float inZ)
 	{
 		x = inX;
 		y = inY;
 		z = inZ;
 	}
 
-	void Set(float inX, float inY, float inZ)
+	void Vec::Set(float inX, float inY, float inZ)
 	{
 		x = inX;
 		y = inY;
 		z = inZ;
 	}
 
-	float Length() const
+	float Vec::Length() const
 	{
 		return sqrtf(x * x + y * y + z * z);
 	}
 
-	void Normalize()
+	void Vec::Normalize()
 	{
 		const float length = Length();
 		if (length == 0.0)
@@ -205,110 +259,98 @@ static struct Vec
 		return;
 	}
 
-	Vec Normalized() const
+	Vec Vec::Normalized() const
 	{
 		Vec result = *this;
 		result.Normalize();
 		return result;
 	}
 
-	Vec& operator+=(const Vec& rhs)
+	Vec& Vec::operator+=(const Vec& rhs)
 	{
 		Set(x + rhs.x, y + rhs.y, z + rhs.z);
 		return *this;
 	}
 
-	friend Vec operator+(Vec lhs, const Vec& rhs)
+    Vec operator+(Vec lhs, const Vec& rhs)
 	{
 		lhs += rhs;
 		return lhs;
 	}
 
-	Vec& operator-=(const Vec& rhs)
+	Vec& Vec::operator-=(const Vec& rhs)
 	{
 		Set(x - rhs.x, y - rhs.y, z - rhs.z);
 		return *this;
 	}
 
-	friend Vec operator-(Vec lhs, const Vec& rhs)
+	Vec operator-(Vec lhs, const Vec& rhs)
 	{
 		lhs -= rhs;
 		return lhs;
 	}
 
-	Vec& operator*=(const float rhs)
+	Vec& Vec::operator*=(const float rhs)
 	{
 		Set(x * rhs, y * rhs, z * rhs);
 		return *this;
 	}
 
-	friend Vec operator*(Vec lhs, const float rhs)
+	Vec operator*(Vec lhs, const float rhs)
 	{
 		lhs *= rhs;
 		return lhs;
 	}
 
-	Vec& operator/=(const float rhs)
+	Vec& Vec::operator/=(const float rhs)
 	{
 		Set(x / rhs, y / rhs, z / rhs);
 		return *this;
 	}
 
-	friend Vec operator/(Vec lhs, const float rhs)
+	Vec operator/(Vec lhs, const float rhs)
 	{
 		lhs /= rhs;
 		return lhs;
 	}
 
-	Vec& operator*=(const Quat& rhs)
+	Vec& Vec::operator*=(const Quat& rhs)
 	{
 		Quat temp = rhs * Quat(0.0f, x, y, z) * rhs.Inverse();
 		Set(temp.x, temp.y, temp.z);
 		return *this;
 	}
 
-	friend Vec operator*(Vec lhs, const Quat& rhs)
+	Vec operator*(Vec lhs, const Quat& rhs)
 	{
 		lhs *= rhs;
 		return lhs;
 	}
 
-	Vec operator-() const {
+	Vec Vec::operator-() const
+	{
 		Vec result = Vec(-x, -y, -z);
 		return result;
 	}
 
-	float Dot(const Vec& other) const
+	float Vec::Dot(const Vec& other) const
 	{
 		return x * other.x + y * other.y + z * other.z;
 	}
 
-	Vec Cross(const Vec& other) const
+	Vec Vec::Cross(const Vec& other) const
 	{
 		return Vec(y * other.z - z * other.y,
-			z * other.x - x * other.z,
-			x * other.y - y * other.x);
+		  z * other.x - x * other.z,
+		  x * other.y - y * other.x);
 	}
-};
 
-static struct Motion
-{
-	Quat Quaternion;
-	Vec Accel;
-	Vec Grav;
-
-	const int NumGravDirectionSamples = 10;
-	Vec GravDirectionSamples[10];
-	int LastGravityIdx = 9;
-	int NumGravDirectionSamplesCounted = 0;
-	float TimeCorrecting = 0.0f;
-
-	Motion()
+	Motion::Motion()
 	{
 		Reset();
 	}
 
-	void Reset()
+	void Motion::Reset()
 	{
 		Quaternion.Set(1.0f, 0.0f, 0.0f, 0.0f);
 		Accel.Set(0.0f, 0.0f, 0.0f);
@@ -319,7 +361,7 @@ static struct Motion
 	/// <summary>
 	/// The gyro inputs should be calibrated degrees per second but have no other processing. Acceleration is in G units (1 = approx. 9.8m/s^2)
 	/// </summary>
-	void Update(float inGyroX, float inGyroY, float inGyroZ, float inAccelX, float inAccelY, float inAccelZ, float gravityLength, float deltaTime)
+    void Motion::Update(float inGyroX, float inGyroY, float inGyroZ, float inAccelX, float inAccelY, float inAccelZ, float gravityLength, float deltaTime)
 	{
 		const Vec axis = Vec(inGyroX, inGyroY, inGyroZ);
 		const Vec accel = Vec(inAccelX, inAccelY, inAccelZ);
@@ -327,7 +369,7 @@ static struct Motion
 		angle *= deltaTime;
 
 		// rotate
-		Quat rotation = Quat::AngleAxis(angle, axis.x, axis.y, axis.z);
+		Quat rotation = AngleAxis(angle, axis.x, axis.y, axis.z);
 		Quaternion *= rotation; // do it this way because it's a local rotation, not global
 		//printf("Quat: %.4f %.4f %.4f %.4f _",
 		//	Quaternion.w, Quaternion.x, Quaternion.y, Quaternion.z);
@@ -375,8 +417,8 @@ static struct Motion
 			const Vec gravityBoxSize = gravityMax - gravityMin;
 			//printf(" Gravity Box Size: %.4f _ ", gravityBoxSize.Length());
 			if (gravityBoxSize.x <= steadyGravityThreshold &&
-				gravityBoxSize.y <= steadyGravityThreshold &&
-				gravityBoxSize.z <= steadyGravityThreshold)
+			  gravityBoxSize.y <= steadyGravityThreshold &&
+			  gravityBoxSize.z <= steadyGravityThreshold)
 			{
 				absoluteAccel = gravityMin + (gravityBoxSize * 0.5f);
 				const Vec gravityDirection = -absoluteAccel.Normalized();
@@ -400,7 +442,7 @@ static struct Motion
 						confidentSmoothCorrect *= TimeCorrecting / EaseInTime;
 					}
 
-					Quaternion = Quat::AngleAxis(confidentSmoothCorrect * (float)M_PI / 180.0f, flattened.x, flattened.y, flattened.z) * Quaternion;
+					Quaternion = AngleAxis(confidentSmoothCorrect * (float)M_PI / 180.0f, flattened.x, flattened.y, flattened.z) * Quaternion;
 				}
 				else
 				{
@@ -424,7 +466,7 @@ static struct Motion
 		}
 		Quaternion.Normalize();
 	}
-};
+} // namespace GamepadMotionHelpers
 
 GamepadMotion::GamepadMotion()
 {
@@ -440,7 +482,7 @@ void GamepadMotion::Reset()
 }
 
 void GamepadMotion::ProcessMotion(float gyroX, float gyroY, float gyroZ,
-	float accelX, float accelY, float accelZ, float deltaTime)
+  float accelX, float accelY, float accelZ, float deltaTime)
 {
 	float accelMagnitude = sqrtf(accelX * accelX + accelY * accelY + accelZ * accelZ);
 
@@ -450,7 +492,7 @@ void GamepadMotion::ProcessMotion(float gyroX, float gyroY, float gyroZ,
 	}
 
 	float gyroOffsetX, gyroOffsetY, gyroOffsetZ;
-	GetCalibratedSensor(gyroX, gyroY, gyroZ, accelMagnitude);
+	GetCalibratedSensor(gyroOffsetX, gyroOffsetY, gyroOffsetZ, accelMagnitude);
 
 	gyroX -= gyroOffsetX;
 	gyroY -= gyroOffsetY;
@@ -554,7 +596,8 @@ void GamepadMotion::PushSensorSamples(float gyroX, float gyroY, float gyroZ, flo
 
 void GamepadMotion::GetCalibratedSensor(float& gyroOffsetX, float& gyroOffsetY, float& gyroOffsetZ, float& accelMagnitude)
 {
-	if (GyroCalibration.NumSamples <= 0) {
+	if (GyroCalibration.NumSamples <= 0)
+	{
 		gyroOffsetX = 0.f;
 		gyroOffsetY = 0.f;
 		gyroOffsetZ = 0.f;

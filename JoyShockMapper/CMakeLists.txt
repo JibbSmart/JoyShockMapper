@@ -54,6 +54,14 @@ if (WINDOWS)
 
     set (BUILD_SHARED_LIBS ON)
 
+    add_custom_command(
+        TARGET ${BINARY_NAME}
+        POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E copy
+            "$<TARGET_FILE:SDL2>"
+            "$<TARGET_FILE_DIR:${PROJECT_NAME}>/$<TARGET_FILE_NAME:SDL2>"
+    )
+
 	 add_definitions(/bigobj)
 endif ()
 
@@ -80,10 +88,22 @@ target_include_directories (
     "${PROJECT_BINARY_DIR}/${PROJECT_NAME}/include"
 )
 
+CPMAddPackage (
+    NAME SDL2
+    GITHUB_REPOSITORY libsdl-org/SDL
+    VERSION 2.0.15
+    # 2.0.15 hasn't released yet, so let's use a specific commit
+    GIT_TAG a2fbc452ca7cf9c5839e009ce111552f8db38e89
+)
+
 target_link_libraries (
     ${BINARY_NAME} PRIVATE
     Platform::Dependencies
     SDL2
+)
+
+install (
+    TARGETS ${BINARY_NAME} SDL2
 )
 
 CPMAddPackage (

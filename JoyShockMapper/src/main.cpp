@@ -81,10 +81,10 @@ JSMSetting<float> turbo_period = JSMSetting<float>(SettingID::TURBO_PERIOD, 80.0
 JSMSetting<float> hold_press_time = JSMSetting<float>(SettingID::HOLD_PRESS_TIME, 150.0f);
 JSMVariable<float> sim_press_window = JSMVariable<float>(50.0f);
 JSMVariable<float> dbl_press_window = JSMVariable<float>(200.0f);
+JSMSetting<float> tick_time = JSMSetting<float>(SettingID::TICK_TIME, 3);
 JSMVariable<PathString> currentWorkingDir = JSMVariable<PathString>(GetCWD());
 JSMVariable<Switch> autoloadSwitch = JSMVariable<Switch>(Switch::ON);
-JSMVariable<int> tick_time = JSMSetting<int>(SettingID::TICK_TIME, 3);
-  vector<JSMButton> mappings; // array enables use of for each loop and other i/f
+vector<JSMButton> mappings; // array enables use of for each loop and other i/f
 
 mutex loading_lock;
 mutex controller_lock;
@@ -143,7 +143,7 @@ public:
 	}
 
 
-	DigitalButton(DigitalButton::Common* btnCommon, ButtonID id, int deviceHandle)
+	DigitalButton(DigitalButton::Common *btnCommon, ButtonID id, GamepadMotion *gamepadMotion)
 		: _id(id)
 		, _common(btnCommon)
 		, _mapping(mappings[int(_id)])
@@ -153,7 +153,7 @@ public:
 		, _turboCount(0)
 		, _simPressMaster(ButtonID::NONE)
 		, _instantReleaseQueue()
-		, _deviceHandle(deviceHandle)
+		, _gamepadMotion(gamepadMotion)
 	{
 		_instantReleaseQueue.reserve(2);
 	}
@@ -168,7 +168,7 @@ public:
 	unsigned int _turboCount;
 	ButtonID _simPressMaster;
 	vector<BtnEvent> _instantReleaseQueue;
-	int _deviceHandle;
+	GamepadMotion* _gamepadMotion;
 
 	bool CheckInstantRelease(BtnEvent instantEvent)
 	{
@@ -268,13 +268,13 @@ public:
 	void StartCalibration()
 	{
 		printf("Starting continuous calibration\n");
-		JslResetContinuousCalibration(_deviceHandle);
-		JslStartContinuousCalibration(_deviceHandle);
+		_gamepadMotion->ResetContinuousCalibration();
+		_gamepadMotion->StartContinuousCalibration();
 	}
 
 	void FinishCalibration()
 	{
-		JslPauseContinuousCalibration(_deviceHandle);
+		_gamepadMotion->PauseContinuousCalibration();
 		printf("Gyro calibration set\n");
 		ClearAllActiveToggle(KeyCode("CALIBRATE"));
 	}
@@ -632,54 +632,6 @@ private:
 		return setting.get(chord) ? optional<E1>(static_cast<E1>(*setting.get(chord))) : nullopt;
 	}
 
-	int keyToBitOffset(ButtonID index) {
-		switch (index) {
-		case ButtonID::UP:
-			return JSOFFSET_UP;
-		case ButtonID::DOWN:
-			return JSOFFSET_DOWN;
-		case ButtonID::LEFT:
-			return JSOFFSET_LEFT;
-		case ButtonID::RIGHT:
-			return JSOFFSET_RIGHT;
-		case ButtonID::L:
-			return JSOFFSET_L;
-		case ButtonID::ZL:
-			return JSOFFSET_ZL;
-		case ButtonID::MINUS:
-			return JSOFFSET_MINUS;
-		case ButtonID::CAPTURE:
-			return JSOFFSET_CAPTURE;
-		case ButtonID::E:
-			return JSOFFSET_E;
-		case ButtonID::S:
-			return JSOFFSET_S;
-		case ButtonID::N:
-			return JSOFFSET_N;
-		case ButtonID::W:
-			return JSOFFSET_W;
-		case ButtonID::R:
-			return JSOFFSET_R;
-		case ButtonID::ZR:
-			return JSOFFSET_ZR;
-		case ButtonID::PLUS:
-			return JSOFFSET_PLUS;
-		case ButtonID::HOME:
-			return JSOFFSET_HOME;
-		case ButtonID::SL:
-			return JSOFFSET_SL;
-		case ButtonID::SR:
-			return JSOFFSET_SR;
-		case ButtonID::L3:
-			return JSOFFSET_LCLICK;
-		case ButtonID::R3:
-			return JSOFFSET_RCLICK;
-		}
-		stringstream ss;
-		ss << "Button " << index << " is not valid ";
-		throw invalid_argument(ss.str().c_str());
-	}
-
 public:
 	const int MaxGyroSamples = 64;
 	const int NumSamples = 64;
@@ -722,6 +674,11 @@ public:
 	float lastMotionStickX = 0.0f;
 	float lastMotionStickY = 0.0f;
 
+	float lastLX = 0.f;
+	float lastLY = 0.f;
+	float lastRX = 0.f;
+	float lastRY = 0.f;
+
 	float neutralQuatW = 1.0f;
 	float neutralQuatX = 0.0f;
 	float neutralQuatY = 0.0f;
@@ -750,7 +707,7 @@ public:
 		buttons.reserve(MAPPING_SIZE);
 		for (int i = 0; i < MAPPING_SIZE; ++i)
 		{
-			buttons.push_back( DigitalButton(btnCommon, ButtonID(i), uniqueHandle) );
+			buttons.push_back( DigitalButton(btnCommon, ButtonID(i), &motion) );
 		}
 		ResetSmoothSample();
 	}
@@ -769,7 +726,7 @@ public:
 		buttons.reserve(MAPPING_SIZE);
 		for (int i = 0; i < MAPPING_SIZE; ++i)
 		{
-			buttons.push_back(DigitalButton(btnCommon, ButtonID(i), uniqueHandle));
+			buttons.push_back(DigitalButton(btnCommon, ButtonID(i), &motion));
 		}
 		ResetSmoothSample();
 	}
@@ -777,6 +734,7 @@ public:
 	~JoyShock()
 	{
 		btnCommon->DecrementReferenceCounter();
+		printf("Disconnecting controller\n");
 		SDL_GameControllerClose(sdl_controller);
 	}
 
@@ -843,8 +801,6 @@ public:
 			case SettingID::FLICK_SNAP_MODE:
 				opt = GetOptionalSetting<E>(flick_snap_mode, *activeChord);
 				break;
-			case SettingID::TICK_TIME:
-				opt = GetOptionalSetting<E>(tick_time, *activeChord);
 			}
 			if (opt) return *opt;
 		}
@@ -967,6 +923,9 @@ public:
 				opt = hold_press_time.get(*activeChord);
 				break;
 				// SIM_PRESS_WINDOW and DBL_PRESS_WINDOW are not chorded, they can be accessed as is.
+			case SettingID::TICK_TIME:
+				opt = tick_time.get(*activeChord);
+				break;
 			}
 			if (opt) return *opt;
 		}
@@ -1308,11 +1267,13 @@ public:
 
 	void handleTriggerChange(ButtonID softIndex, ButtonID fullIndex, TriggerMode mode, float pressed)
 	{
-		if (JslGetControllerType(intHandle) != JS_TYPE_DS4)
-		{
-			// Override local variable because the controller has digital triggers. Effectively ignore Full Pull binding.
-			mode = TriggerMode::NO_FULL;
-		}
+		// I don't know if SDL can reliably detect whether we have digital or analog triggers.
+		// For now, let's just assume the user has a good config set up for the device they're using.
+		//if (JslGetControllerType(intHandle) != JS_TYPE_DS4)
+		//{
+		//	// Override local variable because the controller has digital triggers. Effectively ignore Full Pull binding.
+		//	mode = TriggerMode::NO_FULL;
+		//}
 
 		auto idxState = int(fullIndex) - FIRST_ANALOG_TRIGGER; // Get analog trigger index
 		if (idxState < 0 || idxState >= (int)triggerState.size())
@@ -1647,10 +1608,8 @@ void connectDevices() {
 	controller_lock.unlock();
 }
 
-void pollDevices()
+static int pollDevices(void *ptr)
 {
-	controller_lock.lock();
-
 	while (keep_polling) {
 		controller_lock.lock();
 		
@@ -1696,10 +1655,8 @@ bool do_RESET_MAPPINGS(CmdRegistry *registry) {
 }
 
 bool do_RECONNECT_CONTROLLERS() {
-	printf("Reconnecting controllers\n");
-	JslDisconnectAndDisposeAll();
 	connectDevices();
-	JslSetCallback(&joyShockPollCallback);
+	printf("Reconnected controllers\n");
 	return true;
 }
 
@@ -1759,21 +1716,25 @@ bool do_CALCULATE_REAL_WORLD_CALIBRATION(in_string argument) {
 }
 
 bool do_FINISH_GYRO_CALIBRATION() {
+	controller_lock.lock();
 	printf("Finishing continuous calibration for all devices\n");
 	for (auto iter = handle_to_joyshock.begin(); iter != handle_to_joyshock.end(); ++iter) {
-		JslPauseContinuousCalibration(iter->second->intHandle);
+		iter->second->motion.PauseContinuousCalibration();
 	}
 	devicesCalibrating = false;
+	controller_lock.unlock();
 	return true;
 }
 
 bool do_RESTART_GYRO_CALIBRATION() {
+	controller_lock.lock();
 	printf("Restarting continuous calibration for all devices\n");
 	for (auto iter = handle_to_joyshock.begin(); iter != handle_to_joyshock.end(); ++iter) {
-		JslResetContinuousCalibration(iter->second->intHandle);
-		JslStartContinuousCalibration(iter->second->intHandle);
+		iter->second->motion.ResetContinuousCalibration();
+		iter->second->motion.StartContinuousCalibration();
 	}
 	devicesCalibrating = true;
+	controller_lock.unlock();
 	return true;
 }
 
@@ -1919,8 +1880,8 @@ static float handleFlickStick(float calX, float calY, float lastCalX, float last
 				jc->flick_rotation_counter += angleChange; // track all rotation for this flick
 				float flickSpeedConstant = jc->getSetting(SettingID::REAL_WORLD_CALIBRATION) * mouseCalibrationFactor / jc->getSetting(SettingID::IN_GAME_SENS);
 				float flickSpeed = -(angleChange * flickSpeedConstant);
-				int maxSmoothingSamples = min(jc->NumSamples, (int)(64.0f * (jc->poll_rate / 1000.0f))); // target a max smoothing window size of 64ms
-				float stepSize = jc->stick_step_size; // and we only want full on smoothing when the stick change each time we poll it is approximately the minimum stick resolution
+				int maxSmoothingSamples = min(jc->NumSamples, (int)(64.0f * jc->getSetting(SettingID::TICK_TIME))); // target a max smoothing window size of 64ms
+				float stepSize = 0.01f; // and we only want full on smoothing when the stick change each time we poll it is approximately the minimum stick resolution
 													  // the fact that we're using radians makes this really easy
 				auto rotate_smooth_override = jc->getSetting(SettingID::ROTATE_SMOOTH_OVERRIDE);
 				if (rotate_smooth_override < 0.0f)
@@ -2138,16 +2099,24 @@ void joyShockPollCallback(JoyShock* jc, float deltaTime) {
 	float toGs = 1.f / 9.8f;
 	motion.ProcessMotion(rawGyro[0] * toDegrees, rawGyro[1] * toDegrees, rawGyro[2] * toDegrees, rawAccel[0] * toGs, rawAccel[1] * toGs, rawAccel[2] * toGs, deltaTime);
 
-	float gyroX, gyroY, gyroZ;
-	motion.GetCalibratedGyro(gyroX, gyroY, gyroZ);
+	float inGyroX, inGyroY, inGyroZ;
+	motion.GetCalibratedGyro(inGyroX, inGyroY, inGyroZ);
+
+	float inGravX, inGravY, inGravZ;
+	motion.GetGravity(inGravX, inGravY, inGravZ);
+	inGravX *= toGs;
+	inGravY *= toGs;
+	inGravZ *= toGs;
+
+	float inQuatW, inQuatX, inQuatY, inQuatZ;
+	motion.GetOrientation(inQuatW, inQuatX, inQuatY, inQuatZ);
 
 	//printf("DS4 accel: %.4f, %.4f, %.4f\n", imuState.accelX, imuState.accelY, imuState.accelZ);
 	//printf("\tDS4 gyro: %.4f, %.4f, %.4f\n", imuState.gyroX, imuState.gyroY, imuState.gyroZ);
-	MOTION_STATE motion = JslGetMotionState(jcHandle);
 	//printf("\tDS4 quat: %.4f, %.4f, %.4f, %.4f | accel: %.4f, %.4f, %.4f | grav: %.4f, %.4f, %.4f\n",
-	//	motion.quatW, motion.quatX, motion.quatY, motion.quatZ,
+	//	inQuatW, inQuatX, inQuatY, inQuatZ,
 	//	motion.accelX, motion.accelY, motion.accelZ,
-	//	motion.gravX, motion.gravY, motion.gravZ);
+	//	inGravvX, inGravY, inGravZ);
 
 	bool blockGyro = false;
 	bool lockMouse = false;
@@ -2158,36 +2127,35 @@ void joyShockPollCallback(JoyShock* jc, float deltaTime) {
 
 	if (jc->set_neutral_quat)
 	{
-		jc->neutralQuatW = motion.quatW;
-		jc->neutralQuatX = motion.quatX;
-		jc->neutralQuatY = motion.quatY;
-		jc->neutralQuatZ = motion.quatZ;
+		jc->neutralQuatW = inQuatW;
+		jc->neutralQuatX = inQuatX;
+		jc->neutralQuatY = inQuatY;
+		jc->neutralQuatZ = inQuatZ;
 		jc->set_neutral_quat = false;
 		printf("Neutral orientation for device %d set...\n", jc->intHandle);
 	}
-	jc->controller_type = JslGetControllerSplitType(jcHandle); // Reassign at each call? :( Low impact function
 	//printf("Found a match for %d\n", jcHandle);
 	float gyroX = 0.0;
 	float gyroY = 0.0;
 	int mouse_x_flag = (int)jc->getSetting<GyroAxisMask>(SettingID::MOUSE_X_FROM_GYRO_AXIS);
 	if ((mouse_x_flag & (int)GyroAxisMask::X) > 0) {
-		gyroX += imuState.gyroX;
+		gyroX += inGyroX;
 	}
 	if ((mouse_x_flag & (int)GyroAxisMask::Y) > 0) {
-		gyroX -= imuState.gyroY;
+		gyroX -= inGyroY;
 	}
 	if ((mouse_x_flag & (int)GyroAxisMask::Z) > 0) {
-		gyroX -= imuState.gyroZ;
+		gyroX -= inGyroZ;
 	}
 	int mouse_y_flag = (int)jc->getSetting<GyroAxisMask>(SettingID::MOUSE_Y_FROM_GYRO_AXIS);
 	if ((mouse_y_flag & (int)GyroAxisMask::X) > 0) {
-		gyroY -= imuState.gyroX;
+		gyroY -= inGyroX;
 	}
 	if ((mouse_y_flag & (int)GyroAxisMask::Y) > 0) {
-		gyroY += imuState.gyroY;
+		gyroY += inGyroY;
 	}
 	if ((mouse_y_flag & (int)GyroAxisMask::Z) > 0) {
-		gyroY += imuState.gyroZ;
+		gyroY += inGyroZ;
 	}
 	float gyroLength = sqrt(gyroX * gyroX + gyroY * gyroY);
 	// do gyro smoothing
@@ -2232,10 +2200,13 @@ void joyShockPollCallback(JoyShock* jc, float deltaTime) {
 	if (jc->controller_type != JS_SPLIT_TYPE_RIGHT)
 	{
 		// let's do these sticks... don't want to constantly send input, so we need to compare them to last time
-		float lastCalX = lastState.stickLX;
-		float lastCalY = lastState.stickLY;
-		float calX = state.stickLX;
-		float calY = state.stickLY;
+		float lastCalX = jc->lastLX;
+		float lastCalY = jc->lastLY;
+		float calX = SDL_GameControllerGetAxis(gameController, SDL_CONTROLLER_AXIS_LEFTX) / (float)SDL_JOYSTICK_AXIS_MAX;
+		float calY = -SDL_GameControllerGetAxis(gameController, SDL_CONTROLLER_AXIS_LEFTY) / (float)SDL_JOYSTICK_AXIS_MAX;
+
+		jc->lastLX = calX;
+		jc->lastLY = calY;
 
 		processStick(jc, calX, calY, lastCalX, lastCalY, jc->getSetting(SettingID::LEFT_STICK_DEADZONE_INNER), jc->getSetting(SettingID::LEFT_STICK_DEADZONE_OUTER),
 			jc->getSetting<RingMode>(SettingID::LEFT_RING_MODE), jc->getSetting<StickMode>(SettingID::LEFT_STICK_MODE),
@@ -2245,10 +2216,13 @@ void joyShockPollCallback(JoyShock* jc, float deltaTime) {
 
 	if (jc->controller_type != JS_SPLIT_TYPE_LEFT)
 	{
-		float lastCalX = lastState.stickRX;
-		float lastCalY = lastState.stickRY;
-		float calX = state.stickRX;
-		float calY = state.stickRY;
+		float lastCalX = jc->lastRX;
+		float lastCalY = jc->lastRY;
+		float calX = SDL_GameControllerGetAxis(gameController, SDL_CONTROLLER_AXIS_RIGHTX) / (float)SDL_JOYSTICK_AXIS_MAX;
+		float calY = -SDL_GameControllerGetAxis(gameController, SDL_CONTROLLER_AXIS_RIGHTY) / (float)SDL_JOYSTICK_AXIS_MAX;
+
+		jc->lastRX = calX;
+		jc->lastRY = calY;
 
 		processStick(jc, calX, calY, lastCalX, lastCalY, jc->getSetting(SettingID::RIGHT_STICK_DEADZONE_INNER), jc->getSetting(SettingID::RIGHT_STICK_DEADZONE_OUTER),
 			jc->getSetting<RingMode>(SettingID::RIGHT_RING_MODE), jc->getSetting<StickMode>(SettingID::RIGHT_STICK_MODE),
@@ -2260,7 +2234,7 @@ void joyShockPollCallback(JoyShock* jc, float deltaTime) {
 		(jc->controller_type & (int)jc->getSetting<JoyconMask>(SettingID::JOYCON_MOTION_MASK)) == 0)
 	{
 		Quat neutralQuat = Quat(jc->neutralQuatW, jc->neutralQuatX, jc->neutralQuatY, jc->neutralQuatZ);
-		Vec grav = Vec(motion.gravX, motion.gravY, motion.gravZ) * neutralQuat;
+		Vec grav = Vec(inGravX, inGravY, inGravZ) * neutralQuat;
 
 		float lastCalX = jc->lastMotionStickX;
 		float lastCalY = jc->lastMotionStickY;
@@ -2320,7 +2294,8 @@ void joyShockPollCallback(JoyShock* jc, float deltaTime) {
 		jc->handleButtonChange(ButtonID::MINUS, SDL_GameControllerGetButton(gameController, SDL_CONTROLLER_BUTTON_BACK));
 		jc->handleButtonChange(ButtonID::CAPTURE, SDL_GameControllerGetButton(gameController, SDL_CONTROLLER_BUTTON_MISC1)); // TODO: for backwards compatibility, we need to detect PS controllers and do touchpad click here instead
 		jc->handleButtonChange(ButtonID::L3, SDL_GameControllerGetButton(gameController, SDL_CONTROLLER_BUTTON_LEFTSTICK));
-		jc->handleTriggerChange(ButtonID::ZL, ButtonID::ZLF, jc->getSetting<TriggerMode>(SettingID::ZL_MODE), state.lTrigger);
+		float lTrigger = SDL_GameControllerGetAxis(gameController, SDL_CONTROLLER_AXIS_TRIGGERLEFT) / (float)SDL_JOYSTICK_AXIS_MAX;
+		jc->handleTriggerChange(ButtonID::ZL, ButtonID::ZLF, jc->getSetting<TriggerMode>(SettingID::ZL_MODE), lTrigger);
 	}
 	if (jc->controller_type != JS_SPLIT_TYPE_LEFT)
 	{
@@ -2332,10 +2307,14 @@ void joyShockPollCallback(JoyShock* jc, float deltaTime) {
 		jc->handleButtonChange(ButtonID::PLUS, SDL_GameControllerGetButton(gameController, SDL_CONTROLLER_BUTTON_START));
 		jc->handleButtonChange(ButtonID::HOME, SDL_GameControllerGetButton(gameController, SDL_CONTROLLER_BUTTON_GUIDE));
 		jc->handleButtonChange(ButtonID::R3, SDL_GameControllerGetButton(gameController, SDL_CONTROLLER_BUTTON_RIGHTSTICK));
-		jc->handleTriggerChange(ButtonID::ZR, ButtonID::ZRF, jc->getSetting<TriggerMode>(SettingID::ZR_MODE), state.rTrigger);
+		float rTrigger = SDL_GameControllerGetAxis(gameController, SDL_CONTROLLER_AXIS_TRIGGERRIGHT) / (float)SDL_JOYSTICK_AXIS_MAX;
+		jc->handleTriggerChange(ButtonID::ZR, ButtonID::ZRF, jc->getSetting<TriggerMode>(SettingID::ZR_MODE), rTrigger);
 	}
-	jc->handleButtonChange(ButtonID::SL, (state.buttons & JSMASK_SL) > 0);
-	jc->handleButtonChange(ButtonID::SR, (state.buttons & JSMASK_SR) > 0);
+	// SL and SR are mapped to back paddle positions:
+	jc->handleButtonChange(ButtonID::LSL, SDL_GameControllerGetButton(gameController, SDL_CONTROLLER_BUTTON_PADDLE3));
+	jc->handleButtonChange(ButtonID::LSR, SDL_GameControllerGetButton(gameController, SDL_CONTROLLER_BUTTON_PADDLE4));
+	jc->handleButtonChange(ButtonID::RSL, SDL_GameControllerGetButton(gameController, SDL_CONTROLLER_BUTTON_PADDLE2));
+	jc->handleButtonChange(ButtonID::RSR, SDL_GameControllerGetButton(gameController, SDL_CONTROLLER_BUTTON_PADDLE1));
 
 	// Handle buttons before GYRO because some of them may affect the value of blockGyro
 	auto gyro = jc->getSetting<GyroSettings>(SettingID::GYRO_ON); // same result as getting GYRO_OFF
@@ -2637,9 +2616,9 @@ float filterHoldPressDelay(float c, float next)
 	return next;
 }
 
-float filterTickTime(int c, int next)
+float filterTickTime(float c, float next)
 {
-	return max(1, min(100, next));
+	return max(1.f, min(100.f, round(next)));
 }
 
 Mapping filterMapping(Mapping current, Mapping next)
@@ -2649,14 +2628,15 @@ Mapping filterMapping(Mapping current, Mapping next)
 
 TriggerMode triggerModeNotification(TriggerMode current, TriggerMode next)
 {
-	for (auto js : handle_to_joyshock)
-	{
-		if (JslGetControllerType(js.first) != JS_TYPE_DS4 && next != TriggerMode::NO_FULL)
-		{
-			printf("WARNING: Dual Stage Triggers are only valid on analog triggers. Full pull bindings will be ignored on non DS4 controllers.\n");
-			break;
-		}
-	}
+	// With SDL, I'm not sure if we have a reliable way to check if the device has analog or digital triggers. There's a function to query them, but I don't know if it works with the devices with custom readers (Switch, PS)
+	//for (auto js : handle_to_joyshock)
+	//{
+	//	if (JslGetControllerType(js.first) != JS_TYPE_DS4 && next != TriggerMode::NO_FULL)
+	//	{
+	//		printf("WARNING: Dual Stage Triggers are only valid on analog triggers. Full pull bindings will be ignored on non DS4 controllers.\n");
+	//		break;
+	//	}
+	//}
 	return next;
 }
 
@@ -2853,6 +2833,9 @@ int main(int argc, char *argv[]) {
 	// prepare for input
 	initSDL();
 	connectDevices();
+	SDL_Thread *controllerThread = SDL_CreateThread(pollDevices, "Poll Devices", (void *)NULL);
+	SDL_DetachThread(controllerThread);
+
     tray.reset(new TrayIcon(trayIconData, &beforeShowTrayMenu ));
     tray->Show();
 
@@ -2936,11 +2919,16 @@ int main(int argc, char *argv[]) {
 	}
 	else printf("[AUTOLOAD] AutoLoad is unavailable\n");
 
-
 	for (auto &mapping : mappings) // Add all button mappings as commands
 	{
 		commandRegistry.Add(new JSMAssignment<Mapping>(mapping.getName(), mapping));
 	}
+	// SL and SR are shorthand for two different mappings
+	commandRegistry.Add(new JSMAssignment<Mapping>("SL", mappings[(int)ButtonID::LSL]));
+	commandRegistry.Add(new JSMAssignment<Mapping>("SL", mappings[(int)ButtonID::RSL]));
+	commandRegistry.Add(new JSMAssignment<Mapping>("SR", mappings[(int)ButtonID::LSR]));
+	commandRegistry.Add(new JSMAssignment<Mapping>("SR", mappings[(int)ButtonID::RSR]));
+
 	commandRegistry.Add((new JSMAssignment<FloatXY>(min_gyro_sens))
 		->SetHelp("Minimum gyro sensitivity when turning controller at or below MIN_GYRO_THRESHOLD.\nYou can assign a second value as a different vertical sensitivity."));
 	commandRegistry.Add((new JSMAssignment<FloatXY>(max_gyro_sens))
@@ -3094,7 +3082,7 @@ int main(int argc, char *argv[]) {
 		->SetHelp("Sets the amount of time in milliseconds within which both buttons of a simultaneous press needs to be pressed before enabling the sim press mappings. This setting does not support modeshift."));
 	commandRegistry.Add((new JSMAssignment<float>("DBL_PRESS_WINDOW", dbl_press_window))
 		->SetHelp("Sets the amount of time in milliseconds within which the user needs to press a button twice before enabling the double press mappings. This setting does not support modeshift."));
-	commandRegistry.Add((new JSMAssignment<int>("TICK_TIME", tick_time))
+	commandRegistry.Add((new JSMAssignment<float>("TICK_TIME", tick_time))
 	    ->SetHelp("Sets the time in milliseconds that JoyShockMaper waits before reading from each controller again."));
 	commandRegistry.Add((new JSMAssignment<PathString>("JSM_DIRECTORY", currentWorkingDir))
 		->SetHelp("If AUTOLOAD doesn't work properly, set this value to the path to the directory holding the JoyShockMapper.exe file. Make sure a folder named \"AutoLoad\" exists there."));
