@@ -296,7 +296,7 @@ public:
 	void SetRumble(int smallRumble, int bigRumble)
 	{
 		// COUT << "Rumbling at " << smallRumble << " and " << bigRumble << endl;
-		//SDL_GameControllerRumble(sdl_controller, smallRumble, bigRumble, 1000);
+		//SDL_GameControllerRumble(_common->sdl_controller, smallRumble, bigRumble, 1000);
 	}
 
 	void ApplyBtnPress(KeyCode key)
@@ -1016,10 +1016,16 @@ public:
 	  , prevTriggerPosition(NUM_ANALOG_TRIGGERS, deque<float>(MAGIC_TRIGGER_SMOOTHING, 0.f))
 	  , right_scroll(this, ButtonID::RLEFT, ButtonID::RRIGHT)
 	  , left_scroll(this, ButtonID::LLEFT, ButtonID::LRIGHT)
-	  , _light_bar(getSetting<Color>(SettingID::LIGHT_BAR))
-	  , btnCommon (sharedButtonCommon ? sharedButtonCommon : 
-	  	shared_ptr<DigitalButton::Common>(new DigitalButton::Common(bind(&JoyShock::handleViGEmNotification, this, placeholders::_1, placeholders::_2, placeholders::_3))))
+	  , _light_bar()
+	  , btnCommon (sharedButtonCommon)
 	{
+		if (!sharedButtonCommon)
+		{
+			btnCommon = shared_ptr<DigitalButton::Common>(new DigitalButton::Common(
+				bind(&JoyShock::handleViGEmNotification, this, placeholders::_1, placeholders::_2, placeholders::_3)));
+		}
+		_light_bar = getSetting<Color>(SettingID::LIGHT_BAR);
+
 		platform_controller_type = SDL_GameControllerGetType(gameController);
 		btnCommon->_getMatchingSimBtn = bind(&JoyShock::GetMatchingSimBtn, this, placeholders::_1);
 
@@ -1033,7 +1039,10 @@ public:
 		SDL_GameControllerSetLED(sdl_controller, _light_bar.rgb.r, _light_bar.rgb.g, _light_bar.rgb.b);
 	}
 
-	~JoyShock() { }
+	~JoyShock()
+	{
+		SDL_GameControllerClose(sdl_controller);
+	}
 
 	bool CheckVigemState()
 	{
@@ -2602,6 +2611,19 @@ void joyShockPollCallback(JoyShock* jc, float deltaTime) {
 		float rTrigger = SDL_GameControllerGetAxis(gameController, SDL_CONTROLLER_AXIS_TRIGGERRIGHT) / (float)SDL_JOYSTICK_AXIS_MAX;
 		jc->handleTriggerChange(ButtonID::ZR, ButtonID::ZRF, jc->getSetting<TriggerMode>(SettingID::ZR_MODE), rTrigger);
 	}
+	bool touch = false;
+	for (int t = SDL_GameControllerGetNumTouchpads(jc->sdl_controller) - 1; t >= 0; --t)
+	{
+		for (int f = SDL_GameControllerGetNumTouchpadFingers(jc->sdl_controller, t) - 1; f >= 0; --f)
+		{
+			uint8_t touchState = 0;
+			if (SDL_GameControllerGetTouchpadFinger(jc->sdl_controller, t, f, &touchState, nullptr, nullptr, nullptr) == 0)
+			{
+				touch |= (touchState != 0);
+			}
+		}
+	}
+	jc->handleButtonChange(ButtonID::TOUCH, touch);
 
 	// Handle buttons before GYRO because some of them may affect the value of blockGyro
 	auto gyro = jc->getSetting<GyroSettings>(SettingID::GYRO_ON); // same result as getting GYRO_OFF
