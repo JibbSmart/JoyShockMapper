@@ -271,6 +271,10 @@ WORD nameToKey(const std::string &name)
 	{
 		return VK_SUBTRACT;
 	}
+	if (name.compare("SUBTRACT") == 0)
+	{
+		return VK_SUBTRACT;
+	}
 	if (name.compare("DIVIDE") == 0)
 	{
 		return VK_DIVIDE;

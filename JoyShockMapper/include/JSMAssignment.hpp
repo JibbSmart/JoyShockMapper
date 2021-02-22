@@ -156,18 +156,23 @@ protected:
 	}
 
 	unsigned int _listenerId;
+	bool _hasListener;
 
 public:
-	JSMAssignment(in_string name, in_string displayName, JSMVariable<T>& var)
+	JSMAssignment(in_string name, in_string displayName, JSMVariable<T>& var, bool inNoListener = false)
 		: JSMCommand(name)
 		, _var(var)
 		, _displayName(displayName)
 		, _listenerId(0)
+		, _hasListener(!inNoListener)
 	{
 		// Child Classes assign their own parser. Use bind to convert instance function call
 		// into a static function call.
 		SetParser(&JSMAssignment::DefaultParser);
-		_listenerId = _var.AddOnChangeListener(bind(&JSMAssignment::DisplayNewValue, this, placeholders::_1));
+		if (_hasListener)
+		{
+			_listenerId = _var.AddOnChangeListener(bind(&JSMAssignment::DisplayNewValue, this, placeholders::_1));
+		}
 	}
 
 	JSMAssignment(in_string name, JSMVariable<T>& var)
@@ -180,7 +185,10 @@ public:
 
 	virtual ~JSMAssignment()
 	{
-		_var.RemoveOnChangeListener(_listenerId);
+		if (_hasListener)
+		{
+			_var.RemoveOnChangeListener(_listenerId);
+		}
 	}
 
 	// This setter enables custom parsers to perform assignments

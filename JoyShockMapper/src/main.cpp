@@ -2949,10 +2949,10 @@ int main(int argc, char *argv[]) {
 		commandRegistry.Add(new JSMAssignment<Mapping>(mapping.getName(), mapping));
 	}
 	// SL and SR are shorthand for two different mappings
-	commandRegistry.Add(new JSMAssignment<Mapping>("SL", mappings[(int)ButtonID::LSL]));
-	commandRegistry.Add(new JSMAssignment<Mapping>("SL", mappings[(int)ButtonID::RSL]));
-	commandRegistry.Add(new JSMAssignment<Mapping>("SR", mappings[(int)ButtonID::LSR]));
-	commandRegistry.Add(new JSMAssignment<Mapping>("SR", mappings[(int)ButtonID::RSR]));
+	commandRegistry.Add(new JSMAssignment<Mapping>("SL", "", mappings[(int)ButtonID::LSL], true));
+	commandRegistry.Add(new JSMAssignment<Mapping>("SL", "", mappings[(int)ButtonID::RSL], true));
+	commandRegistry.Add(new JSMAssignment<Mapping>("SR", "", mappings[(int)ButtonID::LSR], true));
+	commandRegistry.Add(new JSMAssignment<Mapping>("SR", "", mappings[(int)ButtonID::RSR], true));
 
 	commandRegistry.Add((new JSMAssignment<FloatXY>(min_gyro_sens))
 		->SetHelp("Minimum gyro sensitivity when turning controller at or below MIN_GYRO_THRESHOLD.\nYou can assign a second value as a different vertical sensitivity."));

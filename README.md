@@ -204,7 +204,7 @@ These can all be mapped to the following keyboard and mouse inputs:
 ```
 0-9: number keys across the top of the keyboard
 N0-N9: numpad number keys
-ADD, SUBSTRACT, DIVIDE, MULTIPLY, DECIMAL: numpad operator and decimal keys
+ADD, SUBTRACT, DIVIDE, MULTIPLY, DECIMAL: numpad operator and decimal keys
 F1-F29: F1, F2, F3... etc
 A-Z: letter keys
 UP, DOWN, LEFT, RIGHT: the arrow keys
