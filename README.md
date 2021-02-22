@@ -6,9 +6,11 @@ My goal with JoyShockMapper is to enable you to play PC games with DS, DS4, JoyC
 
 **Download JoyShockMapper to use right away [here](https://github.com/JibbSmart/JoyShockMapper/releases)**!
 
-For developers, this is also a reference implementation for using [JoyShockLibrary](https://github.com/jibbsmart/JoyShockLibrary) to read inputs from DualShock 4, JoyCons, and Pro Controller in your games. It's also a reference implementation for many of the best practices described on [GyroWiki](http://gyrowiki.jibbsmart.com).
+For developers, version 2.2 and older serve as a reference implementation for using [JoyShockLibrary](https://github.com/jibbsmart/JoyShockLibrary) to read inputs from DualShock 4, DualSense, JoyCons, and Pro Controller in your games. It now uses [SDL2](https://github.com/libsdl-org/SDL) for controller support, and JoyShockLibrary's developer has made code contributions to SDL2 to make sure it covers the same features.
 
-JoyShockMapper works on Windows and uses JoyShockLibrary to read inputs from controllers. JoyShockMapper should now be able to be built on and for Linux. See the instructions for that below. Please let us know if you have any trouble with this.
+JoyShockMapper is also a reference implementation for many of the best practices described on [GyroWiki](http://gyrowiki.jibbsmart.com).
+
+JoyShockMapper is primarily developed on Windows. JoyShockMapper should now be able to be built on and for Linux. See the instructions for that below. Please let us know if you have any trouble with this.
 
 ## Contents
 * **[Installation for Devs](#installation-for-devs)**
@@ -700,9 +702,10 @@ There are a few other useful commands that don't fall under the above categories
 * **SLEEP** - Cause the program to sleep (or wait) for a given number of seconds. The given value must be greater than 0 and less than or equal to 10. Or, omit the value and it will sleep for one second. This command may help automate calibration.
 * ***onstartup.txt*** - This is not a command. But if a file called '*onstartup.txt*' is found in the current working directory on startup, its contents will be loaded and executed right away. If you prefer that AutoLoad is disabled, put ```AUTOLOAD = OFF``` in here to have it disabled at startup. If you use HIDGuardian / HIDCerberus and always want to whitelist JSM and then reconnect controllers, just put ```WHITELIST_ADD``` and ```RECONNECT_CONTROLLERS``` in the startup file.
 * ***onreset.txt*** - This is also not a command. But if a file called '*onreset.txt*' is found in the current working directory when the ```RESET_MAPPINGS``` command is called, this config will be loaded and executed right afterwards.
+* **TICK\_TIME** (default 3) - The number of milliseconds to wait between between checking the state of connected controllers. Previous versions only sent new virtual keyboard and mouse inputs when there was a new message from the controller, but this made JoyCons clunky on a monitor with a refresh rate higher than 67Hz. Now, all connected devices are polled at the same rate, and you can change it here. The default of 3 milliseconds will give you a polling rate of approximately 333Hz.
 
 ## Troubleshooting
-Some third-party devices that work as controllers on Switch or PS4 may not work with JoyShockMapper. It only _officially_ supports first-party controllers. Issues may still arise with those, though. Reach out, and hopefully we can figure out where the problem is.
+Some third-party devices that work as controllers on Switch, PS4, or PS5 may not work with JoyShockMapper. It only _officially_ supports first-party controllers. Issues may still arise with those, though. Reach out, and hopefully we can figure out where the problem is.
 
 But first, here are some common problems that are worth checking first.
 
@@ -713,13 +716,6 @@ Many users of JoyShockMapper rely on tools like HIDGuardian to hide controller i
 In some circumstances, the JoyShockMapper console is responding to controller input and the mouse is responding to gyro movements, but the game you're playing isn't responding to it. This can happen when the you launch the game as an administrator. JoyShockMapper must also be launched with administrator rights in order to send keyboard and mouse events to the game.
 
 Some users have found stick inputs to be unresponsive in one or more directions. This can happen if the stick isn't using enough of the range available to it. In this case, increasing STICK\_DEADZONE\_OUTER can help. In the same way, the stick might be reporting a direction as pressed even when it's not touched. This happens when STICK\_DEADZONE\_INNER is too small.
-
-## Known and Perceived Issues
-### Polling rate
-New mouse and keyboard events are only sent when JoyShockMapper gets a new message from the controller. This means if your game's and display's refresh rates are higher than the controller's poll rate, sometimes the game and display will update without moving the mouse, even if you'd normally expect the mouse to move. The DualSense and DualShock 4 send 250 messages a second, which is plenty for even extremely high refresh rate displays. But JoyCons and Pro Controllers send 66.67 messages a second, which means you might encounter stuttering movements when playing (and displaying) above 66.67 frames per second. A future version of JoyShockMapper may work around this problem by repeating messages up to a desired refresh rate.
-
-### Bluetooth connectivity
-JoyCons and Pro Controllers normally only communicate by Bluetooth. Some Bluetooth adapters can't keep up with these devices, resulting in **laggy input**. This is especially common when more than one device is connected (such as when using a pair of JoyCons). There is nothing JoyShockMapper or JoyShockLibrary can do about this. JoyShockMapper experimentally supports connecting Switch controllers by USB.
 
 ## Credits
 I'm Julian "Jibb" Smart, and I made JoyShockMapper. As of version 1.3, JoyShockMapper has benefited from substantial community contributions. Huge thanks to the following contributors:
@@ -733,7 +729,9 @@ I'm Julian "Jibb" Smart, and I made JoyShockMapper. As of version 1.3, JoyShockM
 
 Have a look at the CHANGELOG for a better idea of who contributed what. Nicolas, in particular, regularly contributes a lot of work. He is responsible for a lot of the cool quality-of-life and advanced mapping features.
 
-JoyShockMapper relies a lot on [JoyShockLibrary](https://github.com/jibbsmart/JoyShockLibrary), which it uses to read controller inputs. Check out that project to see what prior work made JoyShockLibrary possible.
+JoyShockMapper versions 2.2 and earlier relied a lot on [JoyShockLibrary](https://github.com/jibbsmart/JoyShockLibrary), which it used to read controller inputs. Check out that project to see what prior work made JoyShockLibrary possible. Newer versions use [SDL2](https://github.com/libsdl-org/SDL) to read from controllers, as the latest versions are able to read gyro and accelerometer input on the same controllers that could already be used with JoyShockLibrary, but also supports many non-gyro controllers as well.
+
+Since moving to SDL2, JoyShockMapper also uses [GamepadMotionHelpers](https://github.com/JibbSmart/GamepadMotionHelpers), a small project that provides the sensor fusion and calibration options of JoyShockLibrary without all the device-specific stuff.
 
 ## Helpful Resources
 * [GyroWiki](http://gyrowiki.jibbsmart.com) - All about good gyro controls for games:
