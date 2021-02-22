@@ -18,6 +18,7 @@ add_executable (
     src/operators.cpp
     src/CmdRegistry.cpp
     src/quatMaths.cpp
+    src/ButtonHelp.cpp
     include/InputHelpers.h
     include/PlatformDefinitions.h
     include/TrayIcon.h
@@ -27,6 +28,7 @@ add_executable (
     include/JSMVariable.hpp
     include/Whitelister.h
     include/JoyShockMapper.h
+    include/ColorCodes.h
     include/GamepadMotion.hpp
 )
 
@@ -34,25 +36,54 @@ if (WINDOWS)
     target_sources (
         ${BINARY_NAME} PRIVATE
         src/win32/InputHelpers.cpp
-                                            include/win32/resource.h
         src/win32/PlatformDefinitions.cpp
         src/win32/WindowsTrayIcon.cpp       include/win32/WindowsTrayIcon.h
         src/win32/Whitelister.cpp
-        "Win32 Dialog.rc"
+        src/win32/Gamepad.cpp                include/win32/Gamepad.h
+        "Win32 Dialog.rc"                    include/win32/resource.h
     )
-
+    
     set_target_properties (
-        ${BINARY_NAME}
-        PROPERTIES WIN32_EXECUTABLE ON
+        ${BINARY_NAME} PROPERTIES
+         WIN32_EXECUTABLE ON
+         VS_STARTUP_PROJECT "${BINARY_NAME}"
+         VS_DEBUGGER_WORKING_DIRECTORY "$(ProjectDir)/$(Configuration)/"
     )
 
+    # ViGEmClient
+    CPMAddPackage (
+        NAME ViGEmClient
+        GITHUB_REPOSITORY ViGEm/ViGEmClient
+        VERSION 1.16.107.0
+    )
+    
+    include_external_msproject(ViGEmClient 
+      "_deps/vigemclient-src/src/ViGEmClient.vcxproj")
+    
+    SET(ViGEmClient_GUID_CMAKE "7DB06674-1F4F-464B-8E1C-172E9587F9DC" CACHE INTERNAL "Project GUID")
+    
+    set_target_properties(ViGEmClient PROPERTIES
+      MAP_IMPORTED_CONFIG_DEBUG DEBUG_LIB
+      MAP_IMPORTED_CONFIG_RELEASE RELEASE_LIB
+    )
+    
+    set_target_properties(ViGEmClient PROPERTIES
+      VS_PLATFORM_TOOLSET "v141"
+      IMPORTED_LOCATION "${PROJECT_BINARY_DIR}/lib/debug/$(PlatformShortName)/ViGEmClient.lib"
+      INTERFACE_INCLUDE_DIRECTORIES "${PROJECT_BINARY_DIR}/_deps/vigemclient-src/include"
+    )
+    
+    add_dependencies(${BINARY_NAME} ViGEmClient)
+    
     set_target_properties (
-        ${BINARY_NAME}
-        PROPERTIES VS_DEBUGGER_WORKING_DIRECTORY
-        "$(ProjectDir)/$(Configuration)/"
+        ${BINARY_NAME} PROPERTIES
+         LINK_LIBRARIES "${PROJECT_BINARY_DIR}/lib/debug/$(PlatformShortName)/ViGEmClient.lib"
     )
-
-    set (BUILD_SHARED_LIBS ON)
+    
+    target_include_directories (
+        ${BINARY_NAME} PUBLIC
+        "${PROJECT_BINARY_DIR}/_deps/vigemclient-src/include"
+    )
 
     add_custom_command(
         TARGET ${BINARY_NAME}
@@ -88,6 +119,7 @@ target_include_directories (
     "${PROJECT_BINARY_DIR}/${PROJECT_NAME}/include"
 )
 
+# SDL2
 CPMAddPackage (
     NAME SDL2
     GITHUB_REPOSITORY libsdl-org/SDL
@@ -106,6 +138,7 @@ install (
     TARGETS ${BINARY_NAME} SDL2
 )
 
+# magic_enum
 CPMAddPackage (
     NAME magic_enum
     GITHUB_REPOSITORY Neargye/magic_enum

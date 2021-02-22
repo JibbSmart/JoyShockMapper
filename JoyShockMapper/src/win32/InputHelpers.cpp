@@ -32,9 +32,6 @@ static float windowsSensitivityMappings[] =
 	3.5
 };
 
-// Cleanup actions to perform on quit
-static std::function<void()> cleanupFunction;
-
 // get the user's mouse sensitivity multiplier from the user. In Windows it's an int, but who cares? it's well within range for float to represent it exactly
 // also, if this is ported to other platforms, we might want non-integer sensitivities
 float getMouseSpeed() {
@@ -70,8 +67,8 @@ int pressMouse(KeyCode vkKey, bool isPressed) {
 	input.mi.mouseData = std::get<2>(val);
 	if (input.mi.dwFlags) { // Ignore if there's no event ID (ex: "wheel release")
 		auto result = SendInput(1, &input, sizeof(input));
-		//printf("%s\n", vkKey.name);
-		//printf("\t%d\n", vkKey.code);
+		//COUT << vkKey.name << endl;
+		//COUT << vkKey.code << endl;
 		return result;
 	}
 	return 0;
@@ -128,7 +125,7 @@ void moveMouse(float x, float y) {
 
 	accumulatedX -= applicableX;
 	accumulatedY -= applicableY;
-	//printf("%0.4f %0.4f\n", accumulatedX, accumulatedY);
+	//COUT << setprecision(4) << accumulatedX << ' ' << accumulatedY << endl;
 
 	INPUT input;
 	input.type = INPUT_MOUSE;
@@ -151,7 +148,7 @@ void setMouseNorm(float x, float y) {
 	SendInput(1, &input, sizeof(input));
 }
 
-BOOL WriteToConsole(const std::string& command)
+BOOL WriteToConsole(in_string command)
 {
 	static const INPUT_RECORD ESC_DOWN = { KEY_EVENT, {TRUE,  1, VK_ESCAPE, MapVirtualKey(VK_ESCAPE, MAPVK_VK_TO_VSC), VK_ESCAPE, 0} };
 	static const INPUT_RECORD ESC_UP = { KEY_EVENT, {FALSE, 1, VK_ESCAPE, MapVirtualKey(VK_ESCAPE, MAPVK_VK_TO_VSC), VK_ESCAPE, 0} };
@@ -184,7 +181,7 @@ BOOL WriteToConsole(const std::string& command)
 	DWORD written;
 	if (WriteConsoleInput(GetStdHandle(STD_INPUT_HANDLE), inputs.data(), inputs.size(), &written) == FALSE) {
 		auto err = GetLastError();
-		printf("Error writing to console input: %lu\n", err);
+		CERR << "Error writing to console input: " << err << endl;
 	}
 	FlushConsoleInputBuffer(GetStdHandle(STD_INPUT_HANDLE));
 	return written == inputs.size();
@@ -199,16 +196,14 @@ BOOL WINAPI ConsoleCtrlHandler(DWORD dwCtrlType)
 	case CTRL_BREAK_EVENT:
 	case CTRL_CLOSE_EVENT:
 		// Indirection is used to avoid having Windows stuff in main file
-		if (cleanupFunction)
-			cleanupFunction();
+		WriteToConsole("QUIT");
 		return TRUE;
 	}
 	return FALSE;
 };
 
 // just setting up the console with standard stuff
-void initConsole(std::function<void()> todoOnQuit) {
-	cleanupFunction = todoOnQuit; //Assign cleanup function
+void initConsole() {
 	AllocConsole();
 	SetConsoleTitle(L"JoyShockMapper");
 	// https://stackoverflow.com/a/15547699/1130520
@@ -280,14 +275,14 @@ std::vector<std::string> ListDirectory(std::string directory)
 
 		{
 			fileListing.push_back(ffd.cFileName);
-			//printf("File: %s\n", ffd.cFileName);
+			//COUT << "File: " << ffd.cFileName << endl;
 		}
 	} while (FindNextFileA(hFind, &ffd) != 0);
 
 	auto dwError = GetLastError();
 	if (dwError != ERROR_NO_MORE_FILES)
 	{
-		printf("Error code %d raised with FindNextFile()\n", dwError);
+		CERR << "Error code " << dwError << " raised with FindNextFile()" << endl;
 	}
 
 	FindClose(hFind);
@@ -354,7 +349,8 @@ DWORD WINAPI PollingThread::pollFunction(void *param)
 
 DWORD ShowOnlineHelp()
 {
-	printf("See the latest user manual at the web page below:\nhttps://github.com/JibbSmart/JoyShockMapper/blob/master/README.md\n");
+	COUT << "See the latest user manual at the web page below:" << endl 
+		 << "https://github.com/JibbSmart/JoyShockMapper/blob/master/README.md" << endl;
 	return 0;
 	// SECURE CODING! https://www.oreilly.com/library/view/secure-programming-cookbook/0596003943/ch01s08.html
 	//STARTUPINFOA startupInfo;
@@ -374,6 +370,11 @@ DWORD ShowOnlineHelp()
 void HideConsole()
 {
 	ShowWindow(GetConsoleWindow(), SW_HIDE);
+}
+
+void UnhideConsole()
+{
+	ShowWindow(GetConsoleWindow(), SW_SHOWMINIMIZED);
 }
 
 void ShowConsole()
