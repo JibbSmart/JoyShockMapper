@@ -638,6 +638,7 @@ public:
 	int intHandle;
 	SDL_GameController* sdl_controller;
 	GamepadMotion motion;
+	SDL_GameControllerType platform_controller_type;
 
 	bool has_gyro;
 	bool has_accel;
@@ -703,6 +704,7 @@ public:
 	  , triggerState(NUM_ANALOG_TRIGGERS, DstState::NoPress)
 	  , buttons()
 	{
+		platform_controller_type = SDL_GameControllerGetType(gameController);
 		btnCommon = new DigitalButton::Common();
 		buttons.reserve(MAPPING_SIZE);
 		for (int i = 0; i < MAPPING_SIZE; ++i)
@@ -722,6 +724,7 @@ public:
 	  , btnCommon(sharedButtonCommon)
 	  , buttons()
 	{
+		platform_controller_type = SDL_GameControllerGetType(gameController);
 		btnCommon->IncrementReferenceCounter();
 		buttons.reserve(MAPPING_SIZE);
 		for (int i = 0; i < MAPPING_SIZE; ++i)
@@ -2294,8 +2297,22 @@ void joyShockPollCallback(JoyShock* jc, float deltaTime) {
 		jc->handleButtonChange(ButtonID::RIGHT, SDL_GameControllerGetButton(gameController, SDL_CONTROLLER_BUTTON_DPAD_RIGHT));
 		jc->handleButtonChange(ButtonID::L, SDL_GameControllerGetButton(gameController, SDL_CONTROLLER_BUTTON_LEFTSHOULDER));
 		jc->handleButtonChange(ButtonID::MINUS, SDL_GameControllerGetButton(gameController, SDL_CONTROLLER_BUTTON_BACK));
-		jc->handleButtonChange(ButtonID::CAPTURE, SDL_GameControllerGetButton(gameController, SDL_CONTROLLER_BUTTON_MISC1)); // TODO: for backwards compatibility, we need to detect PS controllers and do touchpad click here instead
+		// for backwards compatibility, we need need to account for the fact that SDL2 maps the touchpad button differently to SDL
+		switch (jc->platform_controller_type)
+		{
+		case SDL_CONTROLLER_TYPE_PS4:
+		case SDL_CONTROLLER_TYPE_PS5:
+			jc->handleButtonChange(ButtonID::CAPTURE, SDL_GameControllerGetButton(gameController, SDL_CONTROLLER_BUTTON_TOUCHPAD));
+			break;
+		default:
+			jc->handleButtonChange(ButtonID::CAPTURE, SDL_GameControllerGetButton(gameController, SDL_CONTROLLER_BUTTON_MISC1));
+			break;
+		}
 		jc->handleButtonChange(ButtonID::L3, SDL_GameControllerGetButton(gameController, SDL_CONTROLLER_BUTTON_LEFTSTICK));
+		// SL and SR are mapped to back paddle positions:
+		jc->handleButtonChange(ButtonID::LSL, SDL_GameControllerGetButton(gameController, SDL_CONTROLLER_BUTTON_PADDLE2));
+		jc->handleButtonChange(ButtonID::LSR, SDL_GameControllerGetButton(gameController, SDL_CONTROLLER_BUTTON_PADDLE4));
+
 		float lTrigger = SDL_GameControllerGetAxis(gameController, SDL_CONTROLLER_AXIS_TRIGGERLEFT) / (float)SDL_JOYSTICK_AXIS_MAX;
 		jc->handleTriggerChange(ButtonID::ZL, ButtonID::ZLF, jc->getSetting<TriggerMode>(SettingID::ZL_MODE), lTrigger);
 	}
@@ -2309,14 +2326,13 @@ void joyShockPollCallback(JoyShock* jc, float deltaTime) {
 		jc->handleButtonChange(ButtonID::PLUS, SDL_GameControllerGetButton(gameController, SDL_CONTROLLER_BUTTON_START));
 		jc->handleButtonChange(ButtonID::HOME, SDL_GameControllerGetButton(gameController, SDL_CONTROLLER_BUTTON_GUIDE));
 		jc->handleButtonChange(ButtonID::R3, SDL_GameControllerGetButton(gameController, SDL_CONTROLLER_BUTTON_RIGHTSTICK));
+		// SL and SR are mapped to back paddle positions:
+		jc->handleButtonChange(ButtonID::RSL, SDL_GameControllerGetButton(gameController, SDL_CONTROLLER_BUTTON_PADDLE3));
+		jc->handleButtonChange(ButtonID::RSR, SDL_GameControllerGetButton(gameController, SDL_CONTROLLER_BUTTON_PADDLE1));
+		
 		float rTrigger = SDL_GameControllerGetAxis(gameController, SDL_CONTROLLER_AXIS_TRIGGERRIGHT) / (float)SDL_JOYSTICK_AXIS_MAX;
 		jc->handleTriggerChange(ButtonID::ZR, ButtonID::ZRF, jc->getSetting<TriggerMode>(SettingID::ZR_MODE), rTrigger);
 	}
-	// SL and SR are mapped to back paddle positions:
-	jc->handleButtonChange(ButtonID::LSL, SDL_GameControllerGetButton(gameController, SDL_CONTROLLER_BUTTON_PADDLE2));
-	jc->handleButtonChange(ButtonID::LSR, SDL_GameControllerGetButton(gameController, SDL_CONTROLLER_BUTTON_PADDLE4));
-	jc->handleButtonChange(ButtonID::RSL, SDL_GameControllerGetButton(gameController, SDL_CONTROLLER_BUTTON_PADDLE3));
-	jc->handleButtonChange(ButtonID::RSR, SDL_GameControllerGetButton(gameController, SDL_CONTROLLER_BUTTON_PADDLE1));
 
 	// Handle buttons before GYRO because some of them may affect the value of blockGyro
 	auto gyro = jc->getSetting<GyroSettings>(SettingID::GYRO_ON); // same result as getting GYRO_OFF
