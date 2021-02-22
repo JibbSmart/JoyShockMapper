@@ -1628,6 +1628,8 @@ static int pollDevices(void *ptr)
 
 		SDL_Delay(tick_time);
 	}
+
+	return 1;
 }
 
 void SimPressCrossUpdate(ButtonID sim, ButtonID origin, Mapping newVal)
@@ -2311,9 +2313,9 @@ void joyShockPollCallback(JoyShock* jc, float deltaTime) {
 		jc->handleTriggerChange(ButtonID::ZR, ButtonID::ZRF, jc->getSetting<TriggerMode>(SettingID::ZR_MODE), rTrigger);
 	}
 	// SL and SR are mapped to back paddle positions:
-	jc->handleButtonChange(ButtonID::LSL, SDL_GameControllerGetButton(gameController, SDL_CONTROLLER_BUTTON_PADDLE3));
+	jc->handleButtonChange(ButtonID::LSL, SDL_GameControllerGetButton(gameController, SDL_CONTROLLER_BUTTON_PADDLE2));
 	jc->handleButtonChange(ButtonID::LSR, SDL_GameControllerGetButton(gameController, SDL_CONTROLLER_BUTTON_PADDLE4));
-	jc->handleButtonChange(ButtonID::RSL, SDL_GameControllerGetButton(gameController, SDL_CONTROLLER_BUTTON_PADDLE2));
+	jc->handleButtonChange(ButtonID::RSL, SDL_GameControllerGetButton(gameController, SDL_CONTROLLER_BUTTON_PADDLE3));
 	jc->handleButtonChange(ButtonID::RSR, SDL_GameControllerGetButton(gameController, SDL_CONTROLLER_BUTTON_PADDLE1));
 
 	// Handle buttons before GYRO because some of them may affect the value of blockGyro
@@ -2564,6 +2566,13 @@ void CleanUp()
 {
 	tray->Hide();
 	keep_polling = false;
+
+	controller_lock.lock();
+	handle_to_joyshock.clear();
+	controller_lock.unlock();
+	
+	SDL_Delay(200);
+
 	SDL_Quit();
 	ReleaseConsole();
 	whitelister.Remove();
