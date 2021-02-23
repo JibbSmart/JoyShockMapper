@@ -71,7 +71,8 @@ bool CmdRegistry::loadConfigFile(string fileName) {
 	}
 	if (file)
 	{
-		COUT << "Loading commands from file " << fileName << endl;
+		COUT << "Loading commands from file ";
+		COUT_INFO << fileName << endl;
 		// https://stackoverflow.com/questions/6892754/creating-a-simple-configuration-file-and-parser-in-c
 		string line;
 		while (getline(file, line)) {
@@ -220,7 +221,7 @@ void CmdRegistry::processLine(const string& line)
 
 		if (!hasProcessed)
 		{
-			cout << "Unrecognized command: \"" << trimmedLine << "\"\nEnter HELP to display all commands." << endl;
+			CERR << "Unrecognized command: \"" << trimmedLine << "\"\nEnter HELP to display all commands." << endl;
 		}
 	}
 	// else ignore empty lines
