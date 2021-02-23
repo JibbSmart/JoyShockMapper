@@ -107,12 +107,12 @@ The application requires ```rw``` access to ```/dev/uinput```, and ```/dev/hidra
 The application will work on both X11 and Wayland, though focused window detection only works on X11.
 
 ## Installation for Players
-The latest version of JoyShockMapper can always be found [here](https://github.com/JibbSmart/JoyShockMapper/releases). All you have to do is run JoyShockMapper.exe.
+The latest version of JoyShockMapper can always be found [here](https://github.com/Electronicks/JoyShockMapper/releases). All you have to do is run JoyShockMapper.exe.
 
 Included is a folder called GyroConfigs. This includes templates for creating new configurations for 2D and 3D games, and configuration files that include the settings used for simple [Real World Calibration](#5-real-world-calibration).
 
 ## Quick Start
-1. Connect your DualSense, DualShock 4, JoyCons, or Pro Controller. Bluetooth support for the DualShock 4 is experimental for now, as is USB support for Switch controllers. The DualSense is currently only supported by USB.
+1. Connect your controller either with a usb cable or via bluetooth. Most modern controllers will be suported, including all Xbox, Playstation and Switch controllers.
 
 2. Run the JoyShockMapper executable, and you should see a console window welcoming you to JoyShockMapper.
     * In the console you can start entering bindings : [button name] = [key name]. See [Digital Inputs section](#1-digital-inputs) for details on how buttons and keys are named.
@@ -143,12 +143,12 @@ Commands can be executed by simply typing them into the JoyShockMapper console w
 Commands can *mostly* be split into 8 categories:
 
 1. **[Digital Inputs](#1-digital-inputs)**. These are the simplest. Map a button press or stick movement to a key or mouse button. There are many binding options available, such as tap & hold, simultaneous press, chorded press and more.
-2. **[Analog Triggers](#2-analog-triggers)**. The DualSense and Dualshock 4 controllers have 2 analog triggers: L2 and R2. JoyShockMapper can set different bindings on both "soft pull" and "full pull" of the trigger, maximizing use of those triggers. This feature is unavailable to controllers that have digital triggers, like the Nintendo Pro and Joycons.
-3. **[Stick Configuration](#3-stick-configuration)**. Joysticks can drive the mouse or trigger key presses in many different ways, such as flick stick or scroll_wheel. They need to be set a mode, and some settings particular to that mode. This is all explained in this section.
+2. **[Analog Triggers](#2-analog-triggers)**. Many controllers have 2 analog triggers: L2 and R2 on Playstation for example. JoyShockMapper can set different bindings on both "soft pull" and "full pull" of the trigger, maximizing use of those triggers. This feature is unavailable to controllers that have digital triggers, like the Nintendo Pro and Joycons.
+3. **[Stick Configuration](#3-stick-configuration)**. Joysticks can drive the mouse or trigger key presses in many different ways, such as flick stick or scroll wheel. They need to be set a mode, and some settings particular to that mode. This is all explained in this section.
 4. **[Gyro Mouse Inputs](#4-gyro-mouse-inputs)**. Controlling the mouse with gyro generally provides far more precision than controlling it with a stick. Think of a gyro as a mouse on an invisible, frictionless mousepad. The mousepad extends however far you're comfortable rotating the controller. For games where you control the camera directly, stick mouse inputs provide convenient ways to complete big turns with little precision, while gyro mouse inputs allow you to make more precise, quick movements within a relatively limited range.
 5. **[Real World Calibration](#5-real-world-calibration)**. This calibration value makes it possible for *flick stick* to work correctly, for the gyro and aim stick settings to have meaningful real-life values, and for players to share the same settings between different games.
-6. **[Modeshifts](#6-modeshifts)**. The controller configuration can dynamically change depending on the current button presses, in a way akin to chorded presses. This is handy to handle weapon wheels for example. These are called modeshifts to echo the Steam Input naming convention.
-7. **[Touchpad](#7-touchpad)**. The Dualsense and DS4 touchpads can be configured to perform many different functionalities, such as a button grid, cursor and gesture or even joystick mode.
+6. **[ViGEm Virtual Controller](#6-vigem-virtual-controller)**. JoyShockMapper can connect to Nefarius' ViGEm bus software to create virtual xbox controllers and virtual DS4 controllers. To make use of this feature you need to download and install the [latest release at this link](https://github.com/ViGEm/ViGEmBus/releases/latest).
+7. **[Modeshifts](#6-modeshifts)**. The controller configuration can dynamically change depending on the current button presses, in a way akin to chorded presses. This is handy to handle weapon wheels for example. These are called modeshifts to echo the Steam Input naming convention.
 8. **[Miscellaneous Commands](#8-miscellaneous-commands)**. These don't fit in the above categories, but are nevertheless useful. They typically are related to JoyShockMapper itself rather than the controller configuration.
 
 So let's dig into the available commands.
@@ -162,7 +162,7 @@ For example, to map directional pad LEFT to the F1 key, you'd enter:
 
 ```LEFT = F1```
 
-One important feature of JoyShockMapper is that a configuration that works for a PlayStation controller works the same for a pair of JoyCons or a Pro Controller. Because JoyCons can have slightly more inputs than the DualShock 4 (the ```SL``` and ```SR``` buttons are unique to the JoyCons), the button names are *mostly* from the Nintendo devices. The main exceptions are the face buttons and the stick-clicks. Because they are named more concisely, the stick-clicks are named after the DualShock 4: ```L3``` and ```R3```.
+One important feature of JoyShockMapper is that a configuration that works for a PlayStation controller works the same for a pair of JoyCons or a Pro Controller. Because JoyCons can have slightly more inputs than the DualShock 4, the button names are *mostly* from the Nintendo devices. The main exceptions are the face buttons and the stick-clicks. Because they are named more concisely, the stick-clicks are named after the DualShock 4: ```L3``` and ```R3```.
 
 The face buttons are a more complicated matter.
 
@@ -174,24 +174,24 @@ So, here's the complete list of digital inputs:
 
 ```
 UP, DOWN, LEFT, RIGHT: D-pad directional buttons
-L: L1 or L, the top left shoulder button
-ZL: L2 or ZL, the bottom left shoulder button (or trigger)
-R: R1 or R, the top right shoulder button
-ZR: R2 or ZR, the bottom right shoulder button
+L: L1, LB or L the top left shoulder button
+ZL: L2, LT or ZL the bottom left shoulder button (or trigger)
+R: R1, RB or R, the top right shoulder button
+ZR: R2, RT or ZR, the bottom right shoulder button
 ZRF: Full pull binding of right trigger, only on controllers with analog triggers
 ZLF: Full pull binding of left trigger, only on controllers with analog triggers
--: Share or -
-+: Options or +
-HOME: PS or Home
+-: Share, Back or -
++: Options, Start or +
+HOME: PS, Guide or Home
 CAPTURE: Touchpad click or Capture
-SL: SL, only on JoyCons
-SR: SR, only on JoyCons
+LSL, RSL: SL on JoyCons, or left paddles on Xbox elite
+LSR, RSR: SR on JoyCons, or right paddles on Xbox elite
 L3: L3 or Left-stick click
 R3: R3 or Right-stick click
-N: The North face button, △ or X
-E: The East face button, ○ or A
-S: The South face button, ⨉ or B
-W: The West face button, □ or Y
+N: The North face button, △, Y (Xbox) or X (Nintendo)
+E: The East face button, ○, B (Xbox) or A (Nintendo)
+S: The South face button, ⨉, X (Xbox) or B (Nintendo)
+W: The West face button, □, A (Xbox) or Y (Nintendo)
 LUP, LDOWN, LLEFT, LRIGHT: Left stick tilted up, down left or right
 LRING: Left ring binding, either inner or outer.
 RUP, RDOWN, RLEFT, RRIGHT: Right stick tilted up, down, left or right
@@ -199,7 +199,7 @@ RRING: Right ring binding, either inner or outer.
 MUP, MDOWN, MLEFT, MRIGHT: Motion stick tilted forward, back, left or right
 MRING: Motion ring binding, either inner or outer.
 LEAN_LEFT, LEAN_RIGHT: Tilt the controller to the left or right
-TOUCH : The Playstation touchpad is being touched
+TOUCH : The Playstation touchpad senses a finger
 ```
 
 These can all be mapped to the following keyboard and mouse inputs:
@@ -243,7 +243,8 @@ N = E
 Those familiar with Steam Input can implement Action Layers and Action Sets using the quotation marks to load a file on demand. That file can contain partial or full remapping of the controller bindings. This is very useful for having a different scheme for vehicles, menus or characters.
 
 ```
-HOME = "GTA_driving.txt"  # Load the driving control scheme. That file should bind home to loading the walking scheme file!
+# Load the driving control scheme.
+HOME = "GTA_driving.txt" # That file should bind HOME to loading the walking scheme file!
 ```
 
 Take note that the command bound in this way cannot contain quotation marks, and thus cannot contain the binding of a command itself. In this case, you should put the command in a file and load that file.
@@ -350,7 +351,7 @@ L,E = 5 # Medpack
 L,N = F # Flashlight
 ```
 
-A button can be chorded with multiple other buttons. In this case, the latest chord takes precedence over previous chords. This can be understood as a stack of layers being put on top of the binding each time a chord is pressed, where only the top one is active. Notice that you don't need to have NONE as a binding. The chord binding could very well be bound to a button that brings up a weapon wheel for example.
+A button can be chorded with multiple other buttons. In this case, the latest chord takes precedence over previous chords. This can be understood as a stack of layers being put on top of the binding each time a chord is pressed, where only the top one is active. Notice that you don't need to have NONE as a binding : the chord binding could very well be bound to a button that brings up a weapon wheel for example.
 
 #### 1.5 Double Press
 You can also assign the double press of a button to a different binding. Double press notation is the same as chorded button notation, except the button is chorded with itself. It supports taps & holds and modifiers like all previous entries.
@@ -408,7 +409,7 @@ If you're using ```GYRO_TRACKBALL``` or its single-axis variants, you can use **
 
 ### 2. Analog Triggers
 
-The following section only applies to the PlayStation controllers (DS/DS4) because they are the only supported controllers that have analog triggers.
+The following section does not apply to Joycons and Switch Pro controllers because they only have digital triggers.
 
 Analog triggers report a value between 0% and 100% representing how far you are pulling the trigger. Binding a digital button to an analog trigger is done using a threashold value. The button press is sent when the trigger value crosses the threashold value, sitting between 0% and 100%. The default threashold value is 0, meaning the slightest press of the trigger sends the button press. This is great for responsiveness, but could result in accidental presses. The threashold can be customized by running the following command:
 
@@ -420,10 +421,10 @@ The same threashold value is used for both triggers. A value of 1.0 or higher ma
 
 Hair trigger is also implemented: to enable it, assign a value of -1 as the trigger threshold. When hair trigger is used, the binding is enabled when the trigger is being pressed and held, and released when the trigger is being released. This allows quick tap shooting by pulsing the trigger.
 
-JoyShockMapper can assign different bindings to the full pull of the trigger, allowing you to have up to 4 bindings on each trigger when considering the hold bindings. The way the trigger handles these bindings is set with the variables ```ZR_MODE``` and ```ZL_MODE```, for R2 and L2 triggers. Once set, you can assign keys to ```ZRF``` and ```ZLF``` to make use of the R2 and L2 full pull bindings respectively. In this context, ```ZL``` and ```ZR``` are called the soft pull binding because they activate before the full pull binding do at 100%. Here is the list of all possible trigger modes.
+JoyShockMapper can assign different bindings to the full pull of the trigger, allowing you to double the number of bindings put on the triggers. The way the trigger handles these bindings is set with the variables ```ZR_MODE``` and ```ZL_MODE```, for R2 and L2 triggers. Once set, you can assign keys to ```ZRF``` and ```ZLF``` to make use of the R2 and L2 full pull bindings respectively. In this context, ```ZL``` and ```ZR``` are called the soft pull binding because they activate before the full pull binding does at 100%. Here is the list of all possible trigger modes.
 
 ```
-NO_FULL (default): Ignore full pull binding. This mode is enforced on controllers who have digital triggers like the Pro Controller.
+NO_FULL (default): Ignore full pull binding. This mode is enforced on controllers who have digital triggers.
 NO_SKIP: Never skip the soft pull binding. Full pull binding activates anytime the trigger is fully pressed.
 NO_SKIP_EXCLUSIVE: Never skip the soft pull binding. When Full pull binding is active, the soft pull binding isn't.
 MUST_SKIP: Only send full pull binding on a quick full press of the trigger, ignoring soft pull binding.
@@ -443,9 +444,10 @@ ZLF = LSHIFT        # Hold breath
 Using NO_SKIP mode makes it so that LSHIFT is only active if RMOUSE is active as well. Then on the right trigger, you can bind your different attack bindings: use the skipping functionality to avoid having them conflict with eachother like this:
 
 ```
-ZR_MODE = MUST_SKIP # Enable full pull binding, soft and full bindings are mutually exclusive
-ZR = LMOUSE         # Primary Fire
-ZRF = V G           # Quick full tap to melee; Quick hold full press to unpin grenade and throw on release
+TRIGGER_THRESHOLD = -1 # Use hair trigger for primary fire
+ZR_MODE = MUST_SKIP    # Enable full pull binding, soft and full bindings are mutually exclusive
+ZR = LMOUSE            # Primary Fire
+ZRF = V G              # Quick full tap to melee; Quick hold full press to unpin grenade and throw on release
 ```
 
 Using MUST_SKIP mode makes sure that once you start firing, reaching the full pull will **not** make you stop firing to melee.
@@ -499,8 +501,9 @@ If you're holding the controller in an unusual orientation (such as for comfort 
 * **LEFT** is for when you're holding the controller rotated to its left.
 * **RIGHT** is for when you're holding the controller rotated to its right.
 * **BACKWARD** is for when you're holding teh controller rotated 180°.
+* **JOYCON_SIDEWAYS** means LEFT for the left hand joycon and RIGHT for the right hand joycon
 
-Once set, JoyShockMapper will rearrange the stick's X and Y axis data to match your perspective. CONTROLLER\_ORIENTATION only affects sticks (including motion stick). It doesn't affect the arrangement of the face buttons, d-pad, etc.
+Once set, JoyShockMapper will rearrange the stick's X and Y axis data to match your perspective. CONTROLLER\_ORIENTATION only affects sticks (including motion stick). It doesn't affect the arrangement of the face buttons, d-pad, etc. Look up [Gyro Mouse Inputs](#4-gyro-mouse-inputs) section for how to remap gyro axis to mouse axis.
 
 Let's have a look at all the different operations modes.
 
@@ -544,7 +547,7 @@ When using the ```MOUSE_AREA``` stick mode, the stick value directly sets the mo
 
 When using stick mode ```NO_MOUSE```, JSM will use the stick's UP DOWN LEFT and RIGHT bindings in a cross gate layout. There is a small square deadzone to ignore very small stick moves.
 
-Finally, ```SCROLL_WHEEL``` while turn the stick into a rotating scroll wheel. Left bindings are pulsed by rotating counter-clockwise and right bindings are pulsed by rotating clockwise. The setting SCROLL_SENS allows you to change the amount of degrees you need to perform to trigger a pulse. Unlike other sensitivity parameters, a higher value is less sensitive.
+Finally, ```SCROLL_WHEEL``` turns the stick into a rotating scroll wheel. Left bindings are pulsed by rotating counter-clockwise and right bindings are pulsed by rotating clockwise. The setting SCROLL_SENS allows you to change the amount of degrees you need to perform to trigger a pulse. Unlike other sensitivity parameters, a higher value is less sensitive.
 
 ```
 # Left stick moves
@@ -722,9 +725,11 @@ ZL_MODE = X_LT
 ZR_MODE = X_RT
 ```
 
-You will also a default xbox layout in the GyroConfigs folder that you can use to set up a standard xbox controller configuration. But of course, you can remap buttons elsewhere, or combine them in using the event modifiers, chords, simultaneous presses and such.
+You will also find a default xbox layout in the GyroConfigs folder that you can use to set up a standard xbox controller configuration. But of course, you can remap buttons elsewhere, or combine them in using the event modifiers, chords, simultaneous presses and such.
 
 ```
+GyroConfigs/xbox.txt # load the generic xbox mapping
+
 # Map the dpad as chords of the face buttons
 L3 = NONE
 L3,N = X_UP
@@ -741,7 +746,7 @@ MOTION_STICK_MODE = RIGHT_STICK # Gyro driving
 
 #### 6.1 DS4 bindings
 
-ViGEm also the ability to emulate a dualshock 4 controller. This can allow you to use a switch pro as a DS4 in a game that has this support built in for example. Seeting the virtual controller to DS4 enables the use of these features as well. Take note that these names are aliases to the xbox names.
+ViGEm also the ability to emulate a Dualshock 4 controller. This can allow you to use a switch pro as a DS4 in a game that has this support built in for example. Setting the virtual controller to DS4 enables the use of these features as well. Take note that these names are aliases to the xbox names.
 
 * **New digital bindings**
 ```
@@ -816,6 +821,7 @@ There are a few other useful commands that don't fall under the above categories
 * **JOYCON\_GYRO\_MASK** (default IGNORE\_LEFT) - Most games that use gyro controls on Switch ignore the left JoyCon's gyro to avoid confusing behaviour when the JoyCons are held separately while playing. This is the default behaviour in JoyShockMapper. But you can also choose to IGNORE\_RIGHT, IGNORE\_BOTH, or USE\_BOTH.
 * **JOYCON\_MOTION\_MASK** (default IGNORE\_RIGHT) - To avoid confusing behaviour when the JoyCons are held separately while playing, you can have one JoyCon ignored for MOTION\_STICK related functions. Since we ignore the left JoyCon by default for gyro, we ignore the right JoyCon by default for motion stick. But you can also choose to IGNORE\_RIGHT, IGNORE\_BOTH, or USE\_BOTH.
 * **SLEEP** - Cause the program to sleep (or wait) for a given number of seconds. The given value must be greater than 0 and less than or equal to 10. Or, omit the value and it will sleep for one second. This command may help automate calibration.
+* **TICK\_TIME** (default 3) - The number of milliseconds to wait between between checking the state of connected controllers. Previous versions only sent new virtual keyboard and mouse inputs when there was a new message from the controller, but this made JoyCons clunky on a monitor with a refresh rate higher than 67Hz. Now, all connected devices are polled at the same rate, and you can change it here. The default of 3 milliseconds will give you a polling rate of approximately 333Hz.
 * **LIGHT_BAR** - Set the DS4 light bar to the assigned color. You can assign either a 6 hex digit code precedded by 'x', three decimal values for red, green and blue between 0 and 255, or simply a [common color name](https://www.rapidtables.com/web/color/RGB_Color.html#color-table) in capitals and underscore.
 * **HIDE_MINIMIZED** - Some users like having JSM hidden in the notification area. You can hide JSM when minimized by setting this to ON. OFF is the default value.
 * **README** will lead you to this document.

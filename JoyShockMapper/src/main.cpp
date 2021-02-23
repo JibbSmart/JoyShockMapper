@@ -3219,6 +3219,20 @@ private:
 				COUT << arg << " is not a recognized command" << endl;
 			}
 		}
+		else
+		{
+			// Show all commands that include ARG
+			cout << "\"" << arg << "\" is not a command, but the following are:" << endl;
+			vector<string> list;
+			registry->GetCommandList(list);
+			for (auto cmd : list)
+			{
+				auto pos = cmd.find(arg);
+				if(pos != string::npos)
+					cout << "    " << cmd << endl;
+			}
+			cout << "Enter HELP [cmd1] [cmd2] ... for details on specific commands." << endl;
+		}
 		return true;
 	}
 public:

@@ -125,7 +125,7 @@ CPMAddPackage (
     GITHUB_REPOSITORY libsdl-org/SDL
     VERSION 2.0.15
     # 2.0.15 hasn't released yet, so let's use a specific commit
-    GIT_TAG 42607909a0b19b36c26be804c75b6050dba97af3
+    GIT_TAG c287087fcce57af086c0a52f74fcdb74e9084c55
 )
 
 target_link_libraries (
