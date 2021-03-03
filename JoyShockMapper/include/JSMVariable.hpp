@@ -110,7 +110,7 @@ public:
 		return _value;
 	}
 
-	virtual T get() const
+	virtual const T &get() const
 	{
 		return _value;
 	}

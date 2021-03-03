@@ -29,7 +29,7 @@ protected:
 	{
 		smatch results;
 		_ASSERT_EXPR(_parse, L"There is no function defined to parse this command.");
-		if (arguments.compare(0, 4, "HELP") == 0)
+		if (arguments.compare(0, 4, "HELP") == 0 && !_help.empty())
 		{
 			// Show help.
 			COUT << _help << endl;
@@ -41,15 +41,18 @@ protected:
 			{
 				_var.Reset();
 			}
-			else if (!_parse(this, fwd_args))
+			else if (!_parse(this, fwd_args) && !_help.empty())
 			{
-				COUT << _help << endl; // Parsing has failed. Show help.
+				COUT << _help << endl << "The "; // Parsing has failed. Show help.
+				COUT_INFO << "README";
+				COUT << " command can lead you to further details on this command." << endl;
 			}
 		}
-		else
+		else if(!_help.empty())
 		{
-			// If no if case processed the command,; it has been entered wrong.
-			return false;
+			COUT << _help << endl << "The "; // Parsing has failed. Show help.
+			COUT_INFO << "README";
+			COUT << " command can lead you to further details on this command." << endl;
 		}
 		return true; // Command is completely processed
 	}

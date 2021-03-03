@@ -37,11 +37,18 @@ if (WINDOWS)
         ${BINARY_NAME} PRIVATE
         src/win32/InputHelpers.cpp
         src/win32/PlatformDefinitions.cpp
-        src/win32/WindowsTrayIcon.cpp       include/win32/WindowsTrayIcon.h
+        src/win32/WindowsTrayIcon.cpp        include/win32/WindowsTrayIcon.h
         src/win32/Whitelister.cpp
         src/win32/Gamepad.cpp                include/win32/Gamepad.h
         "Win32 Dialog.rc"                    include/win32/resource.h
     )
+
+    if(SDL)
+        target_sources (
+            ${BINARY_NAME} PRIVATE
+            src/JoyShockLibrary.cpp              include/JoyShockLibrary.h
+		)
+    endif()
     
     set_target_properties (
         ${BINARY_NAME} PROPERTIES
@@ -85,13 +92,23 @@ if (WINDOWS)
         "${PROJECT_BINARY_DIR}/_deps/vigemclient-src/include"
     )
 
-    add_custom_command(
-        TARGET ${BINARY_NAME}
-        POST_BUILD
-        COMMAND ${CMAKE_COMMAND} -E copy
-            "$<TARGET_FILE:SDL2>"
-            "$<TARGET_FILE_DIR:${PROJECT_NAME}>/$<TARGET_FILE_NAME:SDL2>"
-    )
+    if(SDL)
+		add_custom_command(
+			TARGET ${BINARY_NAME}
+			POST_BUILD
+			COMMAND ${CMAKE_COMMAND} -E copy
+				"$<TARGET_FILE:SDL2>"
+				"$<TARGET_FILE_DIR:${PROJECT_NAME}>/$<TARGET_FILE_NAME:SDL2>"
+		)
+    else()
+		add_custom_command(
+			TARGET ${BINARY_NAME}
+			POST_BUILD
+			COMMAND ${CMAKE_COMMAND} -E copy
+				"$<TARGET_FILE:JoyShockLibrary>"
+				"$<TARGET_FILE_DIR:${PROJECT_NAME}>/$<TARGET_FILE_NAME:JoyShockLibrary>"
+		)
+    endif()
 
 	 add_definitions(/bigobj)
 endif ()
@@ -119,24 +136,43 @@ target_include_directories (
     "${PROJECT_BINARY_DIR}/${PROJECT_NAME}/include"
 )
 
-# SDL2
-CPMAddPackage (
-    NAME SDL2
-    GITHUB_REPOSITORY libsdl-org/SDL
-    VERSION 2.0.15
-    # 2.0.15 hasn't released yet, so let's use a specific commit
-    GIT_TAG c287087fcce57af086c0a52f74fcdb74e9084c55
-)
+if(SDL)
+	# SDL2
+	CPMAddPackage (
+		NAME SDL2
+		GITHUB_REPOSITORY libsdl-org/SDL
+		VERSION 2.0.15
+		# 2.0.15 hasn't released yet, so let's use a specific commit
+		GIT_TAG c287087fcce57af086c0a52f74fcdb74e9084c55
+	)
+	target_link_libraries (
+		${BINARY_NAME} PRIVATE
+		Platform::Dependencies
+		SDL2
+	)
 
-target_link_libraries (
-    ${BINARY_NAME} PRIVATE
-    Platform::Dependencies
-    SDL2
-)
+	install (
+		TARGETS ${BINARY_NAME} SDL2
+	)
+else()
+	# JoyShockLibrary
+	CPMAddPackage (
+		NAME JoyShockLibrary
+		GITHUB_REPOSITORY JibbSmart/JoyShockLibrary
+		VERSION 2.1.0
+	)
 
-install (
-    TARGETS ${BINARY_NAME} SDL2
-)
+	target_link_libraries (
+		${BINARY_NAME} PRIVATE
+		Platform::Dependencies
+		JoyShockLibrary
+	)
+
+	install (
+		TARGETS ${BINARY_NAME} JoyShockLibrary
+	)
+endif()
+
 
 # magic_enum
 CPMAddPackage (

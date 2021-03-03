@@ -183,6 +183,10 @@ istream &operator >> (istream &in, FloatXY &fxy)
 		}
 		fxy = newSens;
 	}
+	else
+	{
+		in.setstate(in.failbit);
+	}
 	return in;
 }
 

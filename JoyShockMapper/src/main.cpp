@@ -1,5 +1,5 @@
-#include "SDL.h"
 #include "JoyShockMapper.h"
+#include "JoyShockLibrary.h"
 #include "GamepadMotion.hpp"
 #include "InputHelpers.h"
 #include "Whitelister.h"
@@ -21,10 +21,6 @@ const Mapping Mapping::NO_MAPPING = Mapping("NONE");
 function<bool(in_string)> Mapping::_isCommandValid = function<bool(in_string)>();
 
 class JoyShock;
-#define JS_SPLIT_TYPE_LEFT 1
-#define JS_SPLIT_TYPE_RIGHT 2
-#define JS_SPLIT_TYPE_FULL 3
-void joyShockPollCallback(JoyShock* jc, float deltaTime);
 
 // Contains all settings that can be modeshifted. They should be accessed only via Joyshock::getSetting
 JSMSetting<StickMode> left_stick_mode = JSMSetting<StickMode>(SettingID::LEFT_STICK_MODE, StickMode::NO_MOUSE);
@@ -93,9 +89,6 @@ JSMVariable<ControllerScheme> virtual_controller = JSMVariable<ControllerScheme>
 JSMVariable<PathString> currentWorkingDir = JSMVariable<PathString>(GetCWD());
 vector<JSMButton> mappings; // array enables use of for each loop and other i/f
 mutex loading_lock;
-mutex controller_lock;
-
-bool keep_polling = true;
 
 float os_mouse_speed = 1.0;
 float last_flick_and_rotation = 0.0;
@@ -104,7 +97,7 @@ unique_ptr<PollingThread> minimizeThread;
 unique_ptr<TrayIcon> tray;
 bool devicesCalibrating = false;
 Whitelister whitelister(false);
-unordered_map<int, unique_ptr<JoyShock>> handle_to_joyshock;
+unordered_map<int, shared_ptr<JoyShock>> handle_to_joyshock;
 
 // This class holds all the logic related to a single digital button. It does not hold the mapping but only a reference
 // to it. It also contains it's various states, flags and data.
@@ -128,6 +121,7 @@ public:
 		unique_ptr<Gamepad> _vigemController;
 		function<DigitalButton* (ButtonID)> _getMatchingSimBtn;
 		mutex callback_lock; // Needs to be in the common struct for both joycons to use the same
+		function<void(int small, int big)> _rumble;
 	};
 
 	static bool findQueueItem(pair<ButtonID, KeyCode> &pair, ButtonID btn)
@@ -292,11 +286,9 @@ public:
 		}
 	}
 
-	// TODO: move to JoyShock?
 	void SetRumble(int smallRumble, int bigRumble)
 	{
-		// COUT << "Rumbling at " << smallRumble << " and " << bigRumble << endl;
-		//SDL_GameControllerRumble(_common->sdl_controller, smallRumble, bigRumble, 1000);
+		_common->_rumble(smallRumble, bigRumble);
 	}
 
 	void ApplyBtnPress(KeyCode key)
@@ -396,12 +388,12 @@ public:
 			{
 				if (foundChord != _common->chordStack.end())
 				{
-					//cout << "Button " << index << " is released!" << endl;
+					//COUT << "Button " << index << " is released!" << endl;
 					_common->chordStack.erase(foundChord); // The chord is released
 				}
 			}
 			else if (foundChord == _common->chordStack.end()) {
-				//cout << "Button " << index << " is pressed!" << endl;
+				//COUT << "Button " << index << " is pressed!" << endl;
 				_common->chordStack.push_front(_id); // Always push at the fromt to make it a stack
 			}
 		}
@@ -572,7 +564,7 @@ public:
 			break;
 		}
 		default:
-			cout << "Invalid button state " << _btnState << ": Resetting to NoPress" << endl;
+			CERR << "Invalid button state " << _btnState << ": Resetting to NoPress" << endl;
 			_btnState = BtnState::NoPress;
 			break;
 		}
@@ -758,8 +750,9 @@ bool Mapping::AddMapping(KeyCode key, EventModifier evtMod, ActionModifier actMo
 			array<UCHAR, 2> bytes;
 		} rumble;
 		rumble.raw = stoi(key.name.substr(1, 4), nullptr, 16);
-		apply = bind(&DigitalButton::SetRumble, placeholders::_1, rumble.bytes[0], rumble.bytes[1]);
+		apply = bind(&DigitalButton::SetRumble, placeholders::_1, rumble.bytes[1], rumble.bytes[0]);
 		release = bind(&DigitalButton::SetRumble, placeholders::_1, 0, 0);
+		_tapDurationMs = MAGIC_EXTENDED_TAP_DURATION; // Unused in regular press
 	}
 	else // if (key.code != NO_HOLD_MAPPED)
 	{
@@ -852,7 +845,7 @@ public:
 	void ProcessScroll(float distance, float sens)
 	{	
 		_leftovers += distance;
-		//if(distance != 0) cout << "[" << _negativeId << "," << _positiveId << "] moved " << distance << " so that leftover is now " << _leftovers << endl;
+		//if(distance != 0) COUT << "[" << _negativeId << "," << _positiveId << "] moved " << distance << " so that leftover is now " << _leftovers << endl;
 
 		if (!_pressed && fabsf(_leftovers) > sens)
 		{
@@ -913,7 +906,7 @@ private:
 		float avg_tm1 = sum / 3.0f;
 		sum = sum - *(prevTriggerPosition[triggerIndex].begin() + 2) + triggerPosition;
 		float avg_t0 = sum / 3.0f;
-		//if (avg_t0 > 0) cout << "Trigger: " << avg_t0 << endl;
+		//if (avg_t0 > 0) COUT << "Trigger: " << avg_t0 << endl;
 		
 		// Soft press is pressed if we got three averaged samples in a row that are pressed
 		bool isPressed;
@@ -934,17 +927,18 @@ private:
 		return isPressed;
 	}
 
+	void Rumble(int smallRumble, int bigRumble)
+	{
+		COUT << "Rumbling at " << smallRumble << " and " << bigRumble << endl;
+		JslSetRumble(handle, smallRumble, bigRumble);
+	}
+
 public:
 	const int MaxGyroSamples = 64;
 	const int NumSamples = 64;
-	int intHandle;
-	SDL_GameController* sdl_controller;
+	int handle;
 	GamepadMotion motion;
-	SDL_GameControllerType platform_controller_type;
-
-	bool has_gyro;
-	bool has_accel;
-	mutex callback_lock;
+	int platform_controller_type;
 
 	vector<DigitalButton> buttons;
 	chrono::steady_clock::time_point started_flick;
@@ -964,7 +958,7 @@ public:
 	//ScrollAxis motion_scroll_x;
 	//ScrollAxis motion_scroll_y;
 
-	int controller_type = 0;
+	int controller_split_type = 0;
 
 	float left_acceleration = 1.0;
 	float right_acceleration = 1.0;
@@ -1005,12 +999,9 @@ public:
 
 	Color _light_bar;
 	
-	JoyShock(int uniqueHandle, SDL_GameController *gameController, int controllerSplitType, bool hasGyro, bool hasAccel, shared_ptr<DigitalButton::Common> sharedButtonCommon = nullptr)
-	  : intHandle(uniqueHandle)
-	  , sdl_controller(gameController)
-	  , controller_type(controllerSplitType)
-	  , has_gyro(hasGyro)
-	  , has_accel(hasAccel)
+	JoyShock(int uniqueHandle, int controllerSplitType, shared_ptr<DigitalButton::Common> sharedButtonCommon = nullptr)
+	  : handle(uniqueHandle)
+	  , controller_split_type(controllerSplitType)
 	  , triggerState(NUM_ANALOG_TRIGGERS, DstState::NoPress)
 	  , buttons()
 	  , prevTriggerPosition(NUM_ANALOG_TRIGGERS, deque<float>(MAGIC_TRIGGER_SMOOTHING, 0.f))
@@ -1026,8 +1017,9 @@ public:
 		}
 		_light_bar = getSetting<Color>(SettingID::LIGHT_BAR);
 
-		platform_controller_type = SDL_GameControllerGetType(gameController);
+		platform_controller_type = JslGetControllerType(handle);
 		btnCommon->_getMatchingSimBtn = bind(&JoyShock::GetMatchingSimBtn, this, placeholders::_1);
+		btnCommon->_rumble = bind(&JoyShock::Rumble, this, placeholders::_1, placeholders::_2);
 
 		buttons.reserve(MAPPING_SIZE);
 		for (int i = 0; i < MAPPING_SIZE; ++i)
@@ -1036,12 +1028,11 @@ public:
 		}
 		ResetSmoothSample();
 		CheckVigemState();
-		SDL_GameControllerSetLED(sdl_controller, _light_bar.rgb.r, _light_bar.rgb.g, _light_bar.rgb.b);
+		JslSetLightColour(handle, _light_bar.raw);
 	}
 
 	~JoyShock()
 	{
-		SDL_GameControllerClose(sdl_controller);
 	}
 
 	bool CheckVigemState()
@@ -1067,15 +1058,15 @@ public:
 	{
 		switch (platform_controller_type)
 		{
-		case SDL_CONTROLLER_TYPE_PS4:
-		case SDL_CONTROLLER_TYPE_PS5:
-			SDL_GameControllerSetLED(sdl_controller, indicator.rgb[0], indicator.rgb[1], indicator.rgb[2]);
+		case 4: // SDL_GameControllerType::SDL_CONTROLLER_TYPE_PS4
+		case 7: // SDL_GameControllerType::SDL_CONTROLLER_TYPE_PS5
+			JslSetLightColour(handle, _light_bar.raw);
 			break;
 		default:
-			SDL_GameControllerSetPlayerIndex(sdl_controller, indicator.led);
+			JslSetPlayerNumber(handle, indicator.led);
 			break;
 		}
-		//SetRumble(intHandle, smallMotor, largeMotor); ?
+		Rumble(smallMotor, largeMotor);
 	}
 
 	template<typename E>
@@ -1133,11 +1124,11 @@ public:
 				opt = GetOptionalSetting<E>(controller_orientation, *activeChord);
 				if (opt && int(*opt) == int(ControllerOrientation::JOYCON_SIDEWAYS))
 				{
-					if(controller_type == JS_SPLIT_TYPE_LEFT)
+					if(controller_split_type == JS_SPLIT_TYPE_LEFT)
 					{
 						opt = optional<E>(static_cast<E>(ControllerOrientation::LEFT));
 					}
-					else if(controller_type == JS_SPLIT_TYPE_RIGHT)
+					else if(controller_split_type == JS_SPLIT_TYPE_RIGHT)
 					{
 						opt = optional<E>(static_cast<E>(ControllerOrientation::RIGHT));
 					}
@@ -1459,6 +1450,7 @@ public:
 
 	void handleTriggerChange(ButtonID softIndex, ButtonID fullIndex, TriggerMode mode, float position)
 	{
+		constexpr int SDL_CONTROLLER_TYPE_NINTENDO_SWITCH_PRO = 5; // SDL_GameControllerType::
 		if (platform_controller_type == SDL_CONTROLLER_TYPE_NINTENDO_SWITCH_PRO && mode != TriggerMode::X_LT && mode != TriggerMode::X_RT)
 		{
 			// Override local variable because the controller has digital triggers. Effectively ignore Full Pull binding.
@@ -1775,58 +1767,34 @@ constexpr int PlayerNumber(size_t n)
 }
 
 void connectDevices(bool mergeJoycons = true) {
-	controller_lock.lock();
-
 	handle_to_joyshock.clear();
-	int numConnected = SDL_NumJoysticks();
-	int* deviceHandles = new int[numConnected];
+	int numConnected = JslConnectDevices();
+	vector<int> deviceHandles(numConnected, 0);
+		if (numConnected > 0)
+	{
+		JslGetConnectedDeviceHandles(&deviceHandles[0], numConnected);
 
-	for (int i = 0; i < numConnected; i++) {
-		if (!SDL_IsGameController(i)) {
-			continue;
-		}
-		SDL_GameController *g = SDL_GameControllerOpen(i);
-
-		bool hasGyro = false;
-		bool hasAccel = false;
-		if (SDL_GameControllerHasSensor(g, SDL_SENSOR_GYRO)) {
-			hasGyro = true;
-			SDL_GameControllerSetSensorEnabled(g, SDL_SENSOR_GYRO, SDL_TRUE);
-		}
-
-		if (SDL_GameControllerHasSensor(g, SDL_SENSOR_ACCEL))
+    	for (auto handle : deviceHandles)
 		{
-			hasAccel = true;
-			SDL_GameControllerSetSensorEnabled(g, SDL_SENSOR_ACCEL, SDL_TRUE);
-		}
-
-		int vid = SDL_GameControllerGetVendor(g);
-		int pid = SDL_GameControllerGetProduct(g);
-		int type = JS_SPLIT_TYPE_FULL;
-		if (vid == 0x057e) {
-			if (pid == 0x2006) {
-				type = JS_SPLIT_TYPE_LEFT;
-			}
-			else if (pid == 0x2007) {
-				type = JS_SPLIT_TYPE_RIGHT;
-			}
-		}
-		auto otherJoyCon = find_if(handle_to_joyshock.begin(), handle_to_joyshock.end(),
-			[type](auto &pair) {
-				return type == JS_SPLIT_TYPE_LEFT && pair.second->controller_type == JS_SPLIT_TYPE_RIGHT ||
-					type == JS_SPLIT_TYPE_RIGHT && pair.second->controller_type == JS_SPLIT_TYPE_LEFT;
-			});
-		if (mergeJoycons && otherJoyCon != handle_to_joyshock.end())
-		{
-			// The second JC points to the same common buttons as the other one.
-			JoyShock *js = new JoyShock(i, g, type, hasGyro, hasAccel,
-			  otherJoyCon->second->btnCommon);
-			handle_to_joyshock.emplace(deviceHandles[i], js);
-			continue;
-		}
-		JoyShock *js = new JoyShock(i, g, type, hasGyro, hasAccel);
-		handle_to_joyshock.emplace(deviceHandles[i], js);
-	}
+    		auto type = JslGetControllerSplitType(handle);
+    		auto otherJoyCon = find_if(handle_to_joyshock.begin(), handle_to_joyshock.end(),
+    			[type](auto &pair) {
+    				return type == JS_SPLIT_TYPE_LEFT && pair.second->controller_split_type == JS_SPLIT_TYPE_RIGHT ||
+    					type == JS_SPLIT_TYPE_RIGHT && pair.second->controller_split_type == JS_SPLIT_TYPE_LEFT;
+    			});
+    		shared_ptr<JoyShock> js = nullptr;
+    		if (mergeJoycons && otherJoyCon != handle_to_joyshock.end())
+    		{
+    			// The second JC points to the same common buttons as the other one.
+    			js.reset(new JoyShock(handle, type, otherJoyCon->second->btnCommon));
+    		}
+    		else
+    		{
+    			js.reset(new JoyShock(handle, type));
+    		}
+    		handle_to_joyshock[handle] = js;
+    	}
+    }
 
 	if (numConnected == 1) {
 		COUT << "1 device connected" << endl;
@@ -1843,34 +1811,6 @@ void connectDevices(bool mergeJoycons = true) {
 	//if (numConnected != 0) {
 	//	COUT << "All devices have started continuous gyro calibration" << endl;
 	//}
-
-	delete[] deviceHandles;
-
-	controller_lock.unlock();
-}
-
-static int pollDevices(void *ptr)
-{
-	while (keep_polling) {
-		controller_lock.lock();
-		
-		SDL_GameControllerUpdate();
-
-		for (auto iter = handle_to_joyshock.begin(); iter != handle_to_joyshock.end(); ++iter)
-		{
-			JoyShock *joyShock = iter->second.get();
-			auto timeNow = chrono::steady_clock::now();
-			float deltaTime = ((float)chrono::duration_cast<chrono::microseconds>(timeNow - joyShock->time_now).count()) / 1000000.0f;
-			joyShock->time_now = timeNow;
-			joyShockPollCallback(joyShock, deltaTime);
-		}
-
-		controller_lock.unlock();
-
-		SDL_Delay(tick_time.get());
-	}
-
-	return 1;
 }
 
 void SimPressCrossUpdate(ButtonID sim, ButtonID origin, Mapping newVal)
@@ -1971,7 +1911,6 @@ bool do_FINISH_GYRO_CALIBRATION() {
 		iter->second->motion.PauseContinuousCalibration();
 	}
 	devicesCalibrating = false;
-	controller_lock.unlock();
 	return true;
 }
 
@@ -1982,7 +1921,6 @@ bool do_RESTART_GYRO_CALIBRATION() {
 		iter->second->motion.StartContinuousCalibration();
 	}
 	devicesCalibrating = true;
-	controller_lock.unlock();
 	return true;
 }
 
@@ -2032,7 +1970,6 @@ bool do_SLEEP(in_string argument)
 }
 
 bool do_README() {
-	COUT << "Opening online help in your browser" << endl;
 	auto err = ShowOnlineHelp();
 	if (err != 0)
 	{
@@ -2066,7 +2003,7 @@ bool do_WHITELIST_REMOVE() {
 	return true;
 }
 
-static float handleFlickStick(float calX, float calY, float lastCalX, float lastCalY, float stickLength, bool& isFlicking, JoyShock* jc, float mouseCalibrationFactor, bool FLICK_ONLY, bool ROTATE_ONLY) {
+static float handleFlickStick(float calX, float calY, float lastCalX, float lastCalY, float stickLength, bool& isFlicking, shared_ptr<JoyShock> jc, float mouseCalibrationFactor, bool FLICK_ONLY, bool ROTATE_ONLY) {
 	float camSpeedX = 0.0f;
 	// let's centre this
 	float offsetX = calX;
@@ -2186,7 +2123,7 @@ JoyShock* getJoyShockFromHandle(int handle) {
 	return nullptr;
 }
 
-void processStick(JoyShock* jc, float stickX, float stickY, float lastX, float lastY, float innerDeadzone, float outerDeadzone, 
+void processStick(shared_ptr<JoyShock> jc, float stickX, float stickY, float lastX, float lastY, float innerDeadzone, float outerDeadzone, 
 	RingMode ringMode, StickMode stickMode, ButtonID ringId, ButtonID leftId, ButtonID rightId, ButtonID upId, ButtonID downId,
 	ControllerOrientation controllerOrientation, float mouseCalibrationFactor, float deltaTime, float &acceleration, FloatXY &lastAreaCal,
 	bool& isFlicking, bool &ignoreStickMode, bool &anyStickInput, bool &lockMouse, float &camSpeedX, float &camSpeedY, ScrollAxis *scroll)
@@ -2326,7 +2263,7 @@ void processStick(JoyShock* jc, float stickX, float stickY, float lastX, float l
 				{
 					lastAngle = lastAngle > 0 ? lastAngle - 360.f : lastAngle + 360.f;
 				}
-				//cout << "Stick moved from " << lastAngle << " to " << angle; // << endl;
+				//COUT << "Stick moved from " << lastAngle << " to " << angle; // << endl;
 				scroll->ProcessScroll(angle - lastAngle, jc->getSetting<FloatXY>(SettingID::SCROLL_SENS).x());
 			}
 		}
@@ -2360,36 +2297,30 @@ void processStick(JoyShock* jc, float stickX, float stickY, float lastX, float l
 	}
 }
 
-void joyShockPollCallback(JoyShock* jc, float deltaTime) {
+void joyShockPollCallback(int jcHandle, JOY_SHOCK_STATE state, JOY_SHOCK_STATE lastState, IMU_STATE imuState, IMU_STATE lastImuState, float deltaTime) {
+
+	shared_ptr<JoyShock> jc = handle_to_joyshock[jcHandle];
 	if (jc == nullptr)
 		return;
 
-	SDL_GameController *gameController = jc->sdl_controller;
+	auto timeNow = chrono::steady_clock::now();
+	deltaTime = ((float)chrono::duration_cast<chrono::microseconds>(timeNow - jc->time_now).count()) / 1000000.0f;
+	jc->time_now = timeNow;
+
 	GamepadMotion& motion = jc->motion;
 
-	float rawGyro[3] = { 0.f };
-	if (jc->has_gyro)
-	{
-		SDL_GameControllerGetSensorData(gameController, SDL_SENSOR_GYRO, rawGyro, 3);
-	}
-	float rawAccel[3] = { 0.f };
-	if (jc->has_accel)
-	{
-		SDL_GameControllerGetSensorData(gameController, SDL_SENSOR_ACCEL, rawAccel, 3);
-	}
+	IMU_STATE imu = JslGetIMUState(jc->handle);
 
-	float toDegrees = 180.f / PI;
-	float toGs = 1.f / 9.8f;
-	motion.ProcessMotion(rawGyro[0] * toDegrees, rawGyro[1] * toDegrees, rawGyro[2] * toDegrees, rawAccel[0] * toGs, rawAccel[1] * toGs, rawAccel[2] * toGs, deltaTime);
+	motion.ProcessMotion(imu.gyroX, imu.gyroY, imu.gyroZ, imu.accelX, imu.accelY, imu.accelZ, deltaTime);
 
 	float inGyroX, inGyroY, inGyroZ;
 	motion.GetCalibratedGyro(inGyroX, inGyroY, inGyroZ);
 
 	float inGravX, inGravY, inGravZ;
 	motion.GetGravity(inGravX, inGravY, inGravZ);
-	inGravX *= toGs;
-	inGravY *= toGs;
-	inGravZ *= toGs;
+	inGravX *= 1.f / 9.8f; // to Gs
+	inGravY *= 1.f / 9.8f;
+	inGravZ *= 1.f / 9.8f;
 
 	float inQuatW, inQuatX, inQuatY, inQuatZ;
 	motion.GetOrientation(inQuatW, inQuatX, inQuatY, inQuatZ);
@@ -2407,7 +2338,7 @@ void joyShockPollCallback(JoyShock* jc, float deltaTime) {
 	bool rightAny = false;
 	bool motionAny = false;
 	
-	jc->callback_lock.lock();
+	jc->btnCommon->callback_lock.lock();
 	if (jc->set_neutral_quat)
 	{
 		jc->neutralQuatW = inQuatW;
@@ -2415,7 +2346,7 @@ void joyShockPollCallback(JoyShock* jc, float deltaTime) {
 		jc->neutralQuatY = inQuatY;
 		jc->neutralQuatZ = inQuatZ;
 		jc->set_neutral_quat = false;
-		COUT << "Neutral orientation for device " << jc->intHandle << " set..." << endl;
+		COUT << "Neutral orientation for device " << jc->handle << " set..." << endl;
 	}
 	
 	float gyroX = 0.0;
@@ -2480,13 +2411,13 @@ void joyShockPollCallback(JoyShock* jc, float deltaTime) {
 	float camSpeedY = 0.0f;
 	// account for os mouse speed and convert from radians to degrees because gyro reports in degrees per second
 	float mouseCalibrationFactor = 180.0f / PI / os_mouse_speed;
-	if (jc->controller_type != JS_SPLIT_TYPE_RIGHT)
+	if (jc->controller_split_type != JS_SPLIT_TYPE_RIGHT)
 	{
 		// let's do these sticks... don't want to constantly send input, so we need to compare them to last time
 		float lastCalX = jc->lastLX;
 		float lastCalY = jc->lastLY;
-		float calX = SDL_GameControllerGetAxis(gameController, SDL_CONTROLLER_AXIS_LEFTX) / (float)SDL_JOYSTICK_AXIS_MAX;
-		float calY = -SDL_GameControllerGetAxis(gameController, SDL_CONTROLLER_AXIS_LEFTY) / (float)SDL_JOYSTICK_AXIS_MAX;
+		float calX = JslGetLeftX(jc->handle);
+		float calY = -JslGetLeftY(jc->handle);
 
 		jc->lastLX = calX;
 		jc->lastLY = calY;
@@ -2497,12 +2428,12 @@ void joyShockPollCallback(JoyShock* jc, float deltaTime) {
 			mouseCalibrationFactor, deltaTime, jc->left_acceleration, jc->left_last_cal, jc->is_flicking_left, jc->ignore_left_stick_mode, leftAny, lockMouse, camSpeedX, camSpeedY, &jc->left_scroll);
 	}
 
-	if (jc->controller_type != JS_SPLIT_TYPE_LEFT)
+	if (jc->controller_split_type != JS_SPLIT_TYPE_LEFT)
 	{
 		float lastCalX = jc->lastRX;
 		float lastCalY = jc->lastRY;
-		float calX = SDL_GameControllerGetAxis(gameController, SDL_CONTROLLER_AXIS_RIGHTX) / (float)SDL_JOYSTICK_AXIS_MAX;
-		float calY = -SDL_GameControllerGetAxis(gameController, SDL_CONTROLLER_AXIS_RIGHTY) / (float)SDL_JOYSTICK_AXIS_MAX;
+		float calX = JslGetRightX(jc->handle);
+		float calY = -JslGetRightY(jc->handle);
 
 		jc->lastRX = calX;
 		jc->lastRY = calY;
@@ -2513,8 +2444,8 @@ void joyShockPollCallback(JoyShock* jc, float deltaTime) {
 			mouseCalibrationFactor, deltaTime, jc->right_acceleration, jc->right_last_cal, jc->is_flicking_right, jc->ignore_right_stick_mode, rightAny, lockMouse, camSpeedX, camSpeedY, &jc->right_scroll);
 	}
 
-	if (jc->controller_type == JS_SPLIT_TYPE_FULL ||
-		(jc->controller_type & (int)jc->getSetting<JoyconMask>(SettingID::JOYCON_MOTION_MASK)) == 0)
+	if (jc->controller_split_type == JS_SPLIT_TYPE_FULL ||
+		(jc->controller_split_type & (int)jc->getSetting<JoyconMask>(SettingID::JOYCON_MOTION_MASK)) == 0)
 	{
 		Quat neutralQuat = Quat(jc->neutralQuatW, jc->neutralQuatX, jc->neutralQuatY, jc->neutralQuatZ);
 		Vec grav = Vec(inGravX, inGravY, inGravZ) * neutralQuat;
@@ -2566,63 +2497,45 @@ void joyShockPollCallback(JoyShock* jc, float deltaTime) {
 		}
 	}
 
-	// button mappings
-	if (jc->controller_type != JS_SPLIT_TYPE_RIGHT)
-	{
-		jc->handleButtonChange(ButtonID::UP, SDL_GameControllerGetButton(gameController, SDL_CONTROLLER_BUTTON_DPAD_UP));
-		jc->handleButtonChange(ButtonID::DOWN, SDL_GameControllerGetButton(gameController, SDL_CONTROLLER_BUTTON_DPAD_DOWN));
-		jc->handleButtonChange(ButtonID::LEFT, SDL_GameControllerGetButton(gameController, SDL_CONTROLLER_BUTTON_DPAD_LEFT));
-		jc->handleButtonChange(ButtonID::RIGHT, SDL_GameControllerGetButton(gameController, SDL_CONTROLLER_BUTTON_DPAD_RIGHT));
-		jc->handleButtonChange(ButtonID::L, SDL_GameControllerGetButton(gameController, SDL_CONTROLLER_BUTTON_LEFTSHOULDER));
-		jc->handleButtonChange(ButtonID::MINUS, SDL_GameControllerGetButton(gameController, SDL_CONTROLLER_BUTTON_BACK));
-		// for backwards compatibility, we need need to account for the fact that SDL2 maps the touchpad button differently to SDL
-		switch (jc->platform_controller_type)
-		{
-		case SDL_CONTROLLER_TYPE_PS4:
-		case SDL_CONTROLLER_TYPE_PS5:
-			jc->handleButtonChange(ButtonID::CAPTURE, SDL_GameControllerGetButton(gameController, SDL_CONTROLLER_BUTTON_TOUCHPAD));
-			break;
-		default:
-			jc->handleButtonChange(ButtonID::CAPTURE, SDL_GameControllerGetButton(gameController, SDL_CONTROLLER_BUTTON_MISC1));
-			break;
-		}
-		jc->handleButtonChange(ButtonID::L3, SDL_GameControllerGetButton(gameController, SDL_CONTROLLER_BUTTON_LEFTSTICK));
-		// SL and SR are mapped to back paddle positions:
-		jc->handleButtonChange(ButtonID::LSL, SDL_GameControllerGetButton(gameController, SDL_CONTROLLER_BUTTON_PADDLE2));
-		jc->handleButtonChange(ButtonID::LSR, SDL_GameControllerGetButton(gameController, SDL_CONTROLLER_BUTTON_PADDLE4));
+	int buttons = JslGetButtons(jc->handle);
 
-		float lTrigger = SDL_GameControllerGetAxis(gameController, SDL_CONTROLLER_AXIS_TRIGGERLEFT) / (float)SDL_JOYSTICK_AXIS_MAX;
+	// button mappings
+	if (jc->controller_split_type != JS_SPLIT_TYPE_RIGHT)
+	{
+		jc->handleButtonChange(ButtonID::UP, buttons & (1<<JSOFFSET_UP));
+		jc->handleButtonChange(ButtonID::DOWN, buttons & (1 << JSOFFSET_DOWN));
+		jc->handleButtonChange(ButtonID::LEFT, buttons & (1 << JSOFFSET_LEFT));
+		jc->handleButtonChange(ButtonID::RIGHT, buttons & (1 << JSOFFSET_RIGHT));
+		jc->handleButtonChange(ButtonID::L, buttons & (1 << JSOFFSET_L));
+		jc->handleButtonChange(ButtonID::MINUS, buttons & (1 << JSOFFSET_MINUS));
+		// for backwards compatibility, we need need to account for the fact that SDL2 maps the touchpad button differently to SDL
+		jc->handleButtonChange(ButtonID::CAPTURE, buttons & (1 << JSOFFSET_CAPTURE));
+		jc->handleButtonChange(ButtonID::L3, buttons & (1 << JSOFFSET_LCLICK));
+		// SL and SR are mapped to back paddle positions:
+		jc->handleButtonChange(ButtonID::LSL, buttons & (1 << JSOFFSET_SL));
+		jc->handleButtonChange(ButtonID::LSR, buttons & (1 << JSOFFSET_SR));
+
+		float lTrigger = JslGetLeftTrigger(jc->handle);
 		jc->handleTriggerChange(ButtonID::ZL, ButtonID::ZLF, jc->getSetting<TriggerMode>(SettingID::ZL_MODE), lTrigger);
 	}
-	if (jc->controller_type != JS_SPLIT_TYPE_LEFT)
+	if (jc->controller_split_type != JS_SPLIT_TYPE_LEFT)
 	{
-		jc->handleButtonChange(ButtonID::E, SDL_GameControllerGetButton(gameController, SDL_CONTROLLER_BUTTON_B));
-		jc->handleButtonChange(ButtonID::S, SDL_GameControllerGetButton(gameController, SDL_CONTROLLER_BUTTON_A));
-		jc->handleButtonChange(ButtonID::N, SDL_GameControllerGetButton(gameController, SDL_CONTROLLER_BUTTON_Y));
-		jc->handleButtonChange(ButtonID::W, SDL_GameControllerGetButton(gameController, SDL_CONTROLLER_BUTTON_X));
-		jc->handleButtonChange(ButtonID::R, SDL_GameControllerGetButton(gameController, SDL_CONTROLLER_BUTTON_RIGHTSHOULDER));
-		jc->handleButtonChange(ButtonID::PLUS, SDL_GameControllerGetButton(gameController, SDL_CONTROLLER_BUTTON_START));
-		jc->handleButtonChange(ButtonID::HOME, SDL_GameControllerGetButton(gameController, SDL_CONTROLLER_BUTTON_GUIDE));
-		jc->handleButtonChange(ButtonID::R3, SDL_GameControllerGetButton(gameController, SDL_CONTROLLER_BUTTON_RIGHTSTICK));
+		jc->handleButtonChange(ButtonID::E, buttons & (1 << JSOFFSET_E));
+		jc->handleButtonChange(ButtonID::S, buttons & (1 << JSOFFSET_S));
+		jc->handleButtonChange(ButtonID::N, buttons & (1 << JSOFFSET_N));
+		jc->handleButtonChange(ButtonID::W, buttons & (1 << JSOFFSET_W));
+		jc->handleButtonChange(ButtonID::R, buttons & (1 << JSOFFSET_R));
+		jc->handleButtonChange(ButtonID::PLUS, buttons & (1 << JSOFFSET_PLUS));
+		jc->handleButtonChange(ButtonID::HOME, buttons & (1 << JSOFFSET_HOME));
+		jc->handleButtonChange(ButtonID::R3, buttons & (1 << JSOFFSET_RCLICK));
 		// SL and SR are mapped to back paddle positions:
-		jc->handleButtonChange(ButtonID::RSL, SDL_GameControllerGetButton(gameController, SDL_CONTROLLER_BUTTON_PADDLE3));
-		jc->handleButtonChange(ButtonID::RSR, SDL_GameControllerGetButton(gameController, SDL_CONTROLLER_BUTTON_PADDLE1));
+		jc->handleButtonChange(ButtonID::RSL, buttons & (1 << JSOFFSET_SL));
+		jc->handleButtonChange(ButtonID::RSR, buttons & (1 << JSOFFSET_SR));
 		
-		float rTrigger = SDL_GameControllerGetAxis(gameController, SDL_CONTROLLER_AXIS_TRIGGERRIGHT) / (float)SDL_JOYSTICK_AXIS_MAX;
+		float rTrigger = JslGetRightTrigger(jc->handle);
 		jc->handleTriggerChange(ButtonID::ZR, ButtonID::ZRF, jc->getSetting<TriggerMode>(SettingID::ZR_MODE), rTrigger);
 	}
-	bool touch = false;
-	for (int t = SDL_GameControllerGetNumTouchpads(jc->sdl_controller) - 1; t >= 0; --t)
-	{
-		for (int f = SDL_GameControllerGetNumTouchpadFingers(jc->sdl_controller, t) - 1; f >= 0; --f)
-		{
-			uint8_t touchState = 0;
-			if (SDL_GameControllerGetTouchpadFinger(jc->sdl_controller, t, f, &touchState, nullptr, nullptr, nullptr) == 0)
-			{
-				touch |= (touchState != 0);
-			}
-		}
-	}
+	bool touch = JslGetTouchDown(jc->handle, false) || JslGetTouchDown(jc->handle, true);
 	jc->handleButtonChange(ButtonID::TOUCH, touch);
 
 	// Handle buttons before GYRO because some of them may affect the value of blockGyro
@@ -2730,8 +2643,8 @@ void joyShockPollCallback(JoyShock* jc, float deltaTime) {
 	}
 	// optionally ignore the gyro of one of the joycons
 	if (!lockMouse &&
-		(jc->controller_type == JS_SPLIT_TYPE_FULL ||
-		(jc->controller_type & (int)jc->getSetting<JoyconMask>(SettingID::JOYCON_GYRO_MASK)) == 0))
+		(jc->controller_split_type == JS_SPLIT_TYPE_FULL ||
+		(jc->controller_split_type & (int)jc->getSetting<JoyconMask>(SettingID::JOYCON_GYRO_MASK)) == 0))
 	{
 		//COUT << "GX: %0.4f GY: %0.4f GZ: %0.4f\n", imuState.gyroX, imuState.gyroY, imuState.gyroZ);
 		float mouseCalibration = jc->getSetting(SettingID::REAL_WORLD_CALIBRATION) / os_mouse_speed / jc->getSetting(SettingID::IN_GAME_SENS);
@@ -2746,10 +2659,10 @@ void joyShockPollCallback(JoyShock* jc, float deltaTime) {
 	auto newColor = jc->getSetting<Color>(SettingID::LIGHT_BAR);
 	if (jc->_light_bar != newColor)
 	{
-		SDL_GameControllerSetLED(jc->sdl_controller, newColor.rgb.r, newColor.rgb.g, newColor.rgb.b);
+		JslSetLightColour(jc->handle, newColor.raw);
 		jc->_light_bar = newColor;
 	}
-	jc->callback_lock.unlock();
+	jc->btnCommon->callback_lock.unlock();
 }
 
 // https://stackoverflow.com/a/25311622/1130520 says this is why filenames obtained by fgets don't work
@@ -2896,15 +2809,8 @@ void CleanUp()
 {
 	tray->Hide();
 	HideConsole();
-	keep_polling = false;
-
-	controller_lock.lock();
 	handle_to_joyshock.clear();
-	controller_lock.unlock();
-	
-	SDL_Delay(200);
-
-	SDL_Quit();
+	JslDisconnectAndDisposeAll();
     handle_to_joyshock.clear(); // Destroy Vigem Gamepads
 	ReleaseConsole();
 	whitelister.Remove();
@@ -3106,7 +3012,7 @@ private:
 		{
 			GyroSettings value(inst->_var);
 			//No assignment? Display current assignment
-			cout << (value.always_off ? string("GYRO_ON") : string("GYRO_OFF")) << " = " << value << endl;;
+			COUT << (value.always_off ? string("GYRO_ON") : string("GYRO_OFF")) << " = " << value << endl;;
 		}
 		else
 		{
@@ -3131,7 +3037,7 @@ private:
 
 	void DisplayGyroSettingValue(GyroSettings value)
 	{
-		cout << (value.always_off ? string("GYRO_ON") : string("GYRO_OFF")) << " is set to " << value << endl;;
+		COUT << (value.always_off ? string("GYRO_ON") : string("GYRO_OFF")) << " is set to " << value << endl;;
 	}
 public:
 	GyroButtonAssignment(in_string name, JSMVariable<GyroSettings>& setting, bool always_off)
@@ -3202,7 +3108,7 @@ private:
 			registry->GetCommandList(list);
 			for (auto cmd : list)
 			{
-				COUT << "    " << cmd << endl;
+				COUT_INFO << "    " << cmd << endl;
 			}
 			COUT << "Enter HELP [cmd1] [cmd2] ... for details on specific commands." << endl;
 		}
@@ -3222,16 +3128,16 @@ private:
 		else
 		{
 			// Show all commands that include ARG
-			cout << "\"" << arg << "\" is not a command, but the following are:" << endl;
+			COUT << "\"" << arg << "\" is not a command, but the following are:" << endl;
 			vector<string> list;
 			registry->GetCommandList(list);
 			for (auto cmd : list)
 			{
 				auto pos = cmd.find(arg);
 				if(pos != string::npos)
-					cout << "    " << cmd << endl;
+					COUT_INFO << "    " << cmd << endl;
 			}
-			cout << "Enter HELP [cmd1] [cmd2] ... for details on specific commands." << endl;
+			COUT << "Enter HELP [cmd1] [cmd2] ... for details on specific commands." << endl;
 		}
 		return true;
 	}
@@ -3248,18 +3154,6 @@ public:
 	}
 };
 
-void initSDL() {
-	SDL_SetHint(SDL_HINT_GAMECONTROLLER_USE_BUTTON_LABELS, "0");
-	SDL_SetHint(SDL_HINT_JOYSTICK_ALLOW_BACKGROUND_EVENTS, "1");
-	SDL_SetHint(SDL_HINT_JOYSTICK_HIDAPI_JOY_CONS, "1");
-	SDL_SetHint(SDL_HINT_JOYSTICK_HIDAPI_SWITCH_HOME_LED, "0");
-	SDL_SetHint(SDL_HINT_JOYSTICK_HIDAPI_PS4_RUMBLE, "1");
-	SDL_SetHint(SDL_HINT_JOYSTICK_HIDAPI_PS5_RUMBLE, "1");
-	SDL_SetHint(SDL_HINT_JOYSTICK_THREAD, "1");
-	SDL_Init(SDL_INIT_GAMECONTROLLER);
-}
-
-//int main(int argc, char *argv[]) {
 #ifdef _WIN32
 int __stdcall wWinMain(HINSTANCE hInstance, HINSTANCE prevInstance, LPWSTR cmdLine, int cmdShow) {
 	auto trayIconData = hInstance;
@@ -3556,10 +3450,8 @@ int main(int argc, char *argv[]) {
 
 	Mapping::_isCommandValid = bind(&CmdRegistry::isCommandValid, &commandRegistry, placeholders::_1);
 
-	initSDL();
+	JslSetCallback(&joyShockPollCallback);
 	connectDevices();
-	SDL_Thread *controllerThread = SDL_CreateThread(pollDevices, "Poll Devices", (void *)NULL);
-	SDL_DetachThread(controllerThread);
 	tray.reset(new TrayIcon(trayIconData, &beforeShowTrayMenu));
 	tray->Show();
 

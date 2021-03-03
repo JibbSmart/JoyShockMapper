@@ -47,7 +47,6 @@ JoyShockMapper is primarily developed on Windows. JoyShockMapper should now be a
   * **[Autoload feature](#3-autoload-feature)**
 * **[Known and Perceived Issues](#known-and-perceived-issues)**
 * **[Troubleshooting](#troubleshooting)**
-* **[Known and Perceived Issues](#known-and-perceived-issues)**
 * **[Credits](#credits)**
 * **[Helpful Resources](#helpful-resources)**
 * **[License](#license)**
@@ -116,7 +115,7 @@ Included is a folder called GyroConfigs. This includes templates for creating ne
 
 2. Run the JoyShockMapper executable, and you should see a console window welcoming you to JoyShockMapper.
     * In the console you can start entering bindings : [button name] = [key name]. See [Digital Inputs section](#1-digital-inputs) for details on how buttons and keys are named.
-    * [Sticks](#3-stick-mouse-inputs), the [gyro](#4-gyro-mouse-inputs) and [Sony's analog triggers](#2-analog-triggers) require some more configuration: typically some MODE you want to set, a sensitivity value and some other settings. Each is explained in the corresponding section. They follow the same format : [setting name] = [value]
+    * [Sticks](#3-stick-configuration), the [gyro](#4-gyro-mouse-inputs) and [Sony's analog triggers](#2-analog-triggers) require some more configuration: typically some MODE you want to set, a sensitivity value and some other settings. Each is explained in the corresponding section. They follow the same format : [setting name] = [value]
 	* Buttons and settings will display their current values if you only enter their name in the console.
 	* Settings can display a short description of what they do if you enter [setting name] HELP
 	* There are quite a few commands that do not work as assignments like above but just runs a function. For example RECONNECT\_CONTROLLERS will update the controller listing, and RESET\_MAPPINGS will set all settings and bindings to default. README will lead you to this document!
@@ -148,7 +147,7 @@ Commands can *mostly* be split into 8 categories:
 4. **[Gyro Mouse Inputs](#4-gyro-mouse-inputs)**. Controlling the mouse with gyro generally provides far more precision than controlling it with a stick. Think of a gyro as a mouse on an invisible, frictionless mousepad. The mousepad extends however far you're comfortable rotating the controller. For games where you control the camera directly, stick mouse inputs provide convenient ways to complete big turns with little precision, while gyro mouse inputs allow you to make more precise, quick movements within a relatively limited range.
 5. **[Real World Calibration](#5-real-world-calibration)**. This calibration value makes it possible for *flick stick* to work correctly, for the gyro and aim stick settings to have meaningful real-life values, and for players to share the same settings between different games.
 6. **[ViGEm Virtual Controller](#6-vigem-virtual-controller)**. JoyShockMapper can connect to Nefarius' ViGEm bus software to create virtual xbox controllers and virtual DS4 controllers. To make use of this feature you need to download and install the [latest release at this link](https://github.com/ViGEm/ViGEmBus/releases/latest).
-7. **[Modeshifts](#6-modeshifts)**. The controller configuration can dynamically change depending on the current button presses, in a way akin to chorded presses. This is handy to handle weapon wheels for example. These are called modeshifts to echo the Steam Input naming convention.
+7. **[Modeshifts](#7-modeshifts)**. The controller configuration can dynamically change depending on the current button presses, in a way akin to chorded presses. This is handy to handle weapon wheels for example. These are called modeshifts to echo the Steam Input naming convention.
 8. **[Miscellaneous Commands](#8-miscellaneous-commands)**. These don't fit in the above categories, but are nevertheless useful. They typically are related to JoyShockMapper itself rather than the controller configuration.
 
 So let's dig into the available commands.
@@ -501,7 +500,7 @@ If you're holding the controller in an unusual orientation (such as for comfort 
 * **LEFT** is for when you're holding the controller rotated to its left.
 * **RIGHT** is for when you're holding the controller rotated to its right.
 * **BACKWARD** is for when you're holding teh controller rotated 180°.
-* **JOYCON_SIDEWAYS** means LEFT for the left hand joycon and RIGHT for the right hand joycon
+* **JOYCON_SIDEWAYS** means LEFT for the left hand joycon, RIGHT for the right hand joycon, FORWARD for all other controllers.
 
 Once set, JoyShockMapper will rearrange the stick's X and Y axis data to match your perspective. CONTROLLER\_ORIENTATION only affects sticks (including motion stick). It doesn't affect the arrangement of the face buttons, d-pad, etc. Look up [Gyro Mouse Inputs](#4-gyro-mouse-inputs) section for how to remap gyro axis to mouse axis.
 
@@ -744,7 +743,7 @@ L+R = X_RS # I don't like to stick click often
 MOTION_STICK_MODE = RIGHT_STICK # Gyro driving
 ```
 
-#### 6.1 DS4 bindings
+#### 6.2 DS4 bindings
 
 ViGEm also the ability to emulate a Dualshock 4 controller. This can allow you to use a switch pro as a DS4 in a game that has this support built in for example. Setting the virtual controller to DS4 enables the use of these features as well. Take note that these names are aliases to the xbox names.
 
@@ -895,8 +894,8 @@ Since moving to SDL2, JoyShockMapper also uses [GamepadMotionHelpers](https://gi
   * How developers can do a better job implementing gyro controls;
   * How to use JoyShockMapper;
   * User editable collection of user configurations and tips for using JoyShockMapper with a bunch of games.
-*[GyroGaming subreddit](https://www.reddit.com/r/GyroGaming/)
-*[GyroGaming discord server](https://discord.gg/4w7pCqj).
+* [GyroGaming subreddit](https://www.reddit.com/r/GyroGaming/)
+* [GyroGaming discord server](https://discord.gg/4w7pCqj).
 
 ## License
 JoyShockMapper is licensed under the MIT License - see [LICENSE.md](LICENSE.md).

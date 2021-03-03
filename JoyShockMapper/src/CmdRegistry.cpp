@@ -10,7 +10,7 @@
 
 JSMCommand::JSMCommand(in_string name)
 	: _parse()
-	, _help("Error in entering the command. Enter README to bring up the user manual.")
+	, _help("Enter README to bring up the user manual.")
 	, _taskOnDestruction()
 	, _name(name)
 {}
@@ -220,7 +220,7 @@ void CmdRegistry::processLine(const string& line)
 
 		if (!hasProcessed)
 		{
-			cout << "Unrecognized command: \"" << trimmedLine << "\"\nEnter HELP to display all commands." << endl;
+			CERR << "Unrecognized command: \"" << trimmedLine << "\"\nEnter HELP to display all commands." << endl;
 		}
 	}
 	// else ignore empty lines
@@ -255,15 +255,16 @@ bool JSMMacro::DefaultParser(JSMCommand* cmd, in_string arguments)
 	auto macroCmd = static_cast<JSMMacro*>(cmd);
 	// Developper protection to remind you to set a parser.
 	_ASSERT_EXPR(macroCmd->_macro, L"No Macro was set for this command.");
-	if (arguments.compare(0, 4, "HELP") == 0)
+	if (arguments.compare(0, 4, "HELP") == 0 && !macroCmd->_help.empty())
 	{
 		// Show help.
 		COUT << macroCmd->_help << endl;
 	}
-	else if(!macroCmd->_macro(macroCmd, arguments))
+	else if(!macroCmd->_macro(macroCmd, arguments) && !macroCmd->_help.empty())
 	{
-		CERR << "Error when parsing the command " << macroCmd->_name << endl
-			<< macroCmd->_help << endl; // Parsing has failed. Show help.
+		COUT << macroCmd->_help << endl << "The "; // Parsing has failed. Show help.
+		COUT_INFO << "README";
+		COUT << " command can lead you to further details on this command." << endl;
 	}
 	return true;
 }
