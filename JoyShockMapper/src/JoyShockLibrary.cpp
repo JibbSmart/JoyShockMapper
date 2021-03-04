@@ -134,17 +134,19 @@ IMU_STATE JslGetIMUState(int deviceId)
 	{
 		array<float, 3> gyro;
 		SDL_GameControllerGetSensorData(_controllerMap[deviceId]->_sdlController, SDL_SENSOR_GYRO, &gyro[0], 3);
-		imuState.gyroX = gyro[0] * 180.f / M_PI;
-		imuState.gyroY = gyro[1] * 180.f / M_PI;
-		imuState.gyroZ = gyro[2] * 180.f / M_PI;
+		constexpr float toDegPerSec = 180.f / M_PI;
+		imuState.gyroX = gyro[0] * toDegPerSec;
+		imuState.gyroY = gyro[1] * toDegPerSec;
+		imuState.gyroZ = gyro[2] * toDegPerSec;
 	}
 	if (_controllerMap[deviceId]->has_accel)
 	{
 		array<float, 3> accel;
 		SDL_GameControllerGetSensorData(_controllerMap[deviceId]->_sdlController, SDL_SENSOR_ACCEL, &accel[0], 3);
-		imuState.accelX = accel[0] * 1.f / 9.8f;
-		imuState.accelY = accel[1] * 1.f / 9.8f;
-		imuState.accelZ = accel[2] * 1.f / 9.8f;
+		constexpr float toGs = 1.f / 9.8f;
+		imuState.accelX = accel[0] * toGs;
+		imuState.accelY = accel[1] * toGs;
+		imuState.accelZ = accel[2] * toGs;
 	}
 	return imuState;
 }

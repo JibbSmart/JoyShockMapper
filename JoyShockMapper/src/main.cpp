@@ -2155,6 +2155,12 @@ void processStick(shared_ptr<JoyShock> jc, float stickX, float stickY, float las
 		break;
 	}
 
+	// Stick inversion
+	stickX *= jc->getSetting(SettingID::STICK_AXIS_X);
+	stickY *= jc->getSetting(SettingID::STICK_AXIS_Y);
+	lastX *= jc->getSetting(SettingID::STICK_AXIS_X);
+	lastY *= jc->getSetting(SettingID::STICK_AXIS_Y);
+
 	outerDeadzone = 1.0f - outerDeadzone;
 	jc->processDeadZones(lastX, lastY, innerDeadzone, outerDeadzone);
 	bool pegged = jc->processDeadZones(stickX, stickY, innerDeadzone, outerDeadzone);
