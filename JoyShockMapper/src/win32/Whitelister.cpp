@@ -6,12 +6,12 @@
 #include <iostream>
 #include <sstream>
 
-#pragma comment(lib,"ws2_32.lib")
+#pragma comment(lib, "ws2_32.lib")
 
 constexpr uint16_t HID_GUARDIAN_PORT = 26762;
 
 // Keep windows types outside of h file
-static SOCKET connectToServer(const string & szServerName, WORD portNum)
+static SOCKET connectToServer(const string &szServerName, WORD portNum)
 {
 	struct hostent *hp;
 	unsigned int addr;
@@ -29,7 +29,7 @@ static SOCKET connectToServer(const string & szServerName, WORD portNum)
 	else
 	{
 		addr = inet_addr(szServerName.c_str());
-		hp = gethostbyaddr((char*)&addr, sizeof(addr), AF_INET);
+		hp = gethostbyaddr((char *)&addr, sizeof(addr), AF_INET);
 	}
 
 	if (hp == NULL)
@@ -38,10 +38,10 @@ static SOCKET connectToServer(const string & szServerName, WORD portNum)
 		return NULL;
 	}
 
-	server.sin_addr.s_addr = *((unsigned long*)hp->h_addr);
+	server.sin_addr.s_addr = *((unsigned long *)hp->h_addr);
 	server.sin_family = AF_INET;
 	server.sin_port = htons(portNum);
-	if (connect(conn, (struct sockaddr*)&server, sizeof(server)))
+	if (connect(conn, (struct sockaddr *)&server, sizeof(server)))
 	{
 		closesocket(conn);
 		return NULL;
@@ -57,19 +57,21 @@ bool Whitelister::IsHIDCerberusRunning()
 	DWORD dwBytesNeeded;
 
 	scm = OpenSCManagerA(nullptr, nullptr, SC_MANAGER_ENUMERATE_SERVICE);
-	if (!scm) {
+	if (!scm)
+	{
 		return 0;
 	}
 
 	theService = OpenService(scm, L"HidCerberus.Srv", SERVICE_QUERY_STATUS);
-	if (!theService) {
+	if (!theService)
+	{
 		CloseServiceHandle(scm);
 		return 0;
 	}
 
 	auto result = QueryServiceStatusEx(theService, SC_STATUS_PROCESS_INFO,
-		reinterpret_cast<LPBYTE>(&ssStatus), sizeof(SERVICE_STATUS_PROCESS),
-		&dwBytesNeeded);
+	  reinterpret_cast<LPBYTE>(&ssStatus), sizeof(SERVICE_STATUS_PROCESS),
+	  &dwBytesNeeded);
 
 	CloseServiceHandle(theService);
 	CloseServiceHandle(scm);
@@ -80,7 +82,7 @@ bool Whitelister::IsHIDCerberusRunning()
 bool Whitelister::ShowHIDCerberus()
 {
 	std::cout << "Open HIDCerberus at the following adress in your browser:" << endl
-		 << "http://localhost:26762/" << endl;
+	          << "http://localhost:26762/" << endl;
 	return true;
 	// SECURE CODING! https://www.oreilly.com/library/view/secure-programming-cookbook/0596003943/ch01s08.html
 	//STARTUPINFOA startupInfo;
@@ -145,11 +147,11 @@ string Whitelister::SendToHIDGuardian(string command)
 	long fileSize = -1;
 	WSADATA wsaData;
 	string memBuffer, headerBuffer;
-	
+
 	if (WSAStartup(0x101, &wsaData) == 0)
 	{
 		memBuffer = readUrl2(command, fileSize, &headerBuffer);
-	
+
 		WSACleanup();
 	}
 	return memBuffer;
@@ -172,10 +174,12 @@ string Whitelister::readUrl2(string &szUrl, long &bytesReturnedOut, string *head
 	conn = connectToServer(server, HID_GUARDIAN_PORT);
 
 	///////////// step 2, send GET request /////////////
-	tmpBuffer << "GET " << filepath << " HTTP/1.0" << "\r\n" << "Host: " << server << "\r\n\r\n";
+	tmpBuffer << "GET " << filepath << " HTTP/1.0"
+	          << "\r\n"
+	          << "Host: " << server << "\r\n\r\n";
 	sendBuffer = tmpBuffer.str();
 	send(conn, sendBuffer.c_str(), sendBuffer.length(), 0);
-	
+
 	///////////// step 3 - get received bytes ////////////////
 	// Receive until the peer closes the connection
 	totalBytesRead = 0;
@@ -197,7 +201,7 @@ string Whitelister::readUrl2(string &szUrl, long &bytesReturnedOut, string *head
 	}
 	result.erase(0, headerLen);
 	result.resize(strlen(result.c_str()));
-		
+
 	bytesReturnedOut = totalBytesRead - headerLen;
 	closesocket(conn);
 	return result;

@@ -43,21 +43,23 @@ protected:
 			}
 			else if (!_parse(this, fwd_args) && !_help.empty())
 			{
-				COUT << _help << endl << "The "; // Parsing has failed. Show help.
+				COUT << _help << endl
+				     << "The "; // Parsing has failed. Show help.
 				COUT_INFO << "README";
 				COUT << " command can lead you to further details on this command." << endl;
 			}
 		}
-		else if(!_help.empty())
+		else if (!_help.empty())
 		{
-			COUT << _help << endl << "The "; // Parsing has failed. Show help.
+			COUT << _help << endl
+			     << "The "; // Parsing has failed. Show help.
 			COUT_INFO << "README";
 			COUT << " command can lead you to further details on this command." << endl;
 		}
 		return true; // Command is completely processed
 	}
 
-	static bool ModeshiftParser(ButtonID modeshift, JSMSetting<T> *setting, JSMCommand::ParseDelegate parser, JSMCommand* cmd, in_string argument)
+	static bool ModeshiftParser(ButtonID modeshift, JSMSetting<T>* setting, JSMCommand::ParseDelegate parser, JSMCommand* cmd, in_string argument)
 	{
 		if (setting && argument.compare("NONE") == 0)
 		{
@@ -127,8 +129,7 @@ protected:
 					//Create Modeshift
 					string name = chord + op + _displayName;
 					unique_ptr<JSMCommand> chordAssignment(new JSMAssignment<T>(name, *settingVar->AtChord(btn)));
-					chordAssignment->SetHelp(_help)->SetParser(bind(&JSMAssignment<T>::ModeshiftParser, btn, settingVar, _parse, placeholders::_1, placeholders::_2))
-						->SetTaskOnDestruction(bind(&JSMSetting<T>::ProcessModeshiftRemoval, settingVar, btn));
+					chordAssignment->SetHelp(_help)->SetParser(bind(&JSMAssignment<T>::ModeshiftParser, btn, settingVar, _parse, placeholders::_1, placeholders::_2))->SetTaskOnDestruction(bind(&JSMSetting<T>::ProcessModeshiftRemoval, settingVar, btn));
 					return chordAssignment;
 				}
 				auto buttonVar = dynamic_cast<JSMButton*>(&_var);
@@ -167,11 +168,11 @@ protected:
 
 public:
 	JSMAssignment(in_string name, in_string displayName, JSMVariable<T>& var, bool inNoListener = false)
-		: JSMCommand(name)
-		, _var(var)
-		, _displayName(displayName)
-		, _listenerId(0)
-		, _hasListener(!inNoListener)
+	  : JSMCommand(name)
+	  , _var(var)
+	  , _displayName(displayName)
+	  , _listenerId(0)
+	  , _hasListener(!inNoListener)
 	{
 		// Child Classes assign their own parser. Use bind to convert instance function call
 		// into a static function call.
@@ -183,12 +184,14 @@ public:
 	}
 
 	JSMAssignment(in_string name, JSMVariable<T>& var)
-		: JSMAssignment(name, name, var)
-	{ }
+	  : JSMAssignment(name, name, var)
+	{
+	}
 
 	JSMAssignment(JSMSetting<T>& var)
-		: JSMAssignment(magic_enum::enum_name(var._id).data(), var)
-	{ }
+	  : JSMAssignment(magic_enum::enum_name(var._id).data(), var)
+	{
+	}
 
 	virtual ~JSMAssignment()
 	{
@@ -199,7 +202,7 @@ public:
 	}
 
 	// This setter enables custom parsers to perform assignments
-	inline T operator =(T newVal)
+	inline T operator=(T newVal)
 	{
 		return (_var = newVal);
 	}
