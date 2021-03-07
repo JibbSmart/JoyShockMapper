@@ -396,7 +396,7 @@ void JslSetLightColour(int deviceId, int colour)
 
 void JslSetRumble(int deviceId, int smallRumble, int bigRumble)
 {
-	SDL_GameControllerRumble(_controllerMap[deviceId]->_sdlController, smallRumble << 8, bigRumble << 8, 200);
+	SDL_GameControllerRumble(_controllerMap[deviceId]->_sdlController, smallRumble << 8, bigRumble << 8, tick_time.get() + 1);
 }
 
 void JslSetPlayerNumber(int deviceId, int number)

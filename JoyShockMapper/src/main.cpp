@@ -929,12 +929,6 @@ private:
 		return isPressed;
 	}
 
-	void Rumble(int smallRumble, int bigRumble)
-	{
-		COUT << "Rumbling at " << smallRumble << " and " << bigRumble << endl;
-		JslSetRumble(handle, smallRumble, bigRumble);
-	}
-
 public:
 	const int MaxGyroSamples = 64;
 	const int NumSamples = 64;
@@ -1000,6 +994,7 @@ public:
 	int lastGyroIndexY = 0;
 
 	Color _light_bar;
+	pair<uint16_t, uint16_t> last_rumble = { 0, 0 };
 
 	JoyShock(int uniqueHandle, int controllerSplitType, shared_ptr<DigitalButton::Common> sharedButtonCommon = nullptr)
 	  : handle(uniqueHandle)
@@ -1037,6 +1032,14 @@ public:
 	{
 	}
 
+	void Rumble(int smallRumble, int bigRumble)
+	{
+		COUT << "Rumbling at " << smallRumble << " and " << bigRumble << endl;
+		JslSetRumble(handle, smallRumble, bigRumble);
+		last_rumble.first = smallRumble;
+		last_rumble.second = bigRumble;
+	}
+
 	bool CheckVigemState()
 	{
 		if (virtual_controller.get() != ControllerScheme::NONE)
@@ -1058,6 +1061,12 @@ public:
 
 	void handleViGEmNotification(UCHAR largeMotor, UCHAR smallMotor, Indicator indicator)
 	{
+		static chrono::steady_clock::time_point last_call;
+		auto now = chrono::steady_clock::now();
+		auto diff = ((float)chrono::duration_cast<chrono::microseconds>(now - last_call).count()) / 1000000.0f;
+		last_call = now;
+		COUT_INFO << "Time since last vigem rumble is " << diff << " us" << endl;
+		lock_guard guard(this->btnCommon->callback_lock);
 		switch (platform_controller_type)
 		{
 		case 4: // SDL_GameControllerType::SDL_CONTROLLER_TYPE_PS4
@@ -2751,6 +2760,8 @@ void joyShockPollCallback(int jcHandle, JOY_SHOCK_STATE state, JOY_SHOCK_STATE l
 	if (jc->btnCommon->_vigemController)
 	{
 		jc->btnCommon->_vigemController->update(); // Check for initialized built-in
+		if (jc->last_rumble.first == 0 && jc->last_rumble.second == 0)
+			jc->Rumble(jc->last_rumble.first, jc->last_rumble.second);
 	}
 	auto newColor = jc->getSetting<Color>(SettingID::LIGHT_BAR);
 	if (jc->_light_bar != newColor)
@@ -3345,7 +3356,10 @@ int main(int argc, char *argv[])
 	dbl_press_window.SetFilter(&filterPositive);
 	hold_press_time.SetFilter(&filterHoldPressDelay);
 	tick_time.SetFilter(&filterTickTime);
-	currentWorkingDir.SetFilter([](PathString current, PathString next) { return SetCWD(string(next)) ? next : current; });
+	currentWorkingDir.SetFilter([](PathString current, PathString next) 
+		{
+			return SetCWD(string(next)) ? next : current; 
+		});
 	autoloadSwitch.SetFilter(&filterInvalidValue<Switch, Switch::INVALID>)->AddOnChangeListener(bind(&UpdateThread, autoLoadThread.get(), placeholders::_1));
 	hide_minimized.SetFilter(&filterInvalidValue<Switch, Switch::INVALID>)->AddOnChangeListener(bind(&UpdateThread, minimizeThread.get(), placeholders::_1));
 	virtual_controller.SetFilter(&UpdateVirtualController)->AddOnChangeListener(&OnVirtualControllerChange);
