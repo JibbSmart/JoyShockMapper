@@ -2065,13 +2065,13 @@ static float handleFlickStick(float calX, float calY, float lastCalX, float last
 				jc->flick_rotation_counter += angleChange; // track all rotation for this flick
 				float flickSpeedConstant = jc->getSetting(SettingID::REAL_WORLD_CALIBRATION) * mouseCalibrationFactor / jc->getSetting(SettingID::IN_GAME_SENS);
 				float flickSpeed = -(angleChange * flickSpeedConstant);
-				int maxSmoothingSamples = min(jc->NumSamples, (int)(64.0f * tick_time.get())); // target a max smoothing window size of 64ms
+				int maxSmoothingSamples = min(jc->NumSamples, (int)ceil(64.0f / tick_time.get())); // target a max smoothing window size of 64ms
 				float stepSize = 0.01f; // and we only want full on smoothing when the stick change each time we poll it is approximately the minimum stick resolution
 													  // the fact that we're using radians makes this really easy
 				auto rotate_smooth_override = jc->getSetting(SettingID::ROTATE_SMOOTH_OVERRIDE);
 				if (rotate_smooth_override < 0.0f)
 				{
-					camSpeedX = jc->GetSmoothedStickRotation(flickSpeed, flickSpeedConstant * stepSize * 8.0f, flickSpeedConstant * stepSize * 16.0f, maxSmoothingSamples);
+					camSpeedX = jc->GetSmoothedStickRotation(flickSpeed, flickSpeedConstant * stepSize * 2.0f, flickSpeedConstant * stepSize * 4.0f, maxSmoothingSamples);
 				}
 				else {
 					camSpeedX = jc->GetSmoothedStickRotation(flickSpeed, flickSpeedConstant * rotate_smooth_override, flickSpeedConstant * rotate_smooth_override * 2.0f, maxSmoothingSamples);
