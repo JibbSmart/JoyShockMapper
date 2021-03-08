@@ -9,17 +9,17 @@
 
 // This is a base class for any Command line operation. It binds a command name to a parser function
 // Derivatives from this class have a default parser function and performs specific operations.
-class JSMCommand {
+class JSMCommand
+{
 public:
 	// A Parser function has a pointer to the command being processed and
 	// the data string to process. It returns whether the data was recognized or not.
-	typedef function<bool(JSMCommand *cmd, in_string &data)> ParseDelegate;
+	typedef function<bool(JSMCommand* cmd, in_string& data)> ParseDelegate;
 
 	// Assignments can be given tasks to perform before destroying themselves.
 	// This is used for chorded press, sim presses and modeshifts to remove
 	// themselves from their host variable when assigned NONE
-	typedef function<void(JSMCommand &me)> TaskOnDestruction;
-
+	typedef function<void(JSMCommand& me)> TaskOnDestruction;
 
 protected:
 	// Parse functor to be assigned by derived class or overwritten
@@ -59,7 +59,7 @@ public:
 	}
 
 	// Set a task to perform when this command is destroyed
-	inline JSMCommand *SetTaskOnDestruction(const TaskOnDestruction &task)
+	inline JSMCommand* SetTaskOnDestruction(const TaskOnDestruction& task)
 	{
 		_taskOnDestruction = task;
 		return this;
@@ -83,7 +83,6 @@ private:
 	// multimap allows multiple entries with the same keys
 	CmdMap _registry;
 
-
 	static string_view strtrim(std::string_view str);
 
 	static bool findCommandWithName(in_string name, CmdMap::value_type& pair);
@@ -91,12 +90,17 @@ private:
 public:
 	CmdRegistry();
 
-	bool loadConfigFile(in_string fileName);
+	// Not in_string because the string is modified inside
+	bool loadConfigFile(string fileName);
 
 	// Add a command to the registry. The regisrty takes ownership of the memory of this pointer.
 	// You can use _ASSERT() on the return value of this function to make sure the commands are
 	// accepted.
 	bool Add(JSMCommand* newCommand);
+
+	bool Remove(in_string name);
+
+	bool hasCommand(in_string name) const;
 
 	bool isCommandValid(in_string line);
 
@@ -117,7 +121,7 @@ class JSMMacro : public JSMCommand
 {
 public:
 	// A Macro function has it's command object passed as argument.
-	typedef function<void(JSMMacro *macro, in_string arguments)> MacroDelegate;
+	typedef function<bool(JSMMacro* macro, in_string arguments)> MacroDelegate;
 
 protected:
 	// The macro function to call when the command is recognized.
