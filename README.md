@@ -5,7 +5,7 @@ My goal with JoyShockMapper is to enable you to play PC games with DS, DS4, JoyC
 
 **Download JoyShockMapper to use right away [here](https://github.com/Electronicks/JoyShockMapper/releases)**!
 
-For developers, version 2.2 and older serve as a reference implementation for using [JoyShockLibrary](https://github.com/jibbsmart/JoyShockLibrary) to read inputs from DualShock 4, DualSense, JoyCons, and Pro Controller in your games. It now uses [SDL2](https://github.com/libsdl-org/SDL) for controller support, and JoyShockLibrary's developer has made code contributions to SDL2 to make sure it covers the same features.
+For developers, version 2.2 and older serve as a reference implementation for using [JoyShockLibrary](https://github.com/jibbsmart/JoyShockLibrary) to read inputs from DualShock 4, DualSense, JoyCons, and Pro Controller in your games. It now uses [SDL2](https://github.com/libsdl-org/SDL) for controller support, and I've made code contributions to SDL2 to make sure it covers the same features.
 
 JoyShockMapper is also a reference implementation for many of the best practices described on [GyroWiki](http://gyrowiki.jibbsmart.com).
 
@@ -52,7 +52,7 @@ JoyShockMapper is primarily developed on Windows. JoyShockMapper should now be a
 * **[License](#license)**
 
 ## Installation for Devs
-JoyShockMapper was written in C++ and is built using CMake.
+JoyShockMapper is written in C++ and is built using CMake.
 
 The project is structured into a set of platform-agnostic headers, while platform-specific source files can be found in their respective subdirectories.
 The following files are platform-agnostic:
@@ -111,11 +111,11 @@ The latest version of JoyShockMapper can always be found [here](https://github.c
 Included is a folder called GyroConfigs. This includes templates for creating new configurations for 2D and 3D games, and configuration files that include the settings used for simple [Real World Calibration](#5-real-world-calibration).
 
 ## Quick Start
-1. Connect your controller either with a usb cable or via bluetooth. Most modern controllers will be suported, including all Xbox, Playstation and Switch controllers.
+1. Connect your controller either with a usb cable or via bluetooth. Most modern controllers will be suported, including all Xbox, Playstation and Switch controllers, although Xbox and many others don't have the gyro sensor required for gyro controls.
 
 2. Run the JoyShockMapper executable, and you should see a console window welcoming you to JoyShockMapper.
     * In the console you can start entering bindings : [button name] = [key name]. See [Digital Inputs section](#1-digital-inputs) for details on how buttons and keys are named.
-    * [Sticks](#3-stick-configuration), the [gyro](#4-gyro-mouse-inputs) and [Sony's analog triggers](#2-analog-triggers) require some more configuration: typically some MODE you want to set, a sensitivity value and some other settings. Each is explained in the corresponding section. They follow the same format : [setting name] = [value]
+    * [Sticks](#3-stick-configuration), the [gyro](#4-gyro-mouse-inputs) and [analog triggers](#2-analog-triggers) require some more configuration: typically some MODE you want to set, a sensitivity value and some other settings. Each is explained in the corresponding section. They follow the same format : [setting name] = [value]
 	* Buttons and settings will display their current values if you only enter their name in the console.
 	* Settings can display a short description of what they do if you enter [setting name] HELP
 	* There are quite a few commands that do not work as assignments like above but just runs a function. For example RECONNECT\_CONTROLLERS will update the controller listing, and RESET\_MAPPINGS will set all settings and bindings to default. README will lead you to this document!
@@ -866,14 +866,11 @@ But first, here are some common problems that are worth checking first.
 
 ## Known and Perceived Issues
 
-### Polling rate
-New mouse and keyboard events are only sent when JoyShockMapper gets a new message from the controller. This means if your game's and display's refresh rates are higher than the controller's poll rate, sometimes the game and display will update without moving the mouse, even if you'd normally expect the mouse to move. The DualSense and DualShock 4 send 250 messages a second, which is plenty for even extremely high refresh rate displays. But JoyCons and Pro Controllers send 66.67 messages a second, which means you might encounter stuttering movements when playing (and displaying) above 66.67 frames per second. A future version of JoyShockMapper may work around this problem by repeating messages up to a desired refresh rate.
-
 ### Bluetooth connectivity
 JoyCons and Pro Controllers normally only communicate by Bluetooth. Some Bluetooth adapters can't keep up with these devices, resulting in **laggy input**. This is especially common when more than one device is connected (such as when using a pair of JoyCons). There is nothing JoyShockMapper or JoyShockLibrary can do about this. JoyShockMapper experimentally supports connecting Switch controllers by USB.
 
 ## Credits
-I'm Julian "Jibb" Smart, and I made JoyShockMapper. As of version 1.3, JoyShockMapper has benefited from substantial community contributions. Huge thanks to the following contributors:
+JoyShockMapper was originally created by **Julian "Jibb" Smart**. As of version 1.3, JoyShockMapper has benefited from substantial community contributions. Huge thanks to the following contributors:
 * Nicolas (code)
 * Bryan Rumsey (icon art)
 * Contributer (icon art)
@@ -882,11 +879,11 @@ I'm Julian "Jibb" Smart, and I made JoyShockMapper. As of version 1.3, JoyShockM
 * Garrett (code)
 * Robin (linux and controller support)
 
-Have a look at the CHANGELOG for a better idea of who contributed what. Nicolas, in particular, regularly contributes a lot of work. He is responsible for a lot of the cool quality-of-life and advanced mapping features.
+As of version 3, JoyShockMapper development is lead by **Nicolas Lessard**, who was already a long-time contributor and responsible for many of JoyShockMapper's powerful mapping features, autoload, tray menus, and much more. Have a look at the CHANGELOG for a better idea of who contributed what. While Jibb continues on as a contributor, JoyShockMapper is Nicolas' project now. This means updates won't be bottlenecked by Jibb's availability to approve and build them, and Nicolas has final say on what features are included in new versions. As such, make sure you're on [Nicolas' fork](https://github.com/Electronicks/JoyShockMapper) for the latest developments.
 
-JoyShockMapper versions 2.2 and earlier relied a lot on [JoyShockLibrary](https://github.com/jibbsmart/JoyShockLibrary), which it used to read controller inputs. Check out that project to see what prior work made JoyShockLibrary possible. Newer versions use [SDL2](https://github.com/libsdl-org/SDL) to read from controllers, as the latest versions are able to read gyro and accelerometer input on the same controllers that could already be used with JoyShockLibrary, but also supports many non-gyro controllers as well.
+JoyShockMapper versions 2.2 and earlier relied a lot on Jibb's [JoyShockLibrary](https://github.com/jibbsmart/JoyShockLibrary), which it used to read controller inputs. Newer versions use [SDL2](https://github.com/libsdl-org/SDL) to read from controllers, as the latest versions of SDL2 are able to read gyro and accelerometer input on the same controllers that could already be used with JoyShockLibrary, but also support many non-gyro controllers as well.
 
-Since moving to SDL2, JoyShockMapper also uses [GamepadMotionHelpers](https://github.com/JibbSmart/GamepadMotionHelpers), a small project that provides the sensor fusion and calibration options of JoyShockLibrary without all the device-specific stuff.
+Since moving to SDL2, JoyShockMapper uses Jibb's [GamepadMotionHelpers](https://github.com/JibbSmart/GamepadMotionHelpers), a small project that provides the sensor fusion and calibration options of JoyShockLibrary without all the device-specific stuff.
 
 ## Helpful Resources
 * [GyroWiki](http://gyrowiki.jibbsmart.com) - All about good gyro controls for games:
