@@ -16,8 +16,7 @@ Improve command error handling
 Jibb added JSL-specific features to SDL2 so that JSM could use SDL2 instead. This means support for many non-gyro controllers, including Xbox, Stadia, and almost every common generic PC controller. Also made it so that low report-rate controllers (eg Switch controllers) are sampled multiple times for smooth gyro on high refresh rate monitors.
 
 ### Features
-* New Bindings: TOUCH, T1-T25 touch buttons, Touch stick bindings
-* New settings for touch joystick such as mode, inner deadzone, and stick radius
+* New Bindings: TOUCH for the touch pad and dual stage mode for TOUCH and CAPTURE bindings
 * Assigning a negative value to trigger threshold enables hair trigger
 * New setting HIDE\_MINIMIZED will hide JSM when set to ON. OFF is default
 * Support for many non-gyro controllers: Xbox, Stadia, GameCube, PS3 (without motion), and many generic PC controllers.

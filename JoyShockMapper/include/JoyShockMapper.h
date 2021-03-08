@@ -86,7 +86,6 @@ enum class ButtonID
 	L,
 	ZL,
 	MINUS,
-	CAPTURE,
 	E,
 	S,
 	N,
@@ -118,11 +117,12 @@ enum class ButtonID
 	MRING,
 	LEAN_LEFT,
 	LEAN_RIGHT,
-	TOUCH, // Touch anywhere on the touchpad
-	ZLF,   // = FIRST_ANALOG_TRIGGER
-	       // insert more analog triggers here
-	ZRF,   // =  LAST_ANALOG_TRIGGER
-	SIZE,  // Not a button
+	TOUCH,   // Touch anywhere on the touchpad
+	ZLF,     // = FIRST_ANALOG_TRIGGER
+	CAPTURE, // Full press of touchpad touch + press
+	// insert more analog triggers here
+	ZRF,  // =  LAST_ANALOG_TRIGGER
+	SIZE, // Not a button
 };
 
 // Help strings for each button
@@ -207,6 +207,7 @@ enum class SettingID
 	LIGHT_BAR,
 	SCROLL_SENS,
 	VIRTUAL_CONTROLLER,
+	TOUCHPAD_DUAL_STAGE_MODE,
 };
 
 // constexpr are like #define but with respect to typeness

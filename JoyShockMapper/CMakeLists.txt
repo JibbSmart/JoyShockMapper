@@ -30,6 +30,7 @@ add_executable (
     include/JoyShockMapper.h
     include/ColorCodes.h
     include/GamepadMotion.hpp
+	include/Gamepad.h
 )
 
 if (WINDOWS)
@@ -39,7 +40,7 @@ if (WINDOWS)
         src/win32/PlatformDefinitions.cpp
         src/win32/WindowsTrayIcon.cpp        include/win32/WindowsTrayIcon.h
         src/win32/Whitelister.cpp
-        src/win32/Gamepad.cpp                include/win32/Gamepad.h
+        src/win32/Gamepad.cpp
         "Win32 Dialog.rc"                    include/win32/resource.h
     )
 
@@ -49,13 +50,6 @@ if (WINDOWS)
             src/JoyShockLibrary.cpp              include/JoyShockLibrary.h
 		)
     endif()
-    
-    set_target_properties (
-        ${BINARY_NAME} PROPERTIES
-         WIN32_EXECUTABLE ON
-         VS_STARTUP_PROJECT "${BINARY_NAME}"
-         VS_DEBUGGER_WORKING_DIRECTORY "$(ProjectDir)/$(Configuration)/"
-    )
 
     # ViGEmClient
     CPMAddPackage (
@@ -65,26 +59,24 @@ if (WINDOWS)
     )
     
     include_external_msproject(ViGEmClient 
-      "_deps/vigemclient-src/src/ViGEmClient.vcxproj")
+      "${PROJECT_BINARY_DIR}/_deps/vigemclient-src/src/ViGEmClient.vcxproj")
     
-    SET(ViGEmClient_GUID_CMAKE "7DB06674-1F4F-464B-8E1C-172E9587F9DC" CACHE INTERNAL "Project GUID")
+    #SET(ViGEmClient_GUID_CMAKE "7DB06674-1F4F-464B-8E1C-172E9587F9DC" CACHE INTERNAL "Project GUID")
     
     set_target_properties(ViGEmClient PROPERTIES
       MAP_IMPORTED_CONFIG_DEBUG DEBUG_LIB
       MAP_IMPORTED_CONFIG_RELEASE RELEASE_LIB
-    )
-    
-    set_target_properties(ViGEmClient PROPERTIES
       VS_PLATFORM_TOOLSET "v141"
-      IMPORTED_LOCATION "${PROJECT_BINARY_DIR}/lib/debug/$(PlatformShortName)/ViGEmClient.lib"
+      IMPORTED_LOCATION "${PROJECT_BINARY_DIR}/lib/${CMAKE_BUILD_TYPE}/$(PlatformShortName)/ViGEmClient.lib"
       INTERFACE_INCLUDE_DIRECTORIES "${PROJECT_BINARY_DIR}/_deps/vigemclient-src/include"
     )
     
     add_dependencies(${BINARY_NAME} ViGEmClient)
     
-    set_target_properties (
-        ${BINARY_NAME} PROPERTIES
-         LINK_LIBRARIES "${PROJECT_BINARY_DIR}/lib/debug/$(PlatformShortName)/ViGEmClient.lib"
+    target_link_libraries (
+        ${BINARY_NAME} PRIVATE
+         debug "${PROJECT_BINARY_DIR}/lib/debug/$(PlatformShortName)/ViGEmClient.lib"
+		 optimized "${PROJECT_BINARY_DIR}/lib/release/$(PlatformShortName)/ViGEmClient.lib"
     )
     
     target_include_directories (
@@ -109,6 +101,14 @@ if (WINDOWS)
 				"$<TARGET_FILE_DIR:${PROJECT_NAME}>/$<TARGET_FILE_NAME:JoyShockLibrary>"
 		)
     endif()
+	
+	set_target_properties (
+        ${BINARY_NAME} PROPERTIES
+         WIN32_EXECUTABLE ON
+         VS_STARTUP_PROJECT "${BINARY_NAME}"
+         VS_DEBUGGER_WORKING_DIRECTORY "$(ProjectDir)/$(Configuration)/"
+		 VS_DEBUGGER_COMMAND_ARGUMENTS "$(SolutionDir)..\\$(ProjectName)\\dist"
+    )
 
 	 add_definitions(/bigobj)
 endif ()
@@ -121,6 +121,7 @@ if (LINUX)
         src/linux/PlatformDefinitions.cpp
         src/linux/StatusNotifierItem.cpp    include/linux/StatusNotifierItem.h
         src/linux/Whitelister.cpp
+		src/linux/Gamepad.cpp
     )
 endif ()
 
@@ -145,6 +146,9 @@ if(SDL)
 		# 2.0.15 hasn't released yet, so let's use a specific commit
 		GIT_TAG c287087fcce57af086c0a52f74fcdb74e9084c55
 	)
+	
+	set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
+	
 	target_link_libraries (
 		${BINARY_NAME} PRIVATE
 		Platform::Dependencies

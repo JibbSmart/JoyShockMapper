@@ -6,7 +6,7 @@
 #include "TrayIcon.h"
 #include "JSMAssignment.hpp"
 #include "quatMaths.cpp"
-#include "win32/Gamepad.h"
+#include "Gamepad.h"
 
 #include <mutex>
 #include <deque>
@@ -86,6 +86,8 @@ JSMSetting<FloatXY> scroll_sens = JSMSetting<FloatXY>(SettingID::SCROLL_SENS, { 
 JSMVariable<Switch> autoloadSwitch = JSMVariable<Switch>(Switch::ON);
 JSMVariable<Switch> hide_minimized = JSMVariable<Switch>(Switch::OFF);
 JSMVariable<ControllerScheme> virtual_controller = JSMVariable<ControllerScheme>(ControllerScheme::NONE);
+JSMSetting<TriggerMode> touch_ds_mode = JSMSetting<TriggerMode>(SettingID::TOUCHPAD_DUAL_STAGE_MODE, TriggerMode::NO_SKIP);
+;
 
 JSMVariable<PathString> currentWorkingDir = JSMVariable<PathString>(GetCWD());
 vector<JSMButton> mappings; // array enables use of for each loop and other i/f
@@ -1159,6 +1161,9 @@ public:
 			case SettingID::FLICK_SNAP_MODE:
 				opt = GetOptionalSetting<E>(flick_snap_mode, *activeChord);
 				break;
+			case SettingID::TOUCHPAD_DUAL_STAGE_MODE:
+				opt = GetOptionalSetting<E>(touch_ds_mode, *activeChord);
+				break;
 			}
 			if (opt)
 				return *opt;
@@ -2144,8 +2149,8 @@ static float handleFlickStick(float calX, float calY, float lastCalX, float last
 				float flickSpeedConstant = jc->getSetting(SettingID::REAL_WORLD_CALIBRATION) * mouseCalibrationFactor / jc->getSetting(SettingID::IN_GAME_SENS);
 				float flickSpeed = -(angleChange * flickSpeedConstant);
 				int maxSmoothingSamples = min(jc->NumSamples, (int)ceil(64.0f / tick_time.get())); // target a max smoothing window size of 64ms
-				float stepSize = 0.01f;                                                        // and we only want full on smoothing when the stick change each time we poll it is approximately the minimum stick resolution
-				                                                                               // the fact that we're using radians makes this really easy
+				float stepSize = 0.01f;                                                            // and we only want full on smoothing when the stick change each time we poll it is approximately the minimum stick resolution
+				                                                                                   // the fact that we're using radians makes this really easy
 				auto rotate_smooth_override = jc->getSetting(SettingID::ROTATE_SMOOTH_OVERRIDE);
 				if (rotate_smooth_override < 0.0f)
 				{
@@ -2612,7 +2617,6 @@ void joyShockPollCallback(int jcHandle, JOY_SHOCK_STATE state, JOY_SHOCK_STATE l
 		jc->handleButtonChange(ButtonID::L, buttons & (1 << JSOFFSET_L));
 		jc->handleButtonChange(ButtonID::MINUS, buttons & (1 << JSOFFSET_MINUS));
 		// for backwards compatibility, we need need to account for the fact that SDL2 maps the touchpad button differently to SDL
-		jc->handleButtonChange(ButtonID::CAPTURE, buttons & (1 << JSOFFSET_CAPTURE));
 		jc->handleButtonChange(ButtonID::L3, buttons & (1 << JSOFFSET_LCLICK));
 		// SL and SR are mapped to back paddle positions:
 		jc->handleButtonChange(ButtonID::LSL, buttons & (1 << JSOFFSET_SL));
@@ -2620,6 +2624,26 @@ void joyShockPollCallback(int jcHandle, JOY_SHOCK_STATE state, JOY_SHOCK_STATE l
 
 		float lTrigger = JslGetLeftTrigger(jc->handle);
 		jc->handleTriggerChange(ButtonID::ZL, ButtonID::ZLF, jc->getSetting<TriggerMode>(SettingID::ZL_MODE), lTrigger);
+
+		bool touch = JslGetTouchDown(jc->handle, false) || JslGetTouchDown(jc->handle, true);
+		switch (jc->platform_controller_type)
+		{
+		case 4: // SDL_GameControllerType::SDL_CONTROLLER_TYPE_PS4
+		case 7: // SDL_GameControllerType::SDL_CONTROLLER_TYPE_PS5
+		{
+			float triggerpos = buttons & (1 << JSOFFSET_CAPTURE) ? 1.f :
+			  touch                                              ? 0.99f :
+                                                                   0.f;
+			jc->handleTriggerChange(ButtonID::TOUCH, ButtonID::CAPTURE, jc->getSetting<TriggerMode>(SettingID::TOUCHPAD_DUAL_STAGE_MODE), triggerpos);
+		}
+		break;
+		default:
+		{
+			jc->handleButtonChange(ButtonID::TOUCH, touch);
+			jc->handleButtonChange(ButtonID::CAPTURE, buttons & (1 << JSOFFSET_CAPTURE));
+		}
+		break;
+		}
 	}
 	if (jc->controller_split_type != JS_SPLIT_TYPE_LEFT)
 	{
@@ -2638,8 +2662,6 @@ void joyShockPollCallback(int jcHandle, JOY_SHOCK_STATE state, JOY_SHOCK_STATE l
 		float rTrigger = JslGetRightTrigger(jc->handle);
 		jc->handleTriggerChange(ButtonID::ZR, ButtonID::ZRF, jc->getSetting<TriggerMode>(SettingID::ZR_MODE), rTrigger);
 	}
-	bool touch = JslGetTouchDown(jc->handle, false) || JslGetTouchDown(jc->handle, true);
-	jc->handleButtonChange(ButtonID::TOUCH, touch);
 
 	// Handle buttons before GYRO because some of them may affect the value of blockGyro
 	auto gyro = jc->getSetting<GyroSettings>(SettingID::GYRO_ON); // same result as getting GYRO_OFF
@@ -3048,6 +3070,7 @@ void UpdateRingModeFromStickMode(JSMVariable<RingMode> *stickRingMode, StickMode
 
 ControllerScheme UpdateVirtualController(ControllerScheme prevScheme, ControllerScheme nextScheme)
 {
+	bool success = !handle_to_joyshock.empty();
 	for (auto &js : handle_to_joyshock)
 	{
 		if (!js.second->btnCommon->_vigemController ||
@@ -3056,9 +3079,10 @@ ControllerScheme UpdateVirtualController(ControllerScheme prevScheme, Controller
 			js.second->btnCommon->_vigemController.reset(
 			  nextScheme == ControllerScheme::NONE ? nullptr :
                                                      new Gamepad(nextScheme, bind(&JoyShock::handleViGEmNotification, js.second.get(), placeholders::_1, placeholders::_2, placeholders::_3)));
+			success &= js.second->btnCommon->_vigemController->isInitialized();
 		}
 	}
-	return nextScheme;
+	return success ? nextScheme : prevScheme;
 }
 
 void OnVirtualControllerChange(ControllerScheme newScheme)
@@ -3356,10 +3380,9 @@ int main(int argc, char *argv[])
 	dbl_press_window.SetFilter(&filterPositive);
 	hold_press_time.SetFilter(&filterHoldPressDelay);
 	tick_time.SetFilter(&filterTickTime);
-	currentWorkingDir.SetFilter([](PathString current, PathString next) 
-		{
-			return SetCWD(string(next)) ? next : current; 
-		});
+	currentWorkingDir.SetFilter([](PathString current, PathString next) {
+		return SetCWD(string(next)) ? next : current;
+	});
 	autoloadSwitch.SetFilter(&filterInvalidValue<Switch, Switch::INVALID>)->AddOnChangeListener(bind(&UpdateThread, autoLoadThread.get(), placeholders::_1));
 	hide_minimized.SetFilter(&filterInvalidValue<Switch, Switch::INVALID>)->AddOnChangeListener(bind(&UpdateThread, minimizeThread.get(), placeholders::_1));
 	virtual_controller.SetFilter(&UpdateVirtualController)->AddOnChangeListener(&OnVirtualControllerChange);
