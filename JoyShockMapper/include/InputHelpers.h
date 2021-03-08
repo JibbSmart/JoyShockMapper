@@ -43,7 +43,7 @@ inline void shapedSensitivityMoveMouse(float x, float y, std::pair<float, float>
 	{
 		newSensitivity =
 		  magnitude > 0.0f ? 1.0f : 0.0f; // if min threshold overlaps max threshold, pop up to
-										  // max lowSens as soon as we're above min threshold
+		                                  // max lowSens as soon as we're above min threshold
 	}
 	else
 	{
@@ -81,7 +81,7 @@ bool SetCWD(in_string newCWD);
 class PollingThread
 {
 public:
-	PollingThread(const char * label, std::function<bool(void *)> loopContent,
+	PollingThread(const char *label, std::function<bool(void *)> loopContent,
 	  void *funcParam,
 	  DWORD pollPeriodMs,
 	  bool startNow)

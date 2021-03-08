@@ -9,11 +9,12 @@
 #include <fstream>
 
 JSMCommand::JSMCommand(in_string name)
-	: _parse()
-	, _help("Enter README to bring up the user manual.")
-	, _taskOnDestruction()
-	, _name(name)
-{}
+  : _parse()
+  , _help("Enter README to bring up the user manual.")
+  , _taskOnDestruction()
+  , _name(name)
+{
+}
 
 JSMCommand::~JSMCommand()
 {
@@ -57,7 +58,8 @@ CmdRegistry::CmdRegistry()
 {
 }
 
-bool CmdRegistry::loadConfigFile(string fileName) {
+bool CmdRegistry::loadConfigFile(string fileName)
+{
 	// https://stackoverflow.com/questions/2602013/read-whole-ascii-file-into-c-stdstring
 
 	// Trim away quotation marks from drag and drop
@@ -75,7 +77,8 @@ bool CmdRegistry::loadConfigFile(string fileName) {
 		COUT_INFO << fileName << endl;
 		// https://stackoverflow.com/questions/6892754/creating-a-simple-configuration-file-and-parser-in-c
 		string line;
-		while (getline(file, line)) {
+		while (getline(file, line))
+		{
 			processLine(line);
 		}
 		file.close();
@@ -86,18 +89,21 @@ bool CmdRegistry::loadConfigFile(string fileName) {
 
 string_view CmdRegistry::strtrim(std::string_view str)
 {
-	if (str.empty()) return {};
+	if (str.empty())
+		return {};
 
 	while (isspace(str[0]))
 	{
 		str.remove_prefix(1);
-		if (str.empty()) return {};
+		if (str.empty())
+			return {};
 	}
 
 	while (isspace(str.back()))
 	{
 		str.remove_suffix(1);
-		if (str.empty()) return {};
+		if (str.empty())
+			return {};
 	}
 
 	return str;
@@ -261,9 +267,10 @@ bool JSMMacro::DefaultParser(JSMCommand* cmd, in_string arguments)
 		// Show help.
 		COUT << macroCmd->_help << endl;
 	}
-	else if(!macroCmd->_macro(macroCmd, arguments) && !macroCmd->_help.empty())
+	else if (!macroCmd->_macro(macroCmd, arguments) && !macroCmd->_help.empty())
 	{
-		COUT << macroCmd->_help << endl << "The "; // Parsing has failed. Show help.
+		COUT << macroCmd->_help << endl
+		     << "The "; // Parsing has failed. Show help.
 		COUT_INFO << "README";
 		COUT << " command can lead you to further details on this command." << endl;
 	}
@@ -271,8 +278,8 @@ bool JSMMacro::DefaultParser(JSMCommand* cmd, in_string arguments)
 }
 
 JSMMacro::JSMMacro(in_string name)
-	: JSMCommand(name)
-	, _macro()
+  : JSMCommand(name)
+  , _macro()
 {
 	SetParser(&DefaultParser);
 }

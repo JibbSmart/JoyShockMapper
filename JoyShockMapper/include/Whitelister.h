@@ -13,7 +13,7 @@ public:
 	static bool IsHIDCerberusRunning();
 
 	Whitelister(bool add = false)
-		: _whitelisted(false)
+	  : _whitelisted(false)
 	{
 		if (add)
 		{

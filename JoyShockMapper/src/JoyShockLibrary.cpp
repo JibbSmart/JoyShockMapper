@@ -11,7 +11,7 @@ struct ControllerDevice;
 static std::map<int, ControllerDevice *> _controllerMap;
 bool keep_polling = true;
 class Joyshock;
-void(*g_callback)(int, JOY_SHOCK_STATE, JOY_SHOCK_STATE, IMU_STATE, IMU_STATE, float);
+void (*g_callback)(int, JOY_SHOCK_STATE, JOY_SHOCK_STATE, IMU_STATE, IMU_STATE, float);
 
 std::mutex controller_lock;
 
@@ -19,7 +19,8 @@ extern JSMVariable<float> tick_time;
 
 static int pollDevices(void *obj)
 {
-	while (keep_polling) {
+	while (keep_polling)
+	{
 		SDL_Delay(tick_time.get());
 
 		std::lock_guard guard(controller_lock);
@@ -36,7 +37,6 @@ static int pollDevices(void *obj)
 
 	return 1;
 }
-
 
 struct ControllerDevice
 {
@@ -60,7 +60,7 @@ int JslConnectDevices()
 	return SDL_NumJoysticks();
 }
 
-int JslGetConnectedDeviceHandles(int * deviceHandleArray, int size)
+int JslGetConnectedDeviceHandles(int *deviceHandleArray, int size)
 {
 	std::lock_guard guard(controller_lock);
 	auto iter = _controllerMap.begin();
@@ -71,13 +71,15 @@ int JslGetConnectedDeviceHandles(int * deviceHandleArray, int size)
 	}
 	for (int i = 0; i < size; i++)
 	{
-		ControllerDevice* device = new ControllerDevice();
-		if (!SDL_IsGameController(i)) {
+		ControllerDevice *device = new ControllerDevice();
+		if (!SDL_IsGameController(i))
+		{
 			continue;
 		}
 		device->_sdlController = SDL_GameControllerOpen(i);
 
-		if (SDL_GameControllerHasSensor(device->_sdlController, SDL_SENSOR_GYRO)) {
+		if (SDL_GameControllerHasSensor(device->_sdlController, SDL_SENSOR_GYRO))
+		{
 			device->has_gyro = true;
 			SDL_GameControllerSetSensorEnabled(device->_sdlController, SDL_SENSOR_GYRO, SDL_TRUE);
 		}
@@ -90,11 +92,14 @@ int JslGetConnectedDeviceHandles(int * deviceHandleArray, int size)
 
 		int vid = SDL_GameControllerGetVendor(device->_sdlController);
 		int pid = SDL_GameControllerGetProduct(device->_sdlController);
-		if (vid == 0x057e) {
-			if (pid == 0x2006) {
+		if (vid == 0x057e)
+		{
+			if (pid == 0x2006)
+			{
 				device->split_type = JS_SPLIT_TYPE_LEFT;
 			}
-			else if (pid == 0x2007) {
+			else if (pid == 0x2007)
+			{
 				device->split_type = JS_SPLIT_TYPE_RIGHT;
 			}
 		}
@@ -164,25 +169,25 @@ TOUCH_STATE JslGetTouchState(int deviceId)
 int JslGetButtons(int deviceId)
 {
 	static const std::map<int, int> sdl2jsl = {
-		{SDL_CONTROLLER_BUTTON_A,JSOFFSET_S},
-		{SDL_CONTROLLER_BUTTON_B,JSOFFSET_E},
-		{SDL_CONTROLLER_BUTTON_X,JSOFFSET_W},
-		{SDL_CONTROLLER_BUTTON_Y,JSOFFSET_N},
-		{SDL_CONTROLLER_BUTTON_BACK,JSOFFSET_MINUS},
-		{SDL_CONTROLLER_BUTTON_GUIDE,JSOFFSET_HOME},
-		{SDL_CONTROLLER_BUTTON_START,JSOFFSET_PLUS},
-		{SDL_CONTROLLER_BUTTON_LEFTSTICK,JSOFFSET_LCLICK},
-		{SDL_CONTROLLER_BUTTON_RIGHTSTICK,JSOFFSET_RCLICK},
-		{SDL_CONTROLLER_BUTTON_LEFTSHOULDER,JSOFFSET_L},
-		{SDL_CONTROLLER_BUTTON_RIGHTSHOULDER,JSOFFSET_R},
-		{SDL_CONTROLLER_BUTTON_DPAD_UP,JSOFFSET_UP},
-		{SDL_CONTROLLER_BUTTON_DPAD_DOWN,JSOFFSET_DOWN},
-		{SDL_CONTROLLER_BUTTON_DPAD_LEFT,JSOFFSET_LEFT},
-		{SDL_CONTROLLER_BUTTON_DPAD_RIGHT,JSOFFSET_RIGHT},
-		{SDL_CONTROLLER_BUTTON_PADDLE2, JSOFFSET_SL}, // LSL
-		{SDL_CONTROLLER_BUTTON_PADDLE4, JSOFFSET_SR}, // LSR
-		{SDL_CONTROLLER_BUTTON_PADDLE3, JSOFFSET_SL}, // RSL
-		{SDL_CONTROLLER_BUTTON_PADDLE1, JSOFFSET_SR}, // RSR
+		{ SDL_CONTROLLER_BUTTON_A, JSOFFSET_S },
+		{ SDL_CONTROLLER_BUTTON_B, JSOFFSET_E },
+		{ SDL_CONTROLLER_BUTTON_X, JSOFFSET_W },
+		{ SDL_CONTROLLER_BUTTON_Y, JSOFFSET_N },
+		{ SDL_CONTROLLER_BUTTON_BACK, JSOFFSET_MINUS },
+		{ SDL_CONTROLLER_BUTTON_GUIDE, JSOFFSET_HOME },
+		{ SDL_CONTROLLER_BUTTON_START, JSOFFSET_PLUS },
+		{ SDL_CONTROLLER_BUTTON_LEFTSTICK, JSOFFSET_LCLICK },
+		{ SDL_CONTROLLER_BUTTON_RIGHTSTICK, JSOFFSET_RCLICK },
+		{ SDL_CONTROLLER_BUTTON_LEFTSHOULDER, JSOFFSET_L },
+		{ SDL_CONTROLLER_BUTTON_RIGHTSHOULDER, JSOFFSET_R },
+		{ SDL_CONTROLLER_BUTTON_DPAD_UP, JSOFFSET_UP },
+		{ SDL_CONTROLLER_BUTTON_DPAD_DOWN, JSOFFSET_DOWN },
+		{ SDL_CONTROLLER_BUTTON_DPAD_LEFT, JSOFFSET_LEFT },
+		{ SDL_CONTROLLER_BUTTON_DPAD_RIGHT, JSOFFSET_RIGHT },
+		{ SDL_CONTROLLER_BUTTON_PADDLE2, JSOFFSET_SL }, // LSL
+		{ SDL_CONTROLLER_BUTTON_PADDLE4, JSOFFSET_SR }, // LSR
+		{ SDL_CONTROLLER_BUTTON_PADDLE3, JSOFFSET_SL }, // RSL
+		{ SDL_CONTROLLER_BUTTON_PADDLE1, JSOFFSET_SR }, // RSR
 	};
 	int buttons = 0;
 	for (auto pair : sdl2jsl)
@@ -209,7 +214,8 @@ float JslGetLeftX(int deviceId)
 
 float JslGetLeftY(int deviceId)
 {
-	return SDL_GameControllerGetAxis(_controllerMap[deviceId]->_sdlController, SDL_CONTROLLER_AXIS_LEFTY) / (float)SDL_JOYSTICK_AXIS_MAX;;
+	return SDL_GameControllerGetAxis(_controllerMap[deviceId]->_sdlController, SDL_CONTROLLER_AXIS_LEFTY) / (float)SDL_JOYSTICK_AXIS_MAX;
+	;
 }
 
 float JslGetRightX(int deviceId)
@@ -332,7 +338,7 @@ void JslPauseContinuousCalibration(int deviceId)
 	return void();
 }
 
-void JslGetCalibrationOffset(int deviceId, float & xOffset, float & yOffset, float & zOffset)
+void JslGetCalibrationOffset(int deviceId, float &xOffset, float &yOffset, float &zOffset)
 {
 	return void();
 }
@@ -342,7 +348,7 @@ void JslSetCalibrationOffset(int deviceId, float xOffset, float yOffset, float z
 	return void();
 }
 
-void JslSetCallback(void(*callback)(int, JOY_SHOCK_STATE, JOY_SHOCK_STATE, IMU_STATE, IMU_STATE, float))
+void JslSetCallback(void (*callback)(int, JOY_SHOCK_STATE, JOY_SHOCK_STATE, IMU_STATE, IMU_STATE, float))
 {
 	SDL_SetHint(SDL_HINT_GAMECONTROLLER_USE_BUTTON_LABELS, "0");
 	SDL_SetHint(SDL_HINT_JOYSTICK_ALLOW_BACKGROUND_EVENTS, "1");
@@ -357,7 +363,7 @@ void JslSetCallback(void(*callback)(int, JOY_SHOCK_STATE, JOY_SHOCK_STATE, IMU_S
 	SDL_DetachThread(controllerThread);
 }
 
-void JslSetTouchCallback(void(*callback)(int, TOUCH_STATE, TOUCH_STATE, float))
+void JslSetTouchCallback(void (*callback)(int, TOUCH_STATE, TOUCH_STATE, float))
 {
 	return void();
 }
@@ -390,7 +396,7 @@ void JslSetLightColour(int deviceId, int colour)
 
 void JslSetRumble(int deviceId, int smallRumble, int bigRumble)
 {
-	SDL_GameControllerRumble(_controllerMap[deviceId]->_sdlController, smallRumble << 8, bigRumble << 8, 200);
+	SDL_GameControllerRumble(_controllerMap[deviceId]->_sdlController, smallRumble << 8, bigRumble << 8, tick_time.get() + 1);
 }
 
 void JslSetPlayerNumber(int deviceId, int number)

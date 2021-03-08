@@ -4,15 +4,18 @@
 #include "PlatformDefinitions.h"
 #include "InputHelpers.h"
 
-const char *AUTOLOAD_FOLDER() {
+const char *AUTOLOAD_FOLDER()
+{
 	return _strdup((GetCWD() + "\\Autoload\\").c_str());
 };
 
-const char *GYRO_CONFIGS_FOLDER() {
+const char *GYRO_CONFIGS_FOLDER()
+{
 	return _strdup((GetCWD() + "\\GyroConfigs\\").c_str());
 };
 
-const char *BASE_JSM_CONFIG_FOLDER() {
+const char *BASE_JSM_CONFIG_FOLDER()
+{
 	return _strdup((GetCWD() + "\\").c_str());
 };
 
@@ -127,7 +130,7 @@ WORD nameToKey(const std::string &name)
 		{
 			while (*pchar != '\0')
 			{
-				if ( *pchar < '0' || *pchar > 'F' || (*pchar > '9' && *pchar < 'A'))
+				if (*pchar < '0' || *pchar > 'F' || (*pchar > '9' && *pchar < 'A'))
 				{
 					break;
 				}
