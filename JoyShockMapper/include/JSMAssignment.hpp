@@ -29,23 +29,30 @@ protected:
 	{
 		smatch results;
 		_ASSERT_EXPR(_parse, L"There is no function defined to parse this command.");
-		if (arguments.compare(0, 4, "HELP") == 0)
+		if (arguments.compare(0, 4, "HELP") == 0 && !_help.empty())
 		{
-			// Parsing has failed. Show help.
-			cout << _help << endl;
+			// Show help.
+			COUT << _help << endl;
 		}
 		else if (arguments.empty() || regex_match(arguments, results, regex(R"(\s*=\s*(.*))")))
 		{
 			string fwd_args(results.empty() ? arguments : results[1].str());
-			if (!_parse(this, fwd_args))
+			if (fwd_args.rfind("DEFAULT", 0) == 0)
 			{
-				cout << _help << endl; // Parsing has failed. Show help.
+				_var.Reset();
+			}
+			else if (!_parse(this, fwd_args) && !_help.empty())
+			{
+				COUT << _help << endl << "The "; // Parsing has failed. Show help.
+				COUT_INFO << "README";
+				COUT << " command can lead you to further details on this command." << endl;
 			}
 		}
-		else
+		else if(!_help.empty())
 		{
-			// If no if case processed the command,; it has been entered wrong.
-			return false;
+			COUT << _help << endl << "The "; // Parsing has failed. Show help.
+			COUT_INFO << "README";
+			COUT << " command can lead you to further details on this command." << endl;
 		}
 		return true; // Command is completely processed
 	}
@@ -55,7 +62,7 @@ protected:
 		if (setting && argument.compare("NONE") == 0)
 		{
 			setting->MarkModeshiftForRemoval(modeshift);
-			cout << "Modeshift " << modeshift << "," << setting->_id << " has been removed." << endl;
+			COUT << "Modeshift " << modeshift << "," << setting->_id << " has been removed." << endl;
 			return true;
 		}
 		return parser(cmd, argument);
@@ -70,7 +77,7 @@ protected:
 		if (data.empty())
 		{
 			//No assignment? Display current assignment
-			cout << inst->_displayName << " = " << inst->_var.get() << endl;
+			COUT << inst->_displayName << " = " << inst->_var.get() << endl;
 			return true;
 		}
 
@@ -102,7 +109,7 @@ protected:
 	void DisplayNewValue(T newValue)
 	{
 		// See Specialization for T=Mapping at the end of this file
-		cout << _displayName << " has been set to " << newValue << endl;
+		COUT << _displayName << " has been set to " << newValue << endl;
 	}
 
 	virtual unique_ptr<JSMCommand> GetModifiedCmd(char op, in_string chord) override
@@ -202,5 +209,5 @@ public:
 template<>
 void JSMAssignment<Mapping>::DisplayNewValue(Mapping newValue)
 {
-	cout << _name << " mapped to " << newValue.description << endl;
+	COUT << _name << " mapped to " << newValue._description << endl;
 }

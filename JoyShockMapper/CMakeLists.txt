@@ -18,6 +18,7 @@ add_executable (
     src/operators.cpp
     src/CmdRegistry.cpp
     src/quatMaths.cpp
+    src/ButtonHelp.cpp
     include/InputHelpers.h
     include/PlatformDefinitions.h
     include/TrayIcon.h
@@ -27,6 +28,7 @@ add_executable (
     include/JSMVariable.hpp
     include/Whitelister.h
     include/JoyShockMapper.h
+    include/ColorCodes.h
     include/GamepadMotion.hpp
 )
 
@@ -34,33 +36,79 @@ if (WINDOWS)
     target_sources (
         ${BINARY_NAME} PRIVATE
         src/win32/InputHelpers.cpp
-                                            include/win32/resource.h
         src/win32/PlatformDefinitions.cpp
-        src/win32/WindowsTrayIcon.cpp       include/win32/WindowsTrayIcon.h
+        src/win32/WindowsTrayIcon.cpp        include/win32/WindowsTrayIcon.h
         src/win32/Whitelister.cpp
-        "Win32 Dialog.rc"
+        src/win32/Gamepad.cpp                include/win32/Gamepad.h
+        "Win32 Dialog.rc"                    include/win32/resource.h
     )
 
+    if(SDL)
+        target_sources (
+            ${BINARY_NAME} PRIVATE
+            src/JoyShockLibrary.cpp              include/JoyShockLibrary.h
+		)
+    endif()
+    
     set_target_properties (
-        ${BINARY_NAME}
-        PROPERTIES WIN32_EXECUTABLE ON
+        ${BINARY_NAME} PROPERTIES
+         WIN32_EXECUTABLE ON
+         VS_STARTUP_PROJECT "${BINARY_NAME}"
+         VS_DEBUGGER_WORKING_DIRECTORY "$(ProjectDir)/$(Configuration)/"
     )
 
+    # ViGEmClient
+    CPMAddPackage (
+        NAME ViGEmClient
+        GITHUB_REPOSITORY ViGEm/ViGEmClient
+        VERSION 1.16.107.0
+    )
+    
+    include_external_msproject(ViGEmClient 
+      "_deps/vigemclient-src/src/ViGEmClient.vcxproj")
+    
+    SET(ViGEmClient_GUID_CMAKE "7DB06674-1F4F-464B-8E1C-172E9587F9DC" CACHE INTERNAL "Project GUID")
+    
+    set_target_properties(ViGEmClient PROPERTIES
+      MAP_IMPORTED_CONFIG_DEBUG DEBUG_LIB
+      MAP_IMPORTED_CONFIG_RELEASE RELEASE_LIB
+    )
+    
+    set_target_properties(ViGEmClient PROPERTIES
+      VS_PLATFORM_TOOLSET "v141"
+      IMPORTED_LOCATION "${PROJECT_BINARY_DIR}/lib/debug/$(PlatformShortName)/ViGEmClient.lib"
+      INTERFACE_INCLUDE_DIRECTORIES "${PROJECT_BINARY_DIR}/_deps/vigemclient-src/include"
+    )
+    
+    add_dependencies(${BINARY_NAME} ViGEmClient)
+    
     set_target_properties (
-        ${BINARY_NAME}
-        PROPERTIES VS_DEBUGGER_WORKING_DIRECTORY
-        "$(ProjectDir)/$(Configuration)/"
+        ${BINARY_NAME} PROPERTIES
+         LINK_LIBRARIES "${PROJECT_BINARY_DIR}/lib/debug/$(PlatformShortName)/ViGEmClient.lib"
+    )
+    
+    target_include_directories (
+        ${BINARY_NAME} PUBLIC
+        "${PROJECT_BINARY_DIR}/_deps/vigemclient-src/include"
     )
 
-    set (BUILD_SHARED_LIBS ON)
-
-    add_custom_command(
-        TARGET ${BINARY_NAME}
-        POST_BUILD
-        COMMAND ${CMAKE_COMMAND} -E copy
-            "$<TARGET_FILE:SDL2>"
-            "$<TARGET_FILE_DIR:${PROJECT_NAME}>/$<TARGET_FILE_NAME:SDL2>"
-    )
+    if(SDL)
+		add_custom_command(
+			TARGET ${BINARY_NAME}
+			POST_BUILD
+			COMMAND ${CMAKE_COMMAND} -E copy
+				"$<TARGET_FILE:SDL2>"
+				"$<TARGET_FILE_DIR:${PROJECT_NAME}>/$<TARGET_FILE_NAME:SDL2>"
+		)
+    else()
+		add_custom_command(
+			TARGET ${BINARY_NAME}
+			POST_BUILD
+			COMMAND ${CMAKE_COMMAND} -E copy
+				"$<TARGET_FILE:JoyShockLibrary>"
+				"$<TARGET_FILE_DIR:${PROJECT_NAME}>/$<TARGET_FILE_NAME:JoyShockLibrary>"
+		)
+    endif()
 
 	 add_definitions(/bigobj)
 endif ()
@@ -88,24 +136,45 @@ target_include_directories (
     "${PROJECT_BINARY_DIR}/${PROJECT_NAME}/include"
 )
 
-CPMAddPackage (
-    NAME SDL2
-    GITHUB_REPOSITORY libsdl-org/SDL
-    VERSION 2.0.15
-    # 2.0.15 hasn't released yet, so let's use a specific commit
-    GIT_TAG c287087fcce57af086c0a52f74fcdb74e9084c55
-)
+if(SDL)
+	# SDL2
+	CPMAddPackage (
+		NAME SDL2
+		GITHUB_REPOSITORY libsdl-org/SDL
+		VERSION 2.0.15
+		# 2.0.15 hasn't released yet, so let's use a specific commit
+		GIT_TAG c287087fcce57af086c0a52f74fcdb74e9084c55
+	)
+	target_link_libraries (
+		${BINARY_NAME} PRIVATE
+		Platform::Dependencies
+		SDL2
+	)
 
-target_link_libraries (
-    ${BINARY_NAME} PRIVATE
-    Platform::Dependencies
-    SDL2
-)
+	install (
+		TARGETS ${BINARY_NAME} SDL2
+	)
+else()
+	# JoyShockLibrary
+	CPMAddPackage (
+		NAME JoyShockLibrary
+		GITHUB_REPOSITORY JibbSmart/JoyShockLibrary
+		VERSION 2.1.0
+	)
 
-install (
-    TARGETS ${BINARY_NAME} SDL2
-)
+	target_link_libraries (
+		${BINARY_NAME} PRIVATE
+		Platform::Dependencies
+		JoyShockLibrary
+	)
 
+	install (
+		TARGETS ${BINARY_NAME} JoyShockLibrary
+	)
+endif()
+
+
+# magic_enum
 CPMAddPackage (
     NAME magic_enum
     GITHUB_REPOSITORY Neargye/magic_enum
