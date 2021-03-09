@@ -1,5 +1,5 @@
 #include <Windows.h>
-#include "win32/Gamepad.h"
+#include "Gamepad.h"
 #include "ViGEm/Client.h"
 
 #include <algorithm>
@@ -12,16 +12,7 @@
 
 class VigemClient
 {
-	class Deleter
-	{
-	public:
-		void operator()(VigemClient *vc)
-		{
-			delete vc;
-		}
-	};
-	// singleton
-	static unique_ptr<VigemClient, VigemClient::Deleter> _inst;
+	static unique_ptr<VigemClient> _inst;
 
 	PVIGEM_CLIENT _client = nullptr;
 	VIGEM_ERROR _error = VIGEM_ERROR::VIGEM_ERROR_NONE;
@@ -53,7 +44,7 @@ public:
 	}
 };
 
-unique_ptr<VigemClient, VigemClient::Deleter> VigemClient::_inst;
+unique_ptr<VigemClient> VigemClient::_inst;
 
 template<>
 ostream &operator<<<VIGEM_ERROR>(ostream &out, VIGEM_ERROR errCode)
