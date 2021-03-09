@@ -13,17 +13,24 @@ Added help strings for button mapping
 Handle drag n drop files into the console better
 Improve command error handling
 
+Jibb added JSL-specific features to SDL2 so that JSM could use SDL2 instead. This means support for many non-gyro controllers, including Xbox, Stadia, and almost every common generic PC controller. Also made it so that low report-rate controllers (eg Switch controllers) are sampled multiple times for smooth gyro on high refresh rate monitors.
+
 ### Features
-* New Bindings: TOUCH, T1-T25 touch buttons, Touch stick bindings
-* New settings for touch joystick such as mode, inner deadzone, and stick radius
+* New Bindings: TOUCH for the touch pad and dual stage mode for TOUCH and CAPTURE bindings
 * Assigning a negative value to trigger threshold enables hair trigger
-* New setting HIDE_MINIMIZED will hide JSM when set to ON. OFF is default
+* New setting HIDE\_MINIMIZED will hide JSM when set to ON. OFF is default
+* Support for many non-gyro controllers: Xbox, Stadia, GameCube, PS3 (without motion), and many generic PC controllers.
+* Added TICK\_TIME to set how many milliseconds between reading controllers (default of 3 means about 333Hz).
 
-## 2.1.1
-Nicolas added more keybinds.
+## 2.2.0
+Nicolas added more keybinds. Robin fixed issues with building on Linux and improved PlayStation controller support.
 
 ### Features
+* DualSense is now also supported when connected by Bluetooth.
 * New keybinds include: volume control, media control, windows keys and context menu key.
+
+### Bugfixes
+* DualShock 4's gyro should now be correctly activated even when connected by Bluetooth.
 
 ## 2.1.0
 Jibb added experimental support for the DualSense controller (PlayStation 5) when connected by USB.
@@ -215,4 +222,4 @@ In 1.1, Jibb added more ways to enable or disable the gyro, changed the default 
 * Statically linked runtime so that users don't have to have any particular MSVC runtimes installed.
 
 ## 1.0
-JoyShockMapper 1.0 was the first public release of JoyShockMapper, created by Jibb Smart. Its features are too many to list in the changelog, but explore the README to see what it offers!
+JoyShockMapper 1.0 was the first public release of JoyShockMapper, created by Jibb Smart. It includes the original implementation of flick stick and the first example of gyro controls meeting the standards detailed on GyroWiki (including advanced options like two-sensitivity acceleration and soft-tiered smoothing). Other features include tap and hold button bindings, rich traditional stick aiming options, and a "real world calibration" setting that made it possible to use the same stick and gyro settings across different games.

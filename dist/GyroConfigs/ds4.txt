@@ -1,3 +1,5 @@
+# This configuration file will map a virtual ds4 controller for each connected controller.
+
 VIRTUAL_CONTROLLER = DS4
 
 UP = PS_UP

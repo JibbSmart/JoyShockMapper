@@ -696,6 +696,10 @@ std::string GetCWD()
 	return pathBuffer.get();
 }
 
+bool SetCWD(in_string newCWD) {
+    return chdir(newCWD.c_str()) != 0;
+}
+
 DWORD ShowOnlineHelp()
 {
 	::system("xdg-open https://github.com/JibbSmart/JoyShockMapper/blob/master/README.md");

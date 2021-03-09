@@ -23,7 +23,6 @@ public:
 	typedef function<T(T current, T next)> FilterDelegate;
 
 protected:
-
 	// The variable value itself
 	T _value;
 
@@ -44,19 +43,21 @@ public:
 	const T _defVal;
 
 	JSMVariable(T defaultValue = T(0))
-		: _value(defaultValue)
-		, _onChangeListeners()
-		, _filter(&NoFiltering) // _filter is always valid
-		, _defVal(defaultValue)
-	{	}
+	  : _value(defaultValue)
+	  , _onChangeListeners()
+	  , _filter(&NoFiltering) // _filter is always valid
+	  , _defVal(defaultValue)
+	{
+	}
 
 	// Make a copy with a different default value
 	JSMVariable(const JSMVariable &copy, T defaultValue)
-		: _value(defaultValue)
-		, _onChangeListeners() // Don't copy listeners. This is a different variable!
-		, _filter(copy._filter)
-		, _defVal(defaultValue)
-	{	}
+	  : _value(defaultValue)
+	  , _onChangeListeners() // Don't copy listeners. This is a different variable!
+	  , _filter(copy._filter)
+	  , _defVal(defaultValue)
+	{
+	}
 
 	virtual ~JSMVariable()
 	{
@@ -68,7 +69,7 @@ public:
 	virtual JSMVariable *SetFilter(FilterDelegate filterfunction)
 	{
 		_filter = filterfunction;
-		operator =(_value); // Run the new filter on current value.
+		operator=(_value); // Run the new filter on current value.
 		return this;
 	}
 
@@ -99,7 +100,7 @@ public:
 	virtual JSMVariable *Reset()
 	{
 		// Use operator to enable notification
-		operator =(_defVal);
+		operator=(_defVal);
 		return this;
 	}
 
@@ -110,7 +111,7 @@ public:
 		return _value;
 	}
 
-	virtual T get() const
+	virtual const T &get() const
 	{
 		return _value;
 	}
@@ -118,7 +119,7 @@ public:
 	// Value can be written by using operator =.
 	// N.B.: It's important to always use this function
 	// for changing the member _value
-	virtual T operator =(T newValue)
+	virtual T operator=(T newValue)
 	{
 		T oldValue = _value;
 		_value = _filter(oldValue, newValue); // Pass new value through filtering
@@ -144,9 +145,10 @@ protected:
 
 public:
 	ChordedVariable(T defval)
-		: Base(defval)
-		, _chordedVariables()
-	{}
+	  : Base(defval)
+	  , _chordedVariables()
+	{
+	}
 
 	// Get the chorded variable, creating one if required.
 	JSMVariable<T> *AtChord(ButtonID chord)
@@ -155,7 +157,7 @@ public:
 		if (existingChord == _chordedVariables.end())
 		{
 			// Create the chord when requested, using the copy constructor.
-			_chordedVariables.emplace( chord, JSMVariable<T>(*this, Base::_defVal) );
+			_chordedVariables.emplace(chord, JSMVariable<T>(*this, Base::_defVal));
 		}
 		return &_chordedVariables[chord];
 	}
@@ -194,19 +196,21 @@ class JSMSetting : public ChordedVariable<T>
 
 protected:
 	ButtonID _chordToRemove;
+
 public:
 	// Identifier of the variable. Cannot be changed after construction.
 	const SettingID _id;
 
 	JSMSetting(SettingID id, T defaultValue)
-		: Base(defaultValue)
-		, _id(id)
-		, _chordToRemove(ButtonID::NONE)
-	{}
-
-	virtual T operator =(T baseValue) override
+	  : Base(defaultValue)
+	  , _id(id)
+	  , _chordToRemove(ButtonID::NONE)
 	{
-		return JSMVariable<T>::operator =(baseValue);
+	}
+
+	virtual T operator=(T baseValue) override
+	{
+		return JSMVariable<T>::operator=(baseValue);
 	}
 
 	inline void MarkModeshiftForRemoval(ButtonID modeshift)
@@ -216,7 +220,7 @@ public:
 
 	void ProcessModeshiftRemoval(ButtonID modeshift)
 	{
-		if(_chordToRemove == modeshift)
+		if (_chordToRemove == modeshift)
 		{
 			auto modeshiftVar = Base::_chordedVariables.find(modeshift);
 			if (modeshiftVar != Base::_chordedVariables.end())
@@ -246,11 +250,12 @@ protected:
 
 public:
 	JSMButton(ButtonID id, Mapping def)
-		: ChordedVariable(def)
-		, _id(id)
-		, _simMappings()
-		, _simListeners()
-	{}
+	  : ChordedVariable(def)
+	  , _id(id)
+	  , _simMappings()
+	  , _simListeners()
+	{
+	}
 
 	virtual ~JSMButton()
 	{
@@ -286,9 +291,9 @@ public:
 	}
 
 	// Operator forwarding
-	virtual Mapping operator =(Mapping baseValue) override
+	virtual Mapping operator=(Mapping baseValue) override
 	{
-		return JSMVariable<Mapping>::operator =(baseValue);
+		return JSMVariable<Mapping>::operator=(baseValue);
 	}
 
 	// Returns the display name of the chorded press if provided, or itself
@@ -349,7 +354,7 @@ public:
 			JSMVariable<Mapping> var(*this, Mapping());
 			_simMappings.emplace(chord, var);
 			_simListeners[chord] = _simMappings[chord].AddOnChangeListener(
-				bind(&SimPressCrossUpdate, chord, _id, placeholders::_1));
+			  bind(&SimPressCrossUpdate, chord, _id, placeholders::_1));
 		}
 		return &_simMappings[chord];
 	}

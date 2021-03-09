@@ -11,15 +11,15 @@ typedef enum _VIGEM_ERRORS VIGEM_ERRORS;
 
 union Indicator
 {
-	UCHAR led;
-	UCHAR rgb[3];
-	UINT32 colorCode;
+	uint8_t led;
+	uint8_t rgb[3];
+	uint32_t colorCode;
 };
 
 class Gamepad
 {
 public:
-	typedef function<void(UCHAR largeMotor, UCHAR smallMotor, Indicator indicator)> Callback;
+	typedef function<void(uint8_t largeMotor, uint8_t smallMotor, Indicator indicator)> Callback;
 	Gamepad(ControllerScheme scheme);
 	Gamepad(ControllerScheme scheme, Callback notification);
 	virtual ~Gamepad();
@@ -41,23 +41,20 @@ public:
 
 private:
 	static void x360Notification(
-		PVIGEM_CLIENT client,
-		PVIGEM_TARGET target,
-		UCHAR largeMotor,
-		UCHAR smallMotor,
-		UCHAR ledNumber,
-		LPVOID userData
-	);
+	  PVIGEM_CLIENT client,
+	  PVIGEM_TARGET target,
+	  uint8_t largeMotor,
+	  uint8_t smallMotor,
+	  uint8_t ledNumber,
+	  void *userData);
 
 	static void ds4Notification(
-		PVIGEM_CLIENT client,
-		PVIGEM_TARGET target,
-		UCHAR largeMotor,
-		UCHAR smallMotor,
-		Indicator lightbarColor,
-		LPVOID userData
-	);
-
+	  PVIGEM_CLIENT client,
+	  PVIGEM_TARGET target,
+	  uint8_t largeMotor,
+	  uint8_t smallMotor,
+	  Indicator lightbarColor,
+	  void *userData);
 
 	void init_x360();
 	void init_ds4();

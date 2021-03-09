@@ -1,6 +1,7 @@
 #pragma once
 
 #include "JoyShockMapper.h"
+#include "PlatformDefinitions.h"
 
 #include <functional>
 #include <string>
@@ -42,7 +43,7 @@ inline void shapedSensitivityMoveMouse(float x, float y, std::pair<float, float>
 	{
 		newSensitivity =
 		  magnitude > 0.0f ? 1.0f : 0.0f; // if min threshold overlaps max threshold, pop up to
-										  // max lowSens as soon as we're above min threshold
+		                                  // max lowSens as soon as we're above min threshold
 	}
 	else
 	{
@@ -62,12 +63,12 @@ inline void shapedSensitivityMoveMouse(float x, float y, std::pair<float, float>
 	  (y * newSensitivityY) * deltaTime + extraVelocityY);
 }
 
-BOOL WriteToConsole(const std::string &command);
+BOOL WriteToConsole(in_string command);
 
 BOOL WINAPI ConsoleCtrlHandler(DWORD dwCtrlType);
 
 // just setting up the console with standard stuff
-void initConsole(std::function<void()> todoOnQuit);
+void initConsole();
 
 std::tuple<std::string, std::string> GetActiveWindowName();
 
@@ -80,11 +81,12 @@ bool SetCWD(in_string newCWD);
 class PollingThread
 {
 public:
-	PollingThread(std::function<bool(void *)> loopContent,
+	PollingThread(const char *label, std::function<bool(void *)> loopContent,
 	  void *funcParam,
 	  DWORD pollPeriodMs,
 	  bool startNow)
-	  : _thread{ 0 }
+	  : _label(label)
+	  , _thread{ 0 }
 	  , _loopContent(loopContent)
 	  , _sleepTimeMs(pollPeriodMs)
 	  , _tid(0)
@@ -114,6 +116,8 @@ public:
 	{
 		return _thread && _continue;
 	}
+
+	const char *_label;
 
 private:
 	static DWORD WINAPI pollFunction(LPVOID param);

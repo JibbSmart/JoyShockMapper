@@ -1,3 +1,6 @@
+# This configuration file will map a virtual xbox controller for each connected controller.
+# There is a separate configuration file if you want to use joycons sideways as a xbox controller
+
 VIRTUAL_CONTROLLER = XBOX
 
 UP = X_UP

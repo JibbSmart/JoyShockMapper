@@ -32,9 +32,6 @@ static float windowsSensitivityMappings[] =
 	3.5
 };
 
-// Cleanup actions to perform on quit
-static std::function<void()> cleanupFunction;
-
 // get the user's mouse sensitivity multiplier from the user. In Windows it's an int, but who cares? it's well within range for float to represent it exactly
 // also, if this is ported to other platforms, we might want non-integer sensitivities
 float getMouseSpeed() {
@@ -151,7 +148,7 @@ void setMouseNorm(float x, float y) {
 	SendInput(1, &input, sizeof(input));
 }
 
-BOOL WriteToConsole(const std::string& command)
+BOOL WriteToConsole(in_string command)
 {
 	static const INPUT_RECORD ESC_DOWN = { KEY_EVENT, {TRUE,  1, VK_ESCAPE, MapVirtualKey(VK_ESCAPE, MAPVK_VK_TO_VSC), VK_ESCAPE, 0} };
 	static const INPUT_RECORD ESC_UP = { KEY_EVENT, {FALSE, 1, VK_ESCAPE, MapVirtualKey(VK_ESCAPE, MAPVK_VK_TO_VSC), VK_ESCAPE, 0} };
@@ -199,16 +196,14 @@ BOOL WINAPI ConsoleCtrlHandler(DWORD dwCtrlType)
 	case CTRL_BREAK_EVENT:
 	case CTRL_CLOSE_EVENT:
 		// Indirection is used to avoid having Windows stuff in main file
-		if (cleanupFunction)
-			cleanupFunction();
+		WriteToConsole("QUIT");
 		return TRUE;
 	}
 	return FALSE;
 };
 
 // just setting up the console with standard stuff
-void initConsole(std::function<void()> todoOnQuit) {
-	cleanupFunction = todoOnQuit; //Assign cleanup function
+void initConsole() {
 	AllocConsole();
 	SetConsoleTitle(L"JoyShockMapper");
 	// https://stackoverflow.com/a/15547699/1130520

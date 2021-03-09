@@ -17,6 +17,7 @@
 #include <memory.h>
 #include <tchar.h>
 #include <algorithm>
+#include <chrono>
 
 #include "win32/resource.h"
 //#include "wintoastlib.h"
@@ -27,7 +28,9 @@
 struct MenuItem
 {
 	std::wstring label;
-	virtual ~MenuItem() {}
+	virtual ~MenuItem()
+	{
+	}
 };
 
 struct MenuItemButton : public MenuItem
@@ -37,7 +40,7 @@ struct MenuItemButton : public MenuItem
 
 struct MenuItemMenu : public MenuItem
 {
-	std::vector<MenuItemButton*> list;
+	std::vector<MenuItemButton *> list;
 	~MenuItemMenu()
 	{
 		for (auto p : list)
@@ -58,19 +61,23 @@ struct MenuItemToggle : public MenuItem
 	}
 };
 
-static int TRAYICONID = 1; // ID number for the Notify Icon
+static int TRAYICONID = 1;                     // ID number for the Notify Icon
 constexpr unsigned short SWM_TRAYMSG = WM_APP; // the message ID sent to our window
-constexpr UINT_PTR SWM_CUSTOM = WM_APP + 1; //	show the window
+constexpr UINT_PTR SWM_CUSTOM = WM_APP + 1;    //	show the window
 
 std::vector<WindowsTrayIcon *> registry;
 
 static bool toastReady = false;
 
-class JSMToasts// : public WinToastLib::IWinToastHandler
+class JSMToasts // : public WinToastLib::IWinToastHandler
 {
 public:
-	JSMToasts() { }
-	~JSMToasts() { }
+	JSMToasts()
+	{
+	}
+	~JSMToasts()
+	{
+	}
 	// Public interfaces
 	//void toastActivated() const override { }
 	//void toastActivated(int actionIndex) const override { }
@@ -79,11 +86,12 @@ public:
 };
 
 WindowsTrayIcon::WindowsTrayIcon(HINSTANCE hInstance, std::function<void()> beforeShow)
-	: _hInst(0)
-	, _niData({0})
-	, _menuMap()
-	, _thread (0)
-	, _beforeShow(beforeShow)
+  : _hInst(0)
+  , _niData({ 0 })
+  , _menuMap()
+  , _thread(0)
+  , _beforeShow(beforeShow)
+  , _init(false)
 {
 	registry.push_back(this);
 
@@ -99,12 +107,14 @@ WindowsTrayIcon::WindowsTrayIcon(HINSTANCE hInstance, std::function<void()> befo
 	_hInst = hInstance;
 
 	_thread = CreateThread(
-		NULL,                   // default security attributes
-		0,                      // use default stack size  
-		MessageHandlerLoop,       // thread function name
-		this,          // argument to thread function 
-		0,                      // use default creation flags 
-		nullptr);			   // returns the thread identifier 
+	  NULL,               // default security attributes
+	  0,                  // use default stack size
+	  MessageHandlerLoop, // thread function name
+	  this,               // argument to thread function
+	  0,                  // use default creation flags
+	  nullptr);           // returns the thread identifier
+
+	Sleep(100); // Longest measured time was 33ms, but performance depends on CPU speed. 100ms should be plenty.
 }
 
 WindowsTrayIcon::~WindowsTrayIcon()
@@ -117,17 +127,16 @@ WindowsTrayIcon::~WindowsTrayIcon()
 
 	CloseHandle(_thread);
 	auto entry = std::find(registry.begin(), registry.end(), this);
-	if( entry != registry.end() )
+	if (entry != registry.end())
 		registry.erase(entry);
 }
-
 
 DWORD WINAPI WindowsTrayIcon::MessageHandlerLoop(LPVOID param)
 {
 	MSG msg;
 	HACCEL hAccelTable;
-	
-	WindowsTrayIcon *tray = static_cast<WindowsTrayIcon*>(param);
+
+	WindowsTrayIcon *tray = static_cast<WindowsTrayIcon *>(param);
 	// Perform application initialization:
 	if (!tray->InitInstance())
 	{
@@ -135,12 +144,12 @@ DWORD WINAPI WindowsTrayIcon::MessageHandlerLoop(LPVOID param)
 	}
 	else
 	{
-		hAccelTable = LoadAccelerators(static_cast<WindowsTrayIcon*>(param)->_hInst, (LPCTSTR)IDC_STEALTHDIALOG);
+		hAccelTable = LoadAccelerators(static_cast<WindowsTrayIcon *>(param)->_hInst, (LPCTSTR)IDC_STEALTHDIALOG);
 		// Main message loop:
 		while (GetMessage(&msg, NULL, 0, 0))
 		{
 			if (!TranslateAccelerator(msg.hwnd, hAccelTable, &msg) ||
-				!IsDialogMessage(msg.hwnd, &msg))
+			  !IsDialogMessage(msg.hwnd, &msg))
 			{
 				TranslateMessage(&msg);
 				DispatchMessage(&msg);
@@ -171,15 +180,15 @@ DWORD WINAPI WindowsTrayIcon::MessageHandlerLoop(LPVOID param)
 	return true;
 }/**/
 
-void WindowsTrayIcon::AddMenuItem(const std::wstring & label, std::function<void()> onClick)
+void WindowsTrayIcon::AddMenuItem(const std::wstring &label, std::function<void()> onClick)
 {
 	auto btn = new MenuItemButton;
 	btn->label = label;
 	btn->onClick = onClick;
-	_menuMap.push_back( btn );
+	_menuMap.push_back(btn);
 }
 
-void WindowsTrayIcon::AddMenuItem(const std::wstring & label, std::function<void(bool)> onClick, std::function<bool()> getState)
+void WindowsTrayIcon::AddMenuItem(const std::wstring &label, std::function<void(bool)> onClick, std::function<bool()> getState)
 {
 	auto tgl = new MenuItemToggle;
 	tgl->label = label;
@@ -188,13 +197,12 @@ void WindowsTrayIcon::AddMenuItem(const std::wstring & label, std::function<void
 	_menuMap.push_back(tgl);
 }
 
-void WindowsTrayIcon::AddMenuItem(const std::wstring & label, const std::wstring & sublabel, std::function<void()> onClick)
+void WindowsTrayIcon::AddMenuItem(const std::wstring &label, const std::wstring &sublabel, std::function<void()> onClick)
 {
 	auto menuiter = std::find_if(_menuMap.begin(), _menuMap.end(),
-		[label] (auto item) {
-			return label == item->label; 
-		}
-	);
+	  [label](auto item) {
+		  return label == item->label;
+	  });
 	if (menuiter == _menuMap.end())
 	{
 		auto menu = new MenuItemMenu;
@@ -205,7 +213,7 @@ void WindowsTrayIcon::AddMenuItem(const std::wstring & label, const std::wstring
 	auto btn = new MenuItemButton;
 	btn->label = sublabel;
 	btn->onClick = onClick;
-	static_cast<MenuItemMenu*>(*menuiter)->list.push_back(btn);
+	static_cast<MenuItemMenu *>(*menuiter)->list.push_back(btn);
 }
 
 //	Initialize the window and tray icon
@@ -214,27 +222,29 @@ BOOL WindowsTrayIcon::InitInstance()
 	// prepare for XP style controls
 	InitCommonControls();
 
-	 // store instance handle and create dialog
-	HWND hWnd = CreateDialog( _hInst, MAKEINTRESOURCE(IDD_DLG_DIALOG),
-		NULL, (DLGPROC)DlgProc );
+	// store instance handle and create dialog
+	HWND hWnd = CreateDialog(_hInst, MAKEINTRESOURCE(IDD_DLG_DIALOG),
+	  NULL, (DLGPROC)DlgProc);
 	auto err = GetLastError();
-	if (!hWnd) return FALSE;
+	if (!hWnd)
+		return FALSE;
 
 	// Fill the NOTIFYICONDATA structure and call Shell_NotifyIcon
 
 	// zero the structure - note:	Some Windows funtions require this but
 	//								I can't be bothered which ones do and
 	//								which ones don't.
-	ZeroMemory(&_niData,sizeof(NOTIFYICONDATA));
+	ZeroMemory(&_niData, sizeof(NOTIFYICONDATA));
 
 	// get Shell32 version number and set the size of the structure
 	//		note:	the MSDN documentation about this is a little
 	//				dubious and I'm not at all sure if the method
 	//				bellow is correct
 	ULONGLONG ullVersion = GetDllVersion(_T("Shell32.dll"));
-	if(ullVersion >= MAKEDLLVERULL(5, 0,0,0))
+	if (ullVersion >= MAKEDLLVERULL(5, 0, 0, 0))
 		_niData.cbSize = sizeof(NOTIFYICONDATA);
-	else _niData.cbSize = NOTIFYICONDATA_V2_SIZE;
+	else
+		_niData.cbSize = NOTIFYICONDATA_V2_SIZE;
 
 	// the ID number can be anything you choose
 	_niData.uID = TRAYICONID++;
@@ -243,22 +253,24 @@ BOOL WindowsTrayIcon::InitInstance()
 	_niData.uFlags = NIF_ICON | NIF_MESSAGE | NIF_TIP;
 
 	// load the icon
-	_niData.hIcon = (HICON)LoadImage(_hInst,MAKEINTRESOURCE(IDI_STEALTHDLG),
-		IMAGE_ICON, GetSystemMetrics(SM_CXSMICON),GetSystemMetrics(SM_CYSMICON),
-		LR_DEFAULTCOLOR);
+	_niData.hIcon = (HICON)LoadImage(_hInst, MAKEINTRESOURCE(IDI_STEALTHDLG),
+	  IMAGE_ICON, GetSystemMetrics(SM_CXSMICON), GetSystemMetrics(SM_CYSMICON),
+	  LR_DEFAULTCOLOR);
 
 	// the window to send messages to and the message to send
 	//		note:	the message value should be in the
 	//				range of WM_APP through 0xBFFF
 	_niData.hWnd = hWnd;
-    _niData.uCallbackMessage = SWM_TRAYMSG;
+	_niData.uCallbackMessage = SWM_TRAYMSG;
 
 	// tooltip message
-    lstrcpyn(_niData.szTip, _T("JoyShockMapper"), sizeof(_niData.szTip)/sizeof(TCHAR));
+	lstrcpyn(_niData.szTip, _T("JoyShockMapper"), sizeof(_niData.szTip) / sizeof(TCHAR));
 
 	//Shell_NotifyIcon(NIM_ADD, &_niData);
-	
+
 	// call ShowWindow here to make the dialog initially visible
+
+	_init = true;
 
 	return TRUE;
 }
@@ -266,15 +278,17 @@ BOOL WindowsTrayIcon::InitInstance()
 // Name says it all
 void WindowsTrayIcon::ShowContextMenu(HWND hWnd)
 {
-	if (_beforeShow) _beforeShow();
-	if (!_clickMap.empty()) _clickMap.clear();
+	if (_beforeShow)
+		_beforeShow();
+	if (!_clickMap.empty())
+		_clickMap.clear();
 	POINT pt;
 	GetCursorPos(&pt);
 	HMENU hMenu = CreatePopupMenu();
-	if(hMenu)
+	if (hMenu)
 	{
 		int id = 0;
-		for(auto menuItem : _menuMap)
+		for (auto menuItem : _menuMap)
 		{
 			auto *btn = dynamic_cast<MenuItemButton *>(menuItem);
 			if (btn)
@@ -282,14 +296,14 @@ void WindowsTrayIcon::ShowContextMenu(HWND hWnd)
 				InsertMenu(hMenu, -1, MF_BYPOSITION | MF_STRING, SWM_CUSTOM + id, btn->label.c_str());
 				_clickMap[SWM_CUSTOM + id] = btn->onClick;
 			}
-			auto *tgl = dynamic_cast<MenuItemToggle*>(menuItem);
+			auto *tgl = dynamic_cast<MenuItemToggle *>(menuItem);
 			if (tgl)
 			{
 				bool state = tgl->getState();
 				InsertMenu(hMenu, -1, MF_BYPOSITION | MF_STRING | (state ? MF_CHECKED : MF_UNCHECKED), SWM_CUSTOM + id, tgl->label.c_str());
 				_clickMap[SWM_CUSTOM + id] = std::bind(&MenuItemToggle::onClickWrapper, tgl);
 			}
-			auto *menu = dynamic_cast<MenuItemMenu*>(menuItem);
+			auto *menu = dynamic_cast<MenuItemMenu *>(menuItem);
 			if (menu)
 			{
 				HMENU submenu = CreatePopupMenu();
@@ -311,7 +325,7 @@ void WindowsTrayIcon::ShowContextMenu(HWND hWnd)
 		SetForegroundWindow(hWnd);
 
 		TrackPopupMenu(hMenu, TPM_BOTTOMALIGN,
-			pt.x, pt.y, 0, hWnd, NULL );
+		  pt.x, pt.y, 0, hWnd, NULL);
 		DestroyMenu(hMenu);
 	}
 }
@@ -319,26 +333,26 @@ void WindowsTrayIcon::ShowContextMenu(HWND hWnd)
 // Get dll version number
 ULONGLONG WindowsTrayIcon::GetDllVersion(LPCTSTR lpszDllName)
 {
-    ULONGLONG ullVersion = 0;
+	ULONGLONG ullVersion = 0;
 	HINSTANCE hinstDll;
-    hinstDll = LoadLibrary(lpszDllName);
-    if(hinstDll)
-    {
-        DLLGETVERSIONPROC pDllGetVersion;
-        pDllGetVersion = (DLLGETVERSIONPROC)GetProcAddress(hinstDll, "DllGetVersion");
-        if(pDllGetVersion)
-        {
-            DLLVERSIONINFO dvi;
-            HRESULT hr;
-            ZeroMemory(&dvi, sizeof(dvi));
-            dvi.cbSize = sizeof(dvi);
-            hr = (*pDllGetVersion)(&dvi);
-            if(SUCCEEDED(hr))
-				ullVersion = MAKEDLLVERULL(dvi.dwMajorVersion, dvi.dwMinorVersion,0,0);
-        }
-        FreeLibrary(hinstDll);
-    }
-    return ullVersion;
+	hinstDll = LoadLibrary(lpszDllName);
+	if (hinstDll)
+	{
+		DLLGETVERSIONPROC pDllGetVersion;
+		pDllGetVersion = (DLLGETVERSIONPROC)GetProcAddress(hinstDll, "DllGetVersion");
+		if (pDllGetVersion)
+		{
+			DLLVERSIONINFO dvi;
+			HRESULT hr;
+			ZeroMemory(&dvi, sizeof(dvi));
+			dvi.cbSize = sizeof(dvi);
+			hr = (*pDllGetVersion)(&dvi);
+			if (SUCCEEDED(hr))
+				ullVersion = MAKEDLLVERULL(dvi.dwMajorVersion, dvi.dwMinorVersion, 0, 0);
+		}
+		FreeLibrary(hinstDll);
+	}
+	return ullVersion;
 }
 
 // Message handler for the app
@@ -346,17 +360,16 @@ INT_PTR CALLBACK WindowsTrayIcon::DlgProc(HWND hWnd, UINT message, WPARAM wParam
 {
 	UINT_PTR wmId, wmEvent;
 
-	auto entry = std::find_if(registry.begin(), registry.end(), 
-		[hWnd] (auto entry)
-		{ 
-			return *entry == hWnd; 
-		});
+	auto entry = std::find_if(registry.begin(), registry.end(),
+	  [hWnd](auto entry) {
+		  return *entry == hWnd;
+	  });
 	WindowsTrayIcon *tray = entry != registry.end() ? *entry : nullptr;
 
-	switch (message) 
+	switch (message)
 	{
 	case SWM_TRAYMSG:
-		switch(lParam)
+		switch (lParam)
 		{
 		case WM_LBUTTONDOWN:
 			if (tray->_clickMap.empty())
@@ -370,7 +383,7 @@ INT_PTR CALLBACK WindowsTrayIcon::DlgProc(HWND hWnd, UINT message, WPARAM wParam
 				{
 					tray->_clickMap[SWM_CUSTOM] = btn->onClick;
 				}
-				auto *tgl = dynamic_cast<MenuItemToggle*>(tray->_menuMap[0]);
+				auto *tgl = dynamic_cast<MenuItemToggle *>(tray->_menuMap[0]);
 				if (tgl)
 				{
 					tray->_clickMap[SWM_CUSTOM] = std::bind(&MenuItemToggle::onClickWrapper, tgl);
@@ -391,23 +404,25 @@ INT_PTR CALLBACK WindowsTrayIcon::DlgProc(HWND hWnd, UINT message, WPARAM wParam
 			ShowWindow(hWnd, SW_HIDE);
 			return 1;
 		}
-		else return FALSE;
+		else
+			return FALSE;
 		break;
 	case WM_COMMAND:
-		wmId    = LOWORD(wParam);
-		wmEvent = HIWORD(wParam); 
+		wmId = LOWORD(wParam);
+		wmEvent = HIWORD(wParam);
 		if (tray->_clickMap.find(wmId) != tray->_clickMap.end())
 		{
 			tray->_clickMap[wmId]();
 		}
-		else return FALSE;
+		else
+			return FALSE;
 		break;
 	case WM_CLOSE:
 		DestroyWindow(hWnd);
 		break;
 	case WM_DESTROY:
 		tray->_niData.uFlags = 0;
-		Shell_NotifyIcon(NIM_DELETE,&tray->_niData);
+		Shell_NotifyIcon(NIM_DELETE, &tray->_niData);
 		PostQuitMessage(0);
 		break;
 	default:

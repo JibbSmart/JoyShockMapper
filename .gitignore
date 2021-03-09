@@ -27,8 +27,6 @@ bld/
 [Bb]in/
 [Oo]bj/
 [Ll]og/
-build-jsm-win64/
-build-jsm-win32/
 
 # Visual Studio 2015 cache/options directory
 .vs/
