@@ -161,7 +161,7 @@ else()
 	CPMAddPackage (
 		NAME JoyShockLibrary
 		GITHUB_REPOSITORY JibbSmart/JoyShockLibrary
-		VERSION 2.1.0
+		GIT_TAG master
 	)
 
 	target_link_libraries (
