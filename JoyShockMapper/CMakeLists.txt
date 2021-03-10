@@ -47,7 +47,7 @@ if (WINDOWS)
     if(SDL)
         target_sources (
             ${BINARY_NAME} PRIVATE
-            src/JoyShockLibrary.cpp              include/JoyShockLibrary.h
+            src/SDLWrapper.cpp              include/JoyShockLibrary.h
 		)
     endif()
 

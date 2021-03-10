@@ -36,7 +36,6 @@ JSMSetting<JoyconMask> joycon_gyro_mask = JSMSetting<JoyconMask>(SettingID::JOYC
 JSMSetting<JoyconMask> joycon_motion_mask = JSMSetting<JoyconMask>(SettingID::JOYCON_MOTION_MASK, JoyconMask::IGNORE_RIGHT);
 JSMSetting<TriggerMode> zlMode = JSMSetting<TriggerMode>(SettingID::ZL_MODE, TriggerMode::NO_FULL);
 JSMSetting<TriggerMode> zrMode = JSMSetting<TriggerMode>(SettingID::ZR_MODE, TriggerMode::NO_FULL);
-;
 JSMSetting<FlickSnapMode> flick_snap_mode = JSMSetting<FlickSnapMode>(SettingID::FLICK_SNAP_MODE, FlickSnapMode::NONE);
 JSMSetting<FloatXY> min_gyro_sens = JSMSetting<FloatXY>(SettingID::MIN_GYRO_SENS, { 0.0f, 0.0f });
 JSMSetting<FloatXY> max_gyro_sens = JSMSetting<FloatXY>(SettingID::MAX_GYRO_SENS, { 0.0f, 0.0f });
@@ -87,7 +86,7 @@ JSMVariable<Switch> autoloadSwitch = JSMVariable<Switch>(Switch::ON);
 JSMVariable<Switch> hide_minimized = JSMVariable<Switch>(Switch::OFF);
 JSMVariable<ControllerScheme> virtual_controller = JSMVariable<ControllerScheme>(ControllerScheme::NONE);
 JSMSetting<TriggerMode> touch_ds_mode = JSMSetting<TriggerMode>(SettingID::TOUCHPAD_DUAL_STAGE_MODE, TriggerMode::NO_SKIP);
-;
+JSMSetting<Switch> rumble_enable = JSMSetting<Switch>(SettingID::RUMBLE, Switch::ON);
 
 JSMVariable<PathString> currentWorkingDir = JSMVariable<PathString>(GetCWD());
 vector<JSMButton> mappings; // array enables use of for each loop and other i/f
@@ -1036,10 +1035,13 @@ public:
 
 	void Rumble(int smallRumble, int bigRumble)
 	{
-		COUT << "Rumbling at " << smallRumble << " and " << bigRumble << endl;
-		JslSetRumble(handle, smallRumble, bigRumble);
-		last_rumble.first = smallRumble;
-		last_rumble.second = bigRumble;
+		if (getSetting<Switch>(SettingID::RUMBLE) == Switch::ON)
+		{
+			COUT << "Rumbling at " << smallRumble << " and " << bigRumble << endl;
+			JslSetRumble(handle, smallRumble, bigRumble);
+			last_rumble.first = smallRumble;
+			last_rumble.second = bigRumble;
+		}
 	}
 
 	bool CheckVigemState()
@@ -1071,8 +1073,8 @@ public:
 		lock_guard guard(this->btnCommon->callback_lock);
 		switch (platform_controller_type)
 		{
-		case 4: // SDL_GameControllerType::SDL_CONTROLLER_TYPE_PS4
-		case 7: // SDL_GameControllerType::SDL_CONTROLLER_TYPE_PS5
+		case JS_TYPE_DS4:
+		case JS_TYPE_DS:
 			JslSetLightColour(handle, _light_bar.raw);
 			break;
 		default:
@@ -1487,8 +1489,7 @@ public:
 
 	void handleTriggerChange(ButtonID softIndex, ButtonID fullIndex, TriggerMode mode, float position)
 	{
-		constexpr int SDL_CONTROLLER_TYPE_NINTENDO_SWITCH_PRO = 5; // SDL_GameControllerType::
-		if (platform_controller_type == SDL_CONTROLLER_TYPE_NINTENDO_SWITCH_PRO && mode != TriggerMode::X_LT && mode != TriggerMode::X_RT)
+		if (mode != TriggerMode::X_LT && mode != TriggerMode::X_RT && (platform_controller_type == JS_TYPE_PRO_CONTROLLER || platform_controller_type == JS_TYPE_JOYCON_LEFT || platform_controller_type == JS_TYPE_JOYCON_RIGHT))
 		{
 			// Override local variable because the controller has digital triggers. Effectively ignore Full Pull binding.
 			mode = TriggerMode::NO_FULL;
@@ -1800,6 +1801,8 @@ static void resetAllMappings()
 	autoloadSwitch.Reset();
 	hide_minimized.Reset();
 	virtual_controller.Reset();
+	rumble_enable.Reset();
+	touch_ds_mode.Reset();
 
 	os_mouse_speed = 1.0f;
 	last_flick_and_rotation = 0.0f;
@@ -2628,8 +2631,8 @@ void joyShockPollCallback(int jcHandle, JOY_SHOCK_STATE state, JOY_SHOCK_STATE l
 		bool touch = JslGetTouchDown(jc->handle, false) || JslGetTouchDown(jc->handle, true);
 		switch (jc->platform_controller_type)
 		{
-		case 4: // SDL_GameControllerType::SDL_CONTROLLER_TYPE_PS4
-		case 7: // SDL_GameControllerType::SDL_CONTROLLER_TYPE_PS5
+		case JS_TYPE_DS4:
+		case JS_TYPE_DS:
 		{
 			float triggerpos = buttons & (1 << JSOFFSET_CAPTURE) ? 1.f :
 			  touch                                              ? 0.99f :
@@ -3038,6 +3041,16 @@ TriggerMode filterTriggerMode(TriggerMode current, TriggerMode next)
 	return filterInvalidValue<TriggerMode, TriggerMode::INVALID>(current, next);
 }
 
+TriggerMode filterTouchpadDualStageMode(TriggerMode current, TriggerMode next)
+{
+	if (next == TriggerMode::X_LT || next == TriggerMode::X_RT || next == TriggerMode::INVALID)
+	{
+		COUT_WARN << SettingID::TOUCHPAD_DUAL_STAGE_MODE << " doesn't support vigem analog modes." << endl;
+		return current;
+	}
+	return next;
+}
+
 StickMode filterStickMode(StickMode current, StickMode next)
 {
 	if (next == StickMode::LEFT_STICK || next == StickMode::RIGHT_STICK)
@@ -3386,7 +3399,9 @@ int main(int argc, char *argv[])
 	autoloadSwitch.SetFilter(&filterInvalidValue<Switch, Switch::INVALID>)->AddOnChangeListener(bind(&UpdateThread, autoLoadThread.get(), placeholders::_1));
 	hide_minimized.SetFilter(&filterInvalidValue<Switch, Switch::INVALID>)->AddOnChangeListener(bind(&UpdateThread, minimizeThread.get(), placeholders::_1));
 	virtual_controller.SetFilter(&UpdateVirtualController)->AddOnChangeListener(&OnVirtualControllerChange);
+	rumble_enable.SetFilter(&filterInvalidValue<Switch, Switch::INVALID>);
 	scroll_sens.SetFilter(&filterFloatPair);
+	touch_ds_mode.SetFilter(&filterTouchpadDualStageMode);
 	// light_bar needs no filter or listener. The callback polls and updates the color.
 #if _WIN32
 	currentWorkingDir = string(&cmdLine[0], &cmdLine[wcslen(cmdLine)]);
@@ -3552,6 +3567,10 @@ int main(int argc, char *argv[])
 	                      ->SetHelp("Sets the vigem virtual controller type. Can be NONE (default), XBOX (360) or DS4 (PS4)."));
 	commandRegistry.Add((new JSMAssignment<FloatXY>(scroll_sens))
 	                      ->SetHelp("Scrolling sensitivity for sticks."));
+	commandRegistry.Add((new JSMAssignment<Switch>(rumble_enable))
+	                      ->SetHelp("Disable the rumbling feature from vigem. Valid values are ON and OFF."));
+	commandRegistry.Add((new JSMAssignment<TriggerMode>(touch_ds_mode))
+	                      ->SetHelp("Dual stage mode for the touchpad TOUCH and CAPTURE (i.e. click) bindings."));
 
 	bool quit = false;
 	commandRegistry.Add((new JSMMacro("QUIT"))

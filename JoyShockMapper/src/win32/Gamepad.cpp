@@ -108,10 +108,10 @@ ostream &operator<<<VIGEM_ERROR>(ostream &out, VIGEM_ERROR errCode)
 void Gamepad::x360Notification(
   PVIGEM_CLIENT client,
   PVIGEM_TARGET target,
-  UCHAR largeMotor,
-  UCHAR smallMotor,
-  UCHAR ledNumber,
-  LPVOID userData)
+  uint8_t largeMotor,
+  uint8_t smallMotor,
+  uint8_t ledNumber,
+  void *userData)
 {
 	auto originator = static_cast<Gamepad *>(userData);
 	if (client == VigemClient::get() && originator && originator->_gamepad == target && originator->_notification)
@@ -125,10 +125,10 @@ void Gamepad::x360Notification(
 void Gamepad::ds4Notification(
   PVIGEM_CLIENT client,
   PVIGEM_TARGET target,
-  UCHAR largeMotor,
-  UCHAR smallMotor,
+  uint8_t largeMotor,
+  uint8_t smallMotor,
   Indicator lightbarColor,
-  LPVOID userData)
+  void *userData)
 {
 	auto originator = static_cast<Gamepad *>(userData);
 	if (client == VigemClient::get() && originator && originator->_gamepad == target && originator->_notification)
