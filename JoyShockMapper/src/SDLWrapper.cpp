@@ -3,23 +3,63 @@
 #include "SDL.h"
 #include <map>
 #include <mutex>
+#include <atomic>
 #define INCLUDE_MATH_DEFINES
 #include <cmath> // M_PI
 
+extern JSMVariable<float> tick_time; // defined in main.cc
+
 struct ControllerDevice
 {
-	~ControllerDevice()
+	ControllerDevice(int id)
+	{
+		if (SDL_IsGameController(id))
+		{
+			_sdlController = SDL_GameControllerOpen(id);
+
+			if (SDL_GameControllerHasSensor(_sdlController, SDL_SENSOR_GYRO))
+			{
+				_has_gyro = true;
+				SDL_GameControllerSetSensorEnabled(_sdlController, SDL_SENSOR_GYRO, SDL_TRUE);
+			}
+
+			if (SDL_GameControllerHasSensor(_sdlController, SDL_SENSOR_ACCEL))
+			{
+				_has_accel = true;
+				SDL_GameControllerSetSensorEnabled(_sdlController, SDL_SENSOR_ACCEL, SDL_TRUE);
+			}
+
+			int vid = SDL_GameControllerGetVendor(_sdlController);
+			int pid = SDL_GameControllerGetProduct(_sdlController);
+			if (vid == 0x057e)
+			{
+				if (pid == 0x2006)
+				{
+					_split_type = JS_SPLIT_TYPE_LEFT;
+				}
+				else if (pid == 0x2007)
+				{
+					_split_type = JS_SPLIT_TYPE_RIGHT;
+				}
+			}
+		}
+	}
+
+	virtual ~ControllerDevice()
 	{
 		SDL_GameControllerClose(_sdlController);
 	}
 
 	inline bool isValid()
 	{
-		return _sdlController == nullptr;
+		return _sdlController != nullptr;
 	}
-	bool has_gyro = false;
-	bool has_accel = false;
-	int split_type = JS_SPLIT_TYPE_FULL;
+
+	bool _has_gyro = true;
+	bool _has_accel = true;
+	int _split_type = JS_SPLIT_TYPE_FULL;
+	uint16_t _small_rumble = 0;
+	uint16_t _big_rumble = 0;
 	SDL_GameController *_sdlController = nullptr;
 };
 
@@ -46,61 +86,55 @@ public:
 		SDL_Quit();
 	}
 
-	inline ControllerDevice *operator[](int handle)
+	static int pollDevices(void *obj)
 	{
-		return _controllerMap[handle];
+		while (SdlInstance::_inst->keep_polling)
+		{
+			SDL_Delay(tick_time.get());
+
+			std::lock_guard guard(SdlInstance::_inst->controller_lock);
+			for (auto iter = SdlInstance::_inst->_controllerMap.begin(); iter != SdlInstance::_inst->_controllerMap.end(); ++iter)
+			{
+				SDL_GameControllerUpdate();
+				if (SdlInstance::_inst->g_callback)
+				{
+					JOY_SHOCK_STATE dummy1;
+					IMU_STATE dummy2;
+					memset(&dummy1, 0, sizeof(dummy1));
+					memset(&dummy2, 0, sizeof(dummy2));
+					SdlInstance::_inst->g_callback(iter->first, dummy1, dummy1, dummy2, dummy2, tick_time.get());
+				}
+				if (SdlInstance::_inst->g_touch_callback)
+				{
+					TOUCH_STATE touch = JslGetTouchState(iter->first), dummy3;
+					memset(&dummy3, 0, sizeof(dummy3));
+					SdlInstance::_inst->g_touch_callback(iter->first, touch, dummy3, tick_time.get());
+				}
+				// Perform rumble
+				SDL_GameControllerRumble(iter->second->_sdlController, iter->second->_small_rumble, iter->second->_big_rumble, tick_time.get() + 1);
+			}
+		}
+
+		return 1;
 	}
 
 	map<int, ControllerDevice *> _controllerMap;
-	void (*g_callback)(int, JOY_SHOCK_STATE, JOY_SHOCK_STATE, IMU_STATE, IMU_STATE, float);
-	void (*g_touch_callback)(int, TOUCH_STATE, TOUCH_STATE, float);
-	bool keep_polling = true;
-	SDL_Thread *_controller_polling_thread;
+	void (*g_callback)(int, JOY_SHOCK_STATE, JOY_SHOCK_STATE, IMU_STATE, IMU_STATE, float) = nullptr;
+	void (*g_touch_callback)(int, TOUCH_STATE, TOUCH_STATE, float) = nullptr;
+	atomic_bool keep_polling = false;
 	std::mutex controller_lock;
 };
 
 const unique_ptr<SdlInstance> SdlInstance::_inst(new SdlInstance);
 
-extern JSMVariable<float> tick_time;
-
-static int pollDevices(void *obj)
-{
-	while (SdlInstance::_inst->keep_polling)
-	{
-		SDL_Delay(tick_time.get());
-
-		std::lock_guard guard(SdlInstance::_inst->controller_lock);
-		for (auto iter = SdlInstance::_inst->_controllerMap.begin(); iter != SdlInstance::_inst->_controllerMap.end(); ++iter)
-		{
-			SDL_GameControllerUpdate();
-			if (SdlInstance::_inst->g_callback)
-			{
-				JOY_SHOCK_STATE dummy1;
-				IMU_STATE dummy2;
-				memset(&dummy1, 0, sizeof(dummy1));
-				memset(&dummy2, 0, sizeof(dummy2));
-				SdlInstance::_inst->g_callback(iter->first, dummy1, dummy1, dummy2, dummy2, tick_time.get());
-			}
-			if (SdlInstance::_inst->g_touch_callback)
-			{
-				TOUCH_STATE touch = JslGetTouchState(iter->first), dummy3;
-				memset(&dummy3, 0, sizeof(dummy3));
-				SdlInstance::_inst->g_touch_callback(iter->first, touch, dummy3, tick_time.get());
-			}
-		}
-	}
-
-	return 1;
-}
-
 int JslConnectDevices()
 {
-	if (!SdlInstance::_inst->keep_polling)
+	bool isFalse = false;
+	if (SdlInstance::_inst->keep_polling.compare_exchange_strong(isFalse, true))
 	{
-		SdlInstance::_inst->keep_polling = true;
-
-		SdlInstance::_inst->_controller_polling_thread = SDL_CreateThread(&pollDevices, "Poll Devices", nullptr);
-		SDL_DetachThread(SdlInstance::_inst->_controller_polling_thread);
+		// keep polling was false! It is set to true now.
+		SDL_Thread *controller_polling_thread = SDL_CreateThread(&SdlInstance::pollDevices, "Poll Devices", nullptr);
+		SDL_DetachThread(controller_polling_thread);
 	}
 	return SDL_NumJoysticks();
 }
@@ -116,41 +150,12 @@ int JslGetConnectedDeviceHandles(int *deviceHandleArray, int size)
 	}
 	for (int i = 0; i < size; i++)
 	{
-		ControllerDevice *device = new ControllerDevice();
-		if (!SDL_IsGameController(i))
+		ControllerDevice *device = new ControllerDevice(i);
+		if (device->isValid())
 		{
-			continue;
+			deviceHandleArray[i] = i + 1;
+			SdlInstance::_inst->_controllerMap[deviceHandleArray[i]] = device;
 		}
-		device->_sdlController = SDL_GameControllerOpen(i);
-
-		if (SDL_GameControllerHasSensor(device->_sdlController, SDL_SENSOR_GYRO))
-		{
-			device->has_gyro = true;
-			SDL_GameControllerSetSensorEnabled(device->_sdlController, SDL_SENSOR_GYRO, SDL_TRUE);
-		}
-
-		if (SDL_GameControllerHasSensor(device->_sdlController, SDL_SENSOR_ACCEL))
-		{
-			device->has_accel = true;
-			SDL_GameControllerSetSensorEnabled(device->_sdlController, SDL_SENSOR_ACCEL, SDL_TRUE);
-		}
-
-		int vid = SDL_GameControllerGetVendor(device->_sdlController);
-		int pid = SDL_GameControllerGetProduct(device->_sdlController);
-		if (vid == 0x057e)
-		{
-			if (pid == 0x2006)
-			{
-				device->split_type = JS_SPLIT_TYPE_LEFT;
-			}
-			else if (pid == 0x2007)
-			{
-				device->split_type = JS_SPLIT_TYPE_RIGHT;
-			}
-		}
-		int handle = i + 1;
-		deviceHandleArray[i] = handle;
-		SdlInstance::_inst->_controllerMap[handle] = device;
 	}
 	return SdlInstance::_inst->_controllerMap.size();
 }
@@ -179,7 +184,7 @@ IMU_STATE JslGetIMUState(int deviceId)
 {
 	IMU_STATE imuState;
 	memset(&imuState, 0, sizeof(imuState));
-	if (SdlInstance::_inst->_controllerMap[deviceId]->has_gyro)
+	if (SdlInstance::_inst->_controllerMap[deviceId]->_has_gyro)
 	{
 		array<float, 3> gyro;
 		SDL_GameControllerGetSensorData(SdlInstance::_inst->_controllerMap[deviceId]->_sdlController, SDL_SENSOR_GYRO, &gyro[0], 3);
@@ -188,7 +193,7 @@ IMU_STATE JslGetIMUState(int deviceId)
 		imuState.gyroY = gyro[1] * toDegPerSec;
 		imuState.gyroZ = gyro[2] * toDegPerSec;
 	}
-	if (SdlInstance::_inst->_controllerMap[deviceId]->has_accel)
+	if (SdlInstance::_inst->_controllerMap[deviceId]->_has_accel)
 	{
 		array<float, 3> accel;
 		SDL_GameControllerGetSensorData(SdlInstance::_inst->_controllerMap[deviceId]->_sdlController, SDL_SENSOR_ACCEL, &accel[0], 3);
@@ -269,7 +274,7 @@ int JslGetButtons(int deviceId)
 	{
 		buttons |= SDL_GameControllerGetButton(SdlInstance::_inst->_controllerMap[deviceId]->_sdlController, SDL_GameControllerButton(pair.first)) > 0 ? 1 << pair.second : 0;
 	}
-	switch (SdlInstance::_inst->_controllerMap[deviceId]->split_type)
+	switch (JslGetControllerType(deviceId))
 	{
 	case SDL_CONTROLLER_TYPE_PS4:
 	case SDL_CONTROLLER_TYPE_PS5:
@@ -315,7 +320,7 @@ float JslGetRightTrigger(int deviceId)
 
 float JslGetGyroX(int deviceId)
 {
-	if (SdlInstance::_inst->_controllerMap[deviceId]->has_gyro)
+	if (SdlInstance::_inst->_controllerMap[deviceId]->_has_gyro)
 	{
 		float rawGyro[3];
 		SDL_GameControllerGetSensorData(SdlInstance::_inst->_controllerMap[deviceId]->_sdlController, SDL_SENSOR_GYRO, rawGyro, 3);
@@ -450,7 +455,7 @@ int JslGetControllerType(int deviceId)
 
 int JslGetControllerSplitType(int deviceId)
 {
-	return SdlInstance::_inst->_controllerMap[deviceId]->split_type;
+	return SdlInstance::_inst->_controllerMap[deviceId]->_split_type;
 }
 
 int JslGetControllerColour(int deviceId)
@@ -460,18 +465,24 @@ int JslGetControllerColour(int deviceId)
 
 void JslSetLightColour(int deviceId, int colour)
 {
-	union
+	if (SDL_GameControllerHasLED(SdlInstance::_inst->_controllerMap[deviceId]->_sdlController))
 	{
-		uint32_t raw;
-		uint8_t argb[4];
-	} uColour;
-	uColour.raw = colour;
-	SDL_GameControllerSetLED(SdlInstance::_inst->_controllerMap[deviceId]->_sdlController, uColour.argb[2], uColour.argb[1], uColour.argb[0]);
+		union
+		{
+			uint32_t raw;
+			uint8_t argb[4];
+		} uColour;
+		uColour.raw = colour;
+		SDL_GameControllerSetLED(SdlInstance::_inst->_controllerMap[deviceId]->_sdlController, uColour.argb[2], uColour.argb[1], uColour.argb[0]);
+	}
 }
 
 void JslSetRumble(int deviceId, int smallRumble, int bigRumble)
 {
-	SDL_GameControllerRumble(SdlInstance::_inst->_controllerMap[deviceId]->_sdlController, smallRumble << 8, bigRumble << 8, tick_time.get() + 1);
+	// Rumble command needs to be sent at every poll in SDL, so the next value is set here and the actual call
+	// is done after the callback return
+	SdlInstance::_inst->_controllerMap[deviceId]->_small_rumble = clamp(smallRumble, 0, 255) << 8;
+	SdlInstance::_inst->_controllerMap[deviceId]->_big_rumble = clamp(bigRumble, 0, 255) << 8;
 }
 
 void JslSetPlayerNumber(int deviceId, int number)

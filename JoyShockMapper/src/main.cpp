@@ -21,6 +21,7 @@ const Mapping Mapping::NO_MAPPING = Mapping("NONE");
 function<bool(in_string)> Mapping::_isCommandValid = function<bool(in_string)>();
 
 class JoyShock;
+void joyShockPollCallback(int jcHandle, JOY_SHOCK_STATE state, JOY_SHOCK_STATE lastState, IMU_STATE imuState, IMU_STATE lastImuState, float deltaTime);
 
 // Contains all settings that can be modeshifted. They should be accessed only via Joyshock::getSetting
 JSMSetting<StickMode> left_stick_mode = JSMSetting<StickMode>(SettingID::LEFT_STICK_MODE, StickMode::NO_MOUSE);
@@ -1025,7 +1026,10 @@ public:
 			buttons.push_back(DigitalButton(btnCommon, ButtonID(i), uniqueHandle, &motion));
 		}
 		ResetSmoothSample();
-		CheckVigemState();
+		if (!CheckVigemState())
+		{
+			virtual_controller = ControllerScheme::NONE;
+		}
 		JslSetLightColour(handle, _light_bar.raw);
 	}
 
@@ -1166,6 +1170,8 @@ public:
 			case SettingID::TOUCHPAD_DUAL_STAGE_MODE:
 				opt = GetOptionalSetting<E>(touch_ds_mode, *activeChord);
 				break;
+			case SettingID::RUMBLE:
+				opt = GetOptionalSetting<E>(rumble_enable, *activeChord);
 			}
 			if (opt)
 				return *opt;
@@ -1904,7 +1910,9 @@ bool do_RECONNECT_CONTROLLERS(in_string arguments)
 	if (mergeJoycons || arguments.rfind("SPLIT", 0) == 0)
 	{
 		COUT << "Reconnecting controllers: " << arguments << endl;
+		JslDisconnectAndDisposeAll();
 		connectDevices(mergeJoycons);
+		JslSetCallback(&joyShockPollCallback);
 		return true;
 	}
 	return false;
@@ -2785,8 +2793,6 @@ void joyShockPollCallback(int jcHandle, JOY_SHOCK_STATE state, JOY_SHOCK_STATE l
 	if (jc->btnCommon->_vigemController)
 	{
 		jc->btnCommon->_vigemController->update(); // Check for initialized built-in
-		if (jc->last_rumble.first == 0 && jc->last_rumble.second == 0)
-			jc->Rumble(jc->last_rumble.first, jc->last_rumble.second);
 	}
 	auto newColor = jc->getSetting<Color>(SettingID::LIGHT_BAR);
 	if (jc->_light_bar != newColor)
@@ -3083,16 +3089,21 @@ void UpdateRingModeFromStickMode(JSMVariable<RingMode> *stickRingMode, StickMode
 
 ControllerScheme UpdateVirtualController(ControllerScheme prevScheme, ControllerScheme nextScheme)
 {
-	bool success = !handle_to_joyshock.empty();
+	bool success = true;
 	for (auto &js : handle_to_joyshock)
 	{
 		if (!js.second->btnCommon->_vigemController ||
 		  js.second->btnCommon->_vigemController->getType() != nextScheme)
 		{
-			js.second->btnCommon->_vigemController.reset(
-			  nextScheme == ControllerScheme::NONE ? nullptr :
-                                                     new Gamepad(nextScheme, bind(&JoyShock::handleViGEmNotification, js.second.get(), placeholders::_1, placeholders::_2, placeholders::_3)));
-			success &= js.second->btnCommon->_vigemController->isInitialized();
+			if (nextScheme == ControllerScheme::NONE)
+			{
+				js.second->btnCommon->_vigemController.reset(nullptr);
+			}
+			else
+			{
+				js.second->btnCommon->_vigemController.reset(new Gamepad(nextScheme, bind(&JoyShock::handleViGEmNotification, js.second.get(), placeholders::_1, placeholders::_2, placeholders::_3)));
+				success &= js.second->btnCommon->_vigemController->isInitialized();
+			}
 		}
 	}
 	return success ? nextScheme : prevScheme;
@@ -3582,8 +3593,8 @@ int main(int argc, char *argv[])
 
 	Mapping::_isCommandValid = bind(&CmdRegistry::isCommandValid, &commandRegistry, placeholders::_1);
 
-	JslSetCallback(&joyShockPollCallback);
 	connectDevices();
+	JslSetCallback(&joyShockPollCallback);
 	tray.reset(new TrayIcon(trayIconData, &beforeShowTrayMenu));
 	tray->Show();
 
