@@ -996,7 +996,6 @@ public:
 	int lastGyroIndexY = 0;
 
 	Color _light_bar;
-	pair<uint16_t, uint16_t> last_rumble = { 0, 0 };
 
 	JoyShock(int uniqueHandle, int controllerSplitType, shared_ptr<DigitalButton::Common> sharedButtonCommon = nullptr)
 	  : handle(uniqueHandle)
@@ -1043,8 +1042,6 @@ public:
 		{
 			COUT << "Rumbling at " << smallRumble << " and " << bigRumble << endl;
 			JslSetRumble(handle, smallRumble, bigRumble);
-			last_rumble.first = smallRumble;
-			last_rumble.second = bigRumble;
 		}
 	}
 
