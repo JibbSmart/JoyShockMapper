@@ -95,7 +95,7 @@ JSMSetting<FloatXY> touchpad_sens = JSMSetting<FloatXY>(SettingID::TOUCHPAD_SENS
 JSMVariable<Switch> hide_minimized = JSMVariable<Switch>(Switch::OFF);
 JSMVariable<ControllerScheme> virtual_controller = JSMVariable<ControllerScheme>(ControllerScheme::NONE);
 JSMSetting<TriggerMode> touch_ds_mode = JSMSetting<TriggerMode>(SettingID::TOUCHPAD_DUAL_STAGE_MODE, TriggerMode::NO_SKIP);
-;
+JSMSetting<Switch> rumble_enable = JSMSetting<Switch>(SettingID::RUMBLE, Switch::ON);
 
 JSMVariable<PathString> currentWorkingDir = JSMVariable<PathString>(GetCWD());
 vector<JSMButton> touch_buttons; // array of virtual buttons on the touchpad grid
@@ -993,7 +993,6 @@ public:
 	int handle;
 	GamepadMotion motion;
 	int platform_controller_type;
-	mutex callback_lock;
 
 	vector<DigitalButton> buttons;
 	vector<DigitalButton> gridButtons;
@@ -1058,7 +1057,6 @@ public:
 	int lastGyroIndexY = 0;
 
 	Color _light_bar;
-	pair<uint16_t, uint16_t> last_rumble = { 0, 0 };
 
 	JoyShock(int uniqueHandle, int controllerSplitType, shared_ptr<DigitalButton::Common> sharedButtonCommon = nullptr)
 	  : handle(uniqueHandle)
@@ -1086,7 +1084,10 @@ public:
 			buttons.push_back(DigitalButton(btnCommon, ButtonID(i), handle, &motion));
 		}
 		ResetSmoothSample();
-		CheckVigemState();
+		if (!CheckVigemState())
+		{
+			virtual_controller = ControllerScheme::NONE;
+		}
 		JslSetLightColour(handle, getSetting<Color>(SettingID::LIGHT_BAR).raw);
 		for (int i = 0; i < MAX_NO_OF_TOUCH; ++i)
 		{
@@ -1101,10 +1102,11 @@ public:
 
 	void Rumble(int smallRumble, int bigRumble)
 	{
-		COUT << "Rumbling at " << smallRumble << " and " << bigRumble << endl;
-		JslSetRumble(handle, smallRumble, bigRumble);
-		last_rumble.first = smallRumble;
-		last_rumble.second = bigRumble;
+		if (getSetting<Switch>(SettingID::RUMBLE) == Switch::ON)
+		{
+			COUT << "Rumbling at " << smallRumble << " and " << bigRumble << endl;
+			JslSetRumble(handle, smallRumble, bigRumble);
+		}
 	}
 
 	bool CheckVigemState()
@@ -1237,6 +1239,8 @@ public:
 			case SettingID::TOUCHPAD_DUAL_STAGE_MODE:
 				opt = GetOptionalSetting<E>(touch_ds_mode, *activeChord);
 				break;
+			case SettingID::RUMBLE:
+				opt = GetOptionalSetting<E>(rumble_enable, *activeChord);
 			}
 			if (opt)
 				return *opt;
@@ -1575,8 +1579,7 @@ public:
 
 	void handleTriggerChange(ButtonID softIndex, ButtonID fullIndex, TriggerMode mode, float position)
 	{
-		constexpr int SDL_CONTROLLER_TYPE_NINTENDO_SWITCH_PRO = 5; // SDL_GameControllerType::
-		if (platform_controller_type == JS_TYPE_PRO_CONTROLLER && mode != TriggerMode::X_LT && mode != TriggerMode::X_RT)
+		if (mode != TriggerMode::X_LT && mode != TriggerMode::X_RT && (platform_controller_type == JS_TYPE_PRO_CONTROLLER || platform_controller_type == JS_TYPE_JOYCON_LEFT || platform_controller_type == JS_TYPE_JOYCON_RIGHT))
 		{
 			// Override local variable because the controller has digital triggers. Effectively ignore Full Pull binding.
 			mode = TriggerMode::NO_FULL;
@@ -1906,6 +1909,8 @@ static void resetAllMappings()
 	autoloadSwitch.Reset();
 	hide_minimized.Reset();
 	virtual_controller.Reset();
+	rumble_enable.Reset();
+	touch_ds_mode.Reset();
 	for_each(touch_buttons.begin(), touch_buttons.end(), [](auto &map) { map.Reset(); });
 
 	os_mouse_speed = 1.0f;
@@ -2663,6 +2668,7 @@ void TouchCallback(int jcHandle, TOUCH_STATE newState, TOUCH_STATE prevState, fl
 
 void joyShockPollCallback(int jcHandle, JOY_SHOCK_STATE state, JOY_SHOCK_STATE lastState, IMU_STATE imuState, IMU_STATE lastImuState, float deltaTime)
 {
+
 	shared_ptr<JoyShock> jc = handle_to_joyshock[jcHandle];
 	if (jc == nullptr)
 		return;
@@ -2688,6 +2694,7 @@ void joyShockPollCallback(int jcHandle, JOY_SHOCK_STATE state, JOY_SHOCK_STATE l
 
 	float inQuatW, inQuatX, inQuatY, inQuatZ;
 	motion.GetOrientation(inQuatW, inQuatX, inQuatY, inQuatZ);
+
 	//COUT << "DS4 accel: %.4f, %.4f, %.4f\n", imuState.accelX, imuState.accelY, imuState.accelZ);
 	//COUT << "\tDS4 gyro: %.4f, %.4f, %.4f\n", imuState.gyroX, imuState.gyroY, imuState.gyroZ);
 	//COUT << "\tDS4 quat: %.4f, %.4f, %.4f, %.4f | accel: %.4f, %.4f, %.4f | grav: %.4f, %.4f, %.4f\n",
@@ -3049,8 +3056,6 @@ void joyShockPollCallback(int jcHandle, JOY_SHOCK_STATE state, JOY_SHOCK_STATE l
 	if (jc->btnCommon->_vigemController)
 	{
 		jc->btnCommon->_vigemController->update(); // Check for initialized built-in
-		if (jc->last_rumble.first == 0 && jc->last_rumble.second == 0)
-			jc->Rumble(jc->last_rumble.first, jc->last_rumble.second);
 	}
 	auto newColor = jc->getSetting<Color>(SettingID::LIGHT_BAR);
 	if (jc->_light_bar != newColor)
@@ -3059,8 +3064,6 @@ void joyShockPollCallback(int jcHandle, JOY_SHOCK_STATE state, JOY_SHOCK_STATE l
 		jc->_light_bar = newColor;
 	}
 	jc->btnCommon->callback_lock.unlock();
-
-	TouchCallback(jcHandle, JslGetTouchState(jcHandle), JslGetTouchState(jcHandle, true), deltaTime);
 }
 
 // https://stackoverflow.com/a/25311622/1130520 says this is why filenames obtained by fgets don't work
@@ -3307,6 +3310,16 @@ TriggerMode filterTriggerMode(TriggerMode current, TriggerMode next)
 	return filterInvalidValue<TriggerMode, TriggerMode::INVALID>(current, next);
 }
 
+TriggerMode filterTouchpadDualStageMode(TriggerMode current, TriggerMode next)
+{
+	if (next == TriggerMode::X_LT || next == TriggerMode::X_RT || next == TriggerMode::INVALID)
+	{
+		COUT_WARN << SettingID::TOUCHPAD_DUAL_STAGE_MODE << " doesn't support vigem analog modes." << endl;
+		return current;
+	}
+	return next;
+}
+
 StickMode filterStickMode(StickMode current, StickMode next)
 {
 	if (next == StickMode::LEFT_STICK || next == StickMode::RIGHT_STICK)
@@ -3339,16 +3352,21 @@ void UpdateRingModeFromStickMode(JSMVariable<RingMode> *stickRingMode, StickMode
 
 ControllerScheme UpdateVirtualController(ControllerScheme prevScheme, ControllerScheme nextScheme)
 {
-	bool success = !handle_to_joyshock.empty();
+	bool success = true;
 	for (auto &js : handle_to_joyshock)
 	{
 		if (!js.second->btnCommon->_vigemController ||
 		  js.second->btnCommon->_vigemController->getType() != nextScheme)
 		{
-			js.second->btnCommon->_vigemController.reset(
-			  nextScheme == ControllerScheme::NONE ? nullptr :
-                                                     new Gamepad(nextScheme, bind(&JoyShock::handleViGEmNotification, js.second.get(), placeholders::_1, placeholders::_2, placeholders::_3)));
-			success &= js.second->btnCommon->_vigemController->isInitialized();
+			if (nextScheme == ControllerScheme::NONE)
+			{
+				js.second->btnCommon->_vigemController.reset(nullptr);
+			}
+			else
+			{
+				js.second->btnCommon->_vigemController.reset(new Gamepad(nextScheme, bind(&JoyShock::handleViGEmNotification, js.second.get(), placeholders::_1, placeholders::_2, placeholders::_3)));
+				success &= js.second->btnCommon->_vigemController->isInitialized();
+			}
 		}
 	}
 	return success ? nextScheme : prevScheme;
@@ -3719,7 +3737,9 @@ int main(int argc, char *argv[])
 		return filterPositive(current, floorf(next));
 	});
 	virtual_controller.SetFilter(&UpdateVirtualController)->AddOnChangeListener(&OnVirtualControllerChange);
+	rumble_enable.SetFilter(&filterInvalidValue<Switch, Switch::INVALID>);
 	scroll_sens.SetFilter(&filterFloatPair);
+	touch_ds_mode.SetFilter(&filterTouchpadDualStageMode);
 	// light_bar needs no filter or listener. The callback polls and updates the color.
 #if _WIN32
 	currentWorkingDir = string(&cmdLine[0], &cmdLine[wcslen(cmdLine)]);
@@ -3899,7 +3919,11 @@ int main(int argc, char *argv[])
 	commandRegistry.Add((new JSMAssignment<Switch>("HIDE_MINIMIZED", hide_minimized))
 	                      ->SetHelp("JSM will be hidden in the notification area when minimized if this setting is ON. Otherwise it stays in the taskbar."));
 	commandRegistry.Add((new JSMAssignment<FloatXY>(scroll_sens))
-	                      ->SetHelp("Scrolling sensitivity for sticks and touchpad in degrees. Second value is used for touchpad pinch-strech gestures."));
+	                      ->SetHelp("Scrolling sensitivity for sticks."));
+	commandRegistry.Add((new JSMAssignment<Switch>(rumble_enable))
+	                      ->SetHelp("Disable the rumbling feature from vigem. Valid values are ON and OFF."));
+	commandRegistry.Add((new JSMAssignment<TriggerMode>(touch_ds_mode))
+	                      ->SetHelp("Dual stage mode for the touchpad TOUCH and CAPTURE (i.e. click) bindings."));
 
 	bool quit = false;
 	commandRegistry.Add((new JSMMacro("QUIT"))
