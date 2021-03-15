@@ -892,7 +892,8 @@ public:
 	void ProcessScroll(float distance, float sens)
 	{
 		_leftovers += distance;
-		//if(distance != 0) COUT << "[" << _negativeId << "," << _positiveId << "] moved " << distance << " so that leftover is now " << _leftovers << endl;
+		if (distance != 0)
+			COUT << "[" << _negativeId << "," << _positiveId << "] moved " << distance << " so that leftover is now " << _leftovers << endl;
 
 		if (!_pressed && fabsf(_leftovers) > sens)
 		{
@@ -1094,6 +1095,8 @@ public:
 			touchpads.push_back(TouchStick(i, btnCommon, handle, &motion));
 		}
 		updateGridSize(grid_size.get().x() * grid_size.get().y() + 5);
+		prevTouchState.t0Down = false;
+		prevTouchState.t1Down = false;
 	}
 
 	~JoyShock()
@@ -2355,7 +2358,7 @@ void processStick(shared_ptr<JoyShock> jc, float stickX, float stickY, float las
 	float stickLength = sqrt(stickX * stickX + stickY * stickY);
 	bool ring = ringMode == RingMode::INNER && stickLength > 0.0f && stickLength < 0.7f ||
 	  ringMode == RingMode::OUTER && stickLength > 0.7f;
-	jc->handleButtonChange(ringId, touchpadIndex, ring);
+	jc->handleButtonChange(ringId, ring, touchpadIndex);
 
 	bool rotateOnly = stickMode == StickMode::ROTATE_ONLY;
 	bool flickOnly = stickMode == StickMode::FLICK_ONLY;
@@ -2459,13 +2462,13 @@ void processStick(shared_ptr<JoyShock> jc, float stickX, float stickY, float las
 	else if (stickMode == StickMode::NO_MOUSE)
 	{ // Do not do if invalid
 		// left!
-		jc->handleButtonChange(leftId, left);
+		jc->handleButtonChange(leftId, left, touchpadIndex);
 		// right!
-		jc->handleButtonChange(rightId, right);
+		jc->handleButtonChange(rightId, right, touchpadIndex);
 		// up!
-		jc->handleButtonChange(upId, up);
+		jc->handleButtonChange(upId, up, touchpadIndex);
 		// down!
-		jc->handleButtonChange(downId, down);
+		jc->handleButtonChange(downId, down, touchpadIndex);
 
 		anyStickInput = left | right | up | down; // ring doesn't count
 	}
@@ -2565,37 +2568,38 @@ void TouchCallback(int jcHandle, TOUCH_STATE newState, TOUCH_STATE prevState, fl
 	if (!js || JslGetTouchpadDimension(jcHandle, tpSizeX, tpSizeY) == false)
 		return;
 
-	js->callback_lock.lock();
+	lock_guard guard(js->btnCommon->callback_lock);
 
 	TOUCH_POINT point0, point1;
 
-	point0.posX = newState.t0Down ? newState.t0X / 1920.0f : -1.f; // Absolute position in percentage
-	point0.posY = newState.t0Down ? newState.t0Y / 943.0f : -1.f;
-	point0.movX = js->prevTouchState.t0Down ? newState.t0X - js->prevTouchState.t0X : 0.f; // Relative movement in unit
-	point0.movY = js->prevTouchState.t0Down ? newState.t0Y - js->prevTouchState.t0Y : 0.f;
-	point1.posX = newState.t1Down ? newState.t1X / 1920.0f : -1.f;
-	point1.posY = newState.t1Down ? newState.t1Y / 943.0f : -1.f;
-	point1.movX = js->prevTouchState.t1Down ? newState.t1X - js->prevTouchState.t1X : 0.f;
-	point1.movY = js->prevTouchState.t1Down ? newState.t1Y - js->prevTouchState.t1Y : 0.f;
+	point0.posX = newState.t0Down ? newState.t0X : -1.f; // Absolute position in percentage
+	point0.posY = newState.t0Down ? newState.t0Y : -1.f;
+	point0.movX = js->prevTouchState.t0Down ? (newState.t0X - js->prevTouchState.t0X) * tpSizeX : 0.f; // Relative movement in unit
+	point0.movY = js->prevTouchState.t0Down ? (newState.t0Y - js->prevTouchState.t0Y) * tpSizeY : 0.f;
+	point1.posX = newState.t1Down ? newState.t1X : -1.f;
+	point1.posY = newState.t1Down ? newState.t1Y : -1.f;
+	point1.movX = js->prevTouchState.t1Down ? (newState.t1X - js->prevTouchState.t1X) * tpSizeX : 0.f;
+	point1.movY = js->prevTouchState.t1Down ? (newState.t1Y - js->prevTouchState.t1Y) * tpSizeY : 0.f;
 
 	auto mode = js->getSetting<TouchpadMode>(SettingID::TOUCHPAD_MODE);
 	js->handleButtonChange(ButtonID::TOUCH, point0.isDown() || point1.isDown());
 	if (!point0.isDown() && !point1.isDown())
 	{
 
-		std::function<bool(ButtonID)> isTouchButton = [](ButtonID id) {
+		static const std::function<bool(ButtonID)> IS_TOUCH_BUTTON = [](ButtonID id) {
 			return id >= ButtonID::T1;
 		};
 
-		for (auto currentlyActive = find_if(js->btnCommon->chordStack.begin(), js->btnCommon->chordStack.end(), isTouchButton);
+		for (auto currentlyActive = find_if(js->btnCommon->chordStack.begin(), js->btnCommon->chordStack.end(), IS_TOUCH_BUTTON);
 		     currentlyActive != js->btnCommon->chordStack.end();
-		     currentlyActive = find_if(js->btnCommon->chordStack.begin(), js->btnCommon->chordStack.end(), isTouchButton))
+		     currentlyActive = find_if(js->btnCommon->chordStack.begin(), js->btnCommon->chordStack.end(), IS_TOUCH_BUTTON))
 		{
 			js->btnCommon->chordStack.erase(currentlyActive);
 		}
 	}
 	if (mode == TouchpadMode::GRID_AND_STICK)
 	{
+		// Handle grid
 		int index0 = -1, index1 = -1;
 		if (point0.isDown())
 		{
@@ -2613,7 +2617,6 @@ void TouchCallback(int jcHandle, TOUCH_STATE newState, TOUCH_STATE prevState, fl
 			index1 = int(row * grid_size.get().x() + col) + 5;
 		}
 
-		// Index 0-4 are touch buttons. Only handle grid here
 		for (int i = 5; i < touch_buttons.size(); ++i)
 		{
 			auto optId = magic_enum::enum_cast<ButtonID>(FIRST_TOUCH_BUTTON + i);
@@ -2622,6 +2625,8 @@ void TouchCallback(int jcHandle, TOUCH_STATE newState, TOUCH_STATE prevState, fl
 			if (optId)
 				js->handleButtonChange(*optId, i == index0 || i == index1);
 		}
+
+		// Handle stick
 		js->touchpads[0].handleTouchStickChange(js, point0.isDown(), point0.movX, point0.movY, delta_time);
 		js->touchpads[1].handleTouchStickChange(js, point1.isDown(), point1.movX, point1.movY, delta_time);
 	}
@@ -2631,14 +2636,14 @@ void TouchCallback(int jcHandle, TOUCH_STATE newState, TOUCH_STATE prevState, fl
 		{
 			if (js->prevTouchState.t0Down && js->prevTouchState.t1Down)
 			{
-				float x = fabsf(point0.posX - point1.posX) * 10;
-				float y = fabsf(point0.posY - point1.posY) * 10;
+				float x = fabsf(newState.t0X - newState.t1X);
+				float y = fabsf(newState.t0Y - newState.t1Y);
 				float angle = atan2f(y, x) / PI * 360;
-				float dist = x * x + y * y;
-				x = fabsf(js->prevTouchState.t0X - js->prevTouchState.t1X) * 10;
-				y = fabsf(js->prevTouchState.t0Y - js->prevTouchState.t1Y) * 10;
+				float dist = sqrt(x * x + y * y);
+				x = fabsf(js->prevTouchState.t0X - js->prevTouchState.t1X);
+				y = fabsf(js->prevTouchState.t0Y - js->prevTouchState.t1Y);
 				float oldAngle = atan2f(y, x) / PI * 360;
-				float oldDist = x * x + y * y;
+				float oldDist = sqrt(x * x + y * y);
 				js->touch_scroll_x.ProcessScroll(angle - oldAngle, js->getSetting<FloatXY>(SettingID::SCROLL_SENS).x());
 				js->touch_scroll_y.ProcessScroll(dist - oldDist, js->getSetting<FloatXY>(SettingID::SCROLL_SENS).y());
 			}
@@ -2663,7 +2668,6 @@ void TouchCallback(int jcHandle, TOUCH_STATE newState, TOUCH_STATE prevState, fl
 		}
 	}
 	js->prevTouchState = newState;
-	js->callback_lock.unlock();
 }
 
 void joyShockPollCallback(int jcHandle, JOY_SHOCK_STATE state, JOY_SHOCK_STATE lastState, IMU_STATE imuState, IMU_STATE lastImuState, float deltaTime)
@@ -3410,9 +3414,8 @@ void OnNewGridDimensions(CmdRegistry *registry, FloatXY newGridDims)
 		// For all joyshocks, remove extra touch DigitalButtons
 		for (auto &js : handle_to_joyshock)
 		{
-			js.second->callback_lock.lock();
+			lock_guard guard(js.second->btnCommon->callback_lock);
 			js.second->updateGridSize(numberOfButtons);
-			js.second->callback_lock.unlock();
 		}
 
 		// Remove extra touch button variables
@@ -3433,9 +3436,8 @@ void OnNewGridDimensions(CmdRegistry *registry, FloatXY newGridDims)
 		// For all joyshocks, remove extra touch DigitalButtons
 		for (auto &js : handle_to_joyshock)
 		{
-			js.second->callback_lock.lock();
+			lock_guard guard(js.second->btnCommon->callback_lock);
 			js.second->updateGridSize(numberOfButtons);
-			js.second->callback_lock.unlock();
 		}
 	}
 	// Else numbers are the same, possibly just reconfigured
