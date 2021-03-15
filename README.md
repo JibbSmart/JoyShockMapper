@@ -41,14 +41,14 @@ JoyShockMapper is primarily developed on Windows. JoyShockMapper should now be a
     * **[DS4 bindings](#62-ds4-bindings)**
   * **[Modeshifts](#7-modeshifts)**
   * **[Touchpad](#8-touchpad)**
-    * **[Touch Sticks](#81-touch-stick)**
+    * **[Touch Sticks](#81-touch-sticks)**
   * **[Miscellaneous Commands](#9-miscellaneous-commands)**
 * **[Configuration Files](#configuration-files)**
   * **[OnStartup.txt](#1-onstartuptxt)**
   * **[OnReset.txt](#2-onresettxt)**
   * **[Autoload feature](#3-autoload-feature)**
-* **[Known and Perceived Issues](#known-and-perceived-issues)**
 * **[Troubleshooting](#troubleshooting)**
+* **[Known and Perceived Issues](#known-and-perceived-issues)**
 * **[Credits](#credits)**
 * **[Helpful Resources](#helpful-resources)**
 * **[License](#license)**
