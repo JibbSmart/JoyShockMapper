@@ -60,9 +60,7 @@ if (WINDOWS)
     
     include_external_msproject(ViGEmClient 
       "${PROJECT_BINARY_DIR}/_deps/vigemclient-src/src/ViGEmClient.vcxproj")
-    
-    #SET(ViGEmClient_GUID_CMAKE "7DB06674-1F4F-464B-8E1C-172E9587F9DC" CACHE INTERNAL "Project GUID")
-    
+
     set_target_properties(ViGEmClient PROPERTIES
       MAP_IMPORTED_CONFIG_DEBUG DEBUG_LIB
       MAP_IMPORTED_CONFIG_RELEASE RELEASE_LIB

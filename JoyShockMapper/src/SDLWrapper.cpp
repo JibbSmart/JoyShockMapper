@@ -214,11 +214,11 @@ TOUCH_STATE JslGetTouchState(int deviceId, bool previous)
 {
 	uint8_t state0 = 0, state1 = 0;
 	TOUCH_STATE state;
-	if (SDL_GameControllerGetTouchpadFinger(SdlInstance::_inst->_controllerMap[deviceId]->_sdlController, 0, 0, &state0, &state.t0X, &state.t0Y, nullptr) == 0 &&
-	  SDL_GameControllerGetTouchpadFinger(SdlInstance::_inst->_controllerMap[deviceId]->_sdlController, 0, 1, &state1, &state.t1X, &state.t1Y, nullptr) == 0)
+	memset(&state, 0, sizeof(TOUCH_STATE));
+	if (SDL_GameControllerGetTouchpadFinger(SdlInstance::_inst->_controllerMap[deviceId]->_sdlController, 0, 0, &state0, &state.t0X, &state.t0Y, nullptr) == 0 && SDL_GameControllerGetTouchpadFinger(SdlInstance::_inst->_controllerMap[deviceId]->_sdlController, 0, 1, &state1, &state.t1X, &state.t1Y, nullptr) == 0)
 	{
-		state.t0Down = state0 != 0;
-		state.t1Down = state1 != 0;
+		state.t0Down = state0 == SDL_PRESSED;
+		state.t1Down = state1 == SDL_PRESSED;
 	}
 	return state;
 }
@@ -233,8 +233,9 @@ bool JslGetTouchpadDimension(int deviceId, int &sizeX, int &sizeY)
 		{
 		case JS_TYPE_DS4:
 		case JS_TYPE_DS:
+			// Matching SDL2 resolution
 			sizeX = 1920;
-			sizeY = 943;
+			sizeY = 920;
 			break;
 		default:
 			sizeX = 0;
@@ -363,7 +364,7 @@ bool JslGetTouchDown(int deviceId, bool secondTouch)
 	uint8_t touchState = 0;
 	if (SDL_GameControllerGetTouchpadFinger(SdlInstance::_inst->_controllerMap[deviceId]->_sdlController, 0, secondTouch ? 1 : 0, &touchState, nullptr, nullptr, nullptr) == 0)
 	{
-		return touchState != 0;
+		return touchState == SDL_PRESSED;
 	}
 	return false;
 }

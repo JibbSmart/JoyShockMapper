@@ -1,11 +1,11 @@
 #include "JoyShockMapper.h"
-#include "InputHelpers.h"
-#include <ColorCodes.h>
+#include "ColorCodes.h"
 
 #include <cstring>
 #include <sstream>
 #include <memory>
 #include <algorithm>
+#include <iomanip>
 
 static optional<float> getFloat(const string &str, size_t *newpos = nullptr)
 {
@@ -267,7 +267,9 @@ istream &operator>>(istream &in, Color &color)
 
 ostream &operator<<(ostream &out, Color color)
 {
-	out << 'x' << std::hex << int(color.rgb.r) << int(color.rgb.g) << int(color.rgb.b);
+	out << 'x'	<< hex << setw(2) << setfill('0') << int(color.rgb.r) 
+				<< hex << setw(2) << setfill('0') << int(color.rgb.g) 
+				<< hex << setw(2) << setfill('0') << int(color.rgb.b);
 	return out;
 }
 

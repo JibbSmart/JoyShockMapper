@@ -445,12 +445,12 @@ struct FloatXY : public pair<float, float>
 	{
 	}
 
-	inline float x()
+	inline float x() const
 	{
 		return first;
 	}
 
-	inline float y()
+	inline float y() const
 	{
 		return second;
 	}
