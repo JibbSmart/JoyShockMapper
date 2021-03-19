@@ -1,4 +1,4 @@
-if (WIN32)
+﻿if (WIN32)
     set (WINDOWS ON)
     set_property (GLOBAL PROPERTY USE_FOLDERS ON)
     enable_language (RC)
@@ -42,8 +42,25 @@ if (WIN32)
 
     add_library (Platform::Dependencies ALIAS platform_dependencies)
 
+	set(CMAKE_INSTALL_PREFIX "${PROJECT_BINARY_DIR}/${CONFIG}/install")
+
     install (
         DIRECTORY ${PROJECT_SOURCE_DIR}/dist/GyroConfigs
+        DESTINATION bin
+    )
+
+	install (
+        DIRECTORY ${PROJECT_SOURCE_DIR}/dist/AutoLoad
+        DESTINATION bin
+    )
+
+	install (
+        FILES ${PROJECT_SOURCE_DIR}/dist/OnReset.txt
+        DESTINATION bin
+    )
+
+	install (
+        FILES ${PROJECT_SOURCE_DIR}/dist/OnStartup.txt
         DESTINATION bin
     )
 
@@ -63,7 +80,7 @@ if (WIN32)
     )
 
     install (
-        FILES ${PROJECT_SOURCE_DIR}/README_CN.md
+        FILES ${PROJECT_SOURCE_DIR}/README_中文.md
         DESTINATION bin
     )
 endif ()

@@ -42,7 +42,7 @@ public:
 	// Default value of the variable. Cannot be changed after construction.
 	const T _defVal;
 
-	JSMVariable(T defaultValue = T(0))
+	JSMVariable(T defaultValue = T())
 	  : _value(defaultValue)
 	  , _onChangeListeners()
 	  , _filter(&NoFiltering) // _filter is always valid

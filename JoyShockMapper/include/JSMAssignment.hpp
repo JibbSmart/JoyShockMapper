@@ -29,45 +29,53 @@ protected:
 	{
 		smatch results;
 		_ASSERT_EXPR(_parse, L"There is no function defined to parse this command.");
-		if (arguments.compare(0, 4, "HELP") == 0 && !_help.empty())
+		if (arguments.empty())
+		{
+			DisplayCurrentValue();
+		}
+		else if (arguments.compare(0, 4, "HELP") == 0 && !_help.empty())
 		{
 			// Show help.
 			COUT << _help << endl;
 		}
-		else if (arguments.empty() || regex_match(arguments, results, regex(R"(\s*=\s*(.*))")))
+		else if (regex_match(arguments, results, regex(R"(\s*=\s*(.*))")))
 		{
-			string fwd_args(results.empty() ? arguments : results[1].str());
-			if (fwd_args.rfind("DEFAULT", 0) == 0)
+			string assignment(results.empty() ? arguments : results[1].str());
+			if (assignment.rfind("DEFAULT", 0) == 0)
 			{
 				_var.Reset();
 			}
-			else if (!_parse(this, fwd_args) && !_help.empty())
+			else if (!_parse(this, assignment))
 			{
-				COUT << _help << endl
-				     << "The "; // Parsing has failed. Show help.
+				CERR << "Error assigning ";
+				COUT_INFO << assignment;
+				CERR << " to " << _displayName << endl;
+				CERR << "See ";
+				COUT_INFO << "HELP";
+				CERR << " and ";
 				COUT_INFO << "README";
-				COUT << " command can lead you to further details on this command." << endl;
+				CERR << " commands for further details." << endl;
 			}
 		}
 		else if (!_help.empty())
 		{
-			COUT << _help << endl
-			     << "The "; // Parsing has failed. Show help.
+			// Parsing has failed.
+			CERR << "Error when processing the assignment. See the ";
 			COUT_INFO << "README";
-			COUT << " command can lead you to further details on this command." << endl;
+			CERR << " for details on valid assignment values" << endl;
 		}
 		return true; // Command is completely processed
 	}
 
-	static bool ModeshiftParser(ButtonID modeshift, JSMSetting<T>* setting, JSMCommand::ParseDelegate parser, JSMCommand* cmd, in_string argument)
+	static bool ModeshiftParser(ButtonID modeshift, JSMSetting<T>* setting, JSMCommand::ParseDelegate* parser, JSMCommand* cmd, in_string argument)
 	{
 		if (setting && argument.compare("NONE") == 0)
 		{
 			setting->MarkModeshiftForRemoval(modeshift);
-			COUT << "Modeshift " << modeshift << "," << setting->_id << " has been removed." << endl;
+			COUT << "Modeshift " << modeshift << "," << cmd->_name << " has been removed." << endl;
 			return true;
 		}
-		return parser(cmd, argument);
+		return (*parser)(cmd, argument);
 	}
 
 	// The default parser uses the overloaded >> operator to parse
@@ -76,17 +84,10 @@ protected:
 	static bool DefaultParser(JSMCommand* cmd, in_string data)
 	{
 		auto inst = dynamic_cast<JSMAssignment<T>*>(cmd);
-		if (data.empty())
-		{
-			//No assignment? Display current assignment
-			COUT << inst->_displayName << " = " << inst->_var.get() << endl;
-			return true;
-		}
 
 		stringstream ss(data);
 		// Read the value
-		T value = T();
-		ss >> value;
+		T value(inst->ReadValue(ss));
 		if (!ss.fail())
 		{
 			T oldVal = inst->_var;
@@ -108,10 +109,23 @@ protected:
 		return false;
 	}
 
-	void DisplayNewValue(T newValue)
+	virtual void DisplayNewValue(T newValue)
 	{
 		// See Specialization for T=Mapping at the end of this file
 		COUT << _displayName << " has been set to " << newValue << endl;
+	}
+
+	virtual void DisplayCurrentValue()
+	{
+		COUT << _displayName << " = " << _var.get() << endl;
+	}
+
+	virtual T ReadValue(stringstream& in)
+	{
+		// Default value reader
+		T value = T();
+		in >> value;
+		return value;
 	}
 
 	virtual unique_ptr<JSMCommand> GetModifiedCmd(char op, in_string chord) override
@@ -129,7 +143,7 @@ protected:
 					//Create Modeshift
 					string name = chord + op + _displayName;
 					unique_ptr<JSMCommand> chordAssignment(new JSMAssignment<T>(name, *settingVar->AtChord(btn)));
-					chordAssignment->SetHelp(_help)->SetParser(bind(&JSMAssignment<T>::ModeshiftParser, btn, settingVar, _parse, placeholders::_1, placeholders::_2))->SetTaskOnDestruction(bind(&JSMSetting<T>::ProcessModeshiftRemoval, settingVar, btn));
+					chordAssignment->SetHelp(_help)->SetParser(bind(&JSMAssignment<T>::ModeshiftParser, btn, settingVar, &_parse, placeholders::_1, placeholders::_2))->SetTaskOnDestruction(bind(&JSMSetting<T>::ProcessModeshiftRemoval, settingVar, btn));
 					return chordAssignment;
 				}
 				auto buttonVar = dynamic_cast<JSMButton*>(&_var);
@@ -164,7 +178,6 @@ protected:
 	}
 
 	unsigned int _listenerId;
-	bool _hasListener;
 
 public:
 	JSMAssignment(in_string name, in_string displayName, JSMVariable<T>& var, bool inNoListener = false)
@@ -172,12 +185,11 @@ public:
 	  , _var(var)
 	  , _displayName(displayName)
 	  , _listenerId(0)
-	  , _hasListener(!inNoListener)
 	{
 		// Child Classes assign their own parser. Use bind to convert instance function call
 		// into a static function call.
 		SetParser(&JSMAssignment::DefaultParser);
-		if (_hasListener)
+		if (!inNoListener)
 		{
 			_listenerId = _var.AddOnChangeListener(bind(&JSMAssignment::DisplayNewValue, this, placeholders::_1));
 		}
@@ -194,12 +206,13 @@ public:
 	}
 
 	JSMAssignment(JSMButton& var)
-		: JSMAssignment(magic_enum::enum_name(var._id).data(), var)
-	{ }
+	  : JSMAssignment(magic_enum::enum_name(var._id).data(), var)
+	{
+	}
 
 	virtual ~JSMAssignment()
 	{
-		if (_hasListener)
+		if (_listenerId != 0)
 		{
 			_var.RemoveOnChangeListener(_listenerId);
 		}
