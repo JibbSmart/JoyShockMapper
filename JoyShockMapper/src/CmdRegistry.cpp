@@ -233,7 +233,7 @@ void CmdRegistry::processLine(const string& line)
 		{
 			CERR << "Unrecognized command: \"" << trimmedLine << "\"\nEnter ";
 			COUT_INFO << "HELP";
-			COUT << "to display all commands." << endl;
+			CERR << " to display all commands." << endl;
 		}
 	}
 	// else ignore empty lines
