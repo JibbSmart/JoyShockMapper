@@ -1,4 +1,4 @@
-if (WIN32)
+﻿if (WIN32)
     set (WINDOWS ON)
     set_property (GLOBAL PROPERTY USE_FOLDERS ON)
     enable_language (RC)
@@ -42,28 +42,51 @@ if (WIN32)
 
     add_library (Platform::Dependencies ALIAS platform_dependencies)
 
+	set(CMAKE_INSTALL_PREFIX "${PROJECT_BINARY_DIR}/${CONFIG}/install")
+	
+	if(SDL)
+		set(PACKAGE_DIR "${PROJECT_NAME}_${CMAKE_GENERATOR_PLATFORM}_SDL2")
+	else()
+		set(PACKAGE_DIR "${PROJECT_NAME}_${CMAKE_GENERATOR_PLATFORM}")
+	endif()
+
     install (
         DIRECTORY ${PROJECT_SOURCE_DIR}/dist/GyroConfigs
-        DESTINATION bin
+        DESTINATION ${PACKAGE_DIR}
+    )
+
+	install (
+        DIRECTORY ${PROJECT_SOURCE_DIR}/dist/AutoLoad
+        DESTINATION ${PACKAGE_DIR}
+    )
+
+	install (
+        FILES ${PROJECT_SOURCE_DIR}/dist/OnReset.txt
+        DESTINATION ${PACKAGE_DIR}
+    )
+
+	install (
+        FILES ${PROJECT_SOURCE_DIR}/dist/OnStartup.txt
+        DESTINATION ${PACKAGE_DIR}
     )
 
     install (
         FILES ${PROJECT_SOURCE_DIR}/CHANGELOG.md
-        DESTINATION bin
+        DESTINATION ${PACKAGE_DIR}
     )
 
     install (
         FILES ${PROJECT_SOURCE_DIR}/LICENSE.md
-        DESTINATION bin
+        DESTINATION ${PACKAGE_DIR}
     )
 
     install (
         FILES ${PROJECT_SOURCE_DIR}/README.md
-        DESTINATION bin
+        DESTINATION ${PACKAGE_DIR}
     )
 
     install (
-        FILES ${PROJECT_SOURCE_DIR}/README_CN.md
-        DESTINATION bin
+        FILES ${PROJECT_SOURCE_DIR}/README_中文.md
+        DESTINATION ${PACKAGE_DIR}
     )
 endif ()

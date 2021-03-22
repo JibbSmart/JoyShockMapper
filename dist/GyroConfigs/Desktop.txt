@@ -7,18 +7,33 @@ REAL_WORLD_CALIBRATION = 5.3333
 IN_GAME_SENS = 1
 COUNTER_OS_MOUSE_SPEED
 
-# Button mappings
-GYRO_OFF = E
-LLEFT = LEFT
-LRIGHT = RIGHT
-LUP = UP
-LDOWN = DOWN
-R = LMOUSE
-L = RMOUSE
-+ = ESC
-ZL = LSHIFT
-S = SPACE
-N = ESC
+# DPAD is arrows
+LEFT = LEFT
+RIGHT = RIGHT
+UP = UP
+DOWN = DOWN
 
-# Include mouse settings
+# Mouse Buttons and wheel
+R = FMOUSE
+L = BMOUSE
+ZR = LMOUSE LMOUSE
+ZL = RMOUSE RMOUSE
+L3 = MMOUSE
+LEFT_STICK_MODE = SCROLL_WHEEL
+LLEFT = SCROLLUP
+LRIGHT = SCROLLDOWN
+SCROLL_SENS = 60
+
+# Button pad is common buttons
+S = ENTER
+W = SPACE
+N = CONTEXT
+E = ESC GYRO_OFF
+
++ = LALT\ !TAB           # Task view
+- = CONTROL\ LWINDOWS\ O\   # On Screen Keyboard
+HOME = LWINDOWS			 # Start Menu
+HOME,HOME = LWINDOWS\ D\ # Minimize All
+
+# Right stick drives the cursor
 GyroConfigs/_2Dmouse.txt

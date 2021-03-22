@@ -38,7 +38,7 @@ if (WINDOWS)
         ${BINARY_NAME} PRIVATE
         src/win32/InputHelpers.cpp
         src/win32/PlatformDefinitions.cpp
-        src/win32/WindowsTrayIcon.cpp       include/win32/WindowsTrayIcon.h
+        src/win32/WindowsTrayIcon.cpp        include/win32/WindowsTrayIcon.h
         src/win32/Whitelister.cpp
         src/win32/Gamepad.cpp
         "Win32 Dialog.rc"                    include/win32/resource.h
@@ -47,7 +47,7 @@ if (WINDOWS)
     if(SDL)
         target_sources (
             ${BINARY_NAME} PRIVATE
-            src/SDLWrapper.cpp              include/JoyShockLibrary.h
+            src/SDL2Wrapper.cpp              include/JoyShockLibrary.h
 		)
     endif()
 
@@ -155,13 +155,14 @@ if(SDL)
 
 	install (
 		TARGETS ${BINARY_NAME} SDL2
+		RUNTIME DESTINATION ${PACKAGE_DIR}
 	)
 else()
 	# JoyShockLibrary
 	CPMAddPackage (
 		NAME JoyShockLibrary
 		GITHUB_REPOSITORY JibbSmart/JoyShockLibrary
-		GIT_TAG master
+		VERSION 2.1.0
 	)
 
 	target_link_libraries (
@@ -172,6 +173,7 @@ else()
 
 	install (
 		TARGETS ${BINARY_NAME} JoyShockLibrary
+		RUNTIME DESTINATION ${PACKAGE_DIR}
 	)
 endif()
 

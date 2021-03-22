@@ -136,6 +136,7 @@ int JslConnectDevices()
 		SDL_Thread *controller_polling_thread = SDL_CreateThread(&SdlInstance::pollDevices, "Poll Devices", nullptr);
 		SDL_DetachThread(controller_polling_thread);
 	}
+	SDL_GameControllerUpdate(); // Refresh driver listing
 	return SDL_NumJoysticks();
 }
 
@@ -187,20 +188,24 @@ IMU_STATE JslGetIMUState(int deviceId)
 	if (SdlInstance::_inst->_controllerMap[deviceId]->_has_gyro)
 	{
 		array<float, 3> gyro;
-		SDL_GameControllerGetSensorData(SdlInstance::_inst->_controllerMap[deviceId]->_sdlController, SDL_SENSOR_GYRO, &gyro[0], 3);
-		constexpr float toDegPerSec = 180.f / M_PI;
-		imuState.gyroX = gyro[0] * toDegPerSec;
-		imuState.gyroY = gyro[1] * toDegPerSec;
-		imuState.gyroZ = gyro[2] * toDegPerSec;
+		if (SDL_GameControllerGetSensorData(SdlInstance::_inst->_controllerMap[deviceId]->_sdlController, SDL_SENSOR_GYRO, &gyro[0], 3) == 0)
+		{
+			constexpr float toDegPerSec = 180.f / M_PI;
+			imuState.gyroX = gyro[0] * toDegPerSec;
+			imuState.gyroY = gyro[1] * toDegPerSec;
+			imuState.gyroZ = gyro[2] * toDegPerSec;
+		}
 	}
 	if (SdlInstance::_inst->_controllerMap[deviceId]->_has_accel)
 	{
 		array<float, 3> accel;
-		SDL_GameControllerGetSensorData(SdlInstance::_inst->_controllerMap[deviceId]->_sdlController, SDL_SENSOR_ACCEL, &accel[0], 3);
-		constexpr float toGs = 1.f / 9.8f;
-		imuState.accelX = accel[0] * toGs;
-		imuState.accelY = accel[1] * toGs;
-		imuState.accelZ = accel[2] * toGs;
+		if (SDL_GameControllerGetSensorData(SdlInstance::_inst->_controllerMap[deviceId]->_sdlController, SDL_SENSOR_ACCEL, &accel[0], 3) == 0)
+		{
+			constexpr float toGs = 1.f / 9.8f;
+			imuState.accelX = accel[0] * toGs;
+			imuState.accelY = accel[1] * toGs;
+			imuState.accelZ = accel[2] * toGs;
+		}
 	}
 	return imuState;
 }

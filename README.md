@@ -41,7 +41,7 @@ JoyShockMapper is primarily developed on Windows. JoyShockMapper should now be a
     * **[DS4 bindings](#62-ds4-bindings)**
   * **[Modeshifts](#7-modeshifts)**
   * **[Touchpad](#8-touchpad)**
-    * **[Touch Sticks](#81-touch-sticks)**
+    * **[Touch Sticks](#81-touch-stick)**
   * **[Miscellaneous Commands](#9-miscellaneous-commands)**
 * **[Configuration Files](#configuration-files)**
   * **[OnStartup.txt](#1-onstartuptxt)**
@@ -191,8 +191,8 @@ L3: L3 or Left-stick click
 R3: R3 or Right-stick click
 N: The North face button, △, Y (Xbox) or X (Nintendo)
 E: The East face button, ○, B (Xbox) or A (Nintendo)
-S: The South face button, ⨉, X (Xbox) or B (Nintendo)
-W: The West face button, □, A (Xbox) or Y (Nintendo)
+S: The South face button, ⨉, A (Xbox) or B (Nintendo)
+W: The West face button, □, X (Xbox) or Y (Nintendo)
 LUP, LDOWN, LLEFT, LRIGHT: Left stick tilted up, down left or right
 LRING: Left ring binding, either inner or outer.
 RUP, RDOWN, RLEFT, RRIGHT: Right stick tilted up, down, left or right
@@ -224,7 +224,7 @@ SCROLLUP, SCROLLDOWN: scroll the mouse wheel up, down, respectively
 VOLUME_UP, VOLUME_DOWN, MUTE: Volume controls
 NEXT_TRACK, PREV_TRACK, STOP_TRACK, PLAY_PAUSE: media control
 SCREENSHOT: print screen button
-NONE: No input
+NONE, DEFAULT: No input
 CALIBRATE: recalibrate gyro when pressing this input
 GYRO_ON, GYRO_OFF: Enable or disable gyro
 GYRO_INVERT, GYRO_INV_X, GYRO_INV_Y: Invert gyro, or in just the x or y axes, respectively
@@ -789,7 +789,7 @@ GYRO_OFF = R3 # Use gyro, disable with stick click
 
 R = Q # Last weapon / Bring up weapon wheel
 
-R,GYRO_ON = NONE # Disable gyro when R is down
+R,GYRO_ON = NONE\ # Disable gyro when R is down
 R,RIGHT_STICK_MODE = MOUSE_AREA # Select wheel item with stick
 ```
 
@@ -807,10 +807,12 @@ ZLF,GYRO_SENS = 0.5 0.4 # Half sensitivity on full pull
 
 These commands function exactly like chorded press bindings, whereas if multiple chords are active the latest has priority. Also the chord is active whenever the button is down regardless of whether a binding is active or not. It is also worth noting that a special case is handled on stick mode changes where upon returning to the normal mode by releasing the chord button, the stick input will be ignored until it returns to the center. In the DOOM example above, this prevents an undesirable flick upon releasing the chord.
 
-To remove an existing modeshift you have to assign ```NONE``` to the chord.
+To remove an existing modeshift you have to assign ```NONE``` to the chord. There is special handling for the gyro button because NONE is a valid assignment. Add a backslash to indicate it is the button assignment rather than clearing the modeshift
 
 ```
-ZLF,GYRO_SENS = NONE
+GYRO_OFF = RIGHT_STICK   # Gyro off when using right stick
+ZLF,GYRO_OFF = NONE\     # RS does not turn gyro off when ZLF is pressed
+ZLF,GYRO_OFF = NONE      # oops undo
 ```
 
 ### 8. Touchpad

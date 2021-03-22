@@ -511,13 +511,6 @@ struct GyroSettings
 	bool always_off = false;
 	ButtonID button = ButtonID::NONE;
 	GyroIgnoreMode ignore_mode = GyroIgnoreMode::BUTTON;
-
-	GyroSettings() = default;
-	// This constructor is required to make use of the default value of JSMVariable's constructor
-	GyroSettings(int dummy)
-	  : GyroSettings()
-	{
-	}
 };
 
 class DigitalButton;

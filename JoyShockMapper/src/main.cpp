@@ -1076,6 +1076,14 @@ public:
 	  , btnCommon(sharedButtonCommon ? sharedButtonCommon :
                                        shared_ptr<DigitalButton::Common>(new DigitalButton::Common(bind(&JoyShock::handleViGEmNotification, this, placeholders::_1, placeholders::_2, placeholders::_3))))
 	{
+		if (!sharedButtonCommon)
+		{
+			btnCommon = shared_ptr<DigitalButton::Common>(new DigitalButton::Common(
+			  bind(&JoyShock::handleViGEmNotification, this, placeholders::_1, placeholders::_2, placeholders::_3)));
+		}
+		_light_bar = getSetting<Color>(SettingID::LIGHT_BAR);
+
+		platform_controller_type = JslGetControllerType(handle);
 		btnCommon->_getMatchingSimBtn = bind(&JoyShock::GetMatchingSimBtn, this, placeholders::_1);
 		btnCommon->_rumble = bind(&JoyShock::Rumble, this, placeholders::_1, placeholders::_2);
 
@@ -1991,10 +1999,10 @@ bool do_RESET_MAPPINGS(CmdRegistry *registry)
 	resetAllMappings();
 	if (registry)
 	{
-		if (!registry->loadConfigFile("onreset.txt"))
+		if (!registry->loadConfigFile("OnReset.txt"))
 		{
 			COUT << "There is no ";
-			COUT_INFO << "onreset.txt";
+			COUT_INFO << "OnReset.txt";
 			COUT << " file to load." << endl;
 		}
 	}
@@ -2045,7 +2053,7 @@ void UpdateThread(PollingThread *thread, Switch newValue)
 	}
 	else
 	{
-		COUT << "AutoLoad is unavailable" << endl;
+		COUT << "The thread does not exist" << endl;
 	}
 }
 
@@ -2676,6 +2684,7 @@ void joyShockPollCallback(int jcHandle, JOY_SHOCK_STATE state, JOY_SHOCK_STATE l
 	shared_ptr<JoyShock> jc = handle_to_joyshock[jcHandle];
 	if (jc == nullptr)
 		return;
+	jc->btnCommon->callback_lock.lock();
 
 	auto timeNow = chrono::steady_clock::now();
 	deltaTime = ((float)chrono::duration_cast<chrono::microseconds>(timeNow - jc->time_now).count()) / 1000000.0f;
@@ -2712,7 +2721,6 @@ void joyShockPollCallback(int jcHandle, JOY_SHOCK_STATE state, JOY_SHOCK_STATE l
 	bool rightAny = false;
 	bool motionAny = false;
 
-	jc->btnCommon->callback_lock.lock();
 	if (jc->set_neutral_quat)
 	{
 		jc->neutralQuatW = inQuatW;
@@ -3120,7 +3128,9 @@ bool AutoLoadPoll(void *param)
 		}
 		if (!success)
 		{
-			COUT_INFO << "create \"AutoLoad\\" << noextmodule << ".txt\" to autoload for this application." << endl;
+			COUT_INFO << "create ";
+			COUT << "AutoLoad\\" << noextmodule << ".txt";
+			COUT_INFO << " to autoload for this application." << endl;
 		}
 	}
 	return true;
@@ -3209,7 +3219,6 @@ void CleanUp()
 {
 	tray->Hide();
 	HideConsole();
-	handle_to_joyshock.clear();
 	JslDisconnectAndDisposeAll();
 	handle_to_joyshock.clear(); // Destroy Vigem Gamepads
 	ReleaseConsole();
@@ -3388,7 +3397,7 @@ void OnVirtualControllerChange(ControllerScheme newScheme)
 	}
 }
 
-void RefreshAutoloadHelp(JSMAssignment<Switch> *autoloadCmd)
+void RefreshAutoLoadHelp(JSMAssignment<Switch> *autoloadCmd)
 {
 	stringstream ss;
 	ss << "AUTOLOAD will attempt load a file from the following folder when a window with a matching executable name enters focus:" << endl
@@ -3467,63 +3476,53 @@ public:
 
 class GyroButtonAssignment : public JSMAssignment<GyroSettings>
 {
-private:
+protected:
 	const bool _always_off;
+	const ButtonID _chordButton;
 
-	static bool GyroParser(JSMCommand *cmd, in_string data)
+	virtual void DisplayCurrentValue() override
 	{
-		auto inst = dynamic_cast<GyroButtonAssignment *>(cmd);
-		if (data.empty())
+		GyroSettings value(_var);
+		if (_chordButton > ButtonID::NONE)
 		{
-			GyroSettings value(inst->_var);
-			//No assignment? Display current assignment
-			COUT << (value.always_off ? string("GYRO_ON") : string("GYRO_OFF")) << " = " << value << endl;
-			;
+			COUT << _chordButton << ',';
 		}
-		else
-		{
-			stringstream ss(data);
-			// Read the value
-			GyroSettings value;
-			value.always_off = inst->_always_off; // Added line from DefaultParser
-			ss >> value;
-			if (!ss.fail())
-			{
-				GyroSettings oldVal = inst->_var;
-				inst->_var = value;
-				// Command succeeded if the value requested was the current one
-				// or if the new value is different from the old.
-				return value == oldVal || inst->_var != oldVal; // Command processed successfully
-			}
-			// Couldn't read the value
-		}
-		// Not an equal sign? The command is entered wrong!
-		return false;
+		COUT << (value.always_off ? string("GYRO_ON") : string("GYRO_OFF")) << " = " << value << endl;
 	}
 
-	void DisplayGyroSettingValue(GyroSettings value)
+	virtual GyroSettings ReadValue(stringstream &in) override
 	{
-		COUT << (value.always_off ? string("GYRO_ON") : string("GYRO_OFF")) << " is set to " << value << endl;
-		;
+		GyroSettings value;
+		value.always_off = _always_off; // Added line from DefaultParser
+		in >> value;
+		return value;
+	}
+
+	virtual void DisplayNewValue(GyroSettings value) override
+	{
+		if (_chordButton > ButtonID::NONE)
+		{
+			COUT << _chordButton << ',';
+		}
+		COUT << (value.always_off ? string("GYRO_ON") : string("GYRO_OFF")) << " has been set to " << value << endl;
 	}
 
 public:
-	GyroButtonAssignment(in_string name, JSMVariable<GyroSettings> &setting, bool always_off)
-	  : JSMAssignment(name, setting)
+	GyroButtonAssignment(in_string name, in_string displayName, JSMVariable<GyroSettings> &setting, bool always_off, ButtonID chord = ButtonID::NONE)
+	  : JSMAssignment(name, name, setting, true)
 	  , _always_off(always_off)
+	  , _chordButton(chord)
 	{
-		SetParser(&GyroButtonAssignment::GyroParser);
-		_var.RemoveOnChangeListener(_listenerId);
 	}
 
 	GyroButtonAssignment(SettingID id, bool always_off)
-	  : GyroButtonAssignment(magic_enum::enum_name(id).data(), gyro_settings, always_off)
+	  : GyroButtonAssignment(magic_enum::enum_name(id).data(), magic_enum::enum_name(id).data(), gyro_settings, always_off)
 	{
 	}
 
 	GyroButtonAssignment *SetListener()
 	{
-		_listenerId = _var.AddOnChangeListener(bind(&GyroButtonAssignment::DisplayGyroSettingValue, this, placeholders::_1));
+		_listenerId = _var.AddOnChangeListener(bind(&GyroButtonAssignment::DisplayNewValue, this, placeholders::_1));
 		return this;
 	}
 
@@ -3535,14 +3534,16 @@ public:
 		{
 			//Create Modeshift
 			string name = chord + op + _displayName;
-			unique_ptr<JSMCommand> chordAssignment(new GyroButtonAssignment(name, *settingVar->AtChord(*optBtn), _always_off));
-			chordAssignment->SetHelp(_help)->SetParser(bind(&GyroButtonAssignment::ModeshiftParser, *optBtn, settingVar, _parse, placeholders::_1, placeholders::_2))->SetTaskOnDestruction(bind(&JSMSetting<GyroSettings>::ProcessModeshiftRemoval, settingVar, *optBtn));
+			unique_ptr<JSMCommand> chordAssignment((new GyroButtonAssignment(_name, name, *settingVar->AtChord(*optBtn), _always_off, *optBtn))->SetListener());
+			chordAssignment->SetHelp(_help)->SetParser(bind(&GyroButtonAssignment::ModeshiftParser, *optBtn, settingVar, &_parse, placeholders::_1, placeholders::_2))->SetTaskOnDestruction(bind(&JSMSetting<GyroSettings>::ProcessModeshiftRemoval, settingVar, *optBtn));
 			return chordAssignment;
 		}
 		return JSMCommand::GetModifiedCmd(op, chord);
 	}
 
-	virtual ~GyroButtonAssignment() = default;
+	virtual ~GyroButtonAssignment()
+	{
+	}
 };
 
 class HelpCmd : public JSMMacro
@@ -3649,7 +3650,7 @@ int main(int argc, char *argv[])
 	// Threads need to be created before listeners
 	CmdRegistry commandRegistry;
 	minimizeThread.reset(new PollingThread("Minimize thread", &MinimizePoll, nullptr, 1000, hide_minimized.get() == Switch::ON));          // Start by default
-	autoLoadThread.reset(new PollingThread("Autoload thread", &AutoLoadPoll, &commandRegistry, 1000, autoloadSwitch.get() == Switch::ON)); // Start by default
+	autoLoadThread.reset(new PollingThread("AutoLoad thread", &AutoLoadPoll, &commandRegistry, 1000, autoloadSwitch.get() == Switch::ON)); // Start by default
 
 	if (autoLoadThread && autoLoadThread->isRunning())
 	{
@@ -3751,8 +3752,6 @@ int main(int argc, char *argv[])
 
 	for (auto &mapping : mappings) // Add all button mappings as commands
 	{
-		//stringstream ss;
-		//ss << mapping._id; // Use the streaming operator to properly create + and -
 		commandRegistry.Add((new JSMAssignment<Mapping>(mapping.getName(), mapping))->SetHelp(buttonHelpMap.at(mapping._id)));
 	}
 	// SL and SR are shorthand for two different mappings
@@ -3864,7 +3863,7 @@ int main(int argc, char *argv[])
 	                      ->SetHelp("Controllers with a left analog trigger can use one of the following dual stage trigger modes:\nNO_FULL, NO_SKIP, MAY_SKIP, MUST_SKIP, MAY_SKIP_R, MUST_SKIP_R, NO_SKIP_EXCLUSIVE, X_LT, X_RT, PS_L2, PS_R2"));
 	auto *autoloadCmd = new JSMAssignment<Switch>("AUTOLOAD", autoloadSwitch);
 	commandRegistry.Add(autoloadCmd);
-	currentWorkingDir.AddOnChangeListener(bind(&RefreshAutoloadHelp, autoloadCmd), true);
+	currentWorkingDir.AddOnChangeListener(bind(&RefreshAutoLoadHelp, autoloadCmd), true);
 	commandRegistry.Add((new JSMMacro("README"))->SetMacro(bind(&do_README))->SetHelp("Open the latest JoyShockMapper README in your browser."));
 	commandRegistry.Add((new JSMMacro("WHITELIST_SHOW"))->SetMacro(bind(&do_WHITELIST_SHOW))->SetHelp("Open HIDCerberus configuration page in your browser."));
 	commandRegistry.Add((new JSMMacro("WHITELIST_ADD"))->SetMacro(bind(&do_WHITELIST_ADD))->SetHelp("Add JoyShockMapper to HIDGuardian whitelisted applications."));
@@ -3944,15 +3943,15 @@ int main(int argc, char *argv[])
 	tray.reset(new TrayIcon(trayIconData, &beforeShowTrayMenu));
 	tray->Show();
 
-	do_RESET_MAPPINGS(&commandRegistry); // onreset.txt
-	if (commandRegistry.loadConfigFile("onstartup.txt"))
+	do_RESET_MAPPINGS(&commandRegistry); // OnReset.txt
+	if (commandRegistry.loadConfigFile("OnStartup.txt"))
 	{
 		COUT << "Finished executing startup file." << endl;
 	}
 	else
 	{
 		COUT << "There is no ";
-		COUT_INFO << "onstartup.txt";
+		COUT_INFO << "OnStartup.txt";
 		COUT << " file to load." << endl;
 	}
 
