@@ -1,6 +1,6 @@
 # Edit this file to your prefered settings on startup
 
-GyroConfigs/Desktop.txt # Load a configuration to navigate the OS
+#GyroConfigs/Desktop.txt # Load a configuration to navigate the OS
 
 # Uncomment the following three lines to calibrate all your devices at startup
 #RESTART_GYRO_CALIBRATION
