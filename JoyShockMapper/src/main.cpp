@@ -1040,7 +1040,7 @@ public:
 	{
 		if (getSetting<Switch>(SettingID::RUMBLE) == Switch::ON)
 		{
-			COUT << "Rumbling at " << smallRumble << " and " << bigRumble << endl;
+			//COUT << "Rumbling at " << smallRumble << " and " << bigRumble << endl;
 			JslSetRumble(handle, smallRumble, bigRumble);
 		}
 	}
@@ -1066,11 +1066,11 @@ public:
 
 	void handleViGEmNotification(UCHAR largeMotor, UCHAR smallMotor, Indicator indicator)
 	{
-		static chrono::steady_clock::time_point last_call;
-		auto now = chrono::steady_clock::now();
-		auto diff = ((float)chrono::duration_cast<chrono::microseconds>(now - last_call).count()) / 1000000.0f;
-		last_call = now;
-		COUT_INFO << "Time since last vigem rumble is " << diff << " us" << endl;
+		//static chrono::steady_clock::time_point last_call;
+		//auto now = chrono::steady_clock::now();
+		//auto diff = ((float)chrono::duration_cast<chrono::microseconds>(now - last_call).count()) / 1000000.0f;
+		//last_call = now;
+		//COUT_INFO << "Time since last vigem rumble is " << diff << " us" << endl;
 		lock_guard guard(this->btnCommon->callback_lock);
 		switch (platform_controller_type)
 		{
