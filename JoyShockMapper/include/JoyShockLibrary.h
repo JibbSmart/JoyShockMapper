@@ -7,11 +7,11 @@
 #define JOY_SHOCK_API // XCode does not need annotating exported functions, so define is empty
 #endif
 
-#define JS_TYPE_JOYCON_LEFT 1
-#define JS_TYPE_JOYCON_RIGHT 2
-#define JS_TYPE_PRO_CONTROLLER 3
-#define JS_TYPE_DS4 4
-#define JS_TYPE_DS 5
+#define JS_TYPE_JOYCON_LEFT 21   // unused in SDL_GameControllerType
+#define JS_TYPE_JOYCON_RIGHT 22  // Unused in SDL_GameControllerType
+#define JS_TYPE_PRO_CONTROLLER 5 // SDL_GameControllerType::SDL_CONTROLLER_TYPE_NINTENDO_SWITCH_PRO
+#define JS_TYPE_DS4 4            // SDL_GameControllerType::SDL_CONTROLLER_TYPE_PS4
+#define JS_TYPE_DS 7             // SDL_GameControllerType::SDL_CONTROLLER_TYPE_PS5
 
 #define JS_SPLIT_TYPE_LEFT 1
 #define JS_SPLIT_TYPE_RIGHT 2
@@ -153,7 +153,8 @@ extern "C" JOY_SHOCK_API void JslDisconnectAndDisposeAll();
 extern "C" JOY_SHOCK_API JOY_SHOCK_STATE JslGetSimpleState(int deviceId);
 extern "C" JOY_SHOCK_API IMU_STATE JslGetIMUState(int deviceId);
 extern "C" JOY_SHOCK_API MOTION_STATE JslGetMotionState(int deviceId);
-extern "C" JOY_SHOCK_API TOUCH_STATE JslGetTouchState(int deviceId);
+extern "C" JOY_SHOCK_API TOUCH_STATE JslGetTouchState(int deviceId, bool previous = false);
+extern "C" JOY_SHOCK_API bool JslGetTouchpadDimension(int deviceId, int& sizeX, int& sizeY);
 
 extern "C" JOY_SHOCK_API int JslGetButtons(int deviceId);
 

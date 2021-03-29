@@ -9,6 +9,12 @@ typedef struct _XUSB_REPORT XUSB_REPORT;
 typedef struct _DS4_REPORT DS4_REPORT;
 typedef enum _VIGEM_ERRORS VIGEM_ERRORS;
 
+#if defined(WIN32)
+#define VIGEM_CALLBACK _stdcall
+#else
+#define VIGEM_CALLBACK
+#endif
+
 union Indicator
 {
 	uint8_t led;
@@ -40,7 +46,7 @@ public:
 	ControllerScheme getType() const;
 
 private:
-	static void x360Notification(
+	static void VIGEM_CALLBACK x360Notification(
 	  PVIGEM_CLIENT client,
 	  PVIGEM_TARGET target,
 	  uint8_t largeMotor,
@@ -48,7 +54,7 @@ private:
 	  uint8_t ledNumber,
 	  void *userData);
 
-	static void ds4Notification(
+	static void VIGEM_CALLBACK ds4Notification(
 	  PVIGEM_CLIENT client,
 	  PVIGEM_TARGET target,
 	  uint8_t largeMotor,

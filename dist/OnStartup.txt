@@ -1,0 +1,12 @@
+# Edit this file to your prefered settings on startup
+
+#GyroConfigs/Desktop.txt # Load a configuration to navigate the OS
+
+# Uncomment the following three lines to calibrate all your devices at startup
+#RESTART_GYRO_CALIBRATION
+#SLEEP 2                       # wait two seconds
+#FINISH_GYRO_CALIBRATION
+
+#AUTOLOAD = OFF # Uncomment to disable AUTOLOAD on startup
+
+#HIDE_MINIMIZED = ON # Uncomment to remove JSM from the taskbar when minimized.

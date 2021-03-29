@@ -86,7 +86,6 @@ enum class ButtonID
 	L,
 	ZL,
 	MINUS,
-	CAPTURE,
 	E,
 	S,
 	N,
@@ -118,11 +117,12 @@ enum class ButtonID
 	MRING,
 	LEAN_LEFT,
 	LEAN_RIGHT,
-	TOUCH, // Touch anywhere on the touchpad
-	ZLF,   // = FIRST_ANALOG_TRIGGER
-	       // insert more analog triggers here
-	ZRF,   // =  LAST_ANALOG_TRIGGER
-	SIZE,  // Not a button
+	TOUCH,   // Touch anywhere on the touchpad
+	ZLF,     // = FIRST_ANALOG_TRIGGER
+	CAPTURE, // Full press of touchpad touch + press
+	// insert more analog triggers here
+	ZRF,  // =  LAST_ANALOG_TRIGGER
+	SIZE, // Not a button
 };
 
 // Help strings for each button
@@ -207,6 +207,8 @@ enum class SettingID
 	LIGHT_BAR,
 	SCROLL_SENS,
 	VIRTUAL_CONTROLLER,
+	RUMBLE,
+	TOUCHPAD_DUAL_STAGE_MODE,
 };
 
 // constexpr are like #define but with respect to typeness
@@ -443,12 +445,12 @@ struct FloatXY : public pair<float, float>
 	{
 	}
 
-	inline float x()
+	inline float x() const
 	{
 		return first;
 	}
 
-	inline float y()
+	inline float y() const
 	{
 		return second;
 	}
@@ -460,13 +462,6 @@ struct GyroSettings
 	bool always_off = false;
 	ButtonID button = ButtonID::NONE;
 	GyroIgnoreMode ignore_mode = GyroIgnoreMode::BUTTON;
-
-	GyroSettings() = default;
-	// This constructor is required to make use of the default value of JSMVariable's constructor
-	GyroSettings(int dummy)
-	  : GyroSettings()
-	{
-	}
 };
 
 class DigitalButton;

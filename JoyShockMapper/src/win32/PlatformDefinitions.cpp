@@ -6,7 +6,7 @@
 
 const char *AUTOLOAD_FOLDER()
 {
-	return _strdup((GetCWD() + "\\Autoload\\").c_str());
+	return _strdup((GetCWD() + "\\AutoLoad\\").c_str());
 };
 
 const char *GYRO_CONFIGS_FOLDER()

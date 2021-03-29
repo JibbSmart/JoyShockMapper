@@ -61,7 +61,11 @@ CmdRegistry::CmdRegistry()
 bool CmdRegistry::loadConfigFile(string fileName)
 {
 	// https://stackoverflow.com/questions/2602013/read-whole-ascii-file-into-c-stdstring
-
+	auto comment = fileName.find_first_of('#');
+	if (comment != string::npos)
+	{
+		fileName = fileName.substr(0, comment - 1);
+	}
 	// Trim away quotation marks from drag and drop
 	if (*fileName.begin() == '\"' && *(fileName.end() - 1) == '\"')
 		fileName = fileName.substr(1, fileName.size() - 2);
@@ -227,7 +231,9 @@ void CmdRegistry::processLine(const string& line)
 
 		if (!hasProcessed)
 		{
-			CERR << "Unrecognized command: \"" << trimmedLine << "\"\nEnter HELP to display all commands." << endl;
+			CERR << "Unrecognized command: \"" << trimmedLine << "\"\nEnter ";
+			COUT_INFO << "HELP";
+			CERR << " to display all commands." << endl;
 		}
 	}
 	// else ignore empty lines
@@ -262,15 +268,10 @@ bool JSMMacro::DefaultParser(JSMCommand* cmd, in_string arguments)
 	auto macroCmd = static_cast<JSMMacro*>(cmd);
 	// Developper protection to remind you to set a parser.
 	_ASSERT_EXPR(macroCmd->_macro, L"No Macro was set for this command.");
-	if (arguments.compare(0, 4, "HELP") == 0 && !macroCmd->_help.empty())
+	if (!macroCmd->_macro(macroCmd, arguments) && !macroCmd->_help.empty())
 	{
-		// Show help.
 		COUT << macroCmd->_help << endl;
-	}
-	else if (!macroCmd->_macro(macroCmd, arguments) && !macroCmd->_help.empty())
-	{
-		COUT << macroCmd->_help << endl
-		     << "The "; // Parsing has failed. Show help.
+		COUT << "The "; // Parsing has failed. Show help.
 		COUT_INFO << "README";
 		COUT << " command can lead you to further details on this command." << endl;
 	}
