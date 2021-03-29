@@ -4,23 +4,48 @@ Most recent updates will appear first.
 This is a summary of new features and bugfixes. Read the README to learn how to use the features mentioned here.
 
 ## 3.0.0
+Jibb added JSL-specific features to SDL2 so that JSM could use SDL2 instead. This means support for many non-gyro controllers, including Xbox, Stadia, and almost every common generic PC controller. Also made it so that low report-rate controllers (eg Switch controllers) are sampled multiple times for smooth gyro on high refresh rate monitors.
+
+**SDL2 is now the official version of JSM going forward.** JSM will also be released with JSL for the time being in case there are features there unavailable in SDL2 yet.
+
 Nicolas added ViGEm support for virtual xbox and DS4 for buttons, triggers and sticks as well as rumble forwarding.
+
 Added colored console lines
-Added DS4 rumble commands and light bar setting
+
+Added rumble commands and DS4 light bar setting and TOUCH binding
+
+Added DS4 dual stage mode for toupad touch and click.
+
 Added hair trigger soft press as a negative threshold and trigger modes SCROLL_WHEEL and NO_SKIP_EXCLUSIVE
+
 Added ability to hide JSM from the taskbar when minimized, with a checkbox in the tray icon
+
 Added help strings for button mapping
+
+Added argument to RECONNECT_CONTROLLERS [MERGE|SPLIT] used to determine joycon behaviour
+
+Added handler to modeshift a gyro button to NONE\ as no button since NONE is used to remove the modeshift.
+
 Handle drag n drop files into the console better
+
 Improve command error handling
 
-Jibb added JSL-specific features to SDL2 so that JSM could use SDL2 instead. This means support for many non-gyro controllers, including Xbox, Stadia, and almost every common generic PC controller. Also made it so that low report-rate controllers (eg Switch controllers) are sampled multiple times for smooth gyro on high refresh rate monitors.
+Improved README separation
+
+Improved desktop recommended config
+
 
 ### Features
 * New Bindings: TOUCH for the touch pad and dual stage mode for TOUCH and CAPTURE bindings
+* New Mappings for ViGEm controller bindings. See README
+* Added Mappings SMALL_RUMBLE, BIG_RUMBLE and Rhhhh (h being hex digits)
+* Added settings STICK_DEADZONE_INNER|OUTER, TICK_TIME (aka polling period), LIGHT_BAR, SCROLL_SENS, VIRTUAL_CONTROLLER, RUMBLE ( = ON|OFF) and TOUCHPAD_DUAL_STAGE_MODE
+* Added JOYCON_SIDEWAYS as a controller orientation
+* Added Stick Mode SCROLL_WHEEL
+* Added TriggerMode NO_SKIP_EXCLUSIVE
 * Assigning a negative value to trigger threshold enables hair trigger
 * New setting HIDE\_MINIMIZED will hide JSM when set to ON. OFF is default
-* Support for many non-gyro controllers: Xbox, Stadia, GameCube, PS3 (without motion), and many generic PC controllers.
-* Added TICK\_TIME to set how many milliseconds between reading controllers (default of 3 means about 333Hz).
+* Support for many non-gyro controllers: Xbox, Stadia, GameCube, PS3 (without motion), and many generic PC controllers via SDL2
 
 ## 2.2.0
 Nicolas added more keybinds. Robin fixed issues with building on Linux and improved PlayStation controller support.

@@ -27,10 +27,10 @@ SCROLL_SENS = 60
 # Button pad is common buttons
 S = ENTER
 W = SPACE
-N = CONTEXT
+N = BACKSPACE
 E = ESC GYRO_OFF
 
-+ = LALT\ !TAB           # Task view
++ = LALT\ !TAB\           # Task view
 - = CONTROL\ LWINDOWS\ O\   # On Screen Keyboard
 HOME = LWINDOWS			 # Start Menu
 HOME,HOME = LWINDOWS\ D\ # Minimize All

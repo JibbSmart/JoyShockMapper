@@ -6,6 +6,7 @@
 #include <atomic>
 #define INCLUDE_MATH_DEFINES
 #include <cmath> // M_PI
+#include <algorithm>
 
 extern JSMVariable<float> tick_time; // defined in main.cc
 
@@ -300,8 +301,7 @@ float JslGetLeftX(int deviceId)
 
 float JslGetLeftY(int deviceId)
 {
-	return SDL_GameControllerGetAxis(SdlInstance::_inst->_controllerMap[deviceId]->_sdlController, SDL_CONTROLLER_AXIS_LEFTY) / (float)SDL_JOYSTICK_AXIS_MAX;
-	;
+	return -SDL_GameControllerGetAxis(SdlInstance::_inst->_controllerMap[deviceId]->_sdlController, SDL_CONTROLLER_AXIS_LEFTY) / (float)SDL_JOYSTICK_AXIS_MAX;
 }
 
 float JslGetRightX(int deviceId)
@@ -311,7 +311,7 @@ float JslGetRightX(int deviceId)
 
 float JslGetRightY(int deviceId)
 {
-	return SDL_GameControllerGetAxis(SdlInstance::_inst->_controllerMap[deviceId]->_sdlController, SDL_CONTROLLER_AXIS_RIGHTY) / (float)SDL_JOYSTICK_AXIS_MAX;
+	return -SDL_GameControllerGetAxis(SdlInstance::_inst->_controllerMap[deviceId]->_sdlController, SDL_CONTROLLER_AXIS_RIGHTY) / (float)SDL_JOYSTICK_AXIS_MAX;
 }
 
 float JslGetLeftTrigger(int deviceId)

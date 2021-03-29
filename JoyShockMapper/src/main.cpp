@@ -774,6 +774,24 @@ bool Mapping::AddMapping(KeyCode key, EventModifier evtMod, ActionModifier actMo
 	}
 
 	BtnEvent applyEvt, releaseEvt;
+	switch (actMod)
+	{
+	case ActionModifier::Toggle:
+		apply = bind(&DigitalButton::ApplyButtonToggle, placeholders::_1, key, apply, release);
+		release = OnEventAction();
+		break;
+	case ActionModifier::Instant:
+	{
+		OnEventAction action2 = bind(&DigitalButton::RegisterInstant, placeholders::_1, applyEvt);
+		apply = bind(&Mapping::RunBothActions, placeholders::_1, apply, action2);
+		releaseEvt = BtnEvent::OnInstantRelease;
+	}
+	break;
+	case ActionModifier::INVALID:
+		return false;
+		// None applies no modification... Hey!
+	}
+
 	switch (evtMod)
 	{
 	case EventModifier::StartPress:
@@ -796,30 +814,13 @@ bool Mapping::AddMapping(KeyCode key, EventModifier evtMod, ActionModifier actMo
 	case EventModifier::TurboPress:
 		applyEvt = BtnEvent::OnTurbo;
 		releaseEvt = BtnEvent::OnTurbo;
+		InsertEventMapping(BtnEvent::OnRelease, release); // On turbo you also need to clear the turbo on release
 		break;
 	default: // EventModifier::INVALID or None
 		return false;
 	}
 
-	switch (actMod)
-	{
-	case ActionModifier::Toggle:
-		apply = bind(&DigitalButton::ApplyButtonToggle, placeholders::_1, key, apply, release);
-		release = OnEventAction();
-		break;
-	case ActionModifier::Instant:
-	{
-		OnEventAction action2 = bind(&DigitalButton::RegisterInstant, placeholders::_1, applyEvt);
-		apply = bind(&Mapping::RunBothActions, placeholders::_1, apply, action2);
-		releaseEvt = BtnEvent::OnInstantRelease;
-	}
-	break;
-	case ActionModifier::INVALID:
-		return false;
-		// None applies no modification... Hey!
-	}
-
-	// Insert release first because in turbo's case apply and release are the same but we want release to apply first
+	// Insert release first because in turbo's case apply and release are the same but we want release to happen first
 	InsertEventMapping(releaseEvt, release);
 	InsertEventMapping(applyEvt, apply);
 	return true;
@@ -1115,7 +1116,7 @@ public:
 	{
 		if (getSetting<Switch>(SettingID::RUMBLE) == Switch::ON)
 		{
-			COUT << "Rumbling at " << smallRumble << " and " << bigRumble << endl;
+			//COUT << "Rumbling at " << smallRumble << " and " << bigRumble << endl;
 			JslSetRumble(handle, smallRumble, bigRumble);
 		}
 	}
@@ -1141,11 +1142,11 @@ public:
 
 	void handleViGEmNotification(UCHAR largeMotor, UCHAR smallMotor, Indicator indicator)
 	{
-		static chrono::steady_clock::time_point last_call;
-		auto now = chrono::steady_clock::now();
-		auto diff = ((float)chrono::duration_cast<chrono::microseconds>(now - last_call).count()) / 1000000.0f;
-		last_call = now;
-		COUT_INFO << "Time since last vigem rumble is " << diff << " us" << endl;
+		//static chrono::steady_clock::time_point last_call;
+		//auto now = chrono::steady_clock::now();
+		//auto diff = ((float)chrono::duration_cast<chrono::microseconds>(now - last_call).count()) / 1000000.0f;
+		//last_call = now;
+		//COUT_INFO << "Time since last vigem rumble is " << diff << " us" << endl;
 		lock_guard guard(this->btnCommon->callback_lock);
 		switch (platform_controller_type)
 		{
@@ -2811,7 +2812,7 @@ void joyShockPollCallback(int jcHandle, JOY_SHOCK_STATE state, JOY_SHOCK_STATE l
 		float lastCalX = jc->lastLX;
 		float lastCalY = jc->lastLY;
 		float calX = JslGetLeftX(jc->handle);
-		float calY = -JslGetLeftY(jc->handle);
+		float calY = JslGetLeftY(jc->handle);
 
 		jc->lastLX = calX;
 		jc->lastLY = calY;
@@ -2827,7 +2828,7 @@ void joyShockPollCallback(int jcHandle, JOY_SHOCK_STATE state, JOY_SHOCK_STATE l
 		float lastCalX = jc->lastRX;
 		float lastCalY = jc->lastRY;
 		float calX = JslGetRightX(jc->handle);
-		float calY = -JslGetRightY(jc->handle);
+		float calY = JslGetRightY(jc->handle);
 
 		jc->lastRX = calX;
 		jc->lastRY = calY;

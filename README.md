@@ -711,7 +711,7 @@ X_LB, X_RB : The xbox bumper buttons
 X_LS, X_RS : The xbox stick click buttons
 X_BACK, X_START, X_GUIDE : The xbox control buttons
 X_UP, X_DOWN, X_LEFT, X_RIGHT : The xbox dpad directions
-# There is no HOME or CAPTURE (XSX) button binding yet in ViGEm
+# There is no CAPTURE / SHARE (Series X) button binding yet in ViGEm
 ```
 
 * **New stick mode available**
@@ -747,7 +747,7 @@ MOTION_STICK_MODE = RIGHT_STICK # Gyro driving
 
 #### 6.2 DS4 bindings
 
-ViGEm also the ability to emulate a Dualshock 4 controller. This can allow you to use a switch pro as a DS4 in a game that has this support built in for example. Setting the virtual controller to DS4 enables the use of these features as well. Take note that these names are aliases to the xbox names.
+ViGEm also the ability to emulate a Dualshock 4 controller. This can allow you to use a switch pro as a DS4 in a game that has this support built in for example. Setting the virtual controller to DS4 enables the use of these features as well. Take note that these names are aliases to the xbox names, so the logs might display the other label.
 
 * **New digital bindings**
 ```
