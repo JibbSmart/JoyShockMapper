@@ -2534,7 +2534,7 @@ void joyShockPollCallback(int jcHandle, JOY_SHOCK_STATE state, JOY_SHOCK_STATE l
 		float lastCalX = jc->lastLX;
 		float lastCalY = jc->lastLY;
 		float calX = JslGetLeftX(jc->handle);
-		float calY = -JslGetLeftY(jc->handle);
+		float calY = JslGetLeftY(jc->handle);
 
 		jc->lastLX = calX;
 		jc->lastLY = calY;
@@ -2550,7 +2550,7 @@ void joyShockPollCallback(int jcHandle, JOY_SHOCK_STATE state, JOY_SHOCK_STATE l
 		float lastCalX = jc->lastRX;
 		float lastCalY = jc->lastRY;
 		float calX = JslGetRightX(jc->handle);
-		float calY = -JslGetRightY(jc->handle);
+		float calY = JslGetRightY(jc->handle);
 
 		jc->lastRX = calX;
 		jc->lastRY = calY;

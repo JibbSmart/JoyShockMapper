@@ -5,19 +5,33 @@ This is a summary of new features and bugfixes. Read the README to learn how to 
 
 ## 3.0.0
 Jibb added JSL-specific features to SDL2 so that JSM could use SDL2 instead. This means support for many non-gyro controllers, including Xbox, Stadia, and almost every common generic PC controller. Also made it so that low report-rate controllers (eg Switch controllers) are sampled multiple times for smooth gyro on high refresh rate monitors.
+
 **SDL2 is now the official version of JSM going forward.** JSM will also be released with JSL for the time being in case there are features there unavailable in SDL2 yet.
+
 Nicolas added ViGEm support for virtual xbox and DS4 for buttons, triggers and sticks as well as rumble forwarding.
+
 Added colored console lines
+
 Added rumble commands and DS4 light bar setting and TOUCH binding
+
 Added DS4 dual stage mode for toupad touch and click.
+
 Added hair trigger soft press as a negative threshold and trigger modes SCROLL_WHEEL and NO_SKIP_EXCLUSIVE
+
 Added ability to hide JSM from the taskbar when minimized, with a checkbox in the tray icon
+
 Added help strings for button mapping
+
 Added argument to RECONNECT_CONTROLLERS [MERGE|SPLIT] used to determine joycon behaviour
+
 Added handler to modeshift a gyro button to NONE\ as no button since NONE is used to remove the modeshift.
+
 Handle drag n drop files into the console better
+
 Improve command error handling
+
 Improved README separation
+
 Improved desktop recommended config
 
 
