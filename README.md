@@ -1,3 +1,6 @@
+# Important Update!
+Going forward, the [Electronicks fork](https://github.com/Electronicks/JoyShockMapper) is the official home of JoyShockMapper now. You can find the latest builds and updates there. Just as he has been a huge contributor to JSM while it was mine, I will continue to be involved now that it's his. You can read more about this decision on [GyroWiki here](http://gyrowiki.jibbsmart.com/blog:joyshockmapper-3-and-the-future).
+
 # JoyShockMapper
 The Sony PlayStation DualSense, DualShock 4, Nintendo Switch JoyCons (used in pairs), and Nintendo Switch Pro Controller have much in common. They have many of the features expected of modern game controllers. They also have an incredibly versatile and underutilised input that their biggest rival (Microsoft's Xbox One controller) doesn't have: a 3-axis gyroscope (from here on, “gyro”).
 
