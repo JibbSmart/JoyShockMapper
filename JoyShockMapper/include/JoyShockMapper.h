@@ -209,6 +209,7 @@ enum class SettingID
 	VIRTUAL_CONTROLLER,
 	RUMBLE,
 	TOUCHPAD_DUAL_STAGE_MODE,
+	CLEAR,
 };
 
 // constexpr are like #define but with respect to typeness

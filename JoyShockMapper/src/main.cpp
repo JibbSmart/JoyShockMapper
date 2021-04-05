@@ -3575,6 +3575,7 @@ int main(int argc, char *argv[])
 	                      ->SetHelp("Disable the rumbling feature from vigem. Valid values are ON and OFF."));
 	commandRegistry.Add((new JSMAssignment<TriggerMode>(touch_ds_mode))
 	                      ->SetHelp("Dual stage mode for the touchpad TOUCH and CAPTURE (i.e. click) bindings."));
+	commandRegistry.Add((new JSMMacro("CLEAR"))->SetMacro(bind(&ClearConsole))->SetHelp("Removes all text in the console screen"));
 
 	bool quit = false;
 	commandRegistry.Add((new JSMMacro("QUIT"))

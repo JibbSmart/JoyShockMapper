@@ -7,8 +7,7 @@ static float accumulatedY = 0;
 
 // Windows' mouse speed settings translate non-linearly to speed.
 // Thankfully, the mappings are available here: https://liquipedia.net/counterstrike/Mouse_settings#Windows_Sensitivity
-static float windowsSensitivityMappings[] =
-{
+static float windowsSensitivityMappings[] = {
 	0.0, // mouse sensitivity range is 1-20, so just put nothing in the 0th element
 	1.0 / 32.0,
 	1.0 / 16.0,
@@ -34,9 +33,11 @@ static float windowsSensitivityMappings[] =
 
 // get the user's mouse sensitivity multiplier from the user. In Windows it's an int, but who cares? it's well within range for float to represent it exactly
 // also, if this is ported to other platforms, we might want non-integer sensitivities
-float getMouseSpeed() {
+float getMouseSpeed()
+{
 	int result;
-	if (SystemParametersInfo(SPI_GETMOUSESPEED, 0, &result, 0) && result >= 1 && result <= 20) {
+	if (SystemParametersInfo(SPI_GETMOUSESPEED, 0, &result, 0) && result >= 1 && result <= 20)
+	{
 		return windowsSensitivityMappings[result];
 	}
 	return 1.0;
@@ -44,20 +45,21 @@ float getMouseSpeed() {
 
 // Map a VK id to mouse event id press (0) or release (1) and mouseData (2) complementary info
 std::unordered_map<WORD, std::tuple<DWORD, DWORD, DWORD>> mouseMaps = {
-	{ VK_LBUTTON, {MOUSEEVENTF_LEFTDOWN, MOUSEEVENTF_LEFTUP, 0} },
-	{ VK_RBUTTON, {MOUSEEVENTF_RIGHTDOWN, MOUSEEVENTF_RIGHTUP, 0} },
-	{ VK_MBUTTON, {MOUSEEVENTF_MIDDLEDOWN, MOUSEEVENTF_MIDDLEUP, 0} },
-	{ VK_XBUTTON1, {MOUSEEVENTF_XDOWN, MOUSEEVENTF_XUP, XBUTTON1} },
-	{ VK_XBUTTON2, {MOUSEEVENTF_XDOWN, MOUSEEVENTF_XUP, XBUTTON2} },
-	{ V_WHEEL_UP, {MOUSEEVENTF_WHEEL, 0, WHEEL_DELTA} },
-	{ V_WHEEL_DOWN, {MOUSEEVENTF_WHEEL, 0, -WHEEL_DELTA} },
+	{ VK_LBUTTON, { MOUSEEVENTF_LEFTDOWN, MOUSEEVENTF_LEFTUP, 0 } },
+	{ VK_RBUTTON, { MOUSEEVENTF_RIGHTDOWN, MOUSEEVENTF_RIGHTUP, 0 } },
+	{ VK_MBUTTON, { MOUSEEVENTF_MIDDLEDOWN, MOUSEEVENTF_MIDDLEUP, 0 } },
+	{ VK_XBUTTON1, { MOUSEEVENTF_XDOWN, MOUSEEVENTF_XUP, XBUTTON1 } },
+	{ VK_XBUTTON2, { MOUSEEVENTF_XDOWN, MOUSEEVENTF_XUP, XBUTTON2 } },
+	{ V_WHEEL_UP, { MOUSEEVENTF_WHEEL, 0, WHEEL_DELTA } },
+	{ V_WHEEL_DOWN, { MOUSEEVENTF_WHEEL, 0, -WHEEL_DELTA } },
 };
 
 // send mouse button
-int pressMouse(KeyCode vkKey, bool isPressed) {
+int pressMouse(KeyCode vkKey, bool isPressed)
+{
 	// https://docs.microsoft.com/en-us/windows/win32/api/winuser/ns-winuser-mouseinput
 	auto val = mouseMaps[vkKey.code];
-	
+
 	INPUT input;
 	input.type = INPUT_MOUSE;
 	input.mi.time = 0;
@@ -65,7 +67,8 @@ int pressMouse(KeyCode vkKey, bool isPressed) {
 	input.mi.dy = 0;
 	input.mi.dwFlags = isPressed ? std::get<0>(val) : std::get<1>(val);
 	input.mi.mouseData = std::get<2>(val);
-	if (input.mi.dwFlags) { // Ignore if there's no event ID (ex: "wheel release")
+	if (input.mi.dwFlags)
+	{ // Ignore if there's no event ID (ex: "wheel release")
 		auto result = SendInput(1, &input, sizeof(input));
 		//COUT << vkKey.name << endl;
 		//COUT << vkKey.code << endl;
@@ -94,9 +97,12 @@ int pressMouse(KeyCode vkKey, bool isPressed) {
 //}
 
 // send key press
-int pressKey(KeyCode vkKey, bool pressed) {
-	if (vkKey.code == 0) return 0;
-	if (vkKey.code <= V_WHEEL_DOWN) { // Highest mouse ID
+int pressKey(KeyCode vkKey, bool pressed)
+{
+	if (vkKey.code == 0)
+		return 0;
+	if (vkKey.code <= V_WHEEL_DOWN)
+	{ // Highest mouse ID
 		return pressMouse(vkKey, pressed);
 	}
 	INPUT input;
@@ -104,9 +110,9 @@ int pressKey(KeyCode vkKey, bool pressed) {
 	input.ki.time = 0;
 	input.ki.dwFlags = KEYEVENTF_SCANCODE;
 	input.ki.dwFlags |= pressed ? 0 : KEYEVENTF_KEYUP;
-	if ((vkKey.code >= VK_LEFT && vkKey.code <= VK_DOWN) || 
-		(vkKey.code >= VK_LWIN && vkKey.code <= VK_NUMPAD9) ||
-		(vkKey.code >= VK_BROWSER_BACK && vkKey.code <= VK_LAUNCH_APP2) )
+	if ((vkKey.code >= VK_LEFT && vkKey.code <= VK_DOWN) ||
+	  (vkKey.code >= VK_LWIN && vkKey.code <= VK_NUMPAD9) ||
+	  (vkKey.code >= VK_BROWSER_BACK && vkKey.code <= VK_LAUNCH_APP2))
 	{
 		input.ki.dwFlags |= KEYEVENTF_EXTENDEDKEY;
 	}
@@ -116,7 +122,8 @@ int pressKey(KeyCode vkKey, bool pressed) {
 	return SendInput(1, &input, sizeof(input));
 }
 
-void moveMouse(float x, float y) {
+void moveMouse(float x, float y)
+{
 	accumulatedX += x;
 	accumulatedY += y;
 
@@ -137,7 +144,8 @@ void moveMouse(float x, float y) {
 	SendInput(1, &input, sizeof(input));
 }
 
-void setMouseNorm(float x, float y) {
+void setMouseNorm(float x, float y)
+{
 	INPUT input;
 	input.type = INPUT_MOUSE;
 	input.mi.mouseData = 0;
@@ -150,10 +158,10 @@ void setMouseNorm(float x, float y) {
 
 BOOL WriteToConsole(in_string command)
 {
-	static const INPUT_RECORD ESC_DOWN = { KEY_EVENT, {TRUE,  1, VK_ESCAPE, MapVirtualKey(VK_ESCAPE, MAPVK_VK_TO_VSC), VK_ESCAPE, 0} };
-	static const INPUT_RECORD ESC_UP = { KEY_EVENT, {FALSE, 1, VK_ESCAPE, MapVirtualKey(VK_ESCAPE, MAPVK_VK_TO_VSC), VK_ESCAPE, 0} };
-	static const INPUT_RECORD RET_DOWN = { KEY_EVENT, {TRUE,  1, VK_RETURN, MapVirtualKey(VK_RETURN, MAPVK_VK_TO_VSC), VK_RETURN, 0} };
-	static const INPUT_RECORD RET_UP = { KEY_EVENT, {FALSE, 1, VK_RETURN, MapVirtualKey(VK_RETURN, MAPVK_VK_TO_VSC), VK_RETURN, 0} };
+	static const INPUT_RECORD ESC_DOWN = { KEY_EVENT, { TRUE, 1, VK_ESCAPE, MapVirtualKey(VK_ESCAPE, MAPVK_VK_TO_VSC), VK_ESCAPE, 0 } };
+	static const INPUT_RECORD ESC_UP = { KEY_EVENT, { FALSE, 1, VK_ESCAPE, MapVirtualKey(VK_ESCAPE, MAPVK_VK_TO_VSC), VK_ESCAPE, 0 } };
+	static const INPUT_RECORD RET_DOWN = { KEY_EVENT, { TRUE, 1, VK_RETURN, MapVirtualKey(VK_RETURN, MAPVK_VK_TO_VSC), VK_RETURN, 0 } };
+	static const INPUT_RECORD RET_UP = { KEY_EVENT, { FALSE, 1, VK_RETURN, MapVirtualKey(VK_RETURN, MAPVK_VK_TO_VSC), VK_RETURN, 0 } };
 
 	std::vector<INPUT_RECORD> inputs(0);
 	inputs.reserve(command.size() + 4);
@@ -179,7 +187,8 @@ BOOL WriteToConsole(in_string command)
 	inputs.push_back(RET_UP);
 
 	DWORD written;
-	if (WriteConsoleInput(GetStdHandle(STD_INPUT_HANDLE), inputs.data(), inputs.size(), &written) == FALSE) {
+	if (WriteConsoleInput(GetStdHandle(STD_INPUT_HANDLE), inputs.data(), inputs.size(), &written) == FALSE)
+	{
 		auto err = GetLastError();
 		CERR << "Error writing to console input: " << err << endl;
 	}
@@ -203,19 +212,22 @@ BOOL WINAPI ConsoleCtrlHandler(DWORD dwCtrlType)
 };
 
 // just setting up the console with standard stuff
-void initConsole() {
+void initConsole()
+{
 	AllocConsole();
 	SetConsoleTitle(L"JoyShockMapper");
 	// https://stackoverflow.com/a/15547699/1130520
-	freopen_s((FILE**)stdin, "conin$", "r", stdin);
-	freopen_s((FILE**)stdout, "conout$", "w", stdout);
-	freopen_s((FILE**)stderr, "conout$", "w", stderr);
+	freopen_s((FILE **)stdin, "conin$", "r", stdin);
+	freopen_s((FILE **)stdout, "conout$", "w", stdout);
+	freopen_s((FILE **)stderr, "conout$", "w", stderr);
 	SetConsoleCtrlHandler(&ConsoleCtrlHandler, TRUE);
 }
 
-std::tuple<std::string, std::string> GetActiveWindowName() {
+std::tuple<std::string, std::string> GetActiveWindowName()
+{
 	HWND activeWindow = GetForegroundWindow();
-	if (activeWindow) {
+	if (activeWindow)
+	{
 		std::string module(256, '\0');
 		std::string title(256, '\0');
 		GetWindowTextA(activeWindow, &title[0], title.size()); //note: C++11 only
@@ -228,7 +240,8 @@ std::tuple<std::string, std::string> GetActiveWindowName() {
 			if (hProcess)
 			{
 				DWORD len = module.size();
-				if (QueryFullProcessImageNameA(hProcess, 0, &module[0], &len)) {
+				if (QueryFullProcessImageNameA(hProcess, 0, &module[0], &len))
+				{
 					auto pos = module.find_last_of("\\");
 					module = module.substr(pos + 1, module.size() - pos);
 					module.resize(strlen(module.c_str()));
@@ -312,7 +325,8 @@ PollingThread::~PollingThread()
 	// Let poll function cleanup
 }
 
-bool PollingThread::Start() {
+bool PollingThread::Start()
+{
 	if (_thread && !_continue) // thread is running but hasn't stopped yet
 	{
 		Sleep(_sleepTimeMs);
@@ -321,23 +335,24 @@ bool PollingThread::Start() {
 	{
 		_continue = true;
 		_thread = CreateThread(
-			NULL,                   // default security attributes
-			0,                      // use default stack size  
-			&pollFunction,       // thread function name
-			this,          // argument to thread function 
-			0,                      // use default creation flags 
-			&_tid);   // returns the thread identifier 
+		  NULL,          // default security attributes
+		  0,             // use default stack size
+		  &pollFunction, // thread function name
+		  this,          // argument to thread function
+		  0,             // use default creation flags
+		  &_tid);        // returns the thread identifier
 	}
 	return isRunning();
 }
 
 DWORD WINAPI PollingThread::pollFunction(void *param)
 {
-	auto workerThread = reinterpret_cast<PollingThread*>(param);
+	auto workerThread = reinterpret_cast<PollingThread *>(param);
 	if (workerThread)
 	{
 		while (workerThread->_continue &&
-			workerThread->_loopContent(workerThread->_funcParam)) {
+		  workerThread->_loopContent(workerThread->_funcParam))
+		{
 			Sleep(workerThread->_sleepTimeMs);
 		}
 		CloseHandle(workerThread->_thread);
@@ -349,8 +364,8 @@ DWORD WINAPI PollingThread::pollFunction(void *param)
 
 DWORD ShowOnlineHelp()
 {
-	COUT << "See the latest user manual at the web page below:" << endl 
-		 << "https://github.com/JibbSmart/JoyShockMapper/blob/master/README.md" << endl;
+	COUT << "See the latest user manual at the web page below:" << endl
+	     << "https://github.com/JibbSmart/JoyShockMapper/blob/master/README.md" << endl;
 	return 0;
 	// SECURE CODING! https://www.oreilly.com/library/view/secure-programming-cookbook/0596003943/ch01s08.html
 	//STARTUPINFOA startupInfo;
@@ -396,4 +411,46 @@ bool IsVisible()
 bool isConsoleMinimized()
 {
 	return IsVisible() != FALSE && IsIconic(GetConsoleWindow()) != FALSE;
+}
+
+bool ClearConsole()
+{
+	HANDLE hStdout;
+
+	hStdout = GetStdHandle(STD_OUTPUT_HANDLE);
+
+	// Fetch existing console mode so we correctly add a flag and not turn off others
+	DWORD mode = 0;
+	if (!GetConsoleMode(hStdout, &mode))
+	{
+		return false;
+	}
+
+	// Hold original mode to restore on exit to be cooperative with other command-line apps.
+	const DWORD originalMode = mode;
+	mode |= ENABLE_VIRTUAL_TERMINAL_PROCESSING;
+
+	// Try to set the mode.
+	if (!SetConsoleMode(hStdout, mode))
+	{
+		return false;
+	}
+
+	// Write the sequence for clearing the display.
+	DWORD written = 0;
+	constexpr PCWSTR sequence = L"\x1b[2J\x1b[0;0H"; // Clear screen and move cursor to 0,0
+	if (!WriteConsoleW(hStdout, sequence, lstrlen(sequence), &written, NULL))
+	{
+		// If we fail, try to restore the mode on the way out.
+		SetConsoleMode(hStdout, originalMode);
+		return false;
+	}
+
+	// To also clear the scroll back, emit L"\x1b[3J" as well.
+	// 2J only clears the visible window and 3J only clears the scroll back.
+
+	// Restore the mode on the way out to be nice to other command-line applications.
+	SetConsoleMode(hStdout, originalMode);
+
+	return true;
 }

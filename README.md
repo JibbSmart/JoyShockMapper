@@ -827,6 +827,7 @@ There are a few other useful commands that don't fall under the above categories
 * **HIDE_MINIMIZED** - Some users like having JSM hidden in the notification area. You can hide JSM when minimized by setting this to ON. OFF is the default value.
 * **README** will lead you to this document.
 * **HELP** Will display a list of all commands, all commands containing a given string, or the specific help for all the exact command names given to it.
+* **CLEAR** Remove all text from the console screen.
 
 ## Configuration Files
 
