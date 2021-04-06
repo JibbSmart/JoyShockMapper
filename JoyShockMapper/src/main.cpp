@@ -101,6 +101,7 @@ unique_ptr<TrayIcon> tray;
 bool devicesCalibrating = false;
 Whitelister whitelister(false);
 unordered_map<int, shared_ptr<JoyShock>> handle_to_joyshock;
+string currentWindowName;
 
 // This class holds all the logic related to a single digital button. It does not hold the mapping but only a reference
 // to it. It also contains it's various states, flags and data.
@@ -300,8 +301,9 @@ public:
 			if (_common->_vigemController)
 				_common->_vigemController->setButton(key, true);
 		}
-		else if (key.code != NO_HOLD_MAPPED)
+		else if (key.code != NO_HOLD_MAPPED && currentWindowName.compare("JoyShockMapper.exe") != 0)
 		{
+			// Don't send key presses to JSM console. It's annoying and useless.
 			pressKey(key, true);
 		}
 	}
@@ -2408,6 +2410,8 @@ void joyShockPollCallback(int jcHandle, JOY_SHOCK_STATE state, JOY_SHOCK_STATE l
 	if (jc == nullptr)
 		return;
 	jc->btnCommon->callback_lock.lock();
+	string windowTitle;
+	tie(currentWindowName, windowTitle) = GetActiveWindowName();
 
 	auto timeNow = chrono::steady_clock::now();
 	deltaTime = ((float)chrono::duration_cast<chrono::microseconds>(timeNow - jc->time_now).count()) / 1000000.0f;
@@ -2823,8 +2827,9 @@ static bool iequals(const string &a, const string &b)
 
 bool AutoLoadPoll(void *param)
 {
-	auto registry = reinterpret_cast<CmdRegistry *>(param);
 	static string lastModuleName;
+
+	auto registry = reinterpret_cast<CmdRegistry *>(param);
 	string windowTitle, windowModule;
 	tie(windowModule, windowTitle) = GetActiveWindowName();
 	if (!windowModule.empty() && windowModule != lastModuleName && windowModule.compare("JoyShockMapper.exe") != 0)
