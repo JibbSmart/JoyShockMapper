@@ -1830,10 +1830,12 @@ void connectDevices(bool mergeJoycons = true)
 	vector<int> deviceHandles(numConnected, 0);
 	if (numConnected > 0)
 	{
-		JslGetConnectedDeviceHandles(&deviceHandles[0], numConnected);
+		// Back end can fail to open a device. Real numConnected is what is returned here.
+		numConnected = JslGetConnectedDeviceHandles(&deviceHandles[0], numConnected);
 
-		for (auto handle : deviceHandles)
+		for (int i = 0 ; i < numConnected ; ++i) // Don't use foreach!
 		{
+			auto handle = deviceHandles[i];
 			auto type = JslGetControllerSplitType(handle);
 			auto otherJoyCon = find_if(handle_to_joyshock.begin(), handle_to_joyshock.end(),
 			  [type](auto &pair) {
