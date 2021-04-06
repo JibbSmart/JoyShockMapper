@@ -3,6 +3,21 @@
 Most recent updates will appear first.
 This is a summary of new features and bugfixes. Read the README to learn how to use the features mentioned here.
 
+## 3.0.1
+
+Bugfixes and console improvements
+
+### Features
+
+* CLEAR command cleans up the console window
+* JSM blocks key presses into it's own terminal window
+
+### Bugfixes
+
+* Inverted stick Y axis on the JSL version of JSM
+* Turbo press does not release without the start press binding
+
+
 ## 3.0.0
 Jibb added JSL-specific features to SDL2 so that JSM could use SDL2 instead. This means support for many non-gyro controllers, including Xbox, Stadia, and almost every common generic PC controller. Also made it so that low report-rate controllers (eg Switch controllers) are sampled multiple times for smooth gyro on high refresh rate monitors.
 
