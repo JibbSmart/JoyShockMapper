@@ -3,6 +3,14 @@
 Most recent updates will appear first.
 This is a summary of new features and bugfixes. Read the README to learn how to use the features mentioned here.
 
+## 3.0.2
+
+Reverting blocked key presses and bugfix
+
+### Bugfixes
+
+* Crash occurs when another software creates vigem controllers and SDL2 tries to connect to it.
+
 ## 3.0.1
 
 Bugfixes and console improvements
