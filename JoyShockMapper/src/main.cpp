@@ -11,6 +11,7 @@
 #include <mutex>
 #include <deque>
 #include <iomanip>
+#include <filesystem>
 
 #pragma warning(disable : 4996) // Disable deprecated API warnings
 
@@ -3315,6 +3316,9 @@ public:
 int __stdcall wWinMain(HINSTANCE hInstance, HINSTANCE prevInstance, LPWSTR cmdLine, int cmdShow)
 {
 	auto trayIconData = hInstance;
+	int argc = 0;
+	wchar_t **argv = CommandLineToArgvW(cmdLine, &argc);
+	
 #else
 int main(int argc, char *argv[])
 {
@@ -3331,6 +3335,8 @@ int main(int argc, char *argv[])
 	}
 	// console
 	initConsole();
+	//COUT << "I have " << argc << " cmd line args: ";
+	//wcout << cmdLine << endl;
 	ColorStream<&cout, FOREGROUND_GREEN | FOREGROUND_INTENSITY>() << "Welcome to JoyShockMapper version " << version << '!' << endl;
 	//if (whitelister) COUT << "JoyShockMapper was successfully whitelisted!" << endl;
 	// Threads need to be created before listeners
@@ -3340,7 +3346,7 @@ int main(int argc, char *argv[])
 
 	if (autoLoadThread && autoLoadThread->isRunning())
 	{
-		COUT << "AUTOLOAD is enabled. Files in ";
+		COUT << "AUTOLOAD is available. Files in ";
 		COUT_INFO << AUTOLOAD_FOLDER();
 		COUT << " folder will get loaded automatically when a matching application is in focus." << endl;
 	}
@@ -3416,11 +3422,19 @@ int main(int argc, char *argv[])
 	scroll_sens.SetFilter(&filterFloatPair);
 	touch_ds_mode.SetFilter(&filterTouchpadDualStageMode);
 	// light_bar needs no filter or listener. The callback polls and updates the color.
+	for (int i = argc - 1; i >= 0; --i)
+	{
 #if _WIN32
-	currentWorkingDir = string(&cmdLine[0], &cmdLine[wcslen(cmdLine)]);
+		string arg(&argv[i][0], &argv[i][wcslen(argv[i])]);
 #else
-	currentWorkingDir = string(argv[0]);
+		string arg = string(argv[0]);
 #endif
+		if (filesystem::is_directory(filesystem::status(arg)) &&
+			(currentWorkingDir = arg).compare(arg) == 0)
+		{
+				break;
+		}
+	}
 	for (auto &mapping : mappings) // Add all button mappings as commands
 	{
 		commandRegistry.Add((new JSMAssignment<Mapping>(mapping.getName(), mapping))->SetHelp(buttonHelpMap.at(mapping._id)));
@@ -3615,6 +3629,20 @@ int main(int argc, char *argv[])
 		COUT << " file to load." << endl;
 	}
 
+	for (int i = 0; i < argc; ++i)
+	{
+#if _WIN32
+		string arg(&argv[i][0], &argv[i][wcslen(argv[i])]);
+#else
+		string arg = string(argv[0]);
+#endif
+		if (filesystem::is_regular_file(filesystem::status(arg)))
+		{
+			commandRegistry.loadConfigFile(arg);
+			autoloadSwitch = Switch::OFF;
+		}
+	}
+
 	// The main loop is simple and reads like pseudocode
 	string enteredCommand;
 	while (!quit)
@@ -3624,6 +3652,7 @@ int main(int argc, char *argv[])
 		commandRegistry.processLine(enteredCommand);
 		loading_lock.unlock();
 	}
+	LocalFree(argv);
 	CleanUp();
 	return 0;
 }
