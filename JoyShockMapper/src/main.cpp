@@ -126,6 +126,17 @@ public:
 		function<DigitalButton *(ButtonID)> _getMatchingSimBtn;
 		mutex callback_lock; // Needs to be in the common struct for both joycons to use the same
 		function<void(int small, int big)> _rumble;
+
+		bool HasActiveToggle(const KeyCode& key) const
+		{
+			auto foundToggle = find_if(activeTogglesQueue.cbegin(), activeTogglesQueue.cend(),
+				[key] (auto& pair)
+				{
+					return pair.second == key; 
+				});
+			return foundToggle != activeTogglesQueue.cend();
+		}
+
 	};
 
 	static bool findQueueItem(pair<ButtonID, KeyCode> &pair, ButtonID btn)
@@ -300,7 +311,7 @@ public:
 			if (_common->_vigemController)
 				_common->_vigemController->setButton(key, true);
 		}
-		else if (key.code != NO_HOLD_MAPPED)
+		else if (key.code != NO_HOLD_MAPPED && _common->HasActiveToggle(key) == false)
 		{
 			pressKey(key, true);
 		}

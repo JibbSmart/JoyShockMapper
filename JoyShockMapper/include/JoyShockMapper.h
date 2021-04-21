@@ -5,6 +5,7 @@
 
 #include <map>
 #include <functional>
+#include <string>
 
 // This header file is meant to be included among all core JSM source files
 // And as such it should contain only constants, types and functions related to them
@@ -426,12 +427,12 @@ struct KeyCode
 		return code != 0;
 	}
 
-	inline bool operator==(const KeyCode &rhs)
+	inline bool operator==(const KeyCode &rhs) const
 	{
 		return code == rhs.code && name == rhs.name;
 	}
 
-	inline bool operator!=(const KeyCode &rhs)
+	inline bool operator!=(const KeyCode &rhs) const
 	{
 		return !operator==(rhs);
 	}
