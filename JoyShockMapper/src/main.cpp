@@ -1814,7 +1814,6 @@ static void resetAllMappings()
 	tick_time.Reset();
 	light_bar.Reset();
 	scroll_sens.Reset();
-	virtual_controller.Reset();
 	rumble_enable.Reset();
 	touch_ds_mode.Reset();
 
