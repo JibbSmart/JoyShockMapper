@@ -100,7 +100,7 @@ unique_ptr<PollingThread> autoLoadThread;
 unique_ptr<PollingThread> minimizeThread;
 unique_ptr<TrayIcon> tray;
 bool devicesCalibrating = false;
-Whitelister whitelister(false);
+unique_ptr<Whitelister> whitelister(Whitelister::getNew());
 unordered_map<int, shared_ptr<JoyShock>> handle_to_joyshock;
 
 // This class holds all the logic related to a single digital button. It does not hold the mapping but only a reference
@@ -117,7 +117,7 @@ public:
 			chordStack.push_front(ButtonID::NONE); //Always hold mapping none at the end to handle modeshifts and chords
 			if (virtual_controller.get() != ControllerScheme::NONE)
 			{
-				_vigemController.reset(new Gamepad(virtual_controller.get(), virtualControllerCallback));
+				_vigemController.reset(Gamepad::getNew(virtual_controller.get(), virtualControllerCallback));
 			}
 		}
 		deque<pair<ButtonID, KeyCode>> gyroActionQueue; // Queue of gyro control actions currently in effect
@@ -2065,36 +2065,46 @@ bool do_README()
 	if (err != 0)
 	{
 		COUT << "Could not open online help. Error #" << err << endl;
-		;
 	}
 	return true;
 }
 
 bool do_WHITELIST_SHOW()
 {
-	COUT << "Your PID is " << GetCurrentProcessId() << endl;
-	Whitelister::ShowHIDCerberus();
+	if (!whitelister || !whitelister->ShowConsole())
+	{
+		CERR << "Whitelister operation failed!" << endl;
+		return false;
+	}
 	return true;
 }
 
 bool do_WHITELIST_ADD()
 {
-	whitelister.Add();
-	if (whitelister)
+	string errMsg;
+	if (whitelister && whitelister->Add(&errMsg))
 	{
 		COUT << "JoyShockMapper was successfully whitelisted" << endl;
 	}
 	else
 	{
-		COUT << "Whitelisting failed!" << endl;
+		CERR << "Whitelisting failed: " << errMsg << endl;
+		return false;
 	}
 	return true;
 }
 
 bool do_WHITELIST_REMOVE()
 {
-	whitelister.Remove();
-	COUT << "JoyShockMapper removed from whitelist" << endl;
+	string errMsg;
+	if (whitelister && whitelister->Remove(&errMsg))
+	{
+		COUT << "JoyShockMapper removed from whitelist" << endl;
+	}
+	else
+	{
+		CERR << "Whitelister operation failed: " << errMsg << endl;
+	}
 	return true;
 }
 
@@ -2896,15 +2906,15 @@ void beforeShowTrayMenu()
 		  },
 		  bind(&PollingThread::isRunning, autoLoadThread.get()));
 
-		if (Whitelister::IsHIDCerberusRunning())
+		if (whitelister && whitelister->IsAvailable())
 		{
 			tray->AddMenuItem(
 			  U("Whitelist"), [](bool isChecked) {
 				  isChecked ?
-                    whitelister.Add() :
-                    whitelister.Remove();
+                    do_WHITELIST_ADD() :
+                    do_WHITELIST_REMOVE();
 			  },
-			  bind(&Whitelister::operator bool, &whitelister));
+			  bind(&Whitelister::operator bool, whitelister.get()));
 		}
 		tray->AddMenuItem(
 		  U("Calibrate all devices"), [](bool isChecked) { isChecked ?
@@ -2956,7 +2966,7 @@ void CleanUp()
 	JslDisconnectAndDisposeAll();
 	handle_to_joyshock.clear(); // Destroy Vigem Gamepads
 	ReleaseConsole();
-	whitelister.Remove();
+	whitelister && whitelister->Remove();
 }
 
 float filterClamp01(float current, float next)
@@ -3111,7 +3121,7 @@ ControllerScheme UpdateVirtualController(ControllerScheme prevScheme, Controller
 			}
 			else
 			{
-				js.second->btnCommon->_vigemController.reset(new Gamepad(nextScheme, bind(&JoyShock::handleViGEmNotification, js.second.get(), placeholders::_1, placeholders::_2, placeholders::_3)));
+				js.second->btnCommon->_vigemController.reset(Gamepad::getNew(nextScheme, bind(&JoyShock::handleViGEmNotification, js.second.get(), placeholders::_1, placeholders::_2, placeholders::_3)));
 				success &= js.second->btnCommon->_vigemController->isInitialized();
 			}
 		}
@@ -3317,6 +3327,11 @@ int __stdcall wWinMain(HINSTANCE hInstance, HINSTANCE prevInstance, LPWSTR cmdLi
 	auto trayIconData = hInstance;
 	int argc = 0;
 	wchar_t **argv = CommandLineToArgvW(cmdLine, &argc);
+	unsigned long length = 256;
+	wstring wmodule(length, '\0');
+	auto handle = GetCurrentProcess();
+	QueryFullProcessImageNameW(handle, 0, &wmodule[0], &length);
+	string module(wmodule.begin(), wmodule.begin() + length);
 	
 #else
 int main(int argc, char *argv[])
@@ -3635,7 +3650,8 @@ int main(int argc, char *argv[])
 #else
 		string arg = string(argv[0]);
 #endif
-		if (filesystem::is_regular_file(filesystem::status(arg)))
+		if (filesystem::is_regular_file(filesystem::status(arg)) &&
+			arg != module)
 		{
 			commandRegistry.loadConfigFile(arg);
 			autoloadSwitch = Switch::OFF;

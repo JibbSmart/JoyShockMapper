@@ -39,8 +39,9 @@ if (WINDOWS)
         src/win32/InputHelpers.cpp
         src/win32/PlatformDefinitions.cpp
         src/win32/WindowsTrayIcon.cpp        include/win32/WindowsTrayIcon.h
-        src/win32/Whitelister.cpp
         src/win32/Gamepad.cpp
+        src/win32/HidHideApi.cpp             include/HidHideApi.h
+        src/win32/HidHideWhitelister.cpp
         "Win32 Dialog.rc"                    include/win32/resource.h
     )
 
