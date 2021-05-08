@@ -2393,7 +2393,7 @@ void processStick(shared_ptr<JoyShock> jc, float stickX, float stickY, float las
 			}
 		}
 	}
-	else if (stickMode == StickMode::NO_MOUSE)
+	else if (stickMode == StickMode::NO_MOUSE || stickMode == StickMode::INNER_RING || stickMode == StickMode::OUTER_RING)
 	{ // Do not do if invalid
 		// left!
 		jc->handleButtonChange(leftId, left);
@@ -2404,7 +2404,7 @@ void processStick(shared_ptr<JoyShock> jc, float stickX, float stickY, float las
 		// down!
 		jc->handleButtonChange(downId, down);
 
-		anyStickInput = left | right | up | down; // ring doesn't count
+		anyStickInput = left || right || up || down; // ring doesn't count
 	}
 	else if (stickMode == StickMode::LEFT_STICK)
 	{
