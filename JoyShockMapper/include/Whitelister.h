@@ -8,39 +8,32 @@ using namespace std;
 // as per the RAII design pattern: https://en.cppreference.com/w/cpp/language/raii
 class Whitelister
 {
-public:
-	static bool ShowHIDCerberus();
-	static bool IsHIDCerberusRunning();
-
+protected:
 	Whitelister(bool add = false)
-	  : _whitelisted(false)
+		: _whitelisted(false)
 	{
-		if (add)
-		{
-			Add();
-		}
 	}
 
-	~Whitelister()
+public:
+	static Whitelister* getNew(bool add = false);
+
+	virtual ~Whitelister()
 	{
-		Remove();
 	}
 
-	bool Add(string *optErrMsg = nullptr);
-	bool Remove(string *optErrMsg = nullptr);
+	virtual bool ShowConsole() = 0;
+	virtual bool IsAvailable() = 0;
+
+	virtual bool Add(string* optErrMsg = nullptr) = 0;
+	virtual bool Remove(string* optErrMsg = nullptr) = 0;
 
 	// Check whether you're whitelisted or not.
 	// Could be replaced with an socket query, if one exists.
-	inline operator bool()
+	inline operator bool() const
 	{
-		return _whitelisted;
+ 		return _whitelisted;
 	}
 
-private:
-	string SendToHIDGuardian(string command);
-	string readUrl2(string &szUrl, long &bytesReturnedOut, string *headerOut);
-	void mParseUrl(string mUrl, string &serverName, string &filepath, string &filename);
-	int getHeaderLength(char *content);
-
+protected:
 	bool _whitelisted;
 };

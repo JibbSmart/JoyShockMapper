@@ -11,6 +11,7 @@
 #include <mutex>
 #include <deque>
 #include <iomanip>
+#include <filesystem>
 
 #pragma warning(disable : 4996) // Disable deprecated API warnings
 
@@ -108,7 +109,7 @@ unique_ptr<PollingThread> autoLoadThread;
 unique_ptr<PollingThread> minimizeThread;
 unique_ptr<TrayIcon> tray;
 bool devicesCalibrating = false;
-Whitelister whitelister(false);
+unique_ptr<Whitelister> whitelister(Whitelister::getNew());
 unordered_map<int, shared_ptr<JoyShock>> handle_to_joyshock;
 
 // This class holds all the logic related to a single digital button. It does not hold the mapping but only a reference
@@ -125,7 +126,7 @@ public:
 			chordStack.push_front(ButtonID::NONE); //Always hold mapping none at the end to handle modeshifts and chords
 			if (virtual_controller.get() != ControllerScheme::NONE)
 			{
-				_vigemController.reset(new Gamepad(virtual_controller.get(), virtualControllerCallback));
+				_vigemController.reset(Gamepad::getNew(virtual_controller.get(), virtualControllerCallback));
 			}
 		}
 		deque<pair<ButtonID, KeyCode>> gyroActionQueue; // Queue of gyro control actions currently in effect
@@ -135,6 +136,17 @@ public:
 		function<DigitalButton *(ButtonID)> _getMatchingSimBtn;
 		mutex callback_lock; // Needs to be in the common struct for both joycons to use the same
 		function<void(int small, int big)> _rumble;
+
+		bool HasActiveToggle(const KeyCode& key) const
+		{
+			auto foundToggle = find_if(activeTogglesQueue.cbegin(), activeTogglesQueue.cend(),
+				[key] (auto& pair)
+				{
+					return pair.second == key; 
+				});
+			return foundToggle != activeTogglesQueue.cend();
+		}
+
 	};
 
 	static bool findQueueItem(pair<ButtonID, KeyCode> &pair, ButtonID btn)
@@ -310,7 +322,7 @@ public:
 			if (_common->_vigemController)
 				_common->_vigemController->setButton(key, true);
 		}
-		else if (key.code != NO_HOLD_MAPPED)
+		else if (key.code != NO_HOLD_MAPPED && _common->HasActiveToggle(key) == false)
 		{
 			pressKey(key, true);
 		}
@@ -1918,9 +1930,6 @@ static void resetAllMappings()
 	tick_time.Reset();
 	light_bar.Reset();
 	scroll_sens.Reset();
-	autoloadSwitch.Reset();
-	hide_minimized.Reset();
-	virtual_controller.Reset();
 	rumble_enable.Reset();
 	touch_ds_mode.Reset();
 	for_each(touch_buttons.begin(), touch_buttons.end(), [](auto &map) { map.Reset(); });
@@ -1936,10 +1945,12 @@ void connectDevices(bool mergeJoycons = true)
 	vector<int> deviceHandles(numConnected, 0);
 	if (numConnected > 0)
 	{
-		JslGetConnectedDeviceHandles(&deviceHandles[0], numConnected);
+		// Back end can fail to open a device. Real numConnected is what is returned here.
+		numConnected = JslGetConnectedDeviceHandles(&deviceHandles[0], numConnected);
 
-		for (auto handle : deviceHandles)
+		for (int i = 0 ; i < numConnected ; ++i) // Don't use foreach!
 		{
+			auto handle = deviceHandles[i];
 			auto type = JslGetControllerSplitType(handle);
 			auto otherJoyCon = find_if(handle_to_joyshock.begin(), handle_to_joyshock.end(),
 			  [type](auto &pair) {
@@ -2163,36 +2174,45 @@ bool do_README()
 	if (err != 0)
 	{
 		COUT << "Could not open online help. Error #" << err << endl;
-		;
 	}
 	return true;
 }
 
 bool do_WHITELIST_SHOW()
 {
-	COUT << "Your PID is " << GetCurrentProcessId() << endl;
-	Whitelister::ShowHIDCerberus();
+	if (!whitelister || !whitelister->ShowConsole())
+	{
+		CERR << "Whitelister operation failed!" << endl;
+		return false;
+	}
 	return true;
 }
 
 bool do_WHITELIST_ADD()
 {
-	whitelister.Add();
-	if (whitelister)
+	string errMsg;
+	if (whitelister && whitelister->Add(&errMsg))
 	{
 		COUT << "JoyShockMapper was successfully whitelisted" << endl;
 	}
 	else
 	{
-		CERR << "Whitelisting failed!" << endl;
+		COUT << "Whitelisting failed!" << endl;
 	}
 	return true;
 }
 
 bool do_WHITELIST_REMOVE()
 {
-	whitelister.Remove();
-	COUT << "JoyShockMapper removed from whitelist" << endl;
+	string errMsg;
+	if (whitelister && whitelister->Remove(&errMsg))
+	{
+		COUT << "JoyShockMapper removed from whitelist" << endl;
+	}
+	else
+	{
+		CERR << "Whitelister operation failed: " << errMsg << endl;
+	}
 	return true;
 }
 
@@ -2468,7 +2488,7 @@ void processStick(shared_ptr<JoyShock> jc, float stickX, float stickY, float las
 			}
 		}
 	}
-	else if (stickMode == StickMode::NO_MOUSE)
+	else if (stickMode == StickMode::NO_MOUSE || stickMode == StickMode::INNER_RING || stickMode == StickMode::OUTER_RING)
 	{ // Do not do if invalid
 		// left!
 		jc->handleButtonChange(leftId, left, touchpadIndex);
@@ -2479,7 +2499,7 @@ void processStick(shared_ptr<JoyShock> jc, float stickX, float stickY, float las
 		// down!
 		jc->handleButtonChange(downId, down, touchpadIndex);
 
-		anyStickInput = left | right | up | down; // ring doesn't count
+		anyStickInput = left || right || up || down; // ring doesn't count
 	}
 	else if (stickMode == StickMode::LEFT_STICK)
 	{
@@ -2905,9 +2925,6 @@ void joyShockPollCallback(int jcHandle, JOY_SHOCK_STATE state, JOY_SHOCK_STATE l
 		jc->handleButtonChange(ButtonID::MINUS, buttons & (1 << JSOFFSET_MINUS));
 		// for backwards compatibility, we need need to account for the fact that SDL2 maps the touchpad button differently to SDL
 		jc->handleButtonChange(ButtonID::L3, buttons & (1 << JSOFFSET_LCLICK));
-		// SL and SR are mapped to back paddle positions:
-		jc->handleButtonChange(ButtonID::LSL, buttons & (1 << JSOFFSET_SL));
-		jc->handleButtonChange(ButtonID::LSR, buttons & (1 << JSOFFSET_SR));
 
 		float lTrigger = JslGetLeftTrigger(jc->handle);
 		jc->handleTriggerChange(ButtonID::ZL, ButtonID::ZLF, jc->getSetting<TriggerMode>(SettingID::ZL_MODE), lTrigger);
@@ -2915,8 +2932,11 @@ void joyShockPollCallback(int jcHandle, JOY_SHOCK_STATE state, JOY_SHOCK_STATE l
 		bool touch = JslGetTouchDown(jc->handle, false) || JslGetTouchDown(jc->handle, true);
 		switch (jc->platform_controller_type)
 		{
-		case JS_TYPE_DS4:
 		case JS_TYPE_DS:
+			// JSL mapps mic button on the SL index
+			jc->handleButtonChange(ButtonID::MIC, buttons & (1 << JSOFFSET_MIC));
+			// Don't break but continue onto DS4 stuff too
+		case JS_TYPE_DS4:
 		{
 			float triggerpos = buttons & (1 << JSOFFSET_CAPTURE) ? 1.f :
 			  touch                                              ? 0.99f :
@@ -2928,10 +2948,22 @@ void joyShockPollCallback(int jcHandle, JOY_SHOCK_STATE state, JOY_SHOCK_STATE l
 		{
 			jc->handleButtonChange(ButtonID::TOUCH, touch);
 			jc->handleButtonChange(ButtonID::CAPTURE, buttons & (1 << JSOFFSET_CAPTURE));
+			jc->handleButtonChange(ButtonID::LSL, buttons & (1 << JSOFFSET_SL));
 		}
 		break;
 		}
+
+		// SL and SR are mapped to back paddle positions:
+		jc->handleButtonChange(ButtonID::LSR, buttons & (1 << JSOFFSET_SR));
 	}
+	else // split type is RIGHT
+	{
+		// SL and SR are mapped to back paddle positions:
+		jc->handleButtonChange(ButtonID::RSL, buttons & (1 << JSOFFSET_SL));
+		jc->handleButtonChange(ButtonID::RSR, buttons & (1 << JSOFFSET_SR));
+
+	}
+
 	if (jc->controller_split_type != JS_SPLIT_TYPE_LEFT)
 	{
 		jc->handleButtonChange(ButtonID::E, buttons & (1 << JSOFFSET_E));
@@ -2942,9 +2974,6 @@ void joyShockPollCallback(int jcHandle, JOY_SHOCK_STATE state, JOY_SHOCK_STATE l
 		jc->handleButtonChange(ButtonID::PLUS, buttons & (1 << JSOFFSET_PLUS));
 		jc->handleButtonChange(ButtonID::HOME, buttons & (1 << JSOFFSET_HOME));
 		jc->handleButtonChange(ButtonID::R3, buttons & (1 << JSOFFSET_RCLICK));
-		// SL and SR are mapped to back paddle positions:
-		jc->handleButtonChange(ButtonID::RSL, buttons & (1 << JSOFFSET_SL));
-		jc->handleButtonChange(ButtonID::RSR, buttons & (1 << JSOFFSET_SR));
 
 		float rTrigger = JslGetRightTrigger(jc->handle);
 		jc->handleTriggerChange(ButtonID::ZR, ButtonID::ZRF, jc->getSetting<TriggerMode>(SettingID::ZR_MODE), rTrigger);
@@ -3163,15 +3192,15 @@ void beforeShowTrayMenu()
 		  },
 		  bind(&PollingThread::isRunning, autoLoadThread.get()));
 
-		if (Whitelister::IsHIDCerberusRunning())
+		if (whitelister && whitelister->IsAvailable())
 		{
 			tray->AddMenuItem(
 			  U("Whitelist"), [](bool isChecked) {
 				  isChecked ?
-                    whitelister.Add() :
-                    whitelister.Remove();
+                    do_WHITELIST_ADD() :
+                    do_WHITELIST_REMOVE();
 			  },
-			  bind(&Whitelister::operator bool, &whitelister));
+			  bind(&Whitelister::operator bool, whitelister.get()));
 		}
 		tray->AddMenuItem(
 		  U("Calibrate all devices"), [](bool isChecked) { isChecked ?
@@ -3223,7 +3252,7 @@ void CleanUp()
 	JslDisconnectAndDisposeAll();
 	handle_to_joyshock.clear(); // Destroy Vigem Gamepads
 	ReleaseConsole();
-	whitelister.Remove();
+	whitelister && whitelister->Remove();
 }
 
 float filterClamp01(float current, float next)
@@ -3378,7 +3407,7 @@ ControllerScheme UpdateVirtualController(ControllerScheme prevScheme, Controller
 			}
 			else
 			{
-				js.second->btnCommon->_vigemController.reset(new Gamepad(nextScheme, bind(&JoyShock::handleViGEmNotification, js.second.get(), placeholders::_1, placeholders::_2, placeholders::_3)));
+				js.second->btnCommon->_vigemController.reset(Gamepad::getNew(nextScheme, bind(&JoyShock::handleViGEmNotification, js.second.get(), placeholders::_1, placeholders::_2, placeholders::_3)));
 				success &= js.second->btnCommon->_vigemController->isInitialized();
 			}
 		}
@@ -3629,6 +3658,14 @@ public:
 int __stdcall wWinMain(HINSTANCE hInstance, HINSTANCE prevInstance, LPWSTR cmdLine, int cmdShow)
 {
 	auto trayIconData = hInstance;
+	int argc = 0;
+	wchar_t **argv = CommandLineToArgvW(cmdLine, &argc);
+	unsigned long length = 256;
+	wstring wmodule(length, '\0');
+	auto handle = GetCurrentProcess();
+	QueryFullProcessImageNameW(handle, 0, &wmodule[0], &length);
+	string module(wmodule.begin(), wmodule.begin() + length);
+	
 #else
 int main(int argc, char *argv[])
 {
@@ -3646,6 +3683,8 @@ int main(int argc, char *argv[])
 	}
 	// console
 	initConsole();
+	//COUT << "I have " << argc << " cmd line args: ";
+	//wcout << cmdLine << endl;
 	ColorStream<&cout, FOREGROUND_GREEN | FOREGROUND_INTENSITY>() << "Welcome to JoyShockMapper version " << version << '!' << endl;
 	//if (whitelister) COUT << "JoyShockMapper was successfully whitelisted!" << endl;
 	// Threads need to be created before listeners
@@ -3655,7 +3694,7 @@ int main(int argc, char *argv[])
 
 	if (autoLoadThread && autoLoadThread->isRunning())
 	{
-		COUT << "AUTOLOAD is enabled. Files in ";
+		COUT << "AUTOLOAD is available. Files in ";
 		COUT_INFO << AUTOLOAD_FOLDER();
 		COUT << " folder will get loaded automatically when a matching application is in focus." << endl;
 	}
@@ -3745,12 +3784,13 @@ int main(int argc, char *argv[])
 	scroll_sens.SetFilter(&filterFloatPair);
 	touch_ds_mode.SetFilter(&filterTouchpadDualStageMode);
 	// light_bar needs no filter or listener. The callback polls and updates the color.
+	for (int i = argc - 1; i >= 0; --i)
+	{
 #if _WIN32
 	currentWorkingDir = string(&cmdLine[0], &cmdLine[wcslen(cmdLine)]);
 #else
 	currentWorkingDir = string(argv[0]);
 #endif
-
 	for (auto &mapping : mappings) // Add all button mappings as commands
 	{
 		commandRegistry.Add((new JSMAssignment<Mapping>(mapping.getName(), mapping))->SetHelp(buttonHelpMap.at(mapping._id)));
@@ -3926,6 +3966,7 @@ int main(int argc, char *argv[])
 	                      ->SetHelp("Disable the rumbling feature from vigem. Valid values are ON and OFF."));
 	commandRegistry.Add((new JSMAssignment<TriggerMode>(touch_ds_mode))
 	                      ->SetHelp("Dual stage mode for the touchpad TOUCH and CAPTURE (i.e. click) bindings."));
+	commandRegistry.Add((new JSMMacro("CLEAR"))->SetMacro(bind(&ClearConsole))->SetHelp("Removes all text in the console screen"));
 
 	bool quit = false;
 	commandRegistry.Add((new JSMMacro("QUIT"))
@@ -3956,6 +3997,21 @@ int main(int argc, char *argv[])
 		COUT << " file to load." << endl;
 	}
 
+	for (int i = 0; i < argc; ++i)
+	{
+#if _WIN32
+		string arg(&argv[i][0], &argv[i][wcslen(argv[i])]);
+#else
+		string arg = string(argv[0]);
+#endif
+		if (filesystem::is_regular_file(filesystem::status(arg)) &&
+			arg != module)
+		{
+			commandRegistry.loadConfigFile(arg);
+			autoloadSwitch = Switch::OFF;
+		}
+	}
+
 	// The main loop is simple and reads like pseudocode
 	string enteredCommand;
 	while (!quit)
@@ -3965,6 +4021,7 @@ int main(int argc, char *argv[])
 		commandRegistry.processLine(enteredCommand);
 		loading_lock.unlock();
 	}
+	LocalFree(argv);
 	CleanUp();
 	return 0;
 }
