@@ -118,6 +118,7 @@ enum class ButtonID
 	MRING,
 	LEAN_LEFT,
 	LEAN_RIGHT,
+	MIC,
 	TOUCH,   // Touch anywhere on the touchpad
 	ZLF,     // = FIRST_ANALOG_TRIGGER
 	CAPTURE, // Full press of touchpad touch + press

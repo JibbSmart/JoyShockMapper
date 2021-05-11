@@ -216,7 +216,7 @@ MOTION_STATE JslGetMotionState(int deviceId)
 	return MOTION_STATE();
 }
 
-TOUCH_STATE JslGetTouchState(int deviceId, bool previous)
+TOUCH_STATE JslGetTouchState(int deviceId)
 {
 	uint8_t state0 = 0, state1 = 0;
 	TOUCH_STATE state;
@@ -283,8 +283,10 @@ int JslGetButtons(int deviceId)
 	}
 	switch (JslGetControllerType(deviceId))
 	{
-	case SDL_CONTROLLER_TYPE_PS4:
-	case SDL_CONTROLLER_TYPE_PS5:
+	case JS_TYPE_DS:
+		// Intentionally skip break line
+		buttons |= SDL_GameControllerGetButton(SdlInstance::_inst->_controllerMap[deviceId]->_sdlController, SDL_CONTROLLER_BUTTON_MISC1) > 0 ? 1 << JSOFFSET_MIC : 0;
+	case JS_TYPE_DS4:
 		buttons |= SDL_GameControllerGetButton(SdlInstance::_inst->_controllerMap[deviceId]->_sdlController, SDL_CONTROLLER_BUTTON_TOUCHPAD) > 0 ? 1 << JSOFFSET_CAPTURE : 0;
 		break;
 	default:
@@ -449,14 +451,19 @@ void JslSetTouchCallback(void (*callback)(int, TOUCH_STATE, TOUCH_STATE, float))
 int JslGetControllerType(int deviceId)
 {
 	int type = SDL_GameControllerGetType(SdlInstance::_inst->_controllerMap[deviceId]->_sdlController);
-	if (type == JS_TYPE_PRO_CONTROLLER)
+	switch (type)
 	{
+	case SDL_GameControllerType::SDL_CONTROLLER_TYPE_NINTENDO_SWITCH_PRO:
 		if (JslGetControllerSplitType(deviceId) == JS_SPLIT_TYPE_LEFT)
 			return JS_TYPE_JOYCON_LEFT;
 		else if (JslGetControllerSplitType(deviceId) == JS_SPLIT_TYPE_RIGHT)
 			return JS_TYPE_JOYCON_RIGHT;
+	case SDL_GameControllerType::SDL_CONTROLLER_TYPE_PS4:
+		return JS_TYPE_DS4;
+	case SDL_GameControllerType::SDL_CONTROLLER_TYPE_PS5:
+		return JS_TYPE_DS;
 	}
-	return type;
+	return 0; // Unknown type
 }
 
 int JslGetControllerSplitType(int deviceId)

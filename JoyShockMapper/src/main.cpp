@@ -2648,9 +2648,6 @@ void joyShockPollCallback(int jcHandle, JOY_SHOCK_STATE state, JOY_SHOCK_STATE l
 		jc->handleButtonChange(ButtonID::MINUS, buttons & (1 << JSOFFSET_MINUS));
 		// for backwards compatibility, we need need to account for the fact that SDL2 maps the touchpad button differently to SDL
 		jc->handleButtonChange(ButtonID::L3, buttons & (1 << JSOFFSET_LCLICK));
-		// SL and SR are mapped to back paddle positions:
-		jc->handleButtonChange(ButtonID::LSL, buttons & (1 << JSOFFSET_SL));
-		jc->handleButtonChange(ButtonID::LSR, buttons & (1 << JSOFFSET_SR));
 
 		float lTrigger = JslGetLeftTrigger(jc->handle);
 		jc->handleTriggerChange(ButtonID::ZL, ButtonID::ZLF, jc->getSetting<TriggerMode>(SettingID::ZL_MODE), lTrigger);
@@ -2658,8 +2655,11 @@ void joyShockPollCallback(int jcHandle, JOY_SHOCK_STATE state, JOY_SHOCK_STATE l
 		bool touch = JslGetTouchDown(jc->handle, false) || JslGetTouchDown(jc->handle, true);
 		switch (jc->platform_controller_type)
 		{
-		case JS_TYPE_DS4:
 		case JS_TYPE_DS:
+			// JSL mapps mic button on the SL index
+			jc->handleButtonChange(ButtonID::MIC, buttons & (1 << JSOFFSET_MIC));
+			// Don't break but continue onto DS4 stuff too
+		case JS_TYPE_DS4:
 		{
 			float triggerpos = buttons & (1 << JSOFFSET_CAPTURE) ? 1.f :
 			  touch                                              ? 0.99f :
@@ -2671,10 +2671,22 @@ void joyShockPollCallback(int jcHandle, JOY_SHOCK_STATE state, JOY_SHOCK_STATE l
 		{
 			jc->handleButtonChange(ButtonID::TOUCH, touch);
 			jc->handleButtonChange(ButtonID::CAPTURE, buttons & (1 << JSOFFSET_CAPTURE));
+			jc->handleButtonChange(ButtonID::LSL, buttons & (1 << JSOFFSET_SL));
 		}
 		break;
 		}
+
+		// SL and SR are mapped to back paddle positions:
+		jc->handleButtonChange(ButtonID::LSR, buttons & (1 << JSOFFSET_SR));
 	}
+	else // split type is RIGHT
+	{
+		// SL and SR are mapped to back paddle positions:
+		jc->handleButtonChange(ButtonID::RSL, buttons & (1 << JSOFFSET_SL));
+		jc->handleButtonChange(ButtonID::RSR, buttons & (1 << JSOFFSET_SR));
+
+	}
+
 	if (jc->controller_split_type != JS_SPLIT_TYPE_LEFT)
 	{
 		jc->handleButtonChange(ButtonID::E, buttons & (1 << JSOFFSET_E));
@@ -2685,9 +2697,6 @@ void joyShockPollCallback(int jcHandle, JOY_SHOCK_STATE state, JOY_SHOCK_STATE l
 		jc->handleButtonChange(ButtonID::PLUS, buttons & (1 << JSOFFSET_PLUS));
 		jc->handleButtonChange(ButtonID::HOME, buttons & (1 << JSOFFSET_HOME));
 		jc->handleButtonChange(ButtonID::R3, buttons & (1 << JSOFFSET_RCLICK));
-		// SL and SR are mapped to back paddle positions:
-		jc->handleButtonChange(ButtonID::RSL, buttons & (1 << JSOFFSET_SL));
-		jc->handleButtonChange(ButtonID::RSR, buttons & (1 << JSOFFSET_SR));
 
 		float rTrigger = JslGetRightTrigger(jc->handle);
 		jc->handleTriggerChange(ButtonID::ZR, ButtonID::ZRF, jc->getSetting<TriggerMode>(SettingID::ZR_MODE), rTrigger);
@@ -3449,6 +3458,7 @@ int main(int argc, char *argv[])
 				break;
 		}
 	}
+	assert(MAPPING_SIZE == buttonHelpMap.size() && "Please update the button help map in ButtonHelp.cpp");
 	for (auto &mapping : mappings) // Add all button mappings as commands
 	{
 		commandRegistry.Add((new JSMAssignment<Mapping>(mapping.getName(), mapping))->SetHelp(buttonHelpMap.at(mapping._id)));
