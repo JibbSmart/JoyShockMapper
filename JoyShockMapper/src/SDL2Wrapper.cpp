@@ -61,6 +61,8 @@ struct ControllerDevice
 	int _split_type = JS_SPLIT_TYPE_FULL;
 	uint16_t _small_rumble = 0;
 	uint16_t _big_rumble = 0;
+	uint16_t _left_trigger_rumble = 0;
+	uint16_t _right_trigger_rumble = 0;
 	SDL_GameController *_sdlController = nullptr;
 };
 
@@ -113,6 +115,7 @@ public:
 				}
 				// Perform rumble
 				SDL_GameControllerRumble(iter->second->_sdlController, iter->second->_small_rumble, iter->second->_big_rumble, tick_time.get() + 1);
+				SDL_GameControllerRumbleTriggers(iter->second->_sdlController, iter->second->_left_trigger_rumble, iter->second->_right_trigger_rumble, tick_time.get() * 2);
 			}
 		}
 
@@ -216,7 +219,7 @@ MOTION_STATE JslGetMotionState(int deviceId)
 	return MOTION_STATE();
 }
 
-TOUCH_STATE JslGetTouchState(int deviceId)
+TOUCH_STATE JslGetTouchState(int deviceId, bool previous)
 {
 	uint8_t state0 = 0, state1 = 0;
 	TOUCH_STATE state;
@@ -478,7 +481,8 @@ int JslGetControllerColour(int deviceId)
 
 void JslSetLightColour(int deviceId, int colour)
 {
-	if (SDL_GameControllerHasLED(SdlInstance::_inst->_controllerMap[deviceId]->_sdlController))
+	if (SDL_GameControllerHasLED(SdlInstance::_inst->_controllerMap[deviceId]->_sdlController)
+		|| JslGetControllerType(deviceId) == JS_TYPE_DS) // DS report no support in spite of working implementations
 	{
 		union
 		{
@@ -501,4 +505,10 @@ void JslSetRumble(int deviceId, int smallRumble, int bigRumble)
 void JslSetPlayerNumber(int deviceId, int number)
 {
 	SDL_GameControllerSetPlayerIndex(SdlInstance::_inst->_controllerMap[deviceId]->_sdlController, number);
+}
+
+void JslSetTriggerRumble(int deviceId, uint16_t left, uint16_t right)
+{
+	SdlInstance::_inst->_controllerMap[deviceId]->_left_trigger_rumble = left;
+	SdlInstance::_inst->_controllerMap[deviceId]->_right_trigger_rumble = right;
 }

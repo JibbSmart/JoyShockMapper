@@ -1111,6 +1111,7 @@ public:
 			virtual_controller = ControllerScheme::NONE;
 		}
 		JslSetLightColour(handle, getSetting<Color>(SettingID::LIGHT_BAR).raw);
+		JslSetTriggerRumble(handle, 0, 0);
 		for (int i = 0; i < MAX_NO_OF_TOUCH; ++i)
 		{
 			touchpads.push_back(TouchStick(i, btnCommon, handle, &motion));
@@ -3787,10 +3788,17 @@ int main(int argc, char *argv[])
 	for (int i = argc - 1; i >= 0; --i)
 	{
 #if _WIN32
-	currentWorkingDir = string(&cmdLine[0], &cmdLine[wcslen(cmdLine)]);
+		string arg(&argv[i][0], &argv[i][wcslen(argv[i])]);
 #else
-	currentWorkingDir = string(argv[0]);
+		string arg = string(argv[0]);
 #endif
+		if (filesystem::is_directory(filesystem::status(arg)) &&
+			(currentWorkingDir = arg).compare(arg) == 0)
+		{
+				break;
+		}
+	}
+	assert(MAPPING_SIZE == buttonHelpMap.size() && "Please update the button help map in ButtonHelp.cpp");
 	for (auto &mapping : mappings) // Add all button mappings as commands
 	{
 		commandRegistry.Add((new JSMAssignment<Mapping>(mapping.getName(), mapping))->SetHelp(buttonHelpMap.at(mapping._id)));
@@ -3967,6 +3975,23 @@ int main(int argc, char *argv[])
 	commandRegistry.Add((new JSMAssignment<TriggerMode>(touch_ds_mode))
 	                      ->SetHelp("Dual stage mode for the touchpad TOUCH and CAPTURE (i.e. click) bindings."));
 	commandRegistry.Add((new JSMMacro("CLEAR"))->SetMacro(bind(&ClearConsole))->SetHelp("Removes all text in the console screen"));
+
+	commandRegistry.Add((new JSMMacro("TRIG"))->SetMacro([] (JSMMacro *, in_string arg)
+	{
+		constexpr uint16_t SEVEN_BITS_MAX = (1 << 7) -1;
+		constexpr uint16_t US_ZERO = 0;
+		uint16_t mode, pos, str;
+		stringstream ss(arg);
+		ss >> mode >> pos >> str;
+		mode = clamp(mode, US_ZERO, uint16_t(2)) << 14;
+		pos = clamp(pos, US_ZERO, SEVEN_BITS_MAX) << 7;
+		str = clamp(str, US_ZERO, SEVEN_BITS_MAX);
+		for (auto handle : handle_to_joyshock)
+		{
+			JslSetTriggerRumble(handle.first, mode | pos | str, mode | pos | str);
+		}
+		return true;
+	})->SetHelp("Removes all text in the console screen"));
 
 	bool quit = false;
 	commandRegistry.Add((new JSMMacro("QUIT"))
