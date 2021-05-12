@@ -14,7 +14,7 @@ public:
 		, _len( 256 )
 	{
 		std::wstring module(_len, '\0');
-		if (QueryFullProcessImageName(GetCurrentProcess(), 0, &module[0], &_len) == FALSE)
+		if (!HidHide::Present() || QueryFullProcessImageName(GetCurrentProcess(), 0, &module[0], &_len) == FALSE)
 		{
 			_len = 0;
 		}
@@ -58,6 +58,11 @@ public:
 			if (optErrMsg) *optErrMsg = "HidHideWhitelister did not initialize properly";
 			return false;
 		}
+		//else if (!HidHide::GetActive())
+		//{
+		//	if (optErrMsg) *optErrMsg = "HidHide is installed but not active.";
+		//	return false;
+		//}
 
 		auto whitelist = HidHide::GetWhitelist();
 
@@ -89,6 +94,11 @@ public:
 			if (optErrMsg) *optErrMsg = "HidHideWhitelister did not initialize properly";
 			return false;
 		}
+		//else if (!HidHide::GetActive())
+		//{
+		//	if (optErrMsg) *optErrMsg = "HidHide is installed but not active.";
+		//	return false;
+		//}
 
 		auto whitelist = HidHide::GetWhitelist();
 

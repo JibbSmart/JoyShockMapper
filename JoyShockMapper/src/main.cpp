@@ -2224,28 +2224,28 @@ bool do_WHITELIST_SHOW()
 
 bool do_WHITELIST_ADD()
 {
-	string errMsg;
+	string errMsg = "Whitelister is not implemented";
 	if (whitelister && whitelister->Add(&errMsg))
 	{
 		COUT << "JoyShockMapper was successfully whitelisted" << endl;
 	}
 	else
 	{
-		COUT << "Whitelisting failed!" << endl;
+		CERR << "Whitelist operation failed: " << errMsg << endl;
 	}
 	return true;
 }
 
 bool do_WHITELIST_REMOVE()
 {
-	string errMsg;
+	string errMsg = "Whitelister is not implemented";
 	if (whitelister && whitelister->Remove(&errMsg))
 	{
 		COUT << "JoyShockMapper removed from whitelist" << endl;
 	}
 	else
 	{
-		CERR << "Whitelister operation failed: " << errMsg << endl;
+		CERR << "Whitelist operation failed: " << errMsg << endl;
 	}
 	return true;
 }
