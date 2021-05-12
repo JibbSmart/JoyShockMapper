@@ -1602,32 +1602,38 @@ public:
 		GetButton(id, touchpadID)->updateButtonState(pressed, time_now, getSetting(SettingID::TURBO_PERIOD), getSetting(SettingID::HOLD_PRESS_TIME));
 	}
 
-	void handleTriggerChange(ButtonID softIndex, ButtonID fullIndex, TriggerMode mode, float position)
+	uint16_t handleTriggerChange(ButtonID softIndex, ButtonID fullIndex, TriggerMode mode, float position)
 	{
+		uint16_t trigger_rumble = 0;
 		if (mode != TriggerMode::X_LT && mode != TriggerMode::X_RT && (platform_controller_type == JS_TYPE_PRO_CONTROLLER || platform_controller_type == JS_TYPE_JOYCON_LEFT || platform_controller_type == JS_TYPE_JOYCON_RIGHT))
 		{
 			// Override local variable because the controller has digital triggers. Effectively ignore Full Pull binding.
 			mode = TriggerMode::NO_FULL;
 		}
+		constexpr uint16_t small_early_rigid = (1 << 14) | (17 << 7); // Rigid mode, pos 17/127
+		constexpr uint16_t small_start_pulse = (1 << 14) | 20; // handle trigger threshold
+		constexpr uint16_t large_late_pulse = (2 << 14) | (72 << 7) | 80;
+		constexpr uint16_t large_early_rigid = (1 << 14) | (17 << 7) | 127;
+		constexpr uint16_t too_late_pulse = (2 << 14) | (127 << 7) | 127;
 
 		if (mode == TriggerMode::X_LT)
 		{
 			if (btnCommon->_vigemController)
 				btnCommon->_vigemController->setLeftTrigger(position);
-			return;
+			return small_early_rigid;
 		}
 		else if (mode == TriggerMode::X_RT)
 		{
 			if (btnCommon->_vigemController)
 				btnCommon->_vigemController->setRightTrigger(position);
-			return;
+			return small_early_rigid;
 		}
 
 		auto idxState = int(fullIndex) - FIRST_ANALOG_TRIGGER; // Get analog trigger index
 		if (idxState < 0 || idxState >= (int)triggerState.size())
 		{
 			COUT << "Error: Trigger " << fullIndex << " does not exist in state map. Dual Stage Trigger not possible." << endl;
-			return;
+			return trigger_rumble;
 		}
 
 		// if either trigger is waiting to be tap released, give it a go
@@ -1646,6 +1652,7 @@ public:
 		{
 		case DstState::NoPress:
 			// It actually doesn't matter what the last Press is. Theoretically, we could have missed the edge.
+			trigger_rumble = small_start_pulse;
 			if (isSoftPullPressed(idxState, position))
 			{
 				if (mode == TriggerMode::MAY_SKIP || mode == TriggerMode::MUST_SKIP)
@@ -1672,6 +1679,7 @@ public:
 			}
 			break;
 		case DstState::PressStart:
+			trigger_rumble = position < 0.35 ? too_late_pulse : large_late_pulse;
 			if (!isSoftPullPressed(idxState, position))
 			{
 				// Trigger has been quickly tapped on the soft press
@@ -1694,6 +1702,7 @@ public:
 			// Else, time passes as soft press is being held, waiting to see if the soft binding should be skipped
 			break;
 		case DstState::PressStartResp:
+			trigger_rumble = position < 0.35 ? too_late_pulse : large_late_pulse;
 			if (!isSoftPullPressed(idxState, position))
 			{
 				// Soft press is being released
@@ -1718,10 +1727,12 @@ public:
 			break;
 		case DstState::QuickSoftTap:
 			// Soft trigger is already released. Send release now!
+			trigger_rumble = small_start_pulse; // handle trigger threshold
 			triggerState[idxState] = DstState::NoPress;
 			handleButtonChange(softIndex, false);
 			break;
 		case DstState::QuickFullPress:
+			trigger_rumble = large_late_pulse;
 			if (position < 1.0f)
 			{
 				// Full press is being release
@@ -1735,6 +1746,7 @@ public:
 			}
 			break;
 		case DstState::QuickFullRelease:
+			trigger_rumble = large_late_pulse;
 			if (!isSoftPullPressed(idxState, position))
 			{
 				triggerState[idxState] = DstState::NoPress;
@@ -1753,30 +1765,40 @@ public:
 				// Soft press is being released
 				triggerState[idxState] = DstState::NoPress;
 				handleButtonChange(softIndex, false);
+				trigger_rumble = small_start_pulse;
 			}
 			else // Soft Press is being held
 			{
-
-				if ((mode == TriggerMode::MAY_SKIP || mode == TriggerMode::NO_SKIP || mode == TriggerMode::MAY_SKIP_R) && position == 1.0)
+				if (mode == TriggerMode::NO_SKIP || mode == TriggerMode::MAY_SKIP || mode == TriggerMode::MAY_SKIP_R)
 				{
-					// Full press is allowed in addition to soft press
-					triggerState[idxState] = DstState::DelayFullPress;
-					handleButtonChange(fullIndex, true);
+					trigger_rumble = large_late_pulse;
+					handleButtonChange(softIndex, true);
+					if (position == 1.0)
+					{
+						// Full press is allowed in addition to soft press
+						triggerState[idxState] = DstState::DelayFullPress;
+						handleButtonChange(fullIndex, true);
+					}
 				}
-				else if (mode == TriggerMode::NO_SKIP_EXCLUSIVE && position == 1.0)
+				else if (mode == TriggerMode::NO_SKIP_EXCLUSIVE)
 				{
+					trigger_rumble = large_late_pulse;
 					handleButtonChange(softIndex, false);
-					triggerState[idxState] = DstState::ExclFullPress;
-					handleButtonChange(fullIndex, true);
+					if (position == 1.0)
+					{
+						triggerState[idxState] = DstState::ExclFullPress;
+						handleButtonChange(fullIndex, true);
+					}
 				}
-				else
+				else // NO_FULL, MUST_SKIP and MUST_SKIP_R
 				{
 					handleButtonChange(softIndex, true);
+					trigger_rumble = too_late_pulse;
 				}
-				// else ignore full press on NO_FULL and MUST_SKIP
 			}
 			break;
 		case DstState::DelayFullPress:
+			trigger_rumble = large_late_pulse;
 			if (position < 1.0)
 			{
 				// Full Press is being released
@@ -1791,6 +1813,7 @@ public:
 			handleButtonChange(softIndex, true);
 			break;
 		case DstState::ExclFullPress:
+			trigger_rumble = large_late_pulse;
 			if (position < 1.0f)
 			{
 				// Full press is being release
@@ -1809,6 +1832,16 @@ public:
 			triggerState[idxState] = DstState::NoPress;
 			break;
 		}
+
+		if (mode == TriggerMode::NO_FULL)
+		{
+			trigger_rumble = large_early_rigid;
+		}
+		//else
+		//{
+		//	trigger_rumble = large_late_pulse;
+		//}
+		return trigger_rumble;
 	}
 
 	bool IsPressed(ButtonID btn)
@@ -2914,7 +2947,7 @@ void joyShockPollCallback(int jcHandle, JOY_SHOCK_STATE state, JOY_SHOCK_STATE l
 	}
 
 	int buttons = JslGetButtons(jc->handle);
-
+	uint16_t rumble_left = 0, rumble_right = 0;
 	// button mappings
 	if (jc->controller_split_type != JS_SPLIT_TYPE_RIGHT)
 	{
@@ -2928,7 +2961,7 @@ void joyShockPollCallback(int jcHandle, JOY_SHOCK_STATE state, JOY_SHOCK_STATE l
 		jc->handleButtonChange(ButtonID::L3, buttons & (1 << JSOFFSET_LCLICK));
 
 		float lTrigger = JslGetLeftTrigger(jc->handle);
-		jc->handleTriggerChange(ButtonID::ZL, ButtonID::ZLF, jc->getSetting<TriggerMode>(SettingID::ZL_MODE), lTrigger);
+		rumble_left = jc->handleTriggerChange(ButtonID::ZL, ButtonID::ZLF, jc->getSetting<TriggerMode>(SettingID::ZL_MODE), lTrigger);
 
 		bool touch = JslGetTouchDown(jc->handle, false) || JslGetTouchDown(jc->handle, true);
 		switch (jc->platform_controller_type)
@@ -2977,8 +3010,10 @@ void joyShockPollCallback(int jcHandle, JOY_SHOCK_STATE state, JOY_SHOCK_STATE l
 		jc->handleButtonChange(ButtonID::R3, buttons & (1 << JSOFFSET_RCLICK));
 
 		float rTrigger = JslGetRightTrigger(jc->handle);
-		jc->handleTriggerChange(ButtonID::ZR, ButtonID::ZRF, jc->getSetting<TriggerMode>(SettingID::ZR_MODE), rTrigger);
+		rumble_right = jc->handleTriggerChange(ButtonID::ZR, ButtonID::ZRF, jc->getSetting<TriggerMode>(SettingID::ZR_MODE), rTrigger);
 	}
+
+	JslSetTriggerRumble(jc->handle, rumble_left, rumble_right);
 
 	// Handle buttons before GYRO because some of them may affect the value of blockGyro
 	auto gyro = jc->getSetting<GyroSettings>(SettingID::GYRO_ON); // same result as getting GYRO_OFF
