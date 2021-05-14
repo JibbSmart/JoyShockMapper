@@ -14,6 +14,10 @@ struct ControllerDevice
 {
 	ControllerDevice(int id)
 	{
+		SDL_memset(&_left_trigger_effect, 0, sizeof(SDL_JoystickTriggerEffect));
+		SDL_memset(&_right_trigger_effect, 0, sizeof(SDL_JoystickTriggerEffect));
+		_left_trigger_effect.mode = SDL_JOYSTICK_TRIGGER_NO_EFFECT;
+		_right_trigger_effect.mode = SDL_JOYSTICK_TRIGGER_NO_EFFECT;
 		if (SDL_IsGameController(id))
 		{
 			_sdlController = SDL_GameControllerOpen(id);
@@ -61,8 +65,8 @@ struct ControllerDevice
 	int _split_type = JS_SPLIT_TYPE_FULL;
 	uint16_t _small_rumble = 0;
 	uint16_t _big_rumble = 0;
-	uint16_t _left_trigger_rumble = 0;
-	uint16_t _right_trigger_rumble = 0;
+	SDL_JoystickTriggerEffect _left_trigger_effect;
+	SDL_JoystickTriggerEffect _right_trigger_effect;
 	SDL_GameController *_sdlController = nullptr;
 };
 
@@ -115,7 +119,7 @@ public:
 				}
 				// Perform rumble
 				SDL_GameControllerRumble(iter->second->_sdlController, iter->second->_small_rumble, iter->second->_big_rumble, tick_time.get() + 1);
-				SDL_GameControllerRumbleTriggers(iter->second->_sdlController, iter->second->_left_trigger_rumble, iter->second->_right_trigger_rumble, tick_time.get() * 2);
+				SDL_GameControllerRumbleTriggers(iter->second->_sdlController, iter->second->_left_trigger_effect, iter->second->_right_trigger_effect, tick_time.get() * 2);
 			}
 		}
 
@@ -221,7 +225,7 @@ MOTION_STATE JslGetMotionState(int deviceId)
 
 TOUCH_STATE JslGetTouchState(int deviceId, bool previous)
 {
-	uint8_t state0 = 0, state1 = 0;
+	unsigned char state0 = 0, state1 = 0;
 	TOUCH_STATE state;
 	memset(&state, 0, sizeof(TOUCH_STATE));
 	if (SDL_GameControllerGetTouchpadFinger(SdlInstance::_inst->_controllerMap[deviceId]->_sdlController, 0, 0, &state0, &state.t0X, &state.t0Y, nullptr) == 0 && SDL_GameControllerGetTouchpadFinger(SdlInstance::_inst->_controllerMap[deviceId]->_sdlController, 0, 1, &state1, &state.t1X, &state.t1Y, nullptr) == 0)
@@ -371,7 +375,7 @@ int JslGetTouchId(int deviceId, bool secondTouch)
 
 bool JslGetTouchDown(int deviceId, bool secondTouch)
 {
-	uint8_t touchState = 0;
+	unsigned char touchState = 0;
 	if (SDL_GameControllerGetTouchpadFinger(SdlInstance::_inst->_controllerMap[deviceId]->_sdlController, 0, secondTouch ? 1 : 0, &touchState, nullptr, nullptr, nullptr) == 0)
 	{
 		return touchState == SDL_PRESSED;
@@ -487,7 +491,7 @@ void JslSetLightColour(int deviceId, int colour)
 		union
 		{
 			uint32_t raw;
-			uint8_t argb[4];
+			unsigned char argb[4];
 		} uColour;
 		uColour.raw = colour;
 		SDL_GameControllerSetLED(SdlInstance::_inst->_controllerMap[deviceId]->_sdlController, uColour.argb[2], uColour.argb[1], uColour.argb[0]);
@@ -506,9 +510,84 @@ void JslSetPlayerNumber(int deviceId, int number)
 {
 	SDL_GameControllerSetPlayerIndex(SdlInstance::_inst->_controllerMap[deviceId]->_sdlController, number);
 }
+/*	NO_FULL,
+	NO_SKIP,
+	MAY_SKIP,
+	MUST_SKIP,
+	MAY_SKIP_R,
+	MUST_SKIP_R,
+	NO_SKIP_EXCLUSIVE,
+	X_LT,
+	X_RT,
+	PS_L2 = X_LT,
+	PS_R2 = X_RT,
+	INVALID
 
-void JslSetTriggerRumble(int deviceId, uint16_t left, uint16_t right)
+		constexpr uint16_t small_early_rigid = (1 << 14) | (17 << 7); // Rigid mode, pos 17/127
+		constexpr uint16_t small_start_pulse = (1 << 14) | 20; // handle trigger threshold
+		constexpr uint16_t large_late_pulse = (2 << 14) | (72 << 7) | 80;
+		constexpr uint16_t large_early_rigid = (1 << 14) | (17 << 7) | 127;
+		constexpr uint16_t too_late_pulse = (2 << 14) | (127 << 7) | 127;
+	*/
+
+void JslSetLeftTriggerEffect(int deviceId, int triggerEffect)
 {
-	SdlInstance::_inst->_controllerMap[deviceId]->_left_trigger_rumble = left;
-	SdlInstance::_inst->_controllerMap[deviceId]->_right_trigger_rumble = right;
+	switch (triggerEffect)
+	{
+	case small_early_rigid:
+		SdlInstance::_inst->_controllerMap[deviceId]->_left_trigger_effect.mode = SDL_JOYSTICK_TRIGGER_RIGID;
+		SdlInstance::_inst->_controllerMap[deviceId]->_left_trigger_effect.u_data.mode_rigid.start = 35;
+		SdlInstance::_inst->_controllerMap[deviceId]->_left_trigger_effect.u_data.mode_rigid.strength = 255;
+		break;
+	case small_early_pulse:
+		SdlInstance::_inst->_controllerMap[deviceId]->_left_trigger_effect.mode = SDL_JOYSTICK_TRIGGER_RIGID;
+		SdlInstance::_inst->_controllerMap[deviceId]->_left_trigger_effect.u_data.mode_rigid.start = 45;
+		SdlInstance::_inst->_controllerMap[deviceId]->_left_trigger_effect.u_data.mode_rigid.strength = 75;
+		break;
+	case large_late_pulse:
+		SdlInstance::_inst->_controllerMap[deviceId]->_left_trigger_effect.mode = SDL_JOYSTICK_TRIGGER_PULSE;
+		SdlInstance::_inst->_controllerMap[deviceId]->_left_trigger_effect.u_data.mode_pulse.start = 144;
+		SdlInstance::_inst->_controllerMap[deviceId]->_left_trigger_effect.u_data.mode_pulse.end = 160;
+		SdlInstance::_inst->_controllerMap[deviceId]->_left_trigger_effect.u_data.mode_pulse.strength = 255;
+		break;
+	case large_early_rigid:
+		SdlInstance::_inst->_controllerMap[deviceId]->_left_trigger_effect.mode = SDL_JOYSTICK_TRIGGER_RIGID;
+		SdlInstance::_inst->_controllerMap[deviceId]->_left_trigger_effect.u_data.mode_rigid.start = 45;
+		SdlInstance::_inst->_controllerMap[deviceId]->_left_trigger_effect.u_data.mode_rigid.strength = 255;
+		break;
+	default:
+		SdlInstance::_inst->_controllerMap[deviceId]->_left_trigger_effect.mode = SDL_JOYSTICK_TRIGGER_NO_EFFECT;
+		break;
+	}
+}
+
+void JslSetRightTriggerEffect(int deviceId, int triggerEffect)
+{
+	switch (triggerEffect)
+	{
+	case small_early_rigid:
+		SdlInstance::_inst->_controllerMap[deviceId]->_right_trigger_effect.mode = SDL_JOYSTICK_TRIGGER_RIGID;
+		SdlInstance::_inst->_controllerMap[deviceId]->_right_trigger_effect.u_data.mode_rigid.start = 35;
+		SdlInstance::_inst->_controllerMap[deviceId]->_right_trigger_effect.u_data.mode_rigid.strength = 255;
+		break;
+	case small_early_pulse:
+		SdlInstance::_inst->_controllerMap[deviceId]->_right_trigger_effect.mode = SDL_JOYSTICK_TRIGGER_RIGID;
+		SdlInstance::_inst->_controllerMap[deviceId]->_right_trigger_effect.u_data.mode_rigid.start = 45;
+		SdlInstance::_inst->_controllerMap[deviceId]->_right_trigger_effect.u_data.mode_rigid.strength = 75;
+		break;
+	case large_late_pulse:
+		SdlInstance::_inst->_controllerMap[deviceId]->_right_trigger_effect.mode = SDL_JOYSTICK_TRIGGER_PULSE;
+		SdlInstance::_inst->_controllerMap[deviceId]->_right_trigger_effect.u_data.mode_pulse.start = 144;
+		SdlInstance::_inst->_controllerMap[deviceId]->_right_trigger_effect.u_data.mode_pulse.end = 160;
+		SdlInstance::_inst->_controllerMap[deviceId]->_right_trigger_effect.u_data.mode_pulse.strength = 255;
+		break;
+	case large_early_rigid:
+		SdlInstance::_inst->_controllerMap[deviceId]->_right_trigger_effect.mode = SDL_JOYSTICK_TRIGGER_RIGID;
+		SdlInstance::_inst->_controllerMap[deviceId]->_right_trigger_effect.u_data.mode_rigid.start = 45;
+		SdlInstance::_inst->_controllerMap[deviceId]->_right_trigger_effect.u_data.mode_rigid.strength = 255;
+		break;
+	default:
+		SdlInstance::_inst->_controllerMap[deviceId]->_right_trigger_effect.mode = SDL_JOYSTICK_TRIGGER_NO_EFFECT;
+		break;
+	}
 }

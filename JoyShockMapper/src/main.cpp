@@ -1111,7 +1111,8 @@ public:
 			virtual_controller = ControllerScheme::NONE;
 		}
 		JslSetLightColour(handle, getSetting<Color>(SettingID::LIGHT_BAR).raw);
-		JslSetTriggerRumble(handle, 0, 0);
+		JslSetRightTriggerEffect(handle, -1);
+		JslSetLeftTriggerEffect(handle, -1);
 		for (int i = 0; i < MAX_NO_OF_TOUCH; ++i)
 		{
 			touchpads.push_back(TouchStick(i, btnCommon, handle, &motion));
@@ -1610,11 +1611,6 @@ public:
 			// Override local variable because the controller has digital triggers. Effectively ignore Full Pull binding.
 			mode = TriggerMode::NO_FULL;
 		}
-		constexpr uint16_t small_early_rigid = (1 << 14) | (17 << 7); // Rigid mode, pos 17/127
-		constexpr uint16_t small_start_pulse = (1 << 14) | 20; // handle trigger threshold
-		constexpr uint16_t large_late_pulse = (2 << 14) | (72 << 7) | 80;
-		constexpr uint16_t large_early_rigid = (1 << 14) | (17 << 7) | 127;
-		constexpr uint16_t too_late_pulse = (2 << 14) | (127 << 7) | 127;
 
 		if (mode == TriggerMode::X_LT)
 		{
@@ -1652,7 +1648,7 @@ public:
 		{
 		case DstState::NoPress:
 			// It actually doesn't matter what the last Press is. Theoretically, we could have missed the edge.
-			trigger_rumble = small_start_pulse;
+			trigger_rumble = small_early_pulse;
 			if (isSoftPullPressed(idxState, position))
 			{
 				if (mode == TriggerMode::MAY_SKIP || mode == TriggerMode::MUST_SKIP)
@@ -1679,7 +1675,7 @@ public:
 			}
 			break;
 		case DstState::PressStart:
-			trigger_rumble = position < 0.35 ? too_late_pulse : large_late_pulse;
+			trigger_rumble = position < 0.55 ? too_late_pulse : large_late_pulse;
 			if (!isSoftPullPressed(idxState, position))
 			{
 				// Trigger has been quickly tapped on the soft press
@@ -1702,7 +1698,7 @@ public:
 			// Else, time passes as soft press is being held, waiting to see if the soft binding should be skipped
 			break;
 		case DstState::PressStartResp:
-			trigger_rumble = position < 0.35 ? too_late_pulse : large_late_pulse;
+			trigger_rumble = position < 0.55 ? too_late_pulse : large_late_pulse;
 			if (!isSoftPullPressed(idxState, position))
 			{
 				// Soft press is being released
@@ -1727,7 +1723,7 @@ public:
 			break;
 		case DstState::QuickSoftTap:
 			// Soft trigger is already released. Send release now!
-			trigger_rumble = small_start_pulse; // handle trigger threshold
+			trigger_rumble = small_early_pulse; // handle trigger threshold
 			triggerState[idxState] = DstState::NoPress;
 			handleButtonChange(softIndex, false);
 			break;
@@ -1765,7 +1761,7 @@ public:
 				// Soft press is being released
 				triggerState[idxState] = DstState::NoPress;
 				handleButtonChange(softIndex, false);
-				trigger_rumble = small_start_pulse;
+				trigger_rumble = small_early_pulse;
 			}
 			else // Soft Press is being held
 			{
@@ -3013,7 +3009,8 @@ void joyShockPollCallback(int jcHandle, JOY_SHOCK_STATE state, JOY_SHOCK_STATE l
 		rumble_right = jc->handleTriggerChange(ButtonID::ZR, ButtonID::ZRF, jc->getSetting<TriggerMode>(SettingID::ZR_MODE), rTrigger);
 	}
 
-	JslSetTriggerRumble(jc->handle, rumble_left, rumble_right);
+	JslSetRightTriggerEffect(jc->handle, rumble_right);
+	JslSetLeftTriggerEffect(jc->handle, rumble_left);
 
 	// Handle buttons before GYRO because some of them may affect the value of blockGyro
 	auto gyro = jc->getSetting<GyroSettings>(SettingID::GYRO_ON); // same result as getting GYRO_OFF
@@ -4010,23 +4007,6 @@ int main(int argc, char *argv[])
 	commandRegistry.Add((new JSMAssignment<TriggerMode>(touch_ds_mode))
 	                      ->SetHelp("Dual stage mode for the touchpad TOUCH and CAPTURE (i.e. click) bindings."));
 	commandRegistry.Add((new JSMMacro("CLEAR"))->SetMacro(bind(&ClearConsole))->SetHelp("Removes all text in the console screen"));
-
-	commandRegistry.Add((new JSMMacro("TRIG"))->SetMacro([] (JSMMacro *, in_string arg)
-	{
-		constexpr uint16_t SEVEN_BITS_MAX = (1 << 7) -1;
-		constexpr uint16_t US_ZERO = 0;
-		uint16_t mode, pos, str;
-		stringstream ss(arg);
-		ss >> mode >> pos >> str;
-		mode = clamp(mode, US_ZERO, uint16_t(2)) << 14;
-		pos = clamp(pos, US_ZERO, SEVEN_BITS_MAX) << 7;
-		str = clamp(str, US_ZERO, SEVEN_BITS_MAX);
-		for (auto handle : handle_to_joyshock)
-		{
-			JslSetTriggerRumble(handle.first, mode | pos | str, mode | pos | str);
-		}
-		return true;
-	})->SetHelp("Removes all text in the console screen"));
 
 	bool quit = false;
 	commandRegistry.Add((new JSMMacro("QUIT"))

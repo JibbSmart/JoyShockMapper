@@ -76,6 +76,16 @@
 #define DS5_PLAYER_4 = 27
 #define DS5_PLAYER_5 = 31
 
+enum triggerEffect
+{
+	none,
+	too_late_pulse = none,
+	small_early_rigid,
+	small_early_pulse,
+	large_late_pulse,
+	large_early_rigid,
+};
+
 typedef struct JOY_SHOCK_STATE {
 	int buttons;
 	float lTrigger;
@@ -211,4 +221,5 @@ extern "C" JOY_SHOCK_API void JslSetRumble(int deviceId, int smallRumble, int bi
 // set controller player number indicator (not all controllers have a number indicator which can be set, but that just means nothing will be done when this is called -- no harm)
 extern "C" JOY_SHOCK_API void JslSetPlayerNumber(int deviceId, int number);
 
-extern "C" JOY_SHOCK_API void JslSetTriggerRumble(int deviceId, unsigned short left, unsigned short right);
+extern "C" JOY_SHOCK_API void JslSetLeftTriggerEffect(int deviceId, int triggerMode);
+extern "C" JOY_SHOCK_API void JslSetRightTriggerEffect(int deviceId, int triggerMode);
