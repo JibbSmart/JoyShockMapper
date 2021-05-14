@@ -4,6 +4,41 @@
 #include "PlatformDefinitions.h"
 #include "InputHelpers.h"
 
+template<std::ostream *stdio, uint16_t color>
+class ColorStream : public stringbuf
+{
+public:
+	ColorStream() { }
+	// print the string on the stdio
+	virtual ~ColorStream()
+	{
+		std::lock_guard<std::mutex> guard(print_mutex);
+		HANDLE hStdout = GetStdHandle(STD_ERROR_HANDLE);
+		SetConsoleTextAttribute(hStdout, color);
+		(*stdio) << str();
+		SetConsoleTextAttribute(hStdout, DEFAULT_COLOR);
+	}
+};
+
+streambuf *Log::makeBuffer(Level level)
+{
+	switch (level)
+	{
+	case Level::ERR:
+		return new ColorStream<&std::cerr, FOREGROUND_RED | FOREGROUND_INTENSITY>();
+	case Level::WARN:
+		return new ColorStream<&cout, FOREGROUND_YELLOW | FOREGROUND_INTENSITY>();
+	case Level::INFO:
+		return new ColorStream<&cout, FOREGROUND_BLUE | FOREGROUND_INTENSITY>();
+	case Level::UT:
+		return new NullBuffer(); // unused
+	case Level::BOLD:
+		return new ColorStream<&cout, FOREGROUND_GREEN | FOREGROUND_INTENSITY>();
+	default:
+		return new ColorStream<&std::cout, FOREGROUND_GREEN>();
+	}
+}
+
 const char *AUTOLOAD_FOLDER()
 {
 	return _strdup((GetCWD() + "\\AutoLoad\\").c_str());

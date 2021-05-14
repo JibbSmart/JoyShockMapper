@@ -3,6 +3,27 @@
 Most recent updates will appear first.
 This is a summary of new features and bugfixes. Read the README to learn how to use the features mentioned here.
 
+## 3.0.3
+
+Dualsense Adaptive trigger support, MIC button support
+DS and DS4 touchpad support. See features below
+HidHide support and improved error logs
+Tons of refactoring and code improvements in preparation for unit tests
+
+### Features
+
+* Touchpad mouse, grid (1-25 buttons) and stick available
+* New settings related to touchpad features
+  * TOUCHPAD_MODE sets to either MOUSE or GRID_AND_STICK
+  * GRID_SIZE takes rows and colums (max grid 25 buttons)
+  * TOUCH_STICK_MODE is a regular stick mode for a touch stick
+  * TOUCH_STICK_DEADZONE_INNER, TOUCH_STICK_RADIUS, TOUCH_RING_MODE
+  * TOUCHPAD_SENS controls the mouse mode sensitivity
+  * Pinching and rotation gesture binding
+* New MIC binding used by DS only
+* Dualsense applies adaptive trigger setting based on trigger mode and state
+* HidHide support: hidhide remembers applications, so you don't need to add to whitelist at every start
+
 ## 3.0.2
 
 Reverting blocked key presses and bugfix

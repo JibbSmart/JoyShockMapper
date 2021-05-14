@@ -1,6 +1,7 @@
 #pragma once
 
 #include "JoyShockMapper.h"
+#include "Mapping.h"
 #include <sstream>
 
 // Global ID generator
@@ -16,7 +17,7 @@ class JSMVariable
 {
 public:
 	// A listener function receives the new value as parameter.
-	typedef function<void(T newVal)> OnChangeDelegate;
+	typedef function<void(const T &newVal)> OnChangeDelegate;
 
 	// A filter function needs to return the value to be assigned.
 	// It is given the current value and the next value that wishes to be assigned.

@@ -110,7 +110,7 @@ class GamepadImpl : public Gamepad
 public:
 	GamepadImpl(ControllerScheme scheme, Callback notification);
 	virtual ~GamepadImpl();
-	virtual bool isInitialized(std::string* errorMsg = nullptr) override;
+	virtual bool isInitialized(std::string *errorMsg = nullptr) override;
 	virtual void setButton(KeyCode btn, bool pressed) override;
 	virtual void setLeftStick(float x, float y) override;
 	virtual void setRightStick(float x, float y) override;
@@ -157,7 +157,7 @@ void GamepadImpl::x360Notification(
 	uint8_t ledNumber,
 	void* userData)
 {
-	auto originator = static_cast<GamepadImpl*>(userData);
+	auto originator = static_cast<GamepadImpl *>(userData);
 	if (client == VigemClient::get() && originator && originator->_gamepad == target && originator->_notification)
 	{
 		Indicator indicator;
@@ -174,7 +174,7 @@ void GamepadImpl::ds4Notification(
 	Indicator lightbarColor,
 	void* userData)
 {
-	auto originator = static_cast<GamepadImpl*>(userData);
+	auto originator = static_cast<GamepadImpl *>(userData);
 	if (client == VigemClient::get() && originator && originator->_gamepad == target && originator->_notification)
 	{
 		originator->_notification(largeMotor, smallMotor, lightbarColor);
@@ -182,9 +182,9 @@ void GamepadImpl::ds4Notification(
 }
 
 GamepadImpl::GamepadImpl(ControllerScheme scheme, Callback notification)
-	: _stateX360(new XUSB_REPORT)
-	, _stateDS4(new DS4_REPORT)
-	, _notification(notification)
+  : _stateX360(new XUSB_REPORT)
+  , _stateDS4(new DS4_REPORT)
+  , _notification()
 {
 	XUSB_REPORT_INIT(_stateX360.get());
 	DS4_REPORT_INIT(_stateDS4.get());
@@ -288,7 +288,7 @@ void GamepadImpl::init_ds4()
 	}
 }
 
-bool GamepadImpl::isInitialized(std::string* errorMsg)
+bool GamepadImpl::isInitialized(std::string *errorMsg)
 {
 	if (!_errorMsg.empty() && errorMsg != nullptr)
 	{
@@ -721,7 +721,7 @@ void GamepadImpl::update()
 	}
 }
 
-Gamepad* Gamepad::getNew(ControllerScheme scheme, Callback notification)
+Gamepad *Gamepad::getNew(ControllerScheme scheme, Callback notification)
 {
 	return new GamepadImpl(scheme, notification);
 }

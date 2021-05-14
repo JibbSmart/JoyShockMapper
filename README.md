@@ -41,7 +41,7 @@ JoyShockMapper is primarily developed on Windows. JoyShockMapper should now be a
     * **[DS4 bindings](#62-ds4-bindings)**
   * **[Modeshifts](#7-modeshifts)**
   * **[Touchpad](#8-touchpad)**
-    * **[Touch Sticks](#81-touch-stick)**
+    * **[Touch Sticks](#81-touch-sticks)**
   * **[Miscellaneous Commands](#9-miscellaneous-commands)**
 * **[Configuration Files](#configuration-files)**
   * **[OnStartup.txt](#1-onstartuptxt)**
@@ -201,6 +201,7 @@ MUP, MDOWN, MLEFT, MRIGHT: Motion stick tilted forward, back, left or right
 MRING: Motion ring binding, either inner or outer.
 LEAN_LEFT, LEAN_RIGHT: Tilt the controller to the left or right
 TOUCH : The Playstation touchpad senses a finger
+MIC: The Sony Dualsense microphone button
 ```
 
 These can all be mapped to the following keyboard and mouse inputs:
@@ -817,11 +818,11 @@ ZLF,GYRO_OFF = NONE      # oops undo
 
 ### 8. Touchpad
 
-The touchpad always offers the ```TOUCH``` button binding. It will be pressed if there is any touch point active. This binding will overlap with other touch buttons and can be useful to disable gyro for example, or bring up the game map.
+The touchpad always offers the ```TOUCH``` button binding. It will be pressed if there is any touch point active. This binding will overlap with other touch buttons and can be useful to disable gyro for example, or bring up the game map. There is also a dual stage mode setting for the touchpad touch and click: ```TOUCHPAD_DUAL_STAGE_MODE``` which can be any mode explained in the analog triggers, where CAPTURE is the full press or click and TOUCH is the soft press. The default setting is NO_SKIP.
 
-The most important setting for the touchpad is simply ```TOUCHPAD_MODE``` which will determine the primary functionality of the touchpad. Here are th possible values:
+The most important setting for the touchpad is simply ```TOUCHPAD_MODE``` which will determine the primary functionality of the touchpad. Here are two possible values:
 * **GRID_AND_STICK** - Grid And Stick will create a button grid of equally sized buttons on the touch pad. You have to also assign to ```GRID_SIZE``` the number of columns and rows of the grid : the product of the two cannot be greater than 25 or lesser than 1. Touch buttons T1-TN will then become available for assignment: they are layed out in order from left to right, from top to bottom. There are also two touchsticks available. See below.
-* **MOUSE** - Mouse mode turns the touchpad into a familiar laptop touchpad. Sensitivity can be adjusted via ```TOUCHPAD_SENS```. Using two fingers you can rotate to trigger TLEFT and TRIGHT bindings like a scroll wheel ; you can also pinch to trigger TUP and TDOWN and use the vertical value of ```SCROLL_SENS```. More gestures will be added to this mode in a future release such as double touch. Taps and double taps are already usable via ```TOUCH```.
+* **MOUSE** - Mouse mode turns the touchpad into a familiar laptop touchpad. Sensitivity can be adjusted via ```TOUCHPAD_SENS```. Using two fingers you can rotate to trigger TLEFT and TRIGHT bindings like a scroll wheel ; you can also pinch to trigger TUP and TDOWN and use the vertical value of ```SCROLL_SENS```. More gestures will be added to this mode in future releases. Taps and double taps are already usable via ```TOUCH```.
 
 Here's an example of grid usage to add some more buttons that otherwise would not be worth putting on a controller
 ```
@@ -840,7 +841,7 @@ Or a typical touchapd in cursor mode
 TOUCHPAD_MODE = MOUSE
 TOUCH = LMOUSE'	           # Quick tap means select
 TOUCH,TOUCH = RMOUSE       # Double tap for right click
-CAPTURE = ^LMOUSE          # Or click pad to toggle click (dragging)
+CAPTURE = LMOUSE ^LMOUSE   # Or click pad to toggle click (dragging)
 TUP = CONTROL\ SCROLLDOWN\ # Zoom in when stretching outward
 TDOWN = CONTROL\ SCROLLUP\ # Zoom out when pinching inward
 TRIGHT = SCROLLDOWN        # Rotate clockwise to scroll down

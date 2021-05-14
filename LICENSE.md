@@ -14,7 +14,8 @@ This software also uses the following libraries, which are also covered by the M
 * Neargye's magic_enum (Magic Enum C++), Copyright (c) 2019 - 2020 Daniil Goncharov: https://github.com/Neargye/magic_enum
 * iPenguin's version_git: https://github.com/iPenguin/version_git
 * Nefarius's ViGEm Client: https://github.com/ViGEm/ViGEmClient
-
+* Electronicks' Pocket_FSM: https://github.com/Electronicks/pocket_fsm
+* Jibb's GamepadMotionHelpers: https://github.com/JibbSmart/GamepadMotionHelpers
 ---
 
 Some versions of this software link to (and include compiled binaries of) Jibb's JoyShockLibrary (Copyright 2018-2021, Julian Smart), which is also covered by the same MIT license, with the same permissions and disclaimers. JoyShockLibrary incorporates some work from the following projects and their copyright holders, all also covered by the same MIT license, with the same permissions and disclaimers:

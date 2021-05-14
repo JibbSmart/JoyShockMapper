@@ -1,6 +1,7 @@
 #pragma once
 
 #include "PlatformDefinitions.h"
+#include "TrayIcon.h"
 
 #include <algorithm>
 #include <functional>
@@ -14,12 +15,9 @@
 #include <gtk/gtk.h>
 #include <libappindicator/app-indicator.h>
 
-class StatusNotifierItem
+class StatusNotifierItem : public TrayIcon
 {
 private:
-	using ClickCallbackType = std::function<void()>;
-	using ClickCallbackTypeChecked = std::function<void(bool)>;
-	using StateCallbackType = std::function<bool()>;
 
 public:
 	using StringType = std::string;
@@ -29,18 +27,18 @@ public:
 	~StatusNotifierItem();
 
 public:
-	bool Show();
-	bool Hide();
+	bool Show() override;
+	bool Hide() override;
 
-	bool SendNotification(const StringType &message);
+	bool SendNotification(const StringType &message) override;
 
-	void AddMenuItem(const std::string &label, ClickCallbackType &&onClick);
-	void AddMenuItem(const std::string &label, ClickCallbackTypeChecked &&onClick, StateCallbackType &&getState);
-	void AddMenuItem(const std::string &label, const std::string &subLabel, ClickCallbackType &&onClick);
+	void AddMenuItem(const std::string &label, ClickCallbackType &&onClick) override;
+	void AddMenuItem(const std::string &label, ClickCallbackTypeChecked &&onClick, StateCallbackType &&getState) override;
+	void AddMenuItem(const std::string &label, const std::string &subLabel, ClickCallbackType &&onClick) override;
 
-	void ClearMenuMap();
+	void ClearMenuMap() override;
 
-	operator bool();
+	operator bool() override;
 
 private:
 	static void OnActivate(GtkMenuItem *item, void *data) noexcept;

@@ -1,5 +1,5 @@
 #pragma once
-
+#include "TrayIcon.h"
 #include <Windows.h>
 #include <shellapi.h>
 
@@ -11,7 +11,7 @@
 
 struct MenuItem;
 
-class WindowsTrayIcon
+class WindowsTrayIcon : public TrayIcon
 {
 	HINSTANCE _hInst;       // current instance
 	NOTIFYICONDATA _niData; // notify icon data
@@ -26,7 +26,7 @@ public:
 
 	~WindowsTrayIcon();
 
-	inline operator bool()
+	operator bool() override
 	{
 		return _hInst != 0 && _thread != 0;
 	}
@@ -38,23 +38,23 @@ public:
 		return inst == _hInst;
 	}
 
-	inline bool Show()
+	bool Show() override
 	{
 		return Shell_NotifyIcon(NIM_ADD, &_niData) != FALSE;
 	}
 
-	inline bool Hide()
+	bool Hide() override
 	{
 		return Shell_NotifyIcon(NIM_DELETE, &_niData) != FALSE;
 	}
 
-	bool SendToast(std::wstring message);
+	bool SendNotification(const std::wstring &message) override;
 
-	void AddMenuItem(const std::wstring &label, std::function<void()> onClick);
+	void AddMenuItem(const std::wstring &label, ClickCallbackType &&onClick) override;
 
-	void AddMenuItem(const std::wstring &label, std::function<void(bool)> onClick, std::function<bool()> getState);
+	void AddMenuItem(const std::wstring &label, ClickCallbackTypeChecked &&onClick, StateCallbackType &&getState) override;
 
-	void AddMenuItem(const std::wstring &label, const std::wstring &sublabel, std::function<void()> onClick);
+	void AddMenuItem(const std::wstring &label, const std::wstring &sublabel, ClickCallbackType &&onClick) override;
 
 	void ClearMenuMap();
 

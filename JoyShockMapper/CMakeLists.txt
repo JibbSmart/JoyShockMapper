@@ -19,6 +19,9 @@ add_executable (
     src/CmdRegistry.cpp
     src/quatMaths.cpp
     src/ButtonHelp.cpp
+ 	src/DigitalButton.cpp
+	src/GamepadMotion.cpp
+	src/Mapping.cpp
     include/InputHelpers.h
     include/PlatformDefinitions.h
     include/TrayIcon.h
@@ -29,8 +32,11 @@ add_executable (
     include/Whitelister.h
     include/JoyShockMapper.h
     include/ColorCodes.h
-    include/GamepadMotion.hpp
+    include/GamepadMotion.h
 	include/Gamepad.h
+	include/DigitalButton.h
+	include/JslWrapper.h
+	include/Mapping.h
 )
 
 if (WINDOWS)
@@ -48,7 +54,13 @@ if (WINDOWS)
     if(SDL)
         target_sources (
             ${BINARY_NAME} PRIVATE
-            src/SDL2Wrapper.cpp              include/JoyShockLibrary.h
+            src/SDL2Wrapper.cpp
+		)
+		add_definitions(-DSDL2)
+	else()
+	        target_sources (
+            ${BINARY_NAME} PRIVATE
+            src/JslWrapper.cpp
 		)
     endif()
 
@@ -160,7 +172,7 @@ else()
 	# JoyShockLibrary
 	CPMAddPackage (
 		NAME JoyShockLibrary
-		GITHUB_REPOSITORY Electronicks/JoyShockLibrary
+		GITHUB_REPOSITORY JibbSmart/JoyShockLibrary
 		GIT_TAG 0
 	)
 
@@ -188,4 +200,17 @@ target_link_libraries (
     ${BINARY_NAME} PRIVATE
     Platform::Dependencies
     magic_enum
+)
+
+# pocket_fsm
+CPMAddPackage (
+    NAME pocket_fsm
+    GITHUB_REPOSITORY Electronicks/pocket_fsm
+    GIT_TAG HFSM
+)
+
+target_link_libraries (
+    ${BINARY_NAME} PRIVATE
+    Platform::Dependencies
+    pocket_fsm
 )

@@ -9,6 +9,7 @@
 #include <utility>
 #include <vector>
 #include <atomic>
+#include <thread>
 
 // get the user's mouse sensitivity multiplier from the user. In Windows it's an int, but who cares? it's well within range for float to represent it exactly
 // also, if this is ported to other platforms, we might want non-integer sensitivities
@@ -86,10 +87,9 @@ public:
 	  DWORD pollPeriodMs,
 	  bool startNow)
 	  : _label(label)
-	  , _thread{ 0 }
+	  , _thread()
 	  , _loopContent(loopContent)
 	  , _sleepTimeMs(pollPeriodMs)
-	  , _tid(0)
 	  , _funcParam(funcParam)
 	  , _continue(false)
 	{
@@ -97,14 +97,35 @@ public:
 			Start();
 	}
 
-	~PollingThread();
+	~PollingThread()
+	{
+		if (_thread && _continue)
+		{
+			Stop();
+			_thread->join();
+			_thread.reset();
+		}
+		// Let poll function cleanup
+	}
 
 	inline operator bool()
 	{
-		return _thread != 0;
+		return _thread != nullptr;
 	}
 
-	bool Start();
+	bool Start()
+	{
+		if (_thread && !_continue) // thread is running but hasn't stopped yet
+		{
+			std::this_thread::sleep_for(std::chrono::milliseconds{ _sleepTimeMs });
+		}
+		if (!_thread) // thread is clear
+		{
+			_continue = true;
+			_thread.reset(new thread(&PollingThread::pollFunction, this));
+		}
+		return isRunning();
+	}
 
 	inline bool Stop()
 	{
@@ -120,13 +141,25 @@ public:
 	const char *_label;
 
 private:
-	static DWORD WINAPI pollFunction(LPVOID param);
+	static DWORD WINAPI pollFunction(LPVOID param)
+	{
+		auto workerThread = static_cast<PollingThread *>(param);
+		if (workerThread)
+		{
+			while (workerThread->_continue && workerThread->_loopContent(workerThread->_funcParam))
+			{
+				this_thread::sleep_for(
+				  std::chrono::milliseconds{ workerThread->_sleepTimeMs });
+			}
+		}
+
+		return 0;
+	}
 
 private:
-	HANDLE _thread;
+	unique_ptr<thread> _thread;
 	std::function<bool(void *)> _loopContent;
-	DWORD _sleepTimeMs;
-	DWORD _tid;
+	uint64_t _sleepTimeMs;
 	void *_funcParam;
 	std::atomic_bool _continue;
 };

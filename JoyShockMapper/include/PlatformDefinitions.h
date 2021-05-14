@@ -14,20 +14,6 @@ constexpr uint16_t DEFAULT_COLOR = FOREGROUND_RED | FOREGROUND_GREEN | FOREGROUN
 
 static std::mutex print_mutex;
 
-template<std::ostream *stdio, uint16_t color>
-struct ColorStream : public std::stringstream
-{
-	// print the string on the stdio
-	~ColorStream()
-	{
-		std::lock_guard<std::mutex> guard(print_mutex);
-		HANDLE hStdout = GetStdHandle(STD_ERROR_HANDLE);
-		SetConsoleTextAttribute(hStdout, color);
-		(*stdio) << str();
-		SetConsoleTextAttribute(hStdout, DEFAULT_COLOR);
-	}
-};
-
 #define U(string) L##string
 
 using TrayIconData = HINSTANCE;
