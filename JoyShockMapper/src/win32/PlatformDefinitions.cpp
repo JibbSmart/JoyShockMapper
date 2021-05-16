@@ -30,8 +30,13 @@ streambuf *Log::makeBuffer(Level level)
 		return new ColorStream<&cout, FOREGROUND_YELLOW | FOREGROUND_INTENSITY>();
 	case Level::INFO:
 		return new ColorStream<&cout, FOREGROUND_BLUE | FOREGROUND_INTENSITY>();
+#if defined(NDEBUG) // release
 	case Level::UT:
 		return new NullBuffer(); // unused
+#else
+	case Level::UT:
+		return new ColorStream<&cout, FOREGROUND_BLUE>();
+#endif
 	case Level::BOLD:
 		return new ColorStream<&cout, FOREGROUND_GREEN | FOREGROUND_INTENSITY>();
 	default:

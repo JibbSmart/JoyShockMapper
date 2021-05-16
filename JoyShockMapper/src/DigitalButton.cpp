@@ -265,7 +265,7 @@ class ActiveHoldPress;
 void DigitalButtonState::react(OnEntry &e)
 {
 	// Uncomment below to diplay a log each time a button changes state
-	DEBUG << "Button " << pimpl()->_id << " is now in state " << _name << endl;
+	DEBUG_LOG << "Button " << pimpl()->_id << " is now in state " << _name << endl;
 }
 
 // Basic Press reaction should be called in every concrete Press reaction

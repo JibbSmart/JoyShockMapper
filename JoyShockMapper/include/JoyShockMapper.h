@@ -612,7 +612,7 @@ public:
 #define COUT Log(Log::Level::BASE)._str
 #define COUT_INFO Log(Log::Level::INFO)._str
 #define COUT_WARN Log(Log::Level::WARN)._str
-#define DEBUG Log(Log::Level::UT)._str
+#define DEBUG_LOG Log(Log::Level::UT)._str
 #define COUT_BOLD Log(Log::Level::BOLD)._str
 
 bool do_RECONNECT_CONTROLLERS(in_string arguments);

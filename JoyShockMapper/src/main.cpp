@@ -95,7 +95,7 @@ JSMVariable<Switch> autoloadSwitch = JSMVariable<Switch>(Switch::ON);
 JSMVariable<FloatXY> grid_size = JSMVariable(FloatXY{ 2.f, 1.f }); // Default left side and right side button
 JSMSetting<TouchpadMode> touchpad_mode = JSMSetting<TouchpadMode>(SettingID::TOUCHPAD_MODE, TouchpadMode::GRID_AND_STICK);
 JSMSetting<StickMode> touch_stick_mode = JSMSetting<StickMode>(SettingID::TOUCH_STICK_MODE, StickMode::NO_MOUSE);
-JSMSetting<float> touch_stick_radius = JSMSetting<float>(SettingID::TOUCH_STICK_RADIUS, 100.f);
+JSMSetting<float> touch_stick_radius = JSMSetting<float>(SettingID::TOUCH_STICK_RADIUS, 300.f);
 JSMSetting<float> touch_deadzone_inner = JSMSetting<float>(SettingID::TOUCH_DEADZONE_INNER, 0.3f);
 JSMSetting<RingMode> touch_ring_mode = JSMSetting<RingMode>(SettingID::TOUCH_RING_MODE, RingMode::OUTER);
 JSMSetting<FloatXY> touchpad_sens = JSMSetting<FloatXY>(SettingID::TOUCHPAD_SENS, { 1.f, 1.f });
@@ -179,12 +179,12 @@ public:
 
 	void ProcessScroll(float distance, float sens, chrono::steady_clock::time_point now)
 	{
-		if (!_negativeButton || !_negativeButton)
+		if (!_negativeButton || !_positiveButton)
 			return; // not initalized!
 
 		_leftovers += distance;
 		if (distance != 0)
-			COUT << " leftover is now " << _leftovers << endl;
+			DEBUG_LOG << " leftover is now " << _leftovers << endl;
 		//"[" << _negativeId << "," << _positiveId << "] moved " << distance << " so that
 
 		Pressed isPressed;
@@ -915,9 +915,9 @@ public:
 private:
 	DigitalButton *GetButton(ButtonID index, int touchpadIndex = -1)
 	{
-		DigitalButton *button = index < ButtonID::SIZE           ? &buttons[int(index)] :
-		  touchpadIndex >= 0 && touchpadIndex < touchpads.size() ? &touchpads[touchpadIndex].buttons[int(index) - FIRST_TOUCH_BUTTON] :
-		  index >= ButtonID::T1                                  ? &gridButtons[int(index) - int(ButtonID::T1)] :
+		DigitalButton *button = index < ButtonID::SIZE             ? &buttons[int(index)] :
+		  touchpadIndex >= 0 && touchpadIndex < touchpads.size()   ? &touchpads[touchpadIndex].buttons[int(index) - FIRST_TOUCH_BUTTON] :
+		  index >= ButtonID::T1                                    ? &gridButtons[int(index) - int(ButtonID::T1)] :
                                                                    throw exception("What index is this?");
 		return button;
 	}
@@ -1132,7 +1132,7 @@ public:
 				else // NO_FULL, MUST_SKIP and MUST_SKIP_R
 				{
 					handleButtonChange(softIndex, true);
-					trigger_rumble = too_late_pulse;
+					trigger_rumble = large_early_rigid;
 				}
 			}
 			break;
@@ -1225,7 +1225,7 @@ public:
 		while (gridButtons.size() > noGridBtns)
 			gridButtons.pop_back();
 
-		for (int i = 0; i < noGridBtns; ++i)
+		for (int i = gridButtons.size(); i < noGridBtns; ++i)
 		{
 			JSMButton &map(touch_buttons[i + 5]);
 			gridButtons.push_back(DigitalButton(btnCommon, map));
@@ -2025,7 +2025,7 @@ void TouchCallback(int jcHandle, TOUCH_STATE newState, TOUCH_STATE prevState, fl
 			auto optId = magic_enum::enum_cast<ButtonID>(FIRST_TOUCH_BUTTON + i);
 
 			// JSM can get touch button callbacks before the grid buttons are setup at startup. Just skip then.
-			if (optId)
+			if (optId && js->gridButtons.size() == touch_buttons.size() - 5)
 				js->handleButtonChange(*optId, i == index0 || i == index1);
 		}
 
@@ -2048,10 +2048,10 @@ void TouchCallback(int jcHandle, TOUCH_STATE newState, TOUCH_STATE prevState, fl
 				float oldAngle = atan2f(y, x) / PI * 360;
 				float oldDist = sqrt(x * x + y * y);
 				if (angle != oldAngle)
-					COUT << "Angle went from " << oldAngle << " degrees to " << angle << " degress. Diff is " << angle - oldAngle << " degrees. ";
+					DEBUG_LOG << "Angle went from " << oldAngle << " degrees to " << angle << " degress. Diff is " << angle - oldAngle << " degrees. ";
 				js->touch_scroll_x.ProcessScroll(angle - oldAngle, js->getSetting<FloatXY>(SettingID::SCROLL_SENS).x(), js->time_now);
 				if (dist != oldDist)
-					COUT << "Dist went from " << oldDist << " points to " << dist << " points. Diff is " << dist - oldDist << " points. ";
+					DEBUG_LOG << "Dist went from " << oldDist << " points to " << dist << " points. Diff is " << dist - oldDist << " points. ";
 				js->touch_scroll_y.ProcessScroll(dist - oldDist, js->getSetting<FloatXY>(SettingID::SCROLL_SENS).y(), js->time_now);
 			}
 			else

@@ -515,24 +515,24 @@ public:
 		{
 		case small_early_rigid:
 			_controllerMap[deviceId]->_left_trigger_effect.mode = SDL_JOYSTICK_TRIGGER_RIGID;
-			_controllerMap[deviceId]->_left_trigger_effect.u_data.mode_rigid.start = 35;
-			_controllerMap[deviceId]->_left_trigger_effect.u_data.mode_rigid.strength = 0;
+			_controllerMap[deviceId]->_left_trigger_effect.start = 35;
+			_controllerMap[deviceId]->_left_trigger_effect.strength = 0;
 			break;
 		case small_early_pulse:
 			_controllerMap[deviceId]->_left_trigger_effect.mode = SDL_JOYSTICK_TRIGGER_RIGID;
-			_controllerMap[deviceId]->_left_trigger_effect.u_data.mode_rigid.start = 45;
-			_controllerMap[deviceId]->_left_trigger_effect.u_data.mode_rigid.strength = 75;
+			_controllerMap[deviceId]->_left_trigger_effect.start = 45;
+			_controllerMap[deviceId]->_left_trigger_effect.strength = 75;
 			break;
 		case large_late_pulse:
 			_controllerMap[deviceId]->_left_trigger_effect.mode = SDL_JOYSTICK_TRIGGER_PULSE;
-			_controllerMap[deviceId]->_left_trigger_effect.u_data.mode_pulse.start = 144;
-			_controllerMap[deviceId]->_left_trigger_effect.u_data.mode_pulse.end = 160;
-			_controllerMap[deviceId]->_left_trigger_effect.u_data.mode_pulse.strength = 255;
+			_controllerMap[deviceId]->_left_trigger_effect.start = 144;
+			_controllerMap[deviceId]->_left_trigger_effect.end = 160;
+			_controllerMap[deviceId]->_left_trigger_effect.strength = 255;
 			break;
 		case large_early_rigid:
 			_controllerMap[deviceId]->_left_trigger_effect.mode = SDL_JOYSTICK_TRIGGER_RIGID;
-			_controllerMap[deviceId]->_left_trigger_effect.u_data.mode_rigid.start = 45;
-			_controllerMap[deviceId]->_left_trigger_effect.u_data.mode_rigid.strength = 255;
+			_controllerMap[deviceId]->_left_trigger_effect.start = 45;
+			_controllerMap[deviceId]->_left_trigger_effect.strength = 255;
 			break;
 		default:
 			_controllerMap[deviceId]->_left_trigger_effect.mode = SDL_JOYSTICK_TRIGGER_NO_EFFECT;
@@ -546,24 +546,24 @@ public:
 		{
 		case small_early_rigid:
 			_controllerMap[deviceId]->_right_trigger_effect.mode = SDL_JOYSTICK_TRIGGER_RIGID;
-			_controllerMap[deviceId]->_right_trigger_effect.u_data.mode_rigid.start = 35;
-			_controllerMap[deviceId]->_right_trigger_effect.u_data.mode_rigid.strength = 0;
+			_controllerMap[deviceId]->_right_trigger_effect.start = 35;
+			_controllerMap[deviceId]->_right_trigger_effect.strength = 0;
 			break;
 		case small_early_pulse:
 			_controllerMap[deviceId]->_right_trigger_effect.mode = SDL_JOYSTICK_TRIGGER_RIGID;
-			_controllerMap[deviceId]->_right_trigger_effect.u_data.mode_rigid.start = 45;
-			_controllerMap[deviceId]->_right_trigger_effect.u_data.mode_rigid.strength = 75;
+			_controllerMap[deviceId]->_right_trigger_effect.start = 45;
+			_controllerMap[deviceId]->_right_trigger_effect.strength = 75;
 			break;
 		case large_late_pulse:
 			_controllerMap[deviceId]->_right_trigger_effect.mode = SDL_JOYSTICK_TRIGGER_PULSE;
-			_controllerMap[deviceId]->_right_trigger_effect.u_data.mode_pulse.start = 144;
-			_controllerMap[deviceId]->_right_trigger_effect.u_data.mode_pulse.end = 160;
-			_controllerMap[deviceId]->_right_trigger_effect.u_data.mode_pulse.strength = 255;
+			_controllerMap[deviceId]->_right_trigger_effect.start = 144;
+			_controllerMap[deviceId]->_right_trigger_effect.end = 160;
+			_controllerMap[deviceId]->_right_trigger_effect.strength = 255;
 			break;
 		case large_early_rigid:
 			_controllerMap[deviceId]->_right_trigger_effect.mode = SDL_JOYSTICK_TRIGGER_RIGID;
-			_controllerMap[deviceId]->_right_trigger_effect.u_data.mode_rigid.start = 45;
-			_controllerMap[deviceId]->_right_trigger_effect.u_data.mode_rigid.strength = 255;
+			_controllerMap[deviceId]->_right_trigger_effect.start = 45;
+			_controllerMap[deviceId]->_right_trigger_effect.strength = 255;
 			break;
 		default:
 			_controllerMap[deviceId]->_right_trigger_effect.mode = SDL_JOYSTICK_TRIGGER_NO_EFFECT;
