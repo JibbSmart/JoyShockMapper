@@ -3142,17 +3142,6 @@ int main(int argc, char *argv[])
 	minimizeThread.reset(new PollingThread("Minimize thread", &MinimizePoll, nullptr, 1000, hide_minimized.get() == Switch::ON));          // Start by default
 	autoLoadThread.reset(new PollingThread("AutoLoad thread", &AutoLoadPoll, &commandRegistry, 1000, autoloadSwitch.get() == Switch::ON)); // Start by default
 
-	if (autoLoadThread && autoLoadThread->isRunning())
-	{
-		COUT << "AUTOLOAD is available. Files in ";
-		COUT_INFO << AUTOLOAD_FOLDER();
-		COUT << " folder will get loaded automatically when a matching application is in focus." << endl;
-	}
-	else
-	{
-		CERR << "AutoLoad is unavailable" << endl;
-	}
-
 	left_stick_mode.SetFilter(&filterStickMode)->AddOnChangeListener(bind(&UpdateRingModeFromStickMode, &left_ring_mode, ::placeholders::_1));
 	right_stick_mode.SetFilter(&filterStickMode)->AddOnChangeListener(bind(&UpdateRingModeFromStickMode, &right_ring_mode, ::placeholders::_1));
 	motion_stick_mode.SetFilter(&filterStickMode)->AddOnChangeListener(bind(&UpdateRingModeFromStickMode, &motion_ring_mode, ::placeholders::_1));
@@ -3247,6 +3236,18 @@ int main(int argc, char *argv[])
 			break;
 		}
 	}
+
+	if (autoLoadThread && autoLoadThread->isRunning())
+	{
+		COUT << "AUTOLOAD is available. Files in ";
+		COUT_INFO << AUTOLOAD_FOLDER();
+		COUT << " folder will get loaded automatically when a matching application is in focus." << endl;
+	}
+	else
+	{
+		CERR << "AutoLoad is unavailable" << endl;
+	}
+
 	assert(MAPPING_SIZE == buttonHelpMap.size() && "Please update the button help map in ButtonHelp.cpp");
 	for (auto &mapping : mappings) // Add all button mappings as commands
 	{
