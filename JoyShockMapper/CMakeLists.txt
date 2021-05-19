@@ -118,7 +118,7 @@ if (WINDOWS)
          WIN32_EXECUTABLE ON
          VS_STARTUP_PROJECT "${BINARY_NAME}"
          VS_DEBUGGER_WORKING_DIRECTORY "$(ProjectDir)/$(Configuration)/"
-		 VS_DEBUGGER_COMMAND_ARGUMENTS "$(SolutionDir)..\\$(ProjectName)\\dist"
+		 VS_DEBUGGER_COMMAND_ARGUMENTS "$(SolutionDir)../dist"
     )
 
 	 add_definitions(/bigobj)

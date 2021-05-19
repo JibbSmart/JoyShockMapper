@@ -1,14 +1,10 @@
 @echo off
 
 cd ..
-REM Get project directory name
-for %%a in (.) do set projectDir=%%~na
-
-cd ..
+rmdir /S /Q build-jsm-win64-sdl
 mkdir build-jsm-win64-sdl
-cd build-jsm-win64-sdl
-cmake ../%projectDir% -A x64 -DBUILD_SHARED_LIBS=1 -DSDL=1
+cmake . -A x64 -B build-jsm-win64-sdl -DBUILD_SHARED_LIBS=1 -DSDL=1
 
-echo Open the generated Visual Studio solution located at: %cd%\JoyShockMapper.sln
+echo Open the generated Visual Studio solution located at: build-jsm-win64-sdl\JoyShockMapper.sln
 
 pause
