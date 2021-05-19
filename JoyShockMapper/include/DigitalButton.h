@@ -18,7 +18,7 @@ enum class BtnState
 {
 	NoPress,
 	BtnPress,
-	TapRelease,
+	TapPress,
 	WaitSim,
 	SimPressMaster,
 	SimPressSlave,
@@ -38,6 +38,7 @@ struct Pressed
 	chrono::steady_clock::time_point time_now; // Timestamp of the poll
 	float turboTime;                           // active turbo period setting in ms
 	float holdTime;                            // active hold press setting in ms
+	float dblPressWindow;					   // active dbl press window setting in ms
 };
 
 // Send this event anytime the button is at rest or inactive
@@ -46,6 +47,7 @@ struct Released
 	chrono::steady_clock::time_point time_now; // Timestamp of the poll
 	float turboTime;                           // active turbo period setting in ms
 	float holdTime;                            // active hold press setting in ms
+	float dblPressWindow;					   // active dbl press window setting in ms
 };
 
 // The sync event is created internally
@@ -105,6 +107,7 @@ public:
 	struct Common
 	{
 		Common(Gamepad::Callback virtualControllerCallback, GamepadMotion *mainMotion);
+		bool HasActiveToggle(const KeyCode &key) const;
 		deque<pair<ButtonID, KeyCode>> gyroActionQueue; // Queue of gyro control actions currently in effect
 		deque<pair<ButtonID, KeyCode>> activeTogglesQueue;
 		deque<ButtonID> chordStack; // Represents the current active buttons in order from most recent to latest

@@ -87,7 +87,7 @@ JSMSetting<float> trigger_skip_delay = JSMSetting<float>(SettingID::TRIGGER_SKIP
 JSMSetting<float> turbo_period = JSMSetting<float>(SettingID::TURBO_PERIOD, 80.0f);
 JSMSetting<float> hold_press_time = JSMSetting<float>(SettingID::HOLD_PRESS_TIME, 150.0f);
 JSMVariable<float> sim_press_window = JSMVariable<float>(50.0f);
-JSMVariable<float> dbl_press_window = JSMVariable<float>(200.0f);
+JSMSetting<float> dbl_press_window = JSMSetting<float>(SettingID::DBL_PRESS_WINDOW, 150.0f);
 JSMVariable<float> tick_time = JSMSetting<float>(SettingID::TICK_TIME, 3);
 JSMSetting<Color> light_bar = JSMSetting<Color>(SettingID::LIGHT_BAR, 0xFFFFFF);
 JSMSetting<FloatXY> scroll_sens = JSMSetting<FloatXY>(SettingID::SCROLL_SENS, { 30.f, 30.f });
@@ -336,7 +336,6 @@ public:
 	vector<TouchStick> touchpads;
 	chrono::steady_clock::time_point started_flick;
 	chrono::steady_clock::time_point time_now;
-	// tap_release_queue has been replaced with button states *TapRelease. The hold time of the tap is effectively quantized to the polling period of the device.
 	bool is_flicking_left = false;
 	bool is_flicking_right = false;
 	bool is_flicking_motion = false;
@@ -720,7 +719,10 @@ public:
 			case SettingID::TOUCH_DEADZONE_INNER:
 				opt = touch_deadzone_inner.get(*activeChord);
 				break;
-				// SIM_PRESS_WINDOW and DBL_PRESS_WINDOW are not chorded, they can be accessed as is.
+			case SettingID::DBL_PRESS_WINDOW:
+				opt = dbl_press_window.get(*activeChord);
+				break;
+				// SIM_PRESS_WINDOW are not chorded, they can be accessed as is.
 			}
 			if (opt)
 				return *opt;
@@ -915,9 +917,9 @@ public:
 private:
 	DigitalButton *GetButton(ButtonID index, int touchpadIndex = -1)
 	{
-		DigitalButton *button = index < ButtonID::SIZE             ? &buttons[int(index)] :
-		  touchpadIndex >= 0 && touchpadIndex < touchpads.size()   ? &touchpads[touchpadIndex].buttons[int(index) - FIRST_TOUCH_BUTTON] :
-		  index >= ButtonID::T1                                    ? &gridButtons[int(index) - int(ButtonID::T1)] :
+		DigitalButton *button = index < ButtonID::SIZE           ? &buttons[int(index)] :
+		  touchpadIndex >= 0 && touchpadIndex < touchpads.size() ? &touchpads[touchpadIndex].buttons[int(index) - FIRST_TOUCH_BUTTON] :
+		  index >= ButtonID::T1                                  ? &gridButtons[int(index) - int(ButtonID::T1)] :
                                                                    throw exception("What index is this?");
 		return button;
 	}
@@ -931,6 +933,7 @@ public:
 			evt.time_now = time_now;
 			evt.turboTime = getSetting(SettingID::TURBO_PERIOD);
 			evt.holdTime = getSetting(SettingID::HOLD_PRESS_TIME);
+			evt.dblPressWindow = getSetting(SettingID::DBL_PRESS_WINDOW);
 			GetButton(id, touchpadID)->sendEvent(evt);
 		}
 		else
@@ -939,13 +942,14 @@ public:
 			evt.time_now = time_now;
 			evt.turboTime = getSetting(SettingID::TURBO_PERIOD);
 			evt.holdTime = getSetting(SettingID::HOLD_PRESS_TIME);
+			evt.dblPressWindow = getSetting(SettingID::DBL_PRESS_WINDOW);
 			GetButton(id, touchpadID)->sendEvent(evt);
 		}
 	}
 
-	uint16_t handleTriggerChange(ButtonID softIndex, ButtonID fullIndex, TriggerMode mode, float position)
+	JOY_SHOCK_TRIGGER_EFFECT handleTriggerChange(ButtonID softIndex, ButtonID fullIndex, TriggerMode mode, float position)
 	{
-		uint16_t trigger_rumble = 0;
+		JOY_SHOCK_TRIGGER_EFFECT trigger_rumble;
 		if (mode != TriggerMode::X_LT && mode != TriggerMode::X_RT && (platform_controller_type == JS_TYPE_PRO_CONTROLLER || platform_controller_type == JS_TYPE_JOYCON_LEFT || platform_controller_type == JS_TYPE_JOYCON_RIGHT))
 		{
 			// Override local variable because the controller has digital triggers. Effectively ignore Full Pull binding.
@@ -956,13 +960,19 @@ public:
 		{
 			if (btnCommon->_vigemController)
 				btnCommon->_vigemController->setLeftTrigger(position);
-			return small_early_rigid;
+			trigger_rumble.mode = 1;
+			trigger_rumble.strength = 0;
+			trigger_rumble.start = 0.15 * UINT8_MAX;
+			return trigger_rumble;
 		}
 		else if (mode == TriggerMode::X_RT)
 		{
 			if (btnCommon->_vigemController)
 				btnCommon->_vigemController->setRightTrigger(position);
-			return small_early_rigid;
+			trigger_rumble.mode = 1;
+			trigger_rumble.strength = 0;
+			trigger_rumble.start = 0.15 * UINT8_MAX;
+			return trigger_rumble;
 		}
 
 		auto idxState = int(fullIndex) - FIRST_ANALOG_TRIGGER; // Get analog trigger index
@@ -973,12 +983,12 @@ public:
 		}
 
 		// if either trigger is waiting to be tap released, give it a go
-		if (buttons[int(softIndex)].getState() == BtnState::TapRelease)
+		if (buttons[int(softIndex)].getState() == BtnState::TapPress)
 		{
 			// keep triggering until the tap release is complete
 			handleButtonChange(softIndex, false);
 		}
-		if (buttons[int(fullIndex)].getState() == BtnState::TapRelease)
+		if (buttons[int(fullIndex)].getState() == BtnState::TapPress)
 		{
 			// keep triggering until the tap release is complete
 			handleButtonChange(fullIndex, false);
@@ -988,7 +998,19 @@ public:
 		{
 		case DstState::NoPress:
 			// It actually doesn't matter what the last Press is. Theoretically, we could have missed the edge.
-			trigger_rumble = small_early_pulse;
+			if (mode == TriggerMode::NO_FULL)
+			{
+				trigger_rumble.mode = 1;
+				trigger_rumble.strength = UINT16_MAX;
+				trigger_rumble.start = 0.15 * UINT8_MAX;
+			}
+			else
+			{
+				trigger_rumble.mode = 2;
+				trigger_rumble.strength = UINT16_MAX;
+				trigger_rumble.start = 0.2 * UINT8_MAX;
+				trigger_rumble.end = 0.25 * UINT8_MAX;
+			}
 			if (isSoftPullPressed(idxState, position))
 			{
 				if (mode == TriggerMode::MAY_SKIP || mode == TriggerMode::MUST_SKIP)
@@ -1015,7 +1037,10 @@ public:
 			}
 			break;
 		case DstState::PressStart:
-			trigger_rumble = position < 0.55 ? too_late_pulse : large_late_pulse;
+			trigger_rumble.mode = 2;
+			trigger_rumble.strength = UINT16_MAX;
+			trigger_rumble.start = 0.2 * UINT8_MAX;
+			trigger_rumble.end = 0.25 * UINT8_MAX;
 			if (!isSoftPullPressed(idxState, position))
 			{
 				// Trigger has been quickly tapped on the soft press
@@ -1041,7 +1066,10 @@ public:
 			// Else, time passes as soft press is being held, waiting to see if the soft binding should be skipped
 			break;
 		case DstState::PressStartResp:
-			trigger_rumble = position < 0.55 ? too_late_pulse : large_late_pulse;
+			trigger_rumble.mode = 2;
+			trigger_rumble.strength = UINT16_MAX;
+			trigger_rumble.start = 0.2 * UINT8_MAX;
+			trigger_rumble.end = 0.25 * UINT8_MAX;
 			if (!isSoftPullPressed(idxState, position))
 			{
 				// Soft press is being released
@@ -1066,12 +1094,18 @@ public:
 			break;
 		case DstState::QuickSoftTap:
 			// Soft trigger is already released. Send release now!
-			trigger_rumble = small_early_pulse; // handle trigger threshold
+			trigger_rumble.mode = 2;
+			trigger_rumble.strength = UINT16_MAX;
+			trigger_rumble.start = 0.2 * UINT8_MAX;
+			trigger_rumble.end = 0.25 * UINT8_MAX;
 			triggerState[idxState] = DstState::NoPress;
 			handleButtonChange(softIndex, false);
 			break;
 		case DstState::QuickFullPress:
-			trigger_rumble = large_late_pulse;
+			trigger_rumble.mode = 2;
+			trigger_rumble.strength = UINT16_MAX;
+			trigger_rumble.start = 0.56 * UINT8_MAX;
+			trigger_rumble.end = 0.63 * UINT8_MAX;
 			if (position < 1.0f)
 			{
 				// Full press is being release
@@ -1085,7 +1119,10 @@ public:
 			}
 			break;
 		case DstState::QuickFullRelease:
-			trigger_rumble = large_late_pulse;
+			trigger_rumble.mode = 2;
+			trigger_rumble.strength = UINT16_MAX;
+			trigger_rumble.start = 0.56 * UINT8_MAX;
+			trigger_rumble.end = 0.63 * UINT8_MAX;
 			if (!isSoftPullPressed(idxState, position))
 			{
 				triggerState[idxState] = DstState::NoPress;
@@ -1101,16 +1138,32 @@ public:
 		case DstState::SoftPress:
 			if (!isSoftPullPressed(idxState, position))
 			{
+				trigger_rumble.mode = 2;
+				trigger_rumble.strength = UINT16_MAX;
+				trigger_rumble.start = 0.2 * UINT8_MAX;
+				trigger_rumble.end = 0.25 * UINT8_MAX;
 				// Soft press is being released
 				triggerState[idxState] = DstState::NoPress;
 				handleButtonChange(softIndex, false);
-				trigger_rumble = small_early_pulse;
 			}
 			else // Soft Press is being held
 			{
 				if (mode == TriggerMode::NO_SKIP || mode == TriggerMode::MAY_SKIP || mode == TriggerMode::MAY_SKIP_R)
 				{
-					trigger_rumble = large_late_pulse;
+					if (position < 0.3)
+					{
+						trigger_rumble.mode = 2;
+						trigger_rumble.strength = UINT16_MAX;
+						trigger_rumble.start = 0.2 * UINT8_MAX;
+						trigger_rumble.end = 0.25 * UINT8_MAX;
+					}
+					else
+					{
+						trigger_rumble.mode = 2;
+						trigger_rumble.strength = UINT16_MAX;
+						trigger_rumble.start = 0.56 * UINT8_MAX;
+						trigger_rumble.end = 0.63 * UINT8_MAX;
+					}
 					handleButtonChange(softIndex, true);
 					if (position == 1.0)
 					{
@@ -1121,7 +1174,20 @@ public:
 				}
 				else if (mode == TriggerMode::NO_SKIP_EXCLUSIVE)
 				{
-					trigger_rumble = large_late_pulse;
+					if (position < 0.3)
+					{
+						trigger_rumble.mode = 2;
+						trigger_rumble.strength = UINT16_MAX;
+						trigger_rumble.start = 0.2 * UINT8_MAX;
+						trigger_rumble.end = 0.25 * UINT8_MAX;
+					}
+					else
+					{
+						trigger_rumble.mode = 2;
+						trigger_rumble.strength = UINT16_MAX;
+						trigger_rumble.start = 0.56 * UINT8_MAX;
+						trigger_rumble.end = 0.63 * UINT8_MAX;
+					}
 					handleButtonChange(softIndex, false);
 					if (position == 1.0)
 					{
@@ -1131,13 +1197,18 @@ public:
 				}
 				else // NO_FULL, MUST_SKIP and MUST_SKIP_R
 				{
+					trigger_rumble.mode = 1;
+					trigger_rumble.strength = UINT16_MAX;
+					trigger_rumble.start = 0.15 * UINT8_MAX;
 					handleButtonChange(softIndex, true);
-					trigger_rumble = large_early_rigid;
 				}
 			}
 			break;
 		case DstState::DelayFullPress:
-			trigger_rumble = large_late_pulse;
+			trigger_rumble.mode = 2;
+			trigger_rumble.strength = UINT16_MAX;
+			trigger_rumble.start = 0.56 * UINT8_MAX;
+			trigger_rumble.end = 0.63 * UINT8_MAX;
 			if (position < 1.0)
 			{
 				// Full Press is being released
@@ -1152,7 +1223,10 @@ public:
 			handleButtonChange(softIndex, true);
 			break;
 		case DstState::ExclFullPress:
-			trigger_rumble = large_late_pulse;
+			trigger_rumble.mode = 2;
+			trigger_rumble.strength = UINT16_MAX;
+			trigger_rumble.start = 0.56 * UINT8_MAX;
+			trigger_rumble.end = 0.63 * UINT8_MAX;
 			if (position < 1.0f)
 			{
 				// Full press is being release
@@ -1172,14 +1246,6 @@ public:
 			break;
 		}
 
-		if (mode == TriggerMode::NO_FULL)
-		{
-			trigger_rumble = large_early_rigid;
-		}
-		//else
-		//{
-		//	trigger_rumble = large_late_pulse;
-		//}
 		return trigger_rumble;
 	}
 
@@ -2291,7 +2357,7 @@ void joyShockPollCallback(int jcHandle, JOY_SHOCK_STATE state, JOY_SHOCK_STATE l
 	}
 
 	int buttons = jsl->GetButtons(jc->handle);
-	uint16_t rumble_left = 0, rumble_right = 0;
+	JOY_SHOCK_TRIGGER_EFFECT rumble_left, rumble_right;
 	// button mappings
 	if (jc->controller_split_type != JS_SPLIT_TYPE_RIGHT)
 	{
@@ -2339,7 +2405,6 @@ void joyShockPollCallback(int jcHandle, JOY_SHOCK_STATE state, JOY_SHOCK_STATE l
 		// SL and SR are mapped to back paddle positions:
 		jc->handleButtonChange(ButtonID::RSL, buttons & (1 << JSOFFSET_SL));
 		jc->handleButtonChange(ButtonID::RSR, buttons & (1 << JSOFFSET_SR));
-
 	}
 
 	if (jc->controller_split_type != JS_SPLIT_TYPE_LEFT)
@@ -2591,7 +2656,7 @@ void beforeShowTrayMenu()
 		string autoloadFolder{ AUTOLOAD_FOLDER() };
 		for (auto file : ListDirectory(autoloadFolder.c_str()))
 		{
-			string fullPathName = autoloadFolder + file;
+			string fullPathName = ".\\AutoLoad\\" + file;
 			auto noext = file.substr(0, file.find_last_of('.'));
 			tray->AddMenuItem(U("AutoLoad folder"), UnicodeString(noext.begin(), noext.end()), [fullPathName] {
 				WriteToConsole(string(fullPathName.begin(), fullPathName.end()));
@@ -2601,7 +2666,7 @@ void beforeShowTrayMenu()
 		std::string gyroConfigsFolder{ GYRO_CONFIGS_FOLDER() };
 		for (auto file : ListDirectory(gyroConfigsFolder.c_str()))
 		{
-			string fullPathName = gyroConfigsFolder + file;
+			string fullPathName = ".\\GyroConfigs\\" + file;
 			auto noext = file.substr(0, file.find_last_of('.'));
 			tray->AddMenuItem(U("GyroConfigs folder"), UnicodeString(noext.begin(), noext.end()), [fullPathName] {
 				WriteToConsole(string(fullPathName.begin(), fullPathName.end()));
@@ -2633,11 +2698,9 @@ void CleanUp()
 		tray->Hide();
 	}
 	HideConsole();
-	handle_to_joyshock.clear();
 	jsl->DisconnectAndDisposeAll();
 	handle_to_joyshock.clear(); // Destroy Vigem Gamepads
 	ReleaseConsole();
-	whitelister && whitelister->Remove();
 }
 
 float filterClamp01(float current, float next)
@@ -2679,9 +2742,9 @@ FloatXY filterFloatPair(FloatXY current, FloatXY next)
 
 float filterHoldPressDelay(float c, float next)
 {
-	if (next <= sim_press_window || next >= dbl_press_window)
+	if (next <= sim_press_window)
 	{
-		CERR << SettingID::HOLD_PRESS_TIME << " can only be set to a value between those of " << SettingID::SIM_PRESS_WINDOW << " (" << sim_press_window << "ms) and " << SettingID::DBL_PRESS_WINDOW << " (" << dbl_press_window << "ms) exclusive." << endl;
+		CERR << SettingID::HOLD_PRESS_TIME << " can only be set to a value higher than " << SettingID::SIM_PRESS_WINDOW << " which is " << sim_press_window << "ms." << endl;
 		return c;
 	}
 	return next;
@@ -3050,7 +3113,7 @@ int __stdcall wWinMain(HINSTANCE hInstance, HINSTANCE prevInstance, LPWSTR cmdLi
 	auto handle = GetCurrentProcess();
 	QueryFullProcessImageNameW(handle, 0, &wmodule[0], &length);
 	string module(wmodule.begin(), wmodule.begin() + length);
-	
+
 #else
 int main(int argc, char *argv[])
 {
@@ -3179,9 +3242,9 @@ int main(int argc, char *argv[])
 		string arg = string(argv[0]);
 #endif
 		if (filesystem::is_directory(filesystem::status(arg)) &&
-			(currentWorkingDir = arg).compare(arg) == 0)
+		  (currentWorkingDir = arg).compare(arg) == 0)
 		{
-				break;
+			break;
 		}
 	}
 	assert(MAPPING_SIZE == buttonHelpMap.size() && "Please update the button help map in ButtonHelp.cpp");
@@ -3402,7 +3465,7 @@ int main(int argc, char *argv[])
 		string arg = string(argv[0]);
 #endif
 		if (filesystem::is_regular_file(filesystem::status(arg)) &&
-			arg != module)
+		  arg != module)
 		{
 			commandRegistry.loadConfigFile(arg);
 			autoloadSwitch = Switch::OFF;

@@ -292,17 +292,19 @@ There are two kinds of modifiers that can be applied to key bindings: action mod
 These modifiers can enable you to work around in game tap and holds, or convert one form of press into another. Here's a few example of how you can make use of those modifiers.
 
 ```
-ZL = ^RMOUSE RMOUSE  # ADS toggle on tap
-E  = !C\ !C/         # Convert in game toggle crouch to regular press
-UP = !1\ 1           # Convert Batarang throw double press to hold press
-W  = R E\            # In Halo MCC, reload on tap but apply E right away to cover for in-game hold processing
--,S = SPACE+         # Turbo press for button mash QTEs. No one likes to button mash :(
-R3 = !1\ LMOUSE+ !Q/ # Half life melee button
+ZL = ^RMOUSE\ RMOUSE_ # ADS toggle on tap and release the toggle on hold
+E  = !C\ !C/          # Convert in game toggle crouch to regular press
+UP = !1\ 1            # Convert Batarang throw double press to hold press
+W  = R E\             # In Halo MCC, reload on tap but apply E right away to cover for in-game hold processing
+-,S = SPACE+          # Turbo press for button mash QTEs. No one likes to button mash :(
+R3 = !1\ LMOUSE+ !Q/  # Half life melee button
 UP,UP = !ENTER\ LSHIFT\ !G\ !L\ !SPACE\ !H\ !F\ !ENTER/ # Pre recorded message
-UP,E = BACKSPACE+    # Erase pre recorded message if I change my mind
+UP,E = BACKSPACE+     # Erase pre recorded message if I change my mind
 ```
 
-Take note that the Simultaneous Press and Double Press bindings (but not Chorded Press) below introduce delays in the raising of the events (notably StartPress) until the right mapping is determined. Those time windows are not added but events will be pushed together within a frame or two.
+Take note that the Simultaneous Press below introduce delays in the raising of the events (notably StartPress) until the right mapping is determined. Those time windows are not added but events will be pushed together within a poll callback or two.
+
+Also, Double Press bindings has some special timing handling in order to give the user the option to have the first binding skippable or not. See its [dedicated section](#15-double-press) below for details
 
 Finally, Here is a graph containing a comprehensive description of when the button events are raised over the course of a press.
 ```
@@ -358,12 +360,18 @@ A button can be chorded with multiple other buttons. In this case, the latest ch
 #### 1.5 Double Press
 You can also assign the double press of a button to a different binding. Double press notation is the same as chorded button notation, except the button is chorded with itself. It supports taps & holds and modifiers like all previous entries.
 
+The double press binding is applied when a down press occurs within 150 milliseconds from a previous down press. The regular binding will apply any on press event on the first press, but will only apply the tap binding if the second press is ommitted and with a delay. The double press binding also supports tap & hold bindings as well as modifiers. The time window in which to perform the double press can be changed by assigning a different number of milliseconds to ```DBL_PRESS_WINDOW```.
+
 ```
 N = SCROLLDOWN # Cycle weapon
-N,N = X # Cycle weapon fire mode
-```
+N,N = X        # Cycle weapon fire mode
 
-The double press binding is applied when a down press occurs within a fifth of a second from a first down press. In that period of time no other binding can be assumed, so regular taps will have the delay introduced. This binding also supports tap & hold bindings as well as modifiers. The time window in which to perform the double press can be changed by assigning a different number of milliseconds to ```DBL_PRESS_WINDOW```. This setting cannot be changed by modeshift (covered later).
+W = !E\        # Pick up item
+W,W = I        # Pick up item and open Inventory
+
+E = C'         # Crouch
+E,E = Z        # Don't crouch but go prone
+```
 
 #### 1.6 Gyro Button
 Lastly, there is one digital input that works differently, because it can overlap with any other input. Well, two inputs, but you'll use at most one of them in a given configuration:
@@ -779,7 +787,10 @@ Almost all settings described in previous sections that are assignations (i.e.: 
 AUTOLOAD
 JSM_DIRECTORY
 SIM_PRESS_WINDOW
-DBL_PRESS_WINDOW
+TICK_TIME
+GRID_SIZE
+HIDE_MINIMIZED
+VIRTUAL_CONTROLLER
 ```
 
 Here's some usage examples: in DOOM (2016), you can use the right stick when you bring up a weapon wheel even when using flick stick:

@@ -48,18 +48,23 @@ struct ControllerDevice
 				}
 			}
 
-			_ctrlr_type = SDL_GameControllerGetType(_sdlController);
-			if (_ctrlr_type == SDL_CONTROLLER_TYPE_NINTENDO_SWITCH_PRO)
+			auto sdl_ctrlr_type = SDL_GameControllerGetType(_sdlController);
+			switch (sdl_ctrlr_type)
 			{
-				switch (_split_type) // Joycons are pro controllers
-				{
-				case JS_SPLIT_TYPE_LEFT:
+			case SDL_GameControllerType::SDL_CONTROLLER_TYPE_NINTENDO_SWITCH_PRO:
+				if (_split_type == JS_SPLIT_TYPE_LEFT)
 					_ctrlr_type = JS_TYPE_JOYCON_LEFT;
-					break;
-				case JS_SPLIT_TYPE_RIGHT:
+				else if (_split_type == JS_SPLIT_TYPE_RIGHT)
 					_ctrlr_type = JS_TYPE_JOYCON_RIGHT;
-					break;
-				}
+				else
+					_ctrlr_type = JS_TYPE_PRO_CONTROLLER;
+				break;
+			case SDL_GameControllerType::SDL_CONTROLLER_TYPE_PS4:
+				_ctrlr_type = JS_TYPE_DS4;
+				break;
+			case SDL_GameControllerType::SDL_CONTROLLER_TYPE_PS5:
+				_ctrlr_type = JS_TYPE_DS;
+				break;
 			}
 		}
 	}
@@ -77,7 +82,7 @@ struct ControllerDevice
 	bool _has_gyro = true;
 	bool _has_accel = true;
 	int _split_type = JS_SPLIT_TYPE_FULL;
-	int _ctrlr_type;
+	int _ctrlr_type = 0;
 	uint16_t _small_rumble = 0;
 	uint16_t _big_rumble = 0;
 	SDL_JoystickTriggerEffect _left_trigger_effect;
@@ -132,7 +137,7 @@ public:
 				}
 				// Perform rumble
 				SDL_GameControllerRumble(iter->second->_sdlController, iter->second->_small_rumble, iter->second->_big_rumble, tick_time.get() + 1);
-				SDL_GameControllerRumbleTriggers(iter->second->_sdlController, iter->second->_left_trigger_effect, iter->second->_right_trigger_effect, tick_time.get() * 2);
+				SDL_GameControllerSetTriggerEffect(iter->second->_sdlController, &iter->second->_left_trigger_effect, &iter->second->_right_trigger_effect, tick_time.get() * 2);
 			}
 		}
 
@@ -248,7 +253,7 @@ public:
 		auto *jc = _controllerMap[deviceId];
 		if (jc != nullptr)
 		{
-			switch (GetControllerType(deviceId))
+			switch (_controllerMap[deviceId]->_ctrlr_type)
 			{
 			case JS_TYPE_DS4:
 			case JS_TYPE_DS:
@@ -296,10 +301,10 @@ public:
 		}
 		switch (_controllerMap[deviceId]->_ctrlr_type)
 		{
-		case SDL_CONTROLLER_TYPE_PS5:
+		case JS_TYPE_DS:
 			buttons |= SDL_GameControllerGetButton(_controllerMap[deviceId]->_sdlController, SDL_CONTROLLER_BUTTON_MISC1) > 0 ? 1 << JSOFFSET_MIC : 0;
 			// Intentional fall through to the next case
-		case SDL_CONTROLLER_TYPE_PS4:
+		case JS_TYPE_DS4:
 			buttons |= SDL_GameControllerGetButton(_controllerMap[deviceId]->_sdlController, SDL_CONTROLLER_BUTTON_TOUCHPAD) > 0 ? 1 << JSOFFSET_CAPTURE : 0;
 			break;
 		default:
@@ -468,7 +473,6 @@ public:
 
 	int GetControllerType(int deviceId) override
 	{
-
 		return _controllerMap[deviceId]->_ctrlr_type;
 	}
 
@@ -509,67 +513,49 @@ public:
 		SDL_GameControllerSetPlayerIndex(_controllerMap[deviceId]->_sdlController, number);
 	}
 
-	void SetLeftTriggerEffect(int deviceId, int triggerEffect) override
+	void SetLeftTriggerEffect(int deviceId, const JOY_SHOCK_TRIGGER_EFFECT &triggerEffect) override
 	{
-		switch (triggerEffect)
-		{
-		case small_early_rigid:
-			_controllerMap[deviceId]->_left_trigger_effect.mode = SDL_JOYSTICK_TRIGGER_RIGID;
-			_controllerMap[deviceId]->_left_trigger_effect.start = 35;
-			_controllerMap[deviceId]->_left_trigger_effect.strength = 0;
-			break;
-		case small_early_pulse:
-			_controllerMap[deviceId]->_left_trigger_effect.mode = SDL_JOYSTICK_TRIGGER_RIGID;
-			_controllerMap[deviceId]->_left_trigger_effect.start = 45;
-			_controllerMap[deviceId]->_left_trigger_effect.strength = 75;
-			break;
-		case large_late_pulse:
-			_controllerMap[deviceId]->_left_trigger_effect.mode = SDL_JOYSTICK_TRIGGER_PULSE;
-			_controllerMap[deviceId]->_left_trigger_effect.start = 144;
-			_controllerMap[deviceId]->_left_trigger_effect.end = 160;
-			_controllerMap[deviceId]->_left_trigger_effect.strength = 255;
-			break;
-		case large_early_rigid:
-			_controllerMap[deviceId]->_left_trigger_effect.mode = SDL_JOYSTICK_TRIGGER_RIGID;
-			_controllerMap[deviceId]->_left_trigger_effect.start = 45;
-			_controllerMap[deviceId]->_left_trigger_effect.strength = 255;
-			break;
-		default:
-			_controllerMap[deviceId]->_left_trigger_effect.mode = SDL_JOYSTICK_TRIGGER_NO_EFFECT;
-			break;
-		}
+		SetTriggerEffect(_controllerMap[deviceId]->_left_trigger_effect, triggerEffect);
+	}
+	void SetRightTriggerEffect(int deviceId, const JOY_SHOCK_TRIGGER_EFFECT &triggerEffect) override
+	{
+		SetTriggerEffect(_controllerMap[deviceId]->_right_trigger_effect, triggerEffect);
 	}
 
-	void SetRightTriggerEffect(int deviceId, int triggerEffect) override
+	void SetTriggerEffect(SDL_JoystickTriggerEffect &trigger_effect, const JOY_SHOCK_TRIGGER_EFFECT &triggerEffect)
 	{
+		trigger_effect = reinterpret_cast<const SDL_JoystickTriggerEffect &>(triggerEffect);
+	}
+
+	/*		
 		switch (triggerEffect)
 		{
 		case small_early_rigid:
-			_controllerMap[deviceId]->_right_trigger_effect.mode = SDL_JOYSTICK_TRIGGER_RIGID;
-			_controllerMap[deviceId]->_right_trigger_effect.start = 35;
-			_controllerMap[deviceId]->_right_trigger_effect.strength = 0;
+			trigger_effect.mode = SDL_JOYSTICK_TRIGGER_CONSTANT;
+			trigger_effect.start = 0.15 * UINT8_MAX;
+			trigger_effect.strength = 0;
 			break;
 		case small_early_pulse:
-			_controllerMap[deviceId]->_right_trigger_effect.mode = SDL_JOYSTICK_TRIGGER_RIGID;
-			_controllerMap[deviceId]->_right_trigger_effect.start = 45;
-			_controllerMap[deviceId]->_right_trigger_effect.strength = 75;
+			trigger_effect.mode = SDL_JOYSTICK_TRIGGER_SEGMENT;
+			trigger_effect.start = 0.2 * UINT8_MAX;
+			trigger_effect.end = 0.25 * UINT8_MAX;
+			trigger_effect.strength = UINT16_MAX;
 			break;
 		case large_late_pulse:
-			_controllerMap[deviceId]->_right_trigger_effect.mode = SDL_JOYSTICK_TRIGGER_PULSE;
-			_controllerMap[deviceId]->_right_trigger_effect.start = 144;
-			_controllerMap[deviceId]->_right_trigger_effect.end = 160;
-			_controllerMap[deviceId]->_right_trigger_effect.strength = 255;
+			trigger_effect.mode = SDL_JOYSTICK_TRIGGER_SEGMENT;
+			trigger_effect.start = 0.56 * UINT8_MAX;
+			trigger_effect.end = 0.63 * UINT8_MAX;
+			trigger_effect.strength = UINT16_MAX;
 			break;
 		case large_early_rigid:
-			_controllerMap[deviceId]->_right_trigger_effect.mode = SDL_JOYSTICK_TRIGGER_RIGID;
-			_controllerMap[deviceId]->_right_trigger_effect.start = 45;
-			_controllerMap[deviceId]->_right_trigger_effect.strength = 255;
+			trigger_effect.mode = SDL_JOYSTICK_TRIGGER_CONSTANT;
+			trigger_effect.start = 0.15 * UINT8_MAX;
+			trigger_effect.strength = UINT16_MAX;
 			break;
 		default:
-			_controllerMap[deviceId]->_right_trigger_effect.mode = SDL_JOYSTICK_TRIGGER_NO_EFFECT;
+			trigger_effect.mode = SDL_JOYSTICK_TRIGGER_NO_EFFECT;
 			break;
-		}
-	}
+		}*/
 };
 
 JslWrapper *JslWrapper::getNew()

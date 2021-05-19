@@ -6,7 +6,6 @@
 // JSM global variables
 extern JSMVariable<ControllerScheme> virtual_controller;
 extern JSMVariable<float> sim_press_window;
-extern JSMVariable<float> dbl_press_window;
 extern JSMSetting<JoyconMask> joycon_gyro_mask;
 extern JSMSetting<JoyconMask> joycon_motion_mask;
 
@@ -18,6 +17,7 @@ struct Sync
 	string nameToRelease;
 	float turboTime;
 	float holdTime;
+	float dblPressWindow;
 };
 
 // Hidden implementation of the digital button
@@ -27,6 +27,9 @@ struct Sync
 struct DigitalButtonImpl : public pocket_fsm::PimplBase, public EventActionIf
 {
 private:
+	static bool isSameKey (KeyCode key, const pair<ButtonID, KeyCode> &pair) {
+		return pair.second == key;
+	};
 
 public:
 	vector<BtnEvent> _instantReleaseQueue;
@@ -64,12 +67,12 @@ public:
 		_turboCount = 0;
 	}
 
-	bool CheckInstantRelease(BtnEvent instantEvent)
+	bool ReleaseInstant(BtnEvent instantEvent)
 	{
 		auto instant = find(_instantReleaseQueue.begin(), _instantReleaseQueue.end(), instantEvent);
 		if (instant != _instantReleaseQueue.end())
 		{
-			//COUT << "Button " << _id << " releases instant " << instantEvent << endl;
+			// DEBUG_LOG << "Button " << _id << " releases instant " << instantEvent << endl;
 			_keyToRelease->ProcessEvent(BtnEvent::OnInstantRelease, *this);
 			_instantReleaseQueue.erase(instant);
 			return true;
@@ -118,8 +121,15 @@ public:
 		  });
 		if (gyroAction != _common->gyroActionQueue.end())
 		{
-			ClearAllActiveToggle(gyroAction->second);
-			_common->gyroActionQueue.erase(gyroAction);
+			KeyCode key(gyroAction->second);
+			ClearAllActiveToggle(key);
+			for (auto currentlyActive = find_if(_common->gyroActionQueue.begin(), _common->gyroActionQueue.end(), bind(isSameKey, key, placeholders::_1));
+				 currentlyActive != _common->gyroActionQueue.end();
+				 currentlyActive = find_if(currentlyActive, _common->gyroActionQueue.end(), bind(isSameKey, key, placeholders::_1)))
+			{
+				DEBUG_LOG << "Removing active gyro action for " << key.name << endl;
+				currentlyActive = _common->gyroActionQueue.erase(currentlyActive);
+			}
 		}
 	}
 
@@ -130,15 +140,15 @@ public:
 	}
 
 	void ApplyBtnPress(KeyCode key) override
-
 	{
 		if (key.code >= X_UP && key.code <= X_START || key.code == PS_HOME || key.code == PS_PAD_CLICK)
 		{
 			if (_common->_vigemController)
 				_common->_vigemController->setButton(key, true);
 		}
-		else if (key.code != NO_HOLD_MAPPED)
+		else if (key.code != NO_HOLD_MAPPED && _common->HasActiveToggle(key) == false)
 		{
+			DEBUG_LOG << "Pressing down on key " << key.name << endl;
 			pressKey(key, true);
 		}
 	}
@@ -152,6 +162,7 @@ public:
 		}
 		else if (key.code != NO_HOLD_MAPPED)
 		{
+			DEBUG_LOG << "Releasing key " << key.name << endl;
 			pressKey(key, false);
 			ClearAllActiveToggle(key);
 		}
@@ -165,6 +176,7 @@ public:
 		  });
 		if (currentlyActive == _common->activeTogglesQueue.end())
 		{
+			DEBUG_LOG << "Adding active toggle for " << key.name << endl;
 			apply(this);
 			_common->activeTogglesQueue.push_front({ _id, key });
 		}
@@ -176,15 +188,12 @@ public:
 
 	void ClearAllActiveToggle(KeyCode key)
 	{
-		static const std::function<bool(pair<ButtonID, KeyCode>)> isSameKey = [key](pair<ButtonID, KeyCode> pair) {
-			return pair.second == key;
-		};
-
-		for (auto currentlyActive = find_if(_common->activeTogglesQueue.begin(), _common->activeTogglesQueue.end(), isSameKey);
+		for (auto currentlyActive = find_if(_common->activeTogglesQueue.begin(), _common->activeTogglesQueue.end(), bind(isSameKey, key, placeholders::_1));
 		     currentlyActive != _common->activeTogglesQueue.end();
-		     currentlyActive = find_if(_common->activeTogglesQueue.begin(), _common->activeTogglesQueue.end(), isSameKey))
+		     currentlyActive = find_if(currentlyActive, _common->activeTogglesQueue.end(), bind(isSameKey, key, placeholders::_1)))
 		{
-			_common->activeTogglesQueue.erase(currentlyActive);
+			DEBUG_LOG << "Removing active toggle for " << key.name << endl;
+			currentlyActive = _common->activeTogglesQueue.erase(currentlyActive);
 		}
 	}
 
@@ -245,7 +254,7 @@ public:
 // Forward declare concrete states
 class NoPress;
 class BtnPress;
-class TapRelease;
+class TapPress;
 class WaitSim;
 class SimPressMaster;
 class SimPressSlave;
@@ -351,6 +360,7 @@ class ActiveStartPress : public ActiveMappingState
 
 	REACT(OnEntry) override
 	{
+		DigitalButtonState::react(e);
 		pimpl()->GetPressMapping()->ProcessEvent(BtnEvent::OnPress, *pimpl());
 	}
 
@@ -361,7 +371,7 @@ class ActiveStartPress : public ActiveMappingState
 		auto elapsed_time = pimpl()->GetPressDurationMS(e.time_now);
 		if (elapsed_time > MAGIC_INSTANT_DURATION)
 		{
-			pimpl()->CheckInstantRelease(BtnEvent::OnPress);
+			pimpl()->ReleaseInstant(BtnEvent::OnPress);
 		}
 		if (elapsed_time > e.holdTime)
 		{
@@ -373,9 +383,8 @@ class ActiveStartPress : public ActiveMappingState
 	REACT(Released) override
 	{
 		ActiveMappingState::react(e);
-		pimpl()->_keyToRelease->ProcessEvent(BtnEvent::OnTap, *pimpl());
 		pimpl()->_press_times = e.time_now; // Start counting tap duration
-		changeState<TapRelease>();
+		changeState<TapPress>();
 	}
 
 };
@@ -386,6 +395,7 @@ class ActiveHoldPress : public ActiveMappingState
 
 	REACT(OnEntry) override
 	{
+		DigitalButtonState::react(e);
 		pimpl()->_keyToRelease->ProcessEvent(BtnEvent::OnHold, *pimpl());
 		pimpl()->_keyToRelease->ProcessEvent(BtnEvent::OnTurbo, *pimpl());
 	}
@@ -395,7 +405,7 @@ class ActiveHoldPress : public ActiveMappingState
 		auto elapsed_time = pimpl()->GetPressDurationMS(e.time_now);
 		if (elapsed_time > e.holdTime + MAGIC_INSTANT_DURATION)
 		{
-			pimpl()->CheckInstantRelease(BtnEvent::OnHold);
+			pimpl()->ReleaseInstant(BtnEvent::OnHold);
 		}
 		if (floorf((elapsed_time - e.holdTime) / e.turboTime) >= pimpl()->_turboCount)
 		{
@@ -404,7 +414,7 @@ class ActiveHoldPress : public ActiveMappingState
 		}
 		if (elapsed_time > e.holdTime + pimpl()->_turboCount * e.turboTime + MAGIC_INSTANT_DURATION)
 		{
-			pimpl()->CheckInstantRelease(BtnEvent::OnTurbo);
+			pimpl()->ReleaseInstant(BtnEvent::OnTurbo);
 		}
 	}
 
@@ -459,6 +469,7 @@ class BtnPress : public pocket_fsm::NestedStateMachine<ActiveMappingState, Digit
 
 	REACT(OnEntry) override
 	{
+		DigitalButtonState::react(e);
 		initialize(new ActiveStartPress(_pimpl));
 	}
 
@@ -466,16 +477,21 @@ class BtnPress : public pocket_fsm::NestedStateMachine<ActiveMappingState, Digit
 	NESTED_REACT(Released);
 };
 
-class TapRelease : public DigitalButtonState
+class TapPress : public DigitalButtonState
 {
-	DB_CONCRETE_STATE(TapRelease)
+	DB_CONCRETE_STATE(TapPress)
+
+	REACT(OnEntry) override
+	{
+		pimpl()->_keyToRelease->ProcessEvent(BtnEvent::OnTap, *pimpl());
+	}
 
 	REACT(Pressed)
 	override
 	{
 		DigitalButtonState::react(e);
-		pimpl()->CheckInstantRelease(BtnEvent::OnRelease);
-		pimpl()->CheckInstantRelease(BtnEvent::OnTap);
+		pimpl()->ReleaseInstant(BtnEvent::OnRelease);
+		pimpl()->ReleaseInstant(BtnEvent::OnTap);
 		changeState<NoPress>();
 	}
 
@@ -485,8 +501,8 @@ class TapRelease : public DigitalButtonState
 		DigitalButtonState::react(e);
 		if (pimpl()->GetPressDurationMS(e.time_now) > MAGIC_INSTANT_DURATION)
 		{
-			pimpl()->CheckInstantRelease(BtnEvent::OnRelease);
-			pimpl()->CheckInstantRelease(BtnEvent::OnTap);
+			pimpl()->ReleaseInstant(BtnEvent::OnRelease);
+			pimpl()->ReleaseInstant(BtnEvent::OnTap);
 		}
 		if (!pimpl()->_keyToRelease || pimpl()->GetPressDurationMS(e.time_now) > pimpl()->_keyToRelease->getTapDuration())
 		{
@@ -507,6 +523,7 @@ class SimPressMaster : public pocket_fsm::NestedStateMachine<ActiveMappingState,
 
 	REACT(OnEntry) override
 	{
+		DigitalButtonState::react(e);
 		initialize(new ActiveStartPress(_pimpl));
 	}
 
@@ -550,6 +567,7 @@ class SimPressSlave : public DigitalButtonState
 			sync.pressTime = e.time_now;
 			sync.holdTime = e.holdTime;
 			sync.turboTime = e.turboTime;
+			sync.dblPressWindow = e.dblPressWindow;
 			_nextState = pimpl()->_simPressMaster->sendEvent(sync).nextState;
 		}
 	}
@@ -578,6 +596,7 @@ class WaitSim : public DigitalButtonState
 			sync.pressTime = e.time_now;
 			sync.activeMapping = new Mapping(*pimpl()->_keyToRelease);
 			sync.nameToRelease = pimpl()->_nameToRelease;
+			sync.dblPressWindow = e.dblPressWindow;
 			simBtn->sendEvent(sync);
 		}
 		else if (pimpl()->GetPressDurationMS(e.time_now) > sim_press_window)
@@ -637,36 +656,34 @@ class SimRelease : public DigitalButtonState
 	}
 };
 
-class DblPressStart : public DigitalButtonState
+class DblPressStart : public pocket_fsm::NestedStateMachine<ActiveMappingState, DigitalButtonState>
 {
 	DB_CONCRETE_STATE(DblPressStart)
-	REACT(Pressed) override
+	REACT(OnEntry) override
 	{
 		DigitalButtonState::react(e);
-		if (pimpl()->GetPressDurationMS(e.time_now) > dbl_press_window)
-		{
-			changeState<BtnPress>();
-			//_press_times = time_now; // Reset Timer
-		}
+		initialize(new ActiveStartPress(_pimpl));
 	}
+
+	NESTED_REACT(Pressed);
 
 	REACT(Released)
 	override
 	{
-		DigitalButtonState::react(e);
-		if (pimpl()->GetPressDurationMS(e.time_now) > dbl_press_window)
+		sendEvent(e);
+		if (_nextState)
 		{
-			changeState<BtnPress>();
-		}
-		else
-		{
-			if (pimpl()->GetPressDurationMS(e.time_now) > e.holdTime)
+			if (_nextState->_name == "NoPress")
 			{
-				changeState<DblPressNoPressHold>();
+				delete _nextState;
+				_nextState = nullptr;
+				changeState<DblPressNoPress>(_onTransition);
 			}
-			else
+			else if (_nextState->_name == "TapPress")
 			{
-				changeState<DblPressNoPressTap>();
+				delete _nextState;
+				_nextState = nullptr;
+				changeState<DblPressNoPressTap>(_onTransition);
 			}
 		}
 	}
@@ -678,23 +695,28 @@ class DblPressNoPress : public DigitalButtonState
 
 	REACT(Pressed) override
 	{
-		if (pimpl()->GetPressDurationMS(e.time_now) > dbl_press_window)
+		DigitalButtonState::react(e);
+		if (pimpl()->GetPressDurationMS(e.time_now) > e.dblPressWindow)
 		{
-			changeState<BtnPress>();
 			pimpl()->_press_times = e.time_now; // Reset Timer to raise a tap
+			changeState<BtnPress>();
 		}
 		else
 		{
-			changeState<DblPressPress>();
 			pimpl()->_press_times = e.time_now;
-			pimpl()->_keyToRelease.reset(new Mapping(pimpl()->_mapping.getDblPressMap()->second));
-			pimpl()->_nameToRelease = pimpl()->_mapping.getName(pimpl()->_id);
+			changeState<DblPressPress>();
 		}
 	}
 
 	REACT(Released) override
 	{
-		if (pimpl()->GetPressDurationMS(e.time_now) > dbl_press_window)
+		DigitalButtonState::react(e);
+		if (pimpl()->GetPressDurationMS(e.time_now) > MAGIC_INSTANT_DURATION)
+		{
+			pimpl()->ReleaseInstant(BtnEvent::OnRelease);
+		}
+
+		if (pimpl()->GetPressDurationMS(e.time_now) > e.dblPressWindow)
 		{
 			changeState<NoPress>();
 		}
@@ -707,28 +729,27 @@ class DblPressNoPressTap : public DigitalButtonState
 	REACT(Pressed)
 	override
 	{
-		if (pimpl()->GetPressDurationMS(e.time_now) > dbl_press_window)
+		if (pimpl()->GetPressDurationMS(e.time_now) > e.dblPressWindow)
 		{
-			changeState<BtnPress>();
 			pimpl()->_press_times = e.time_now; // Reset Timer to raise a tap
-			pimpl()->GetPressMapping()->ProcessEvent(BtnEvent::OnPress, *pimpl());
+			changeState<TapPress>();
 		}
 		else
 		{
-			changeState<DblPressPress>();
-			pimpl()->_press_times = e.time_now;
 			pimpl()->_keyToRelease.reset(new Mapping(pimpl()->_mapping.getDblPressMap()->second));
 			pimpl()->_nameToRelease = pimpl()->_mapping.getName(pimpl()->_id);
+			pimpl()->_press_times = e.time_now;
+			changeState<DblPressPress>();
 		}
 	}
 
 	REACT(Released)
 	override
 	{
-		if (pimpl()->GetPressDurationMS(e.time_now) > dbl_press_window)
+		if (pimpl()->GetPressDurationMS(e.time_now) > e.dblPressWindow)
 		{
-			changeState<BtnPress>();
 			pimpl()->_press_times = e.time_now; // Reset Timer to raise a tap
+			changeState<TapPress>();
 		}
 	}
 };
@@ -739,7 +760,7 @@ class DblPressNoPressHold : public DigitalButtonState
 	REACT(Pressed)
 	{
 		DigitalButtonState::react(e);
-		if (pimpl()->GetPressDurationMS(e.time_now) > dbl_press_window)
+		if (pimpl()->GetPressDurationMS(e.time_now) > e.dblPressWindow)
 		{
 			changeState<BtnPress>();
 			// Don't reset timer to preserve hold press behaviour
@@ -758,7 +779,7 @@ class DblPressNoPressHold : public DigitalButtonState
 	override
 	{
 		DigitalButtonState::react(e);
-		if (pimpl()->GetPressDurationMS(e.time_now) > dbl_press_window)
+		if (pimpl()->GetPressDurationMS(e.time_now) > e.dblPressWindow)
 		{
 			changeState<BtnPress>();
 			// Don't reset timer to preserve hold press behaviour
@@ -772,6 +793,9 @@ class DblPressPress : public pocket_fsm::NestedStateMachine<ActiveMappingState, 
 
 	REACT(OnEntry) override
 	{
+		DigitalButtonState::react(e);
+		pimpl()->_keyToRelease.reset(new Mapping(pimpl()->_mapping.getDblPressMap()->second));
+		pimpl()->_nameToRelease = pimpl()->_mapping.getName(pimpl()->_id);
 		initialize(new ActiveStartPress(_pimpl));
 	}
 
@@ -788,7 +812,7 @@ class InstRelease : public DigitalButtonState
 		DigitalButtonState::react(e);
 		if (pimpl()->GetPressDurationMS(e.time_now) > MAGIC_INSTANT_DURATION)
 		{
-			pimpl()->CheckInstantRelease(BtnEvent::OnRelease);
+			pimpl()->ReleaseInstant(BtnEvent::OnRelease);
 			pimpl()->ClearKey();
 			changeState<NoPress>();
 		}
@@ -811,4 +835,14 @@ DigitalButton::Common::Common(Gamepad::Callback virtualControllerCallback, Gamep
 	{
 		_vigemController.reset(Gamepad::getNew(virtual_controller.get(), virtualControllerCallback));
 	}
+}
+
+bool DigitalButton::Common::HasActiveToggle(const KeyCode& key) const
+{
+	auto foundToggle = find_if(activeTogglesQueue.cbegin(), activeTogglesQueue.cend(),
+		[key] (auto& pair)
+		{
+			return pair.second == key; 
+		});
+	return foundToggle != activeTogglesQueue.cend();
 }

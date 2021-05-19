@@ -3,12 +3,14 @@
 Most recent updates will appear first.
 This is a summary of new features and bugfixes. Read the README to learn how to use the features mentioned here.
 
-## 3.0.3
+## 3.1.0
 
 Dualsense Adaptive trigger support, MIC button support
 DS and DS4 touchpad support. See features below
 HidHide support and improved error logs
 Tons of refactoring and code improvements in preparation for unit tests
+DBL_PRESS_WINDOW is now a modeshift-able setting and hold time is not restricted by it anymore
+The first press of double press enables mapping. See README
 
 ### Features
 
@@ -23,6 +25,14 @@ Tons of refactoring and code improvements in preparation for unit tests
 * New MIC binding used by DS only
 * Dualsense applies adaptive trigger setting based on trigger mode and state
 * HidHide support: hidhide remembers applications, so you don't need to add to whitelist at every start
+* DBL_PRESS_WINDOW default value is now same os hold press : 150 ms
+
+### Bugfixes
+
+* Gyro active toggle didn't clear after another gyro release
+* An active toggle hides subsequent presses of the same key
+* Controller type didn't report properly
+* Tray menu loads a relative path to minimize pathing issue
 
 ## 3.0.2
 

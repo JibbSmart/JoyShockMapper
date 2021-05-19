@@ -1,26 +1,25 @@
 // JoyShockLibrary.h - Contains declarations of functions
 #pragma once
 
+typedef struct {
+    unsigned char mode = 0;      
+    unsigned short strength = 0; 
+    unsigned char start = 0;     
+    unsigned char end = 0;       
+    unsigned char frequency = 0; 
+} JOY_SHOCK_TRIGGER_EFFECT;
+
 #if defined(JSL_WRAPPER_SOURCE)
 
 #include "JoyShockLibrary.h"
 
 #else
 
-#if defined(SDL2)
-#define JS_TYPE_JOYCON_LEFT 21   // unused in SDL_GameControllerType
-#define JS_TYPE_JOYCON_RIGHT 22  // Unused in SDL_GameControllerType
-#define JS_TYPE_PRO_CONTROLLER 5 // SDL_GameControllerType::SDL_CONTROLLER_TYPE_NINTENDO_SWITCH_PRO
-#define JS_TYPE_DS4 4            // SDL_GameControllerType::SDL_CONTROLLER_TYPE_PS4
-#define JS_TYPE_DS 7             // SDL_GameControllerType::SDL_CONTROLLER_TYPE_PS5
-#else
 #define JS_TYPE_JOYCON_LEFT 1
 #define JS_TYPE_JOYCON_RIGHT 2
 #define JS_TYPE_PRO_CONTROLLER 3
 #define JS_TYPE_DS4 4
 #define JS_TYPE_DS 5
-
-#endif
 
 #define JS_SPLIT_TYPE_LEFT 1
 #define JS_SPLIT_TYPE_RIGHT 2
@@ -84,16 +83,6 @@
 #define DS5_PLAYER_3 = 21
 #define DS5_PLAYER_4 = 27
 #define DS5_PLAYER_5 = 31
-
-enum triggerEffect
-{
-	none,
-	too_late_pulse = none,
-	small_early_rigid,
-	small_early_pulse,
-	large_late_pulse,
-	large_early_rigid,
-};
 
 typedef struct JOY_SHOCK_STATE
 {
@@ -198,6 +187,6 @@ public:
 	virtual void SetLightColour(int deviceId, int colour) = 0;
 	virtual void SetRumble(int deviceId, int smallRumble, int bigRumble) = 0;
 	virtual void SetPlayerNumber(int deviceId, int number) = 0;
-	virtual void SetLeftTriggerEffect(int deviceId, int triggerEffect) = 0;
-	virtual void SetRightTriggerEffect(int deviceId, int triggerEffect) = 0;
+	virtual void SetLeftTriggerEffect(int deviceId, const JOY_SHOCK_TRIGGER_EFFECT &triggerEffect) = 0;
+	virtual void SetRightTriggerEffect(int deviceId, const JOY_SHOCK_TRIGGER_EFFECT &triggerEffect) = 0;
 };

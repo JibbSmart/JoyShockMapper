@@ -35,7 +35,7 @@ streambuf *Log::makeBuffer(Level level)
 		return new NullBuffer(); // unused
 #else
 	case Level::UT:
-		return new ColorStream<&cout, FOREGROUND_BLUE>();
+		return new ColorStream<&cout, FOREGROUND_BLUE | FOREGROUND_RED>(); // purplish
 #endif
 	case Level::BOLD:
 		return new ColorStream<&cout, FOREGROUND_GREEN | FOREGROUND_INTENSITY>();
