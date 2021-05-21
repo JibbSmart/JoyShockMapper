@@ -103,6 +103,7 @@ JSMVariable<Switch> hide_minimized = JSMVariable<Switch>(Switch::OFF);
 JSMVariable<ControllerScheme> virtual_controller = JSMVariable<ControllerScheme>(ControllerScheme::NONE);
 JSMSetting<TriggerMode> touch_ds_mode = JSMSetting<TriggerMode>(SettingID::TOUCHPAD_DUAL_STAGE_MODE, TriggerMode::NO_SKIP);
 JSMSetting<Switch> rumble_enable = JSMSetting<Switch>(SettingID::RUMBLE, Switch::ON);
+JSMSetting<Switch> adaptive_trigger = JSMSetting<Switch>(SettingID::ADAPTIVE_TRIGGER, Switch::ON);
 
 JSMVariable<PathString> currentWorkingDir = JSMVariable<PathString>(PathString());
 vector<JSMButton> touch_buttons; // array of virtual buttons on the touchpad grid
@@ -284,46 +285,6 @@ private:
 		return setting.get(chord) ? optional<E1>(static_cast<E1>(*setting.get(chord))) : nullopt;
 	}
 
-	bool isSoftPullPressed(int triggerIndex, float triggerPosition)
-	{
-		float threshold = getSetting(SettingID::TRIGGER_THRESHOLD);
-		if (threshold >= 0)
-		{
-			return triggerPosition > threshold;
-		}
-		// else HAIR TRIGGER
-
-		// Calculate 3 sample averages with the last MAGIC_TRIGGER_SMOOTHING samples + new sample
-		float sum = 0.f;
-		for_each(prevTriggerPosition[triggerIndex].begin(), prevTriggerPosition[triggerIndex].begin() + 3, [&sum](auto data) { sum += data; });
-		float avg_tm3 = sum / 3.0f;
-		sum = sum - *(prevTriggerPosition[triggerIndex].begin()) + *(prevTriggerPosition[triggerIndex].end() - 2);
-		float avg_tm2 = sum / 3.0f;
-		sum = sum - *(prevTriggerPosition[triggerIndex].begin() + 1) + *(prevTriggerPosition[triggerIndex].end() - 1);
-		float avg_tm1 = sum / 3.0f;
-		sum = sum - *(prevTriggerPosition[triggerIndex].begin() + 2) + triggerPosition;
-		float avg_t0 = sum / 3.0f;
-		//if (avg_t0 > 0) COUT << "Trigger: " << avg_t0 << endl;
-
-		// Soft press is pressed if we got three averaged samples in a row that are pressed
-		bool isPressed;
-		if (avg_t0 > avg_tm1 && avg_tm1 > avg_tm2 && avg_tm2 > avg_tm3)
-		{
-			isPressed = true;
-		}
-		else if (avg_t0 < avg_tm1 && avg_tm1 < avg_tm2 && avg_tm2 < avg_tm3)
-		{
-			isPressed = false;
-		}
-		else
-		{
-			isPressed = triggerState[triggerIndex] != DstState::NoPress;
-		}
-		prevTriggerPosition[triggerIndex].pop_front();
-		prevTriggerPosition[triggerIndex].push_back(triggerPosition);
-		return isPressed;
-	}
-
 public:
 	const int MaxGyroSamples = 64;
 	const int NumSamples = 64;
@@ -393,6 +354,9 @@ public:
 	int lastGyroIndexY = 0;
 
 	Color _light_bar;
+	JOY_SHOCK_TRIGGER_EFFECT left_effect;
+	JOY_SHOCK_TRIGGER_EFFECT right_effect;
+	JOY_SHOCK_TRIGGER_EFFECT unused_effect;
 
 	JoyShock(int uniqueHandle, int controllerSplitType, shared_ptr<DigitalButton::Common> sharedButtonCommon = nullptr)
 	  : handle(uniqueHandle)
@@ -454,7 +418,7 @@ public:
 	{
 		if (getSetting<Switch>(SettingID::RUMBLE) == Switch::ON)
 		{
-			//COUT << "Rumbling at " << smallRumble << " and " << bigRumble << endl;
+			// DEBUG_LOG << "Rumbling at " << smallRumble << " and " << bigRumble << endl;
 			jsl->SetRumble(handle, smallRumble, bigRumble);
 		}
 	}
@@ -586,11 +550,16 @@ public:
 				break;
 			case SettingID::TOUCH_RING_MODE:
 				opt = GetOptionalSetting<E>(touch_stick_mode, *activeChord);
+				break;
 			case SettingID::TOUCHPAD_DUAL_STAGE_MODE:
 				opt = GetOptionalSetting<E>(touch_ds_mode, *activeChord);
 				break;
 			case SettingID::RUMBLE:
 				opt = GetOptionalSetting<E>(rumble_enable, *activeChord);
+				break;
+			case SettingID::ADAPTIVE_TRIGGER:
+				opt = GetOptionalSetting<E>(adaptive_trigger, *activeChord);
+				break;
 			}
 			if (opt)
 				return *opt;
@@ -625,6 +594,8 @@ public:
 				break;
 			case SettingID::TRIGGER_THRESHOLD:
 				opt = trigger_threshold.get(*activeChord);
+				if (opt && platform_controller_type == JS_TYPE_DS && getSetting<Switch>(SettingID::ADAPTIVE_TRIGGER) == Switch::ON)
+					opt = optional(max(0.f, *opt)); // hair trigger disabled on dual sense when adaptive triggers are active
 				break;
 			case SettingID::STICK_AXIS_X:
 				opt = GetOptionalSetting<float>(aim_x_sign, *activeChord);
@@ -924,6 +895,49 @@ private:
 		return button;
 	}
 
+		bool isSoftPullPressed(int triggerIndex, float triggerPosition)
+	{
+		float threshold = getSetting(SettingID::TRIGGER_THRESHOLD);
+		if (threshold >= 0)
+		{
+			return triggerPosition > threshold;
+		}
+		// else HAIR TRIGGER
+
+		// Calculate 3 sample averages with the last MAGIC_TRIGGER_SMOOTHING samples + new sample
+		float sum = 0.f;
+		for_each(prevTriggerPosition[triggerIndex].begin(), prevTriggerPosition[triggerIndex].begin() + 3, [&sum](auto data) { sum += data; });
+		float avg_tm3 = sum / 3.0f;
+		sum = sum - *(prevTriggerPosition[triggerIndex].begin()) + *(prevTriggerPosition[triggerIndex].end() - 2);
+		float avg_tm2 = sum / 3.0f;
+		sum = sum - *(prevTriggerPosition[triggerIndex].begin() + 1) + *(prevTriggerPosition[triggerIndex].end() - 1);
+		float avg_tm1 = sum / 3.0f;
+		sum = sum - *(prevTriggerPosition[triggerIndex].begin() + 2) + triggerPosition;
+		float avg_t0 = sum / 3.0f;
+		//if (avg_t0 > 0) COUT << "Trigger: " << avg_t0 << endl;
+
+		// Soft press is pressed if we got three averaged samples in a row that are pressed
+		bool isPressed;
+		if (avg_t0 > avg_tm1 && avg_tm1 > avg_tm2 && avg_tm2 > avg_tm3)
+		{
+			//DEBUG_LOG << "Hair Trigger pressed: " << avg_t0 << " > " << avg_tm1 << " > " << avg_tm2 << " > " << avg_tm3 << endl;
+			isPressed = true;
+		}
+		else if (avg_t0 < avg_tm1 && avg_tm1 < avg_tm2 && avg_tm2 < avg_tm3)
+		{
+			//DEBUG_LOG << "Hair Trigger released: " << avg_t0 << " < " << avg_tm1 << " < " << avg_tm2 << " < " << avg_tm3 << endl;
+			isPressed = false;
+		}
+		else
+		{
+			isPressed = triggerState[triggerIndex] != DstState::NoPress && triggerState[triggerIndex] != DstState::QuickSoftTap;
+		}
+		prevTriggerPosition[triggerIndex].pop_front();
+		prevTriggerPosition[triggerIndex].push_back(triggerPosition);
+		return isPressed;
+	}
+
+
 public:
 	void handleButtonChange(ButtonID id, bool pressed, int touchpadID = -1)
 	{
@@ -947,9 +961,15 @@ public:
 		}
 	}
 
-	JOY_SHOCK_TRIGGER_EFFECT handleTriggerChange(ButtonID softIndex, ButtonID fullIndex, TriggerMode mode, float position)
+	float getTriggerEffectStartPos()
 	{
-		JOY_SHOCK_TRIGGER_EFFECT trigger_rumble;
+		float threshold = getSetting(SettingID::TRIGGER_THRESHOLD);
+		return clamp(threshold + 0.2f, 0.0f, 1.0f);
+	}
+
+	void handleTriggerChange(ButtonID softIndex, ButtonID fullIndex, TriggerMode mode, float position, JOY_SHOCK_TRIGGER_EFFECT &trigger_rumble)
+	{
+		constexpr uint8_t MAX_TRIGGER_POS = 170;
 		if (mode != TriggerMode::X_LT && mode != TriggerMode::X_RT && (platform_controller_type == JS_TYPE_PRO_CONTROLLER || platform_controller_type == JS_TYPE_JOYCON_LEFT || platform_controller_type == JS_TYPE_JOYCON_RIGHT))
 		{
 			// Override local variable because the controller has digital triggers. Effectively ignore Full Pull binding.
@@ -962,8 +982,8 @@ public:
 				btnCommon->_vigemController->setLeftTrigger(position);
 			trigger_rumble.mode = 1;
 			trigger_rumble.strength = 0;
-			trigger_rumble.start = 0.15 * UINT8_MAX;
-			return trigger_rumble;
+			trigger_rumble.start = 0.2 * MAX_TRIGGER_POS;
+			return;
 		}
 		else if (mode == TriggerMode::X_RT)
 		{
@@ -971,15 +991,15 @@ public:
 				btnCommon->_vigemController->setRightTrigger(position);
 			trigger_rumble.mode = 1;
 			trigger_rumble.strength = 0;
-			trigger_rumble.start = 0.15 * UINT8_MAX;
-			return trigger_rumble;
+			trigger_rumble.start = 0.2 * MAX_TRIGGER_POS;
+			return;
 		}
 
 		auto idxState = int(fullIndex) - FIRST_ANALOG_TRIGGER; // Get analog trigger index
 		if (idxState < 0 || idxState >= (int)triggerState.size())
 		{
 			COUT << "Error: Trigger " << fullIndex << " does not exist in state map. Dual Stage Trigger not possible." << endl;
-			return trigger_rumble;
+			return;
 		}
 
 		// if either trigger is waiting to be tap released, give it a go
@@ -1002,14 +1022,14 @@ public:
 			{
 				trigger_rumble.mode = 1;
 				trigger_rumble.strength = UINT16_MAX;
-				trigger_rumble.start = 0.15 * UINT8_MAX;
+				trigger_rumble.start = getTriggerEffectStartPos() * MAX_TRIGGER_POS;
 			}
 			else
 			{
 				trigger_rumble.mode = 2;
-				trigger_rumble.strength = UINT16_MAX;
-				trigger_rumble.start = 0.2 * UINT8_MAX;
-				trigger_rumble.end = 0.25 * UINT8_MAX;
+				trigger_rumble.strength = 0.1 * UINT16_MAX;
+				trigger_rumble.start = getTriggerEffectStartPos() * MAX_TRIGGER_POS;
+				trigger_rumble.end = min(1.f, getTriggerEffectStartPos() + 0.1f)  * MAX_TRIGGER_POS;
 			}
 			if (isSoftPullPressed(idxState, position))
 			{
@@ -1037,10 +1057,7 @@ public:
 			}
 			break;
 		case DstState::PressStart:
-			trigger_rumble.mode = 2;
-			trigger_rumble.strength = UINT16_MAX;
-			trigger_rumble.start = 0.2 * UINT8_MAX;
-			trigger_rumble.end = 0.25 * UINT8_MAX;
+			// don't change trigger rumble : keep whatever was set at no press
 			if (!isSoftPullPressed(idxState, position))
 			{
 				// Trigger has been quickly tapped on the soft press
@@ -1057,6 +1074,10 @@ public:
 			{
 				if (buttons[int(softIndex)].sendEvent(GetDuration{ time_now }).out_duration >= getSetting(SettingID::TRIGGER_SKIP_DELAY))
 				{
+					if (mode == TriggerMode::MUST_SKIP)
+					{
+						trigger_rumble.start = (position + 0.05) * MAX_TRIGGER_POS;
+					}
 					triggerState[idxState] = DstState::SoftPress;
 					// Reset the time for hold soft press purposes.
 					buttons[int(softIndex)].sendEvent(time_now);
@@ -1066,10 +1087,7 @@ public:
 			// Else, time passes as soft press is being held, waiting to see if the soft binding should be skipped
 			break;
 		case DstState::PressStartResp:
-			trigger_rumble.mode = 2;
-			trigger_rumble.strength = UINT16_MAX;
-			trigger_rumble.start = 0.2 * UINT8_MAX;
-			trigger_rumble.end = 0.25 * UINT8_MAX;
+			// don't change trigger rumble : keep whatever was set at no press
 			if (!isSoftPullPressed(idxState, position))
 			{
 				// Soft press is being released
@@ -1087,6 +1105,10 @@ public:
 			{
 				if (buttons[int(softIndex)].sendEvent(GetDuration{ time_now }).out_duration >= getSetting(SettingID::TRIGGER_SKIP_DELAY))
 				{
+					if (mode == TriggerMode::MUST_SKIP_R)
+					{
+						trigger_rumble.start = (position + 0.05) * MAX_TRIGGER_POS;
+					}
 					triggerState[idxState] = DstState::SoftPress;
 				}
 				handleButtonChange(softIndex, true);
@@ -1094,18 +1116,15 @@ public:
 			break;
 		case DstState::QuickSoftTap:
 			// Soft trigger is already released. Send release now!
-			trigger_rumble.mode = 2;
-			trigger_rumble.strength = UINT16_MAX;
-			trigger_rumble.start = 0.2 * UINT8_MAX;
-			trigger_rumble.end = 0.25 * UINT8_MAX;
+			// don't change trigger rumble : keep whatever was set at no press
 			triggerState[idxState] = DstState::NoPress;
 			handleButtonChange(softIndex, false);
 			break;
 		case DstState::QuickFullPress:
 			trigger_rumble.mode = 2;
 			trigger_rumble.strength = UINT16_MAX;
-			trigger_rumble.start = 0.56 * UINT8_MAX;
-			trigger_rumble.end = 0.63 * UINT8_MAX;
+			trigger_rumble.start = 0.89 * MAX_TRIGGER_POS;
+			trigger_rumble.end = 0.99 * MAX_TRIGGER_POS;
 			if (position < 1.0f)
 			{
 				// Full press is being release
@@ -1121,8 +1140,8 @@ public:
 		case DstState::QuickFullRelease:
 			trigger_rumble.mode = 2;
 			trigger_rumble.strength = UINT16_MAX;
-			trigger_rumble.start = 0.56 * UINT8_MAX;
-			trigger_rumble.end = 0.63 * UINT8_MAX;
+			trigger_rumble.start = 0.89 * MAX_TRIGGER_POS;
+			trigger_rumble.end = 0.99 * MAX_TRIGGER_POS;
 			if (!isSoftPullPressed(idxState, position))
 			{
 				triggerState[idxState] = DstState::NoPress;
@@ -1138,32 +1157,17 @@ public:
 		case DstState::SoftPress:
 			if (!isSoftPullPressed(idxState, position))
 			{
-				trigger_rumble.mode = 2;
-				trigger_rumble.strength = UINT16_MAX;
-				trigger_rumble.start = 0.2 * UINT8_MAX;
-				trigger_rumble.end = 0.25 * UINT8_MAX;
 				// Soft press is being released
-				triggerState[idxState] = DstState::NoPress;
 				handleButtonChange(softIndex, false);
+				triggerState[idxState] = DstState::NoPress;
 			}
 			else // Soft Press is being held
 			{
 				if (mode == TriggerMode::NO_SKIP || mode == TriggerMode::MAY_SKIP || mode == TriggerMode::MAY_SKIP_R)
 				{
-					if (position < 0.3)
-					{
-						trigger_rumble.mode = 2;
-						trigger_rumble.strength = UINT16_MAX;
-						trigger_rumble.start = 0.2 * UINT8_MAX;
-						trigger_rumble.end = 0.25 * UINT8_MAX;
-					}
-					else
-					{
-						trigger_rumble.mode = 2;
-						trigger_rumble.strength = UINT16_MAX;
-						trigger_rumble.start = 0.56 * UINT8_MAX;
-						trigger_rumble.end = 0.63 * UINT8_MAX;
-					}
+					trigger_rumble.strength = min(int(UINT16_MAX), trigger_rumble.strength + int(0.1 * UINT16_MAX));
+					trigger_rumble.start = min(0.89 * MAX_TRIGGER_POS, trigger_rumble.start + 0.02 * MAX_TRIGGER_POS);
+					trigger_rumble.end = trigger_rumble.start + 0.1 * MAX_TRIGGER_POS;
 					handleButtonChange(softIndex, true);
 					if (position == 1.0)
 					{
@@ -1174,20 +1178,9 @@ public:
 				}
 				else if (mode == TriggerMode::NO_SKIP_EXCLUSIVE)
 				{
-					if (position < 0.3)
-					{
-						trigger_rumble.mode = 2;
-						trigger_rumble.strength = UINT16_MAX;
-						trigger_rumble.start = 0.2 * UINT8_MAX;
-						trigger_rumble.end = 0.25 * UINT8_MAX;
-					}
-					else
-					{
-						trigger_rumble.mode = 2;
-						trigger_rumble.strength = UINT16_MAX;
-						trigger_rumble.start = 0.56 * UINT8_MAX;
-						trigger_rumble.end = 0.63 * UINT8_MAX;
-					}
+					trigger_rumble.strength = min(int(UINT16_MAX), trigger_rumble.strength + int(0.1 * UINT16_MAX));
+					trigger_rumble.start = min(0.89 * MAX_TRIGGER_POS, trigger_rumble.start + 0.02 * MAX_TRIGGER_POS);
+					trigger_rumble.end = trigger_rumble.start + 0.1 * MAX_TRIGGER_POS;
 					handleButtonChange(softIndex, false);
 					if (position == 1.0)
 					{
@@ -1198,8 +1191,8 @@ public:
 				else // NO_FULL, MUST_SKIP and MUST_SKIP_R
 				{
 					trigger_rumble.mode = 1;
-					trigger_rumble.strength = UINT16_MAX;
-					trigger_rumble.start = 0.15 * UINT8_MAX;
+					trigger_rumble.strength = min(int(UINT16_MAX), trigger_rumble.strength + int(0.1 * UINT16_MAX));
+					// keep old trigger_rumble.start
 					handleButtonChange(softIndex, true);
 				}
 			}
@@ -1207,8 +1200,8 @@ public:
 		case DstState::DelayFullPress:
 			trigger_rumble.mode = 2;
 			trigger_rumble.strength = UINT16_MAX;
-			trigger_rumble.start = 0.56 * UINT8_MAX;
-			trigger_rumble.end = 0.63 * UINT8_MAX;
+			trigger_rumble.start = 0.8 * MAX_TRIGGER_POS;
+			trigger_rumble.end = 0.99 * MAX_TRIGGER_POS;
 			if (position < 1.0)
 			{
 				// Full Press is being released
@@ -1225,8 +1218,8 @@ public:
 		case DstState::ExclFullPress:
 			trigger_rumble.mode = 2;
 			trigger_rumble.strength = UINT16_MAX;
-			trigger_rumble.start = 0.56 * UINT8_MAX;
-			trigger_rumble.end = 0.63 * UINT8_MAX;
+			trigger_rumble.start = 0.89 * MAX_TRIGGER_POS;
+			trigger_rumble.end = 0.99 * MAX_TRIGGER_POS;
 			if (position < 1.0f)
 			{
 				// Full press is being release
@@ -1246,7 +1239,7 @@ public:
 			break;
 		}
 
-		return trigger_rumble;
+		return;
 	}
 
 	bool IsPressed(ButtonID btn)
@@ -1373,6 +1366,7 @@ static void resetAllMappings()
 	light_bar.Reset();
 	scroll_sens.Reset();
 	rumble_enable.Reset();
+	adaptive_trigger.Reset();
 	touch_ds_mode.Reset();
 	for_each(touch_buttons.begin(), touch_buttons.end(), [](auto &map) { map.Reset(); });
 
@@ -2357,7 +2351,6 @@ void joyShockPollCallback(int jcHandle, JOY_SHOCK_STATE state, JOY_SHOCK_STATE l
 	}
 
 	int buttons = jsl->GetButtons(jc->handle);
-	JOY_SHOCK_TRIGGER_EFFECT rumble_left, rumble_right;
 	// button mappings
 	if (jc->controller_split_type != JS_SPLIT_TYPE_RIGHT)
 	{
@@ -2371,7 +2364,7 @@ void joyShockPollCallback(int jcHandle, JOY_SHOCK_STATE state, JOY_SHOCK_STATE l
 		jc->handleButtonChange(ButtonID::L3, buttons & (1 << JSOFFSET_LCLICK));
 
 		float lTrigger = jsl->GetLeftTrigger(jc->handle);
-		rumble_left = jc->handleTriggerChange(ButtonID::ZL, ButtonID::ZLF, jc->getSetting<TriggerMode>(SettingID::ZL_MODE), lTrigger);
+		jc->handleTriggerChange(ButtonID::ZL, ButtonID::ZLF, jc->getSetting<TriggerMode>(SettingID::ZL_MODE), lTrigger, jc->left_effect);
 
 		bool touch = jsl->GetTouchDown(jc->handle, false) || jsl->GetTouchDown(jc->handle, true);
 		switch (jc->platform_controller_type)
@@ -2385,7 +2378,7 @@ void joyShockPollCallback(int jcHandle, JOY_SHOCK_STATE state, JOY_SHOCK_STATE l
 			float triggerpos = buttons & (1 << JSOFFSET_CAPTURE) ? 1.f :
 			  touch                                              ? 0.99f :
                                                                    0.f;
-			jc->handleTriggerChange(ButtonID::TOUCH, ButtonID::CAPTURE, jc->getSetting<TriggerMode>(SettingID::TOUCHPAD_DUAL_STAGE_MODE), triggerpos);
+			jc->handleTriggerChange(ButtonID::TOUCH, ButtonID::CAPTURE, jc->getSetting<TriggerMode>(SettingID::TOUCHPAD_DUAL_STAGE_MODE), triggerpos, jc->unused_effect);
 		}
 		break;
 		default:
@@ -2419,11 +2412,20 @@ void joyShockPollCallback(int jcHandle, JOY_SHOCK_STATE state, JOY_SHOCK_STATE l
 		jc->handleButtonChange(ButtonID::R3, buttons & (1 << JSOFFSET_RCLICK));
 
 		float rTrigger = jsl->GetRightTrigger(jc->handle);
-		rumble_right = jc->handleTriggerChange(ButtonID::ZR, ButtonID::ZRF, jc->getSetting<TriggerMode>(SettingID::ZR_MODE), rTrigger);
+		jc->handleTriggerChange(ButtonID::ZR, ButtonID::ZRF, jc->getSetting<TriggerMode>(SettingID::ZR_MODE), rTrigger, jc->right_effect);
 	}
 
-	jsl->SetRightTriggerEffect(jc->handle, rumble_right);
-	jsl->SetLeftTriggerEffect(jc->handle, rumble_left);
+	if (jc->getSetting<Switch>(SettingID::ADAPTIVE_TRIGGER) == Switch::ON)
+	{
+		jsl->SetRightTriggerEffect(jc->handle, jc->right_effect);
+		jsl->SetLeftTriggerEffect(jc->handle, jc->left_effect);
+	}
+	else
+	{
+		JOY_SHOCK_TRIGGER_EFFECT none;
+		jsl->SetRightTriggerEffect(jc->handle, none);
+		jsl->SetLeftTriggerEffect(jc->handle, none);
+	}
 
 	// Handle buttons before GYRO because some of them may affect the value of blockGyro
 	auto gyro = jc->getSetting<GyroSettings>(SettingID::GYRO_ON); // same result as getting GYRO_OFF
@@ -3220,6 +3222,7 @@ int main(int argc, char *argv[])
 	});
 	virtual_controller.SetFilter(&UpdateVirtualController)->AddOnChangeListener(&OnVirtualControllerChange);
 	rumble_enable.SetFilter(&filterInvalidValue<Switch, Switch::INVALID>);
+	adaptive_trigger.SetFilter(&filterInvalidValue<Switch, Switch::INVALID>);
 	scroll_sens.SetFilter(&filterFloatPair);
 	touch_ds_mode.SetFilter(&filterTouchpadDualStageMode);
 	// light_bar needs no filter or listener. The callback polls and updates the color.
@@ -3422,6 +3425,8 @@ int main(int argc, char *argv[])
 	                      ->SetHelp("Scrolling sensitivity for sticks."));
 	commandRegistry.Add((new JSMAssignment<Switch>(rumble_enable))
 	                      ->SetHelp("Disable the rumbling feature from vigem. Valid values are ON and OFF."));
+	commandRegistry.Add((new JSMAssignment<Switch>(adaptive_trigger))
+						  ->SetHelp("Control the adaptive trigger feature of the DualSense. Valid values are ON and OFF."));
 	commandRegistry.Add((new JSMAssignment<TriggerMode>(touch_ds_mode))
 	                      ->SetHelp("Dual stage mode for the touchpad TOUCH and CAPTURE (i.e. click) bindings."));
 	commandRegistry.Add((new JSMMacro("CLEAR"))->SetMacro(bind(&ClearConsole))->SetHelp("Removes all text in the console screen"));

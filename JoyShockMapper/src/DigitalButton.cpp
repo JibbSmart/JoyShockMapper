@@ -135,7 +135,7 @@ public:
 
 	void SetRumble(int smallRumble, int bigRumble) override
 	{
-		COUT << "Rumbling at " << smallRumble << " and " << bigRumble << endl;
+		DEBUG_LOG << "Rumbling at " << smallRumble << " and " << bigRumble << endl;
 		_common->_rumble(smallRumble, bigRumble);
 	}
 
@@ -274,7 +274,7 @@ class ActiveHoldPress;
 void DigitalButtonState::react(OnEntry &e)
 {
 	// Uncomment below to diplay a log each time a button changes state
-	DEBUG_LOG << "Button " << pimpl()->_id << " is now in state " << _name << endl;
+	// DEBUG_LOG << "Button " << pimpl()->_id << " is now in state " << _name << endl;
 }
 
 // Basic Press reaction should be called in every concrete Press reaction

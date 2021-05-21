@@ -25,6 +25,9 @@ JoyShockMapper is primarily developed on Windows. JoyShockMapper should now be a
 	* **[Double Press](#15-double-press)**
 	* **[Gyro Button](#16-gyro-button)**
   * **[Analog Triggers](#2-analog-triggers)**
+    * **[Analog to digital](#21-analog-to-digital)**
+    * **[Full pull and modes](#22-full-pull-and-modes)**
+    * **[Adaptive Triggers](#23-adaptive-triggers)**
   * **[Stick Configuration](#3-stick-configuration)**
     * **[Standard AIM mode](#31-standard-aim-mode)**
     * **[FLICK mode and variants](#32-flick-mode-and-variants)**
@@ -419,6 +422,8 @@ If you're using ```GYRO_TRACKBALL``` or its single-axis variants, you can use **
 
 ### 2. Analog Triggers
 
+#### 2.1 Analog to digital
+
 The following section does not apply to Joycons and Switch Pro controllers because they only have digital triggers.
 
 Analog triggers report a value between 0% and 100% representing how far you are pulling the trigger. Binding a digital button to an analog trigger is done using a threashold value. The button press is sent when the trigger value crosses the threashold value, sitting between 0% and 100%. The default threashold value is 0, meaning the slightest press of the trigger sends the button press. This is great for responsiveness, but could result in accidental presses. The threashold can be customized by running the following command:
@@ -430,6 +435,8 @@ TRIGGER_THRESHOLD = 0.5   #Send Trigger values at half press
 The same threashold value is used for both triggers. A value of 1.0 or higher makes the binding impossible to reach.
 
 Hair trigger is also implemented: to enable it, assign a value of -1 as the trigger threshold. When hair trigger is used, the binding is enabled when the trigger is being pressed and held, and released when the trigger is being released. This allows quick tap shooting by pulsing the trigger.
+
+#### 2.2 Full pull and modes
 
 JoyShockMapper can assign different bindings to the full pull of the trigger, allowing you to double the number of bindings put on the triggers. The way the trigger handles these bindings is set with the variables ```ZR_MODE``` and ```ZL_MODE```, for R2 and L2 triggers. Once set, you can assign keys to ```ZRF``` and ```ZLF``` to make use of the R2 and L2 full pull bindings respectively. In this context, ```ZL``` and ```ZR``` are called the soft pull binding because they activate before the full pull binding does at 100%. Here is the list of all possible trigger modes.
 
@@ -463,6 +470,16 @@ ZRF = V G              # Quick full tap to melee; Quick hold full press to unpin
 Using MUST_SKIP mode makes sure that once you start firing, reaching the full pull will **not** make you stop firing to melee.
 
 The "Responsive" variants of the skip modes enable a different behaviour that can give you a better experience than the original versions in specific circumstances. A typical example is when the soft binding is a mode-like binding like ADS or crouch, and there is no hold or simultaneous press binding on that soft press. The difference is that the soft binding is actived as soon as the trigger crosses the threshold, giving the desired responsive feeling, but gets removed if the full press is reached quickly, thus still allowing you to hip fire for example. This will result in a hopefully negligeable scope glitch but grants a snappier ADS activation.
+
+#### 2.3 Adaptive Triggers
+
+The Dualsense controller features adaptive trigger that allow software to control the force feedback applies on the triggers. JoyShockMapper makes use of this feature to provide useful feedback depending on the trigger mode and position of the trigger. Currently the patterns cannot be customized by the user but can be turned off with the following setting.
+
+```
+ADAPTIVE_TRIGGER = OFF # Don't use force feedback in my triggers
+```
+
+While adaptive triggers are enabled, the Dualsense controller will ignore hair trigger threshold, and consider it to be simply threshold zero. This is because the adaptive triggers fulfill the purpose of hair triggers by restricting uneccessary travelling distance. With adaptive triggers turned off, regular hair trigger is then accessible.
 
 ### 3. Stick Configuration
 Each stick has 7 different operation modes:

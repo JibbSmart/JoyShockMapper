@@ -8,9 +8,9 @@ This is a summary of new features and bugfixes. Read the README to learn how to 
 Dualsense Adaptive trigger support, MIC button support
 DS and DS4 touchpad support. See features below
 HidHide support and improved error logs
-Tons of refactoring and code improvements in preparation for unit tests
 DBL_PRESS_WINDOW is now a modeshift-able setting and hold time is not restricted by it anymore
 The first press of double press enables mapping. See README
+Tons of refactoring and code improvements in preparation for unit tests
 
 ### Features
 
@@ -22,6 +22,7 @@ The first press of double press enables mapping. See README
   * TOUCH_STICK_DEADZONE_INNER, TOUCH_STICK_RADIUS, TOUCH_RING_MODE
   * TOUCHPAD_SENS controls the mouse mode sensitivity
   * Pinching and rotation gesture binding
+  * ADAPTIVE_TRIGGER switch can turn trigger resistance off: hair trigger is not available on DS when Adaptive Triggers are on.
 * New MIC binding used by DS only
 * Dualsense applies adaptive trigger setting based on trigger mode and state
 * HidHide support: hidhide remembers applications, so you don't need to add to whitelist at every start

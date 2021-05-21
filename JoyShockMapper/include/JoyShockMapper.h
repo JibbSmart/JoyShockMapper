@@ -165,8 +165,8 @@ extern const map<ButtonID, string> buttonHelpMap;
 
 enum class SettingID
 {
-	INVALID = -2,                            // Represents an error in user input
-	MIN_GYRO_SENS = int(ButtonID::SIZE) + 1, // Legacy but int value not used
+	INVALID = 0,    // Represents an error in user input
+	MIN_GYRO_SENS,  // Legacy but int value not used
 	MAX_GYRO_SENS,
 	MIN_GYRO_THRESHOLD,
 	MAX_GYRO_THRESHOLD,
@@ -252,6 +252,7 @@ enum class SettingID
 	RUMBLE,
 	TOUCHPAD_DUAL_STAGE_MODE,
 	CLEAR,
+	ADAPTIVE_TRIGGER,
 };
 
 // constexpr are like #define but with respect to typeness
