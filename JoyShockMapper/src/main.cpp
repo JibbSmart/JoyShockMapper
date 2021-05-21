@@ -2095,36 +2095,38 @@ void TouchCallback(int jcHandle, TOUCH_STATE newState, TOUCH_STATE prevState, fl
 	}
 	else if (mode == TouchpadMode::MOUSE)
 	{
-		if (point0.isDown() && point1.isDown())
-		{
-			if (js->prevTouchState.t0Down && js->prevTouchState.t1Down)
-			{
-				float x = fabsf(newState.t0X - newState.t1X);
-				float y = fabsf(newState.t0Y - newState.t1Y);
-				float angle = atan2f(y, x) / PI * 360;
-				float dist = sqrt(x * x + y * y);
-				x = fabsf(js->prevTouchState.t0X - js->prevTouchState.t1X);
-				y = fabsf(js->prevTouchState.t0Y - js->prevTouchState.t1Y);
-				float oldAngle = atan2f(y, x) / PI * 360;
-				float oldDist = sqrt(x * x + y * y);
-				if (angle != oldAngle)
-					DEBUG_LOG << "Angle went from " << oldAngle << " degrees to " << angle << " degress. Diff is " << angle - oldAngle << " degrees. ";
-				js->touch_scroll_x.ProcessScroll(angle - oldAngle, js->getSetting<FloatXY>(SettingID::SCROLL_SENS).x(), js->time_now);
-				if (dist != oldDist)
-					DEBUG_LOG << "Dist went from " << oldDist << " points to " << dist << " points. Diff is " << dist - oldDist << " points. ";
-				js->touch_scroll_y.ProcessScroll(dist - oldDist, js->getSetting<FloatXY>(SettingID::SCROLL_SENS).y(), js->time_now);
-			}
-			else
-			{
-				js->touch_scroll_x.Reset(js->time_now);
-				js->touch_scroll_y.Reset(js->time_now);
-			}
-		}
-		else
-		{
-			js->touch_scroll_x.Reset(js->time_now);
-			js->touch_scroll_y.Reset(js->time_now);
-			if (point0.isDown() ^ point1.isDown()) // XOR
+			// Disable gestures
+		/*if (point0.isDown() && point1.isDown())
+		{*/
+			//if (js->prevTouchState.t0Down && js->prevTouchState.t1Down)
+			//{
+			//	float x = fabsf(newState.t0X - newState.t1X);
+			//	float y = fabsf(newState.t0Y - newState.t1Y);
+			//	float angle = atan2f(y, x) / PI * 360;
+			//	float dist = sqrt(x * x + y * y);
+			//	x = fabsf(js->prevTouchState.t0X - js->prevTouchState.t1X);
+			//	y = fabsf(js->prevTouchState.t0Y - js->prevTouchState.t1Y);
+			//	float oldAngle = atan2f(y, x) / PI * 360;
+			//	float oldDist = sqrt(x * x + y * y);
+			//	if (angle != oldAngle)
+			//		DEBUG_LOG << "Angle went from " << oldAngle << " degrees to " << angle << " degress. Diff is " << angle - oldAngle << " degrees. ";
+			//	js->touch_scroll_x.ProcessScroll(angle - oldAngle, js->getSetting<FloatXY>(SettingID::SCROLL_SENS).x(), js->time_now);
+			//	if (dist != oldDist)
+			//		DEBUG_LOG << "Dist went from " << oldDist << " points to " << dist << " points. Diff is " << dist - oldDist << " points. ";
+			//	js->touch_scroll_y.ProcessScroll(dist - oldDist, js->getSetting<FloatXY>(SettingID::SCROLL_SENS).y(), js->time_now);
+			//}
+			//else
+			//{
+			//	js->touch_scroll_x.Reset(js->time_now);
+			//	js->touch_scroll_y.Reset(js->time_now);
+			//}
+		//}
+		//else
+		//{
+		//	js->touch_scroll_x.Reset(js->time_now);
+		//	js->touch_scroll_y.Reset(js->time_now);
+		//  if (point0.isDown() ^ point1.isDown()) // XOR
+			if (point0.isDown() || point1.isDown())
 			{
 				TOUCH_POINT *downPoint = point0.isDown() ? &point0 : &point1;
 				FloatXY sens = js->getSetting<FloatXY>(SettingID::TOUCHPAD_SENS);
@@ -2132,7 +2134,7 @@ void TouchCallback(int jcHandle, TOUCH_STATE newState, TOUCH_STATE prevState, fl
 				moveMouse(downPoint->movX * sens.x(), downPoint->movY * sens.y());
 				// Ignore second touch point in this mode for now until gestures gets handled here
 			}
-		}
+		//}
 	}
 	js->prevTouchState = newState;
 }

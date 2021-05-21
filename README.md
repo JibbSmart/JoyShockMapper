@@ -850,7 +850,7 @@ The touchpad always offers the ```TOUCH``` button binding. It will be pressed if
 
 The most important setting for the touchpad is simply ```TOUCHPAD_MODE``` which will determine the primary functionality of the touchpad. Here are two possible values:
 * **GRID_AND_STICK** - Grid And Stick will create a button grid of equally sized buttons on the touch pad. You have to also assign to ```GRID_SIZE``` the number of columns and rows of the grid : the product of the two cannot be greater than 25 or lesser than 1. Touch buttons T1-TN will then become available for assignment: they are layed out in order from left to right, from top to bottom. There are also two touchsticks available. See below.
-* **MOUSE** - Mouse mode turns the touchpad into a familiar laptop touchpad. Sensitivity can be adjusted via ```TOUCHPAD_SENS```. Using two fingers you can rotate to trigger TLEFT and TRIGHT bindings like a scroll wheel ; you can also pinch to trigger TUP and TDOWN and use the vertical value of ```SCROLL_SENS```. More gestures will be added to this mode in future releases. Taps and double taps are already usable via ```TOUCH```.
+* **MOUSE** - Mouse mode turns the touchpad into a familiar laptop touchpad. Sensitivity can be adjusted via ```TOUCHPAD_SENS```. Gestures will be added to this mode in future releases. Taps and double taps are already usable via ```TOUCH```.
 
 Here's an example of grid usage to add some more buttons that otherwise would not be worth putting on a controller
 ```
@@ -870,11 +870,6 @@ TOUCHPAD_MODE = MOUSE
 TOUCH = LMOUSE'	           # Quick tap means select
 TOUCH,TOUCH = RMOUSE       # Double tap for right click
 CAPTURE = LMOUSE ^LMOUSE   # Or click pad to toggle click (dragging)
-TUP = CONTROL\ SCROLLDOWN\ # Zoom in when stretching outward
-TDOWN = CONTROL\ SCROLLUP\ # Zoom out when pinching inward
-TRIGHT = SCROLLDOWN        # Rotate clockwise to scroll down
-TLEFT = SCROLLUP           # Rotate counter-clockwise to scroll up
-TOUCH,SCROLL_SENS = 15 10  # Rotate 15 deg and travel 10 units
 ```
 
 #### 8.1 Touch Sticks
@@ -888,7 +883,7 @@ TOUCH_RING_MODE: Sets what ring should be used for TRING, either INNER or OUTER.
 TOUCH_STICK_RADIUS: Sets the size of the stick, or in other words, the amount of touchpad units to travel to the edge of the stick.
 ```
 
-The touchstick center is always the point of contact. As such, one can easily configure gestures by setting a very large touch stick radius and binding values to the 4 directions.
+The touchstick center is always the point of contact. As such, one can easily configure swipes by setting a very large touch stick radius and binding values to the 4 directions.
 
 The touch stick differs from other input methods in one particular way. The four stick directions cannot be used as a chord for other buttons, but you can chord the four direction with the grid buttons. As such, you can control two touch sticks at the same time on either side of the touch pad with each having different bindings. The example below showcases the numbers 1 to 4 bound to swipe gestures on the left half of the pad, and 5 to 8 bound to swipe gestures on the right half of the pad.
 
