@@ -2,6 +2,12 @@
 
 #include <cstring>
 
+TrayIcon *TrayIcon::getNew(TrayIconData applicationName, std::function<void()> &&beforeShow)
+{
+	return new StatusNotifierItem(applicationName, beforeShow);
+}
+
+
 StatusNotifierItem::StatusNotifierItem(TrayIconData, std::function<void()> &&beforeShow)
   : thread_{ [this, &beforeShow] {
 	  int argc = 0;

@@ -109,7 +109,7 @@ protected:
 		return false;
 	}
 
-	virtual void DisplayNewValue(T newValue)
+	virtual void DisplayNewValue(const T& newValue)
 	{
 		// See Specialization for T=Mapping at the end of this file
 		COUT << _displayName << " has been set to " << newValue << endl;
@@ -227,7 +227,7 @@ public:
 
 // Specialization for Mapping
 template<>
-void JSMAssignment<Mapping>::DisplayNewValue(Mapping newValue)
+void JSMAssignment<Mapping>::DisplayNewValue(const Mapping& newValue)
 {
 	COUT << _name << " mapped to " << newValue._description << endl;
 }

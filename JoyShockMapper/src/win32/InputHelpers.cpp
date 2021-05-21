@@ -1,4 +1,5 @@
 #include "InputHelpers.h"
+#include <thread>
 
 #include <unordered_map>
 
@@ -204,7 +205,6 @@ BOOL WINAPI ConsoleCtrlHandler(DWORD dwCtrlType)
 	case CTRL_C_EVENT:
 	case CTRL_BREAK_EVENT:
 	case CTRL_CLOSE_EVENT:
-		// Indirection is used to avoid having Windows stuff in main file
 		WriteToConsole("QUIT");
 		return TRUE;
 	}
@@ -313,53 +313,6 @@ std::string GetCWD()
 bool SetCWD(in_string newCWD)
 {
 	return SetCurrentDirectoryA(newCWD.c_str()) == TRUE;
-}
-
-PollingThread::~PollingThread()
-{
-	if (_continue)
-	{
-		Stop();
-		Sleep(_sleepTimeMs);
-	}
-	// Let poll function cleanup
-}
-
-bool PollingThread::Start()
-{
-	if (_thread && !_continue) // thread is running but hasn't stopped yet
-	{
-		Sleep(_sleepTimeMs);
-	}
-	if (!_thread) //thread is clear
-	{
-		_continue = true;
-		_thread = CreateThread(
-		  NULL,          // default security attributes
-		  0,             // use default stack size
-		  &pollFunction, // thread function name
-		  this,          // argument to thread function
-		  0,             // use default creation flags
-		  &_tid);        // returns the thread identifier
-	}
-	return isRunning();
-}
-
-DWORD WINAPI PollingThread::pollFunction(void *param)
-{
-	auto workerThread = reinterpret_cast<PollingThread *>(param);
-	if (workerThread)
-	{
-		while (workerThread->_continue &&
-		  workerThread->_loopContent(workerThread->_funcParam))
-		{
-			Sleep(workerThread->_sleepTimeMs);
-		}
-		CloseHandle(workerThread->_thread);
-		workerThread->_thread = nullptr;
-		return 0;
-	}
-	return 1;
 }
 
 DWORD ShowOnlineHelp()

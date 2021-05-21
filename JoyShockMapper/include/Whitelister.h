@@ -31,7 +31,7 @@ public:
 	// Could be replaced with an socket query, if one exists.
 	inline operator bool() const
 	{
- 		return _whitelisted;
+		return _whitelisted;
 	}
 
 protected:

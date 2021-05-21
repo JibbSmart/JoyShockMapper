@@ -1,10 +1,10 @@
 #pragma once
 
-#include "JSMVersion.h"
 #include "magic_enum.hpp"
 
 #include <map>
 #include <functional>
+#include <sstream>
 #include <string>
 
 // This header file is meant to be included among all core JSM source files
@@ -125,6 +125,39 @@ enum class ButtonID
 	// insert more analog triggers here
 	ZRF,  // =  LAST_ANALOG_TRIGGER
 	SIZE, // Not a button
+
+	// Virtual buttons configured on the touchpad. The number of buttons vary dynamically, but they each need a different ID
+	TUP, // FIRST_TOUCH_BUTTON
+	TDOWN,
+	TLEFT,
+	TRIGHT,
+	TRING,
+	T1,
+	T2,
+	T3,
+	T4,
+	T5,
+	T6,
+	T7,
+	T8,
+	T9,
+	T10,
+	T11,
+	T12,
+	T13,
+	T14,
+	T15,
+	T16,
+	T17,
+	T18,
+	T19,
+	T20,
+	T21,
+	T22,
+	T23,
+	T24,
+	T25,
+	// Add as necessary...
 };
 
 // Help strings for each button
@@ -132,8 +165,8 @@ extern const map<ButtonID, string> buttonHelpMap;
 
 enum class SettingID
 {
-	INVALID = -2,                            // Represents an error in user input
-	MIN_GYRO_SENS = int(ButtonID::SIZE) + 1, // Legacy but int value not used
+	INVALID = 0,    // Represents an error in user input
+	MIN_GYRO_SENS,  // Legacy but int value not used
 	MAX_GYRO_SENS,
 	MIN_GYRO_THRESHOLD,
 	MAX_GYRO_THRESHOLD,
@@ -206,18 +239,28 @@ enum class SettingID
 	TICK_TIME,
 	SIM_PRESS_WINDOW, // Unchorded setting
 	DBL_PRESS_WINDOW, // Unchorded setting
+	GRID_SIZE,        // Unchorded setting
+	TOUCHPAD_MODE,
+	TOUCH_STICK_MODE,
+	TOUCH_STICK_RADIUS,
+	TOUCH_DEADZONE_INNER,
+	TOUCH_RING_MODE,
+	TOUCHPAD_SENS,
 	LIGHT_BAR,
 	SCROLL_SENS,
 	VIRTUAL_CONTROLLER,
 	RUMBLE,
 	TOUCHPAD_DUAL_STAGE_MODE,
 	CLEAR,
+	ADAPTIVE_TRIGGER,
 };
 
 // constexpr are like #define but with respect to typeness
+constexpr size_t MAX_NO_OF_TOUCH = 2; // Could be obtained from JSL?
 constexpr int MAPPING_SIZE = int(ButtonID::SIZE);
 constexpr int FIRST_ANALOG_TRIGGER = int(ButtonID::ZLF);
 constexpr int LAST_ANALOG_TRIGGER = int(ButtonID::ZRF);
+constexpr int FIRST_TOUCH_BUTTON = MAPPING_SIZE + 1;
 constexpr int NUM_ANALOG_TRIGGERS = int(LAST_ANALOG_TRIGGER) - int(FIRST_ANALOG_TRIGGER) + 1;
 constexpr float MAGIC_TAP_DURATION = 40.0f;           // in milliseconds.
 constexpr float MAGIC_INSTANT_DURATION = 40.0f;       // in milliseconds
@@ -293,10 +336,10 @@ enum class GyroAxisMask
 };
 enum class JoyconMask
 {
-	USE_BOTH,
-	IGNORE_LEFT,
-	IGNORE_RIGHT,
-	IGNORE_BOTH,
+	IGNORE_BOTH = 0b00,
+	IGNORE_LEFT = 0b01,
+	IGNORE_RIGHT = 0b10,
+	USE_BOTH = 0b11,
 	INVALID
 };
 enum class GyroIgnoreMode
@@ -319,21 +362,7 @@ enum class DstState
 	ExclFullPress,
 	INVALID
 };
-enum class BtnState
-{
-	NoPress,
-	BtnPress,
-	TapRelease,
-	WaitSim,
-	SimPress,
-	SimRelease,
-	DblPressStart,
-	DblPressNoPressTap,
-	DblPressNoPressHold,
-	DblPressPress,
-	InstRelease,
-	INVALID
-};
+
 enum class BtnEvent
 {
 	OnPress,
@@ -357,6 +386,13 @@ enum class ControllerScheme
 	NONE,
 	XBOX,
 	DS4,
+	INVALID
+};
+
+enum class TouchpadMode
+{
+	GRID_AND_STICK, // Grid and Stick ?
+	MOUSE,          // gestures to be added as part of this mode
 	INVALID
 };
 
@@ -467,93 +503,11 @@ struct GyroSettings
 	GyroIgnoreMode ignore_mode = GyroIgnoreMode::BUTTON;
 };
 
-class DigitalButton;
-class JoyShock;
-
-typedef function<void(DigitalButton *)> OnEventAction;
-
-// This structure handles the mapping of a button, buy processing and action
-// to be done on tap, hold, turbo and others. It holds a map of actions to perform
-// when a specific event happens. This replaces the old Mapping structure.
-class Mapping
-{
-public:
-	enum class ActionModifier
-	{
-		None,
-		Toggle,
-		Instant,
-		INVALID
-	};
-	enum class EventModifier
-	{
-		None,
-		StartPress,
-		ReleasePress,
-		TurboPress,
-		TapPress,
-		HoldPress,
-		INVALID
-	};
-
-	// Identifies having no binding mapped
-	static const Mapping NO_MAPPING;
-
-	// This functor nees to be set to way to validate a command line string;
-	static function<bool(in_string)> _isCommandValid;
-
-	string _description = "no input";
-	string _command;
-
-private:
-	map<BtnEvent, OnEventAction> _eventMapping;
-	float _tapDurationMs = MAGIC_TAP_DURATION;
-	bool _hasViGEmBtn = false;
-
-	void InsertEventMapping(BtnEvent evt, OnEventAction action);
-	static void RunBothActions(DigitalButton *btn, OnEventAction action1, OnEventAction action2);
-
-public:
-	Mapping() = default;
-
-	Mapping(in_string mapping);
-
-	Mapping(int dummy)
-	  : Mapping()
-	{
-	}
-
-	void ProcessEvent(BtnEvent evt, DigitalButton &button, in_string displayName) const;
-
-	bool AddMapping(KeyCode key, EventModifier evtMod, ActionModifier actMod = ActionModifier::None);
-
-	inline bool isValid() const
-	{
-		return !_eventMapping.empty();
-	}
-
-	inline float getTapDuration() const
-	{
-		return _tapDurationMs;
-	}
-
-	inline void clear()
-	{
-		_eventMapping.clear();
-		_description.clear();
-		_tapDurationMs = MAGIC_TAP_DURATION;
-		_hasViGEmBtn = false;
-	}
-
-	inline bool hasViGEmBtn() const
-	{
-		return _hasViGEmBtn;
-	}
-};
+class Mapping;
 
 // This function is defined in main.cpp. It enables two sim press variables to
 // listen to each other and make sure they both hold the same values.
-void SimPressCrossUpdate(ButtonID sim, ButtonID origin, Mapping newVal);
+void SimPressCrossUpdate(ButtonID sim, ButtonID origin, const Mapping &newVal);
 
 // This operator enables reading any enum from string
 template<class E, class = std::enable_if_t<std::is_enum<E>{}>>
@@ -576,31 +530,26 @@ ostream &operator<<(ostream &out, E rhv)
 
 // The following operators enable reading and writing JSM's custom
 // types to and from string, or handles exceptions
+ostream &operator<<(ostream &out, const KeyCode &code);
+// operator >>() is nameToKey()?!?
+
 istream &operator>>(istream &in, ButtonID &rhv);
-ostream &operator<<(ostream &out, ButtonID rhv);
+ostream &operator<<(ostream &out, const ButtonID &rhv);
 
 istream &operator>>(istream &in, FlickSnapMode &fsm);
-ostream &operator<<(ostream &out, FlickSnapMode fsm);
+ostream &operator<<(ostream &out, const FlickSnapMode &fsm);
 
 istream &operator>>(istream &in, TriggerMode &tm); // Handle L2 / R2
 
 istream &operator>>(istream &in, GyroSettings &gyro_settings);
-ostream &operator<<(ostream &out, GyroSettings gyro_settings);
+ostream &operator<<(ostream &out, const GyroSettings &gyro_settings);
 bool operator==(const GyroSettings &lhs, const GyroSettings &rhs);
 inline bool operator!=(const GyroSettings &lhs, const GyroSettings &rhs)
 {
 	return !(lhs == rhs);
 }
 
-istream &operator>>(istream &in, Mapping &mapping);
-ostream &operator<<(ostream &out, Mapping mapping);
-bool operator==(const Mapping &lhs, const Mapping &rhs);
-inline bool operator!=(const Mapping &lhs, const Mapping &rhs)
-{
-	return !(lhs == rhs);
-}
-
-ostream &operator<<(ostream &out, FloatXY fxy);
+ostream &operator<<(ostream &out, const FloatXY &fxy);
 istream &operator>>(istream &in, FloatXY &fxy);
 bool operator==(const FloatXY &lhs, const FloatXY &rhs);
 inline bool operator!=(const FloatXY &lhs, const FloatXY &rhs)
@@ -609,7 +558,7 @@ inline bool operator!=(const FloatXY &lhs, const FloatXY &rhs)
 }
 
 istream &operator>>(istream &in, Color &color);
-ostream &operator<<(ostream &out, Color color);
+ostream &operator<<(ostream &out, const Color &color);
 bool operator==(const Color &lhs, const Color &rhs);
 inline bool operator!=(const Color &lhs, const Color &rhs)
 {
@@ -621,8 +570,50 @@ istream &operator>>(istream &in, AxisMode &am);
 
 istream &operator>>(istream &in, PathString &fxy);
 
+class Log
+{
+public:
+	enum Level
+	{
+		UT,
+		BASE,
+		BOLD,
+		INFO,
+		WARN,
+		ERR,
+	};
+
+protected:
+	// https://stackoverflow.com/questions/11826554/standard-no-op-output-stream
+	class NullBuffer : public std::streambuf
+	{
+	public:
+		int overflow(int c) override
+		{
+			return c;
+		}
+	};
+	unique_ptr<streambuf> _buf;
+
+	static streambuf *makeBuffer(Level level);
+
+public:
+	Log(Level level)
+	  : _buf(makeBuffer(level))
+	  , _str(_buf.get())
+	{
+	}
+	~Log() { }
+
+	ostream _str;
+};
+
 // This trickery doesn't work in Linux does it? :(
-#define CERR ColorStream<&std::cerr, FOREGROUND_RED | FOREGROUND_INTENSITY>()
-#define COUT ColorStream<&std::cout, FOREGROUND_GREEN>()
-#define COUT_INFO ColorStream<&cout, FOREGROUND_BLUE | FOREGROUND_INTENSITY>()
-#define COUT_WARN ColorStream<&cout, FOREGROUND_YELLOW | FOREGROUND_INTENSITY>()
+#define CERR Log(Log::Level::ERR)._str
+#define COUT Log(Log::Level::BASE)._str
+#define COUT_INFO Log(Log::Level::INFO)._str
+#define COUT_WARN Log(Log::Level::WARN)._str
+#define DEBUG_LOG Log(Log::Level::UT)._str
+#define COUT_BOLD Log(Log::Level::BOLD)._str
+
+bool do_RECONNECT_CONTROLLERS(in_string arguments);

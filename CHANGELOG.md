@@ -3,6 +3,39 @@
 Most recent updates will appear first.
 This is a summary of new features and bugfixes. Read the README to learn how to use the features mentioned here.
 
+## 3.1.0
+
+Dualsense Adaptive trigger support, MIC button support
+DS and DS4 touchpad support. See features below
+HidHide support and improved error logs
+DBL_PRESS_WINDOW is now a modeshift-able setting and hold time is not restricted by it anymore
+The first press of double press enables mapping. See README
+Tons of refactoring and code improvements in preparation for unit tests
+Gestures from the beta has been disabled
+
+### Features
+
+* Touchpad mouse, grid (1-25 buttons) and stick available
+* New settings related to touchpad features
+  * TOUCHPAD_MODE sets to either MOUSE or GRID_AND_STICK
+  * GRID_SIZE takes rows and colums (max grid 25 buttons)
+  * TOUCH_STICK_MODE is a regular stick mode for a touch stick
+  * TOUCH_STICK_DEADZONE_INNER, TOUCH_STICK_RADIUS, TOUCH_RING_MODE
+  * TOUCHPAD_SENS controls the mouse mode sensitivity
+  * ADAPTIVE_TRIGGER switch can turn trigger resistance off: hair trigger is not available on DS when Adaptive Triggers are on.
+* New MIC binding used by DS only
+* Dualsense applies adaptive trigger setting based on trigger mode and state
+* HidHide support: hidhide remembers applications, so you don't need to add to whitelist at every start
+* DBL_PRESS_WINDOW default value is now same os hold press : 150 ms
+
+### Bugfixes
+
+* Gyro active toggle didn't clear after another gyro release
+* An active toggle hides subsequent presses of the same key
+* Controller type didn't report properly
+* Tray menu loads a relative path to minimize pathing issue
+* Fixed an issue in the beta where adaptive triggers were "ticking"
+
 ## 3.0.2
 
 Reverting blocked key presses and bugfix

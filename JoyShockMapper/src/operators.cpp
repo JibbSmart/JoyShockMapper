@@ -20,6 +20,11 @@ static optional<float> getFloat(const string &str, size_t *newpos = nullptr)
 	}
 }
 
+ostream &operator<<(ostream &out, const KeyCode &code)
+{
+	return out << code.name;
+}
+
 istream &operator>>(istream &in, ButtonID &rhv)
 {
 	string s;
@@ -36,7 +41,7 @@ istream &operator>>(istream &in, ButtonID &rhv)
 	return in;
 }
 
-ostream &operator<<(ostream &out, ButtonID rhv)
+ostream &operator<<(ostream &out, const ButtonID &rhv)
 {
 	if (rhv == ButtonID::PLUS)
 		out << "+";
@@ -71,7 +76,7 @@ istream &operator>>(istream &in, FlickSnapMode &fsm)
 	return in;
 }
 
-ostream &operator<<(ostream &out, FlickSnapMode fsm)
+ostream &operator<<(ostream &out, const FlickSnapMode &fsm)
 {
 	if (fsm == FlickSnapMode::FOUR)
 		out << "4";
@@ -140,7 +145,7 @@ istream &operator>>(istream &in, GyroSettings &gyro_settings)
 	return in;
 }
 
-ostream &operator<<(ostream &out, GyroSettings gyro_settings)
+ostream &operator<<(ostream &out, const GyroSettings &gyro_settings)
 {
 	if (gyro_settings.ignore_mode == GyroIgnoreMode::BUTTON)
 	{
@@ -160,7 +165,7 @@ bool operator==(const GyroSettings &lhs, const GyroSettings &rhs)
 	  lhs.ignore_mode == rhs.ignore_mode;
 }
 
-ostream &operator<<(ostream &out, FloatXY fxy)
+ostream &operator<<(ostream &out, const FloatXY &fxy)
 {
 	out << fxy.first;
 	if (fxy.first != fxy.second)
@@ -260,7 +265,7 @@ istream &operator>>(istream &in, Color &color)
 	return in;
 }
 
-ostream &operator<<(ostream &out, Color color)
+ostream &operator<<(ostream &out, const Color &color)
 {
 	out << 'x' << hex << setw(2) << setfill('0') << int(color.rgb.r)
 	    << hex << setw(2) << setfill('0') << int(color.rgb.g)

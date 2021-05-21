@@ -25,6 +25,9 @@ JoyShockMapper is primarily developed on Windows. JoyShockMapper should now be a
 	* **[Double Press](#15-double-press)**
 	* **[Gyro Button](#16-gyro-button)**
   * **[Analog Triggers](#2-analog-triggers)**
+    * **[Analog to digital](#21-analog-to-digital)**
+    * **[Full pull and modes](#22-full-pull-and-modes)**
+    * **[Adaptive Triggers](#23-adaptive-triggers)**
   * **[Stick Configuration](#3-stick-configuration)**
     * **[Standard AIM mode](#31-standard-aim-mode)**
     * **[FLICK mode and variants](#32-flick-mode-and-variants)**
@@ -40,13 +43,15 @@ JoyShockMapper is primarily developed on Windows. JoyShockMapper should now be a
     * **[Xbox bindings](#61-xbox-bindings)**
     * **[DS4 bindings](#62-ds4-bindings)**
   * **[Modeshifts](#7-modeshifts)**
-  * **[Miscellaneous Commands](#8-miscellaneous-commands)**
+  * **[Touchpad](#8-touchpad)**
+    * **[Touch Sticks](#81-touch-sticks)**
+  * **[Miscellaneous Commands](#9-miscellaneous-commands)**
 * **[Configuration Files](#configuration-files)**
   * **[OnStartup.txt](#1-onstartuptxt)**
   * **[OnReset.txt](#2-onresettxt)**
   * **[Autoload feature](#3-autoload-feature)**
-* **[Known and Perceived Issues](#known-and-perceived-issues)**
 * **[Troubleshooting](#troubleshooting)**
+* **[Known and Perceived Issues](#known-and-perceived-issues)**
 * **[Credits](#credits)**
 * **[Helpful Resources](#helpful-resources)**
 * **[License](#license)**
@@ -199,6 +204,7 @@ MUP, MDOWN, MLEFT, MRIGHT: Motion stick tilted forward, back, left or right
 MRING: Motion ring binding, either inner or outer.
 LEAN_LEFT, LEAN_RIGHT: Tilt the controller to the left or right
 TOUCH : The Playstation touchpad senses a finger
+MIC: The Sony Dualsense microphone button
 ```
 
 These can all be mapped to the following keyboard and mouse inputs:
@@ -289,17 +295,19 @@ There are two kinds of modifiers that can be applied to key bindings: action mod
 These modifiers can enable you to work around in game tap and holds, or convert one form of press into another. Here's a few example of how you can make use of those modifiers.
 
 ```
-ZL = ^RMOUSE RMOUSE  # ADS toggle on tap
-E  = !C\ !C/         # Convert in game toggle crouch to regular press
-UP = !1\ 1           # Convert Batarang throw double press to hold press
-W  = R E\            # In Halo MCC, reload on tap but apply E right away to cover for in-game hold processing
--,S = SPACE+         # Turbo press for button mash QTEs. No one likes to button mash :(
-R3 = !1\ LMOUSE+ !Q/ # Half life melee button
+ZL = ^RMOUSE\ RMOUSE_ # ADS toggle on tap and release the toggle on hold
+E  = !C\ !C/          # Convert in game toggle crouch to regular press
+UP = !1\ 1            # Convert Batarang throw double press to hold press
+W  = R E\             # In Halo MCC, reload on tap but apply E right away to cover for in-game hold processing
+-,S = SPACE+          # Turbo press for button mash QTEs. No one likes to button mash :(
+R3 = !1\ LMOUSE+ !Q/  # Half life melee button
 UP,UP = !ENTER\ LSHIFT\ !G\ !L\ !SPACE\ !H\ !F\ !ENTER/ # Pre recorded message
-UP,E = BACKSPACE+    # Erase pre recorded message if I change my mind
+UP,E = BACKSPACE+     # Erase pre recorded message if I change my mind
 ```
 
-Take note that the Simultaneous Press and Double Press bindings (but not Chorded Press) below introduce delays in the raising of the events (notably StartPress) until the right mapping is determined. Those time windows are not added but events will be pushed together within a frame or two.
+Take note that the Simultaneous Press below introduce delays in the raising of the events (notably StartPress) until the right mapping is determined. Those time windows are not added but events will be pushed together within a poll callback or two.
+
+Also, Double Press bindings has some special timing handling in order to give the user the option to have the first binding skippable or not. See its [dedicated section](#15-double-press) below for details
 
 Finally, Here is a graph containing a comprehensive description of when the button events are raised over the course of a press.
 ```
@@ -355,12 +363,18 @@ A button can be chorded with multiple other buttons. In this case, the latest ch
 #### 1.5 Double Press
 You can also assign the double press of a button to a different binding. Double press notation is the same as chorded button notation, except the button is chorded with itself. It supports taps & holds and modifiers like all previous entries.
 
+The double press binding is applied when a down press occurs within 150 milliseconds from a previous down press. The regular binding will apply any on press event on the first press, but will only apply the tap binding if the second press is ommitted and with a delay. The double press binding also supports tap & hold bindings as well as modifiers. The time window in which to perform the double press can be changed by assigning a different number of milliseconds to ```DBL_PRESS_WINDOW```.
+
 ```
 N = SCROLLDOWN # Cycle weapon
-N,N = X # Cycle weapon fire mode
-```
+N,N = X        # Cycle weapon fire mode
 
-The double press binding is applied when a down press occurs within a fifth of a second from a first down press. In that period of time no other binding can be assumed, so regular taps will have the delay introduced. This binding also supports tap & hold bindings as well as modifiers. The time window in which to perform the double press can be changed by assigning a different number of milliseconds to ```DBL_PRESS_WINDOW```. This setting cannot be changed by modeshift (covered later).
+W = !E\        # Pick up item
+W,W = I        # Pick up item and open Inventory
+
+E = C'         # Crouch
+E,E = Z        # Don't crouch but go prone
+```
 
 #### 1.6 Gyro Button
 Lastly, there is one digital input that works differently, because it can overlap with any other input. Well, two inputs, but you'll use at most one of them in a given configuration:
@@ -408,6 +422,8 @@ If you're using ```GYRO_TRACKBALL``` or its single-axis variants, you can use **
 
 ### 2. Analog Triggers
 
+#### 2.1 Analog to digital
+
 The following section does not apply to Joycons and Switch Pro controllers because they only have digital triggers.
 
 Analog triggers report a value between 0% and 100% representing how far you are pulling the trigger. Binding a digital button to an analog trigger is done using a threashold value. The button press is sent when the trigger value crosses the threashold value, sitting between 0% and 100%. The default threashold value is 0, meaning the slightest press of the trigger sends the button press. This is great for responsiveness, but could result in accidental presses. The threashold can be customized by running the following command:
@@ -419,6 +435,8 @@ TRIGGER_THRESHOLD = 0.5   #Send Trigger values at half press
 The same threashold value is used for both triggers. A value of 1.0 or higher makes the binding impossible to reach.
 
 Hair trigger is also implemented: to enable it, assign a value of -1 as the trigger threshold. When hair trigger is used, the binding is enabled when the trigger is being pressed and held, and released when the trigger is being released. This allows quick tap shooting by pulsing the trigger.
+
+#### 2.2 Full pull and modes
 
 JoyShockMapper can assign different bindings to the full pull of the trigger, allowing you to double the number of bindings put on the triggers. The way the trigger handles these bindings is set with the variables ```ZR_MODE``` and ```ZL_MODE```, for R2 and L2 triggers. Once set, you can assign keys to ```ZRF``` and ```ZLF``` to make use of the R2 and L2 full pull bindings respectively. In this context, ```ZL``` and ```ZR``` are called the soft pull binding because they activate before the full pull binding does at 100%. Here is the list of all possible trigger modes.
 
@@ -452,6 +470,16 @@ ZRF = V G              # Quick full tap to melee; Quick hold full press to unpin
 Using MUST_SKIP mode makes sure that once you start firing, reaching the full pull will **not** make you stop firing to melee.
 
 The "Responsive" variants of the skip modes enable a different behaviour that can give you a better experience than the original versions in specific circumstances. A typical example is when the soft binding is a mode-like binding like ADS or crouch, and there is no hold or simultaneous press binding on that soft press. The difference is that the soft binding is actived as soon as the trigger crosses the threshold, giving the desired responsive feeling, but gets removed if the full press is reached quickly, thus still allowing you to hip fire for example. This will result in a hopefully negligeable scope glitch but grants a snappier ADS activation.
+
+#### 2.3 Adaptive Triggers
+
+The Dualsense controller features adaptive trigger that allow software to control the force feedback applies on the triggers. JoyShockMapper makes use of this feature to provide useful feedback depending on the trigger mode and position of the trigger. Currently the patterns cannot be customized by the user but can be turned off with the following setting.
+
+```
+ADAPTIVE_TRIGGER = OFF # Don't use force feedback in my triggers
+```
+
+While adaptive triggers are enabled, the Dualsense controller will ignore hair trigger threshold, and consider it to be simply threshold zero. This is because the adaptive triggers fulfill the purpose of hair triggers by restricting uneccessary travelling distance. With adaptive triggers turned off, regular hair trigger is then accessible.
 
 ### 3. Stick Configuration
 Each stick has 7 different operation modes:
@@ -776,7 +804,10 @@ Almost all settings described in previous sections that are assignations (i.e.: 
 AUTOLOAD
 JSM_DIRECTORY
 SIM_PRESS_WINDOW
-DBL_PRESS_WINDOW
+TICK_TIME
+GRID_SIZE
+HIDE_MINIMIZED
+VIRTUAL_CONTROLLER
 ```
 
 Here's some usage examples: in DOOM (2016), you can use the right stick when you bring up a weapon wheel even when using flick stick:
@@ -813,7 +844,66 @@ ZLF,GYRO_OFF = NONE\     # RS does not turn gyro off when ZLF is pressed
 ZLF,GYRO_OFF = NONE      # oops undo
 ```
 
-### 8. Miscellaneous Commands
+### 8. Touchpad
+
+The touchpad always offers the ```TOUCH``` button binding. It will be pressed if there is any touch point active. This binding will overlap with other touch buttons and can be useful to disable gyro for example, or bring up the game map. There is also a dual stage mode setting for the touchpad touch and click: ```TOUCHPAD_DUAL_STAGE_MODE``` which can be any mode explained in the analog triggers, where CAPTURE is the full press or click and TOUCH is the soft press. The default setting is NO_SKIP.
+
+The most important setting for the touchpad is simply ```TOUCHPAD_MODE``` which will determine the primary functionality of the touchpad. Here are two possible values:
+* **GRID_AND_STICK** - Grid And Stick will create a button grid of equally sized buttons on the touch pad. You have to also assign to ```GRID_SIZE``` the number of columns and rows of the grid : the product of the two cannot be greater than 25 or lesser than 1. Touch buttons T1-TN will then become available for assignment: they are layed out in order from left to right, from top to bottom. There are also two touchsticks available. See below.
+* **MOUSE** - Mouse mode turns the touchpad into a familiar laptop touchpad. Sensitivity can be adjusted via ```TOUCHPAD_SENS```. Gestures will be added to this mode in future releases. Taps and double taps are already usable via ```TOUCH```.
+
+Here's an example of grid usage to add some more buttons that otherwise would not be worth putting on a controller
+```
+TOUCHPAD_MODE = GRID_AND_STICK
+GRID_SIZE = 2 1   # split the pad in two buttons, left and right
+GYRO_OFF = TOUCH  # disable the gyro when I touch either button
+
+# Bind on clicks
+CAPTURE = NONE   # Chorded with touch buttons
+T1,CAPTURE = F1  # View Help
+T2,CAPTURE = F10 # Quick Save
+```
+
+Or a typical touchapd in cursor mode
+```
+TOUCHPAD_MODE = MOUSE
+TOUCH = LMOUSE'	           # Quick tap means select
+TOUCH,TOUCH = RMOUSE       # Double tap for right click
+CAPTURE = LMOUSE ^LMOUSE   # Or click pad to toggle click (dragging)
+```
+
+#### 8.1 Touch Sticks
+
+A touch stick is a virtual joystick mapped unto the touchpad. As such, a touch stick has and uses all of the familiar binding names and settings, plus one new setting.
+```
+TUP, TDOWN, TLEFT, TRIGHT, TRING : The touchstick four directions when in NO_MOUSE mode.
+TOUCH_STICK_MODE: Set the touchstick to any  stick mode (AIM, FLICK_ONLY, MOUSE_AREA, etc...)
+TOUCH_DEADZONE_INNER: Sets how large the area with no output is. There is no TOUCH_DEADZONE_OUTER, as it is replaced with TOUCH_STICK_RADIUS. See below.
+TOUCH_RING_MODE: Sets what ring should be used for TRING, either INNER or OUTER.
+TOUCH_STICK_RADIUS: Sets the size of the stick, or in other words, the amount of touchpad units to travel to the edge of the stick.
+```
+
+The touchstick center is always the point of contact. As such, one can easily configure swipes by setting a very large touch stick radius and binding values to the 4 directions.
+
+The touch stick differs from other input methods in one particular way. The four stick directions cannot be used as a chord for other buttons, but you can chord the four direction with the grid buttons. As such, you can control two touch sticks at the same time on either side of the touch pad with each having different bindings. The example below showcases the numbers 1 to 4 bound to swipe gestures on the left half of the pad, and 5 to 8 bound to swipe gestures on the right half of the pad.
+
+```
+TOUCH_STICK_MODE = GRID_AND_STICK
+GRID_SIZE = 2 1 # Left and Right
+TOUCH_STICK_RADIUS = 800 # Use a larger value to use stick as swipe gestures
+
+T1,TLEFT = 1
+T1,TUP = 2
+T1,TRIGHT = 3
+T1,TDOWN = 4
+
+T2,TLEFT = 5
+T2,TUP = 6
+T2,TRIGHT = 7
+T2,TDOWN = 8
+```
+
+### 9. Miscellaneous Commands
 There are a few other useful commands that don't fall under the above categories:
 
 * **RESET\_MAPPINGS** - This will reset all JoyShockMapper's settings to their default values. This way you don't have to manually unset button mappings or other settings when making a big change. It can be useful to always start your configuration files with the RESET\_MAPPINGS command. The only exceptions to this are the calibration state and AUTOLOAD.

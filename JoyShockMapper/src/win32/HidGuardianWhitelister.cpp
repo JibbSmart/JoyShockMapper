@@ -121,7 +121,15 @@ public:
 
 	virtual bool Add(string* optErrMsg = nullptr) override
 	{
-		if (!_whitelisted && IsAvailable())
+		if (!IsAvailable())
+		{
+			if (optErrMsg)
+			{
+				*optErrMsg = "No Whitelister Application is available. JoyShockMapper ecommends the latest HidHide from Nefarius\n" \
+					"https://github.com/ViGEm/HidHide/releases/latest";
+			}
+		}
+		else if (!_whitelisted)
 		{
 			UINT64 pid = GetCurrentProcessId();
 			stringstream ss;
@@ -137,12 +145,27 @@ public:
 			if (optErrMsg)
 				*optErrMsg = result;
 		}
+		else // Available and whitelisted
+		{
+			if (optErrMsg)
+			{
+				*optErrMsg = "JoyShockMapper is already whitelisted";
+			}
+		}
 		return false;
 	}
 
 	virtual bool Remove(string* optErrMsg = nullptr) override
 	{
-		if (_whitelisted && IsAvailable())
+		if (!IsAvailable())
+		{
+			if (optErrMsg)
+			{
+				*optErrMsg = "No whitelisting application is available. JoyShockMapper recommends the latest HidHide from Nefarius:\n" \
+					"https://github.com/ViGEm/HidHide/releases/latest";
+			}
+		}
+		else if (_whitelisted)
 		{
 			UINT64 pid = GetCurrentProcessId();
 			stringstream ss;
@@ -156,6 +179,13 @@ public:
 
 			if (optErrMsg)
 				*optErrMsg = result;
+		}
+		else // Available and not whitelisted
+		{
+			if (optErrMsg)
+			{
+				*optErrMsg = "JoyShockMapper is not whitelisted";
+			}
 		}
 		return false;
 	}

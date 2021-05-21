@@ -125,7 +125,6 @@ SpacesInConditionalStatement: false
 SpacesInContainerLiterals: true
 SpacesInParentheses: false
 SpacesInSquareBrackets: false
-Standard: Cpp17
 StatementMacros:
 - Q_UNUSED
 - QT_REQUIRE_VERSION

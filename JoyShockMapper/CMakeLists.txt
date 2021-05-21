@@ -19,6 +19,9 @@ add_executable (
     src/CmdRegistry.cpp
     src/quatMaths.cpp
     src/ButtonHelp.cpp
+ 	src/DigitalButton.cpp
+	src/GamepadMotion.cpp
+	src/Mapping.cpp
     include/InputHelpers.h
     include/PlatformDefinitions.h
     include/TrayIcon.h
@@ -29,8 +32,11 @@ add_executable (
     include/Whitelister.h
     include/JoyShockMapper.h
     include/ColorCodes.h
-    include/GamepadMotion.hpp
+    include/GamepadMotion.h
 	include/Gamepad.h
+	include/DigitalButton.h
+	include/JslWrapper.h
+	include/Mapping.h
 )
 
 if (WINDOWS)
@@ -48,7 +54,13 @@ if (WINDOWS)
     if(SDL)
         target_sources (
             ${BINARY_NAME} PRIVATE
-            src/SDL2Wrapper.cpp              include/JoyShockLibrary.h
+            src/SDL2Wrapper.cpp
+		)
+		add_definitions(-DSDL2)
+	else()
+	        target_sources (
+            ${BINARY_NAME} PRIVATE
+            src/JslWrapper.cpp
 		)
     endif()
 
@@ -106,7 +118,7 @@ if (WINDOWS)
          WIN32_EXECUTABLE ON
          VS_STARTUP_PROJECT "${BINARY_NAME}"
          VS_DEBUGGER_WORKING_DIRECTORY "$(ProjectDir)/$(Configuration)/"
-		 VS_DEBUGGER_COMMAND_ARGUMENTS "$(SolutionDir)..\\$(ProjectName)\\dist"
+		 VS_DEBUGGER_COMMAND_ARGUMENTS "$(SolutionDir)../dist"
     )
 
 	 add_definitions(/bigobj)
@@ -140,10 +152,8 @@ if(SDL)
 	# SDL2
 	CPMAddPackage (
 		NAME SDL2
-		GITHUB_REPOSITORY libsdl-org/SDL
-		VERSION 2.0.15
-		# 2.0.15 hasn't released yet, so let's use a specific commit
-		GIT_TAG c287087fcce57af086c0a52f74fcdb74e9084c55
+		GITHUB_REPOSITORY Electronicks/SDL
+		GIT_TAG main
 	)
 	
 	set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
@@ -163,7 +173,7 @@ else()
 	CPMAddPackage (
 		NAME JoyShockLibrary
 		GITHUB_REPOSITORY JibbSmart/JoyShockLibrary
-		VERSION 2.1.0
+		GIT_TAG 0
 	)
 
 	target_link_libraries (
@@ -190,4 +200,17 @@ target_link_libraries (
     ${BINARY_NAME} PRIVATE
     Platform::Dependencies
     magic_enum
+)
+
+# pocket_fsm
+CPMAddPackage (
+    NAME pocket_fsm
+    GITHUB_REPOSITORY Electronicks/pocket_fsm
+    GIT_TAG HFSM
+)
+
+target_link_libraries (
+    ${BINARY_NAME} PRIVATE
+    Platform::Dependencies
+    pocket_fsm
 )
