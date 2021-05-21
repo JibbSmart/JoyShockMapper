@@ -136,8 +136,8 @@ public:
 					inst->g_touch_callback(iter->first, touch, dummy3, tick_time.get());
 				}
 				// Perform rumble
-				SDL_GameControllerRumble(iter->second->_sdlController, iter->second->_small_rumble, iter->second->_big_rumble, tick_time.get() + 1);
-				SDL_GameControllerSetTriggerEffect(iter->second->_sdlController, &iter->second->_left_trigger_effect, &iter->second->_right_trigger_effect, tick_time.get() * 2);
+				SDL_GameControllerRumble(iter->second->_sdlController, iter->second->_small_rumble, iter->second->_big_rumble, tick_time.get() + 5);
+				SDL_GameControllerSetTriggerEffect(iter->second->_sdlController, &iter->second->_left_trigger_effect, &iter->second->_right_trigger_effect, tick_time.get() + 5);
 			}
 		}
 

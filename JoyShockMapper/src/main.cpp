@@ -1165,8 +1165,8 @@ public:
 			{
 				if (mode == TriggerMode::NO_SKIP || mode == TriggerMode::MAY_SKIP || mode == TriggerMode::MAY_SKIP_R)
 				{
-					trigger_rumble.strength = min(int(UINT16_MAX), trigger_rumble.strength + int(0.1 * UINT16_MAX));
-					trigger_rumble.start = min(0.89 * MAX_TRIGGER_POS, trigger_rumble.start + 0.02 * MAX_TRIGGER_POS);
+					trigger_rumble.strength = min(int(UINT16_MAX), trigger_rumble.strength + int(1/30.f * tick_time  * UINT16_MAX));
+					trigger_rumble.start = min(0.89 * MAX_TRIGGER_POS, trigger_rumble.start + 1/150. * tick_time * MAX_TRIGGER_POS);
 					trigger_rumble.end = trigger_rumble.start + 0.1 * MAX_TRIGGER_POS;
 					handleButtonChange(softIndex, true);
 					if (position == 1.0)
@@ -1178,8 +1178,8 @@ public:
 				}
 				else if (mode == TriggerMode::NO_SKIP_EXCLUSIVE)
 				{
-					trigger_rumble.strength = min(int(UINT16_MAX), trigger_rumble.strength + int(0.1 * UINT16_MAX));
-					trigger_rumble.start = min(0.89 * MAX_TRIGGER_POS, trigger_rumble.start + 0.02 * MAX_TRIGGER_POS);
+					trigger_rumble.strength = min(int(UINT16_MAX), trigger_rumble.strength + int(1/30.f * tick_time * UINT16_MAX));
+					trigger_rumble.start = min(0.89 * MAX_TRIGGER_POS, trigger_rumble.start + 1/150. * tick_time * MAX_TRIGGER_POS);
 					trigger_rumble.end = trigger_rumble.start + 0.1 * MAX_TRIGGER_POS;
 					handleButtonChange(softIndex, false);
 					if (position == 1.0)
@@ -1191,7 +1191,7 @@ public:
 				else // NO_FULL, MUST_SKIP and MUST_SKIP_R
 				{
 					trigger_rumble.mode = 1;
-					trigger_rumble.strength = min(int(UINT16_MAX), trigger_rumble.strength + int(0.1 * UINT16_MAX));
+					trigger_rumble.strength = min(int(UINT16_MAX), trigger_rumble.strength + int(1/30.f * tick_time  * UINT16_MAX));
 					// keep old trigger_rumble.start
 					handleButtonChange(softIndex, true);
 				}

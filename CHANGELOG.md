@@ -34,6 +34,7 @@ Tons of refactoring and code improvements in preparation for unit tests
 * An active toggle hides subsequent presses of the same key
 * Controller type didn't report properly
 * Tray menu loads a relative path to minimize pathing issue
+* Fixed an issue in the beta where adaptive triggers were "ticking"
 
 ## 3.0.2
 
