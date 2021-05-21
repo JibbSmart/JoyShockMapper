@@ -5,6 +5,7 @@ This is a summary of new features and bugfixes. Read the README to learn how to 
 
 ## 3.1.0
 
+SDL build of JSM has no label, and JSL build is marked as "legacy"
 Dualsense Adaptive trigger support, MIC button support
 DS and DS4 touchpad support. See features below
 HidHide support and improved error logs
