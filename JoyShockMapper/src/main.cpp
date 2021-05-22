@@ -257,6 +257,7 @@ public:
 
 	void StartCalibration()
 	{
+
 		COUT << "Starting continuous calibration" << endl;
 		_gamepadMotion->ResetContinuousCalibration();
 		_gamepadMotion->StartContinuousCalibration();
@@ -1031,6 +1032,9 @@ public:
 			virtual_controller = ControllerScheme::NONE;
 		}
 		JslSetLightColour(handle, _light_bar.raw);
+		motion.SetCalibrationMode(GamepadMotionHelpers::CalibrationMode::Stillness | GamepadMotionHelpers::CalibrationMode::SensorFusion);
+		//motion.SetCalibrationMode(CalibrationMode::SensorFusion);
+		//motion.SetCalibrationMode(CalibrationMode::Stillness);
 	}
 
 	~JoyShock()
@@ -2433,12 +2437,12 @@ void joyShockPollCallback(int jcHandle, JOY_SHOCK_STATE state, JOY_SHOCK_STATE l
 	float inQuatW, inQuatX, inQuatY, inQuatZ;
 	motion.GetOrientation(inQuatW, inQuatX, inQuatY, inQuatZ);
 
-	//COUT << "DS4 accel: %.4f, %.4f, %.4f\n", imuState.accelX, imuState.accelY, imuState.accelZ);
-	//COUT << "\tDS4 gyro: %.4f, %.4f, %.4f\n", imuState.gyroX, imuState.gyroY, imuState.gyroZ);
-	//COUT << "\tDS4 quat: %.4f, %.4f, %.4f, %.4f | accel: %.4f, %.4f, %.4f | grav: %.4f, %.4f, %.4f\n",
-	//	inQuatW, inQuatX, inQuatY, inQuatZ,
-	//	motion.accelX, motion.accelY, motion.accelZ,
-	//	inGravvX, inGravY, inGravZ);
+	//float inAccelX, inAccelY, inAccelZ;
+	//motion.GetProcessedAcceleration(inAccelX, inAccelY, inAccelZ);
+	//
+	//COUT << "\tIMU: " <<
+	//	inAccelX << ", " << inAccelY << ", " << inAccelZ << "\n\t" <<
+	//	inGravX << ", " << inGravY << ", " << inGravZ << "\n";
 
 	bool blockGyro = false;
 	bool lockMouse = false;
@@ -2456,21 +2460,52 @@ void joyShockPollCallback(int jcHandle, JOY_SHOCK_STATE state, JOY_SHOCK_STATE l
 		COUT << "Neutral orientation for device " << jc->handle << " set..." << endl;
 	}
 
+	float gravLength = sqrtf(inGravX * inGravX + inGravY * inGravY + inGravZ * inGravZ);
+	float normGravX = 0.f;
+	float normGravY = 0.f;
+	float normGravZ = 0.f;
+	if (gravLength > 0.f)
+	{
+		float gravNormalizer = 1.f / gravLength;
+		normGravX = inGravX * gravNormalizer;
+		normGravY = inGravY * gravNormalizer;
+		normGravZ = inGravZ * gravNormalizer;
+	}
+
+	float upness = abs(normGravZ);
+	if (upness > 1.f)
+	{
+		upness = 1.f;
+	}
+	float flatness = sqrtf(1.f - upness);
+	//float flatFactor = min(flatness / 0.7f, 1.f);// / (flatness + upness);
+	float flatFactor = 1.f;
+	float upFactor = min(upness / 0.7f, 1.f);// / (flatness + upness);
+	if (normGravZ < 0.f)
+	{
+		upFactor = -upFactor;
+	}
+
 	float gyroX = 0.0;
 	float gyroY = 0.0;
-	int mouse_x_flag = (int)jc->getSetting<GyroAxisMask>(SettingID::MOUSE_X_FROM_GYRO_AXIS);
-	if ((mouse_x_flag & (int)GyroAxisMask::X) > 0)
+	//int mouse_x_flag = (int)jc->getSetting<GyroAxisMask>(SettingID::MOUSE_X_FROM_GYRO_AXIS);
+	//if ((mouse_x_flag & (int)GyroAxisMask::X) > 0)
 	{
-		gyroX += inGyroX;
+	//	gyroX += inGyroX;
 	}
-	if ((mouse_x_flag & (int)GyroAxisMask::Y) > 0)
+	//if ((mouse_x_flag & (int)GyroAxisMask::Y) > 0)
 	{
-		gyroX -= inGyroY;
+		gyroX -= inGyroY * flatFactor;
 	}
-	if ((mouse_x_flag & (int)GyroAxisMask::Z) > 0)
+	//if ((mouse_x_flag & (int)GyroAxisMask::Z) > 0)
 	{
-		gyroX -= inGyroZ;
+		//gyroX -= inGyroZ;
+		gyroX += inGyroZ * upFactor;
 	}
+
+	// simple addition
+	//gyroX = inGyroZ - inGyroY;
+
 	int mouse_y_flag = (int)jc->getSetting<GyroAxisMask>(SettingID::MOUSE_Y_FROM_GYRO_AXIS);
 	if ((mouse_y_flag & (int)GyroAxisMask::X) > 0)
 	{
