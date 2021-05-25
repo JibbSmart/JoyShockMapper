@@ -196,6 +196,9 @@ public:
 	float StillnessCalibrationEaseInTime = 3.f;
 	float StillnessCalibrationHalfTime = 0.1f;
 
+	float StillnessGyroDelta = -1.f;
+	float StillnessAccelDelta = -1.f;
+
 	float SensorFusionCalibrationSmoothingStrength = 2.f;
 	float SensorFusionAngularAccelerationThreshold = 20.f;
 	float SensorFusionCalibrationEaseInTime = 3.f;
@@ -701,17 +704,36 @@ namespace GamepadMotionHelpers
 		const float stillnessErrorDropOnRecalibrate = Settings->StillnessErrorDropOnRecalibrate;
 		const float stillnessCalibrationEaseInTime = Settings->StillnessCalibrationEaseInTime;
 		const float stillnessCalibrationHalfTime = Settings->StillnessCalibrationHalfTime;
-
-		bool calibrated = false;
-		const Vec climbThisTick = Vec(stillnessSampleDeteriorationRate * deltaTime);
-		MinDeltaGyro += climbThisTick;
-		MinDeltaAccel += climbThisTick;
+		const float stillnessGyroDelta = Settings->StillnessGyroDelta;
+		const float stillnessAccelDelta = Settings->StillnessAccelDelta;
 
 		MinMaxWindow.AddSample(inGyro, inAccel, deltaTime);
-
 		// get deltas
 		const Vec gyroDelta = MinMaxWindow.MaxGyro - MinMaxWindow.MinGyro;
 		const Vec accelDelta = MinMaxWindow.MaxAccel - MinMaxWindow.MinAccel;
+
+		bool calibrated = false;
+		const Vec climbThisTick = Vec(stillnessSampleDeteriorationRate * deltaTime);
+		if (stillnessGyroDelta < 0.f)
+		{
+			MinDeltaGyro += climbThisTick;
+		}
+		else
+		{
+			MinDeltaGyro = Vec(stillnessGyroDelta);
+		}
+		if (stillnessAccelDelta < 0.f)
+		{
+			MinDeltaAccel += climbThisTick;
+		}
+		else
+		{
+			MinDeltaAccel = Vec(stillnessAccelDelta);
+		}
+
+		//printf("Deltas: %.4f %.4f %.4f; %.4f %.4f %.4f\n",
+		//	gyroDelta.x, gyroDelta.y, gyroDelta.z,
+		//	accelDelta.x, accelDelta.y, accelDelta.z);
 
 		if (MinMaxWindow.NumSamples >= minStillnessSamples && MinMaxWindow.TimeSampled >= minStillnessCollectionTime)
 		{

@@ -2472,19 +2472,24 @@ void joyShockPollCallback(int jcHandle, JOY_SHOCK_STATE state, JOY_SHOCK_STATE l
 		normGravZ = inGravZ * gravNormalizer;
 	}
 
-	float upness = abs(normGravZ);
-	if (upness > 1.f)
+	float flatness = abs(normGravY);
+	if (flatness > 1.f)
 	{
-		upness = 1.f;
+		flatness = 1.f;
 	}
-	float flatness = sqrtf(1.f - upness);
-	//float flatFactor = min(flatness / 0.7f, 1.f);// / (flatness + upness);
-	float flatFactor = 1.f;
-	float upFactor = min(upness / 0.7f, 1.f);// / (flatness + upness);
-	if (normGravZ < 0.f)
-	{
-		upFactor = -upFactor;
-	}
+	float upness = sqrtf(1.f - flatness);
+	float flatFactor = min(flatness / 0.5f, 1.f);
+	float upFactor = min(upness / 0.5f, 1.f);// / (flatness + upness);
+	bool flatsideDown = normGravY < 0.f;
+	bool upsideDown = normGravZ < 0.f;
+	//if (normGravZ < 0.f)
+	//{
+	//	upFactor = -upFactor;
+	//}
+	//if (normGravY < 0.f)
+	//{
+	//	flatFactor = -flatFactor;
+	//}
 
 	float gyroX = 0.0;
 	float gyroY = 0.0;
@@ -2495,12 +2500,71 @@ void joyShockPollCallback(int jcHandle, JOY_SHOCK_STATE state, JOY_SHOCK_STATE l
 	}
 	//if ((mouse_x_flag & (int)GyroAxisMask::Y) > 0)
 	{
-		gyroX -= inGyroY * flatFactor;
+	//	gyroX -= inGyroY * flatFactor;
 	}
 	//if ((mouse_x_flag & (int)GyroAxisMask::Z) > 0)
 	{
 		//gyroX -= inGyroZ;
-		gyroX += inGyroZ * upFactor;
+	//	gyroX += inGyroZ * upFactor;
+	}
+
+	//if global turn
+	{
+		if (flatsideDown) inGyroY = -inGyroY;
+		if (upsideDown) inGyroZ = -inGyroZ;
+		if (flatness > upness)
+		{
+			float gyroSign = inGyroZ < 0.f ? -1.f : 1.f;
+			float reducedGyro = gyroSign * abs(inGyroY) * min(upness / flatness, abs(inGyroZ / inGyroY));
+			inGyroZ = reducedGyro + (inGyroZ - reducedGyro) * upFactor;
+		}
+		else
+		{
+			float gyroSign = inGyroY < 0.f ? -1.f : 1.f;
+			float reducedGyro = gyroSign * abs(inGyroZ) * min(flatness / upness, abs(inGyroY / inGyroZ));
+			inGyroY = reducedGyro + (inGyroY - reducedGyro) * flatFactor;
+		}
+		float bigger;
+		float smaller;
+		if (abs(inGyroY) > abs(inGyroZ))
+		{
+			bigger = inGyroY;
+			smaller = inGyroZ;
+		}
+		else
+		{
+			bigger = inGyroZ;
+			smaller = inGyroY;
+		}
+		if (inGyroZ * inGyroY >= 0.f)
+		{
+			// same sign (ish)
+			const float gyroSign = bigger > 0.f ? 1.f : -1.f;
+			gyroX += gyroSign * sqrtf(bigger * bigger + smaller * smaller);
+		}
+		else
+		{
+			// opposite sign
+			const float gyroSign = bigger > 0.f ? 1.f : -1.f;
+			gyroX += gyroSign * sqrtf(bigger * bigger - smaller * smaller);
+		}
+		//gyroX += inGyroY * flatFactor;
+		//gyroX += inGyroZ * upFactor;
+	}
+	//else if global lean
+	{
+	//	gyroX -= inGyroY * upFactor;
+	//	gyroX += inGyroZ * flatFactor;
+	}
+	// else if local turn
+	{
+	//	gyroX -= inGyroY;
+	//	gyroX += inGyroZ;
+	}
+	// else if local lean
+	{
+	//	gyroX -= inGyroY;
+	//	gyroX -= inGyroZ;
 	}
 
 	// simple addition
