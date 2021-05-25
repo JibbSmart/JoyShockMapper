@@ -104,6 +104,10 @@ JSMVariable<ControllerScheme> virtual_controller = JSMVariable<ControllerScheme>
 JSMSetting<TriggerMode> touch_ds_mode = JSMSetting<TriggerMode>(SettingID::TOUCHPAD_DUAL_STAGE_MODE, TriggerMode::NO_SKIP);
 JSMSetting<Switch> rumble_enable = JSMSetting<Switch>(SettingID::RUMBLE, Switch::ON);
 JSMSetting<Switch> adaptive_trigger = JSMSetting<Switch>(SettingID::ADAPTIVE_TRIGGER, Switch::ON);
+JSMVariable<int> left_trigger_offset = JSMVariable<int>(25);
+JSMVariable<int> left_trigger_range = JSMVariable<int>(150);
+JSMVariable<int> right_trigger_offset = JSMVariable<int>(25);
+JSMVariable<int> right_trigger_range = JSMVariable<int>(25);
 
 JSMVariable<PathString> currentWorkingDir = JSMVariable<PathString>(PathString());
 vector<JSMButton> touch_buttons; // array of virtual buttons on the touchpad grid
@@ -116,6 +120,7 @@ unique_ptr<PollingThread> autoLoadThread;
 unique_ptr<PollingThread> minimizeThread;
 bool devicesCalibrating = false;
 unordered_map<int, shared_ptr<JoyShock>> handle_to_joyshock;
+int triggersCalibrating = 0;
 
 class TouchStick
 {
@@ -964,12 +969,20 @@ public:
 	float getTriggerEffectStartPos()
 	{
 		float threshold = getSetting(SettingID::TRIGGER_THRESHOLD);
-		return clamp(threshold + 0.2f, 0.0f, 1.0f);
+		return clamp(threshold + 0.05f, 0.0f, 1.0f);
 	}
 
 	void handleTriggerChange(ButtonID softIndex, ButtonID fullIndex, TriggerMode mode, float position, JOY_SHOCK_TRIGGER_EFFECT &trigger_rumble)
 	{
-		constexpr uint8_t MAX_TRIGGER_POS = 170;
+		uint8_t offset = softIndex == ButtonID::ZL ? left_trigger_offset : right_trigger_offset;
+		uint8_t range = softIndex == ButtonID::ZL ? left_trigger_range : right_trigger_range;
+		auto idxState = int(fullIndex) - FIRST_ANALOG_TRIGGER; // Get analog trigger index
+		if (idxState < 0 || idxState >= (int)triggerState.size())
+		{
+			COUT << "Error: Trigger " << fullIndex << " does not exist in state map. Dual Stage Trigger not possible." << endl;
+			return;
+		}
+
 		if (mode != TriggerMode::X_LT && mode != TriggerMode::X_RT && (platform_controller_type == JS_TYPE_PRO_CONTROLLER || platform_controller_type == JS_TYPE_JOYCON_LEFT || platform_controller_type == JS_TYPE_JOYCON_RIGHT))
 		{
 			// Override local variable because the controller has digital triggers. Effectively ignore Full Pull binding.
@@ -982,7 +995,7 @@ public:
 				btnCommon->_vigemController->setLeftTrigger(position);
 			trigger_rumble.mode = 1;
 			trigger_rumble.strength = 0;
-			trigger_rumble.start = 0.2 * MAX_TRIGGER_POS;
+			trigger_rumble.start = offset + 0.05 * range;
 			return;
 		}
 		else if (mode == TriggerMode::X_RT)
@@ -991,14 +1004,7 @@ public:
 				btnCommon->_vigemController->setRightTrigger(position);
 			trigger_rumble.mode = 1;
 			trigger_rumble.strength = 0;
-			trigger_rumble.start = 0.2 * MAX_TRIGGER_POS;
-			return;
-		}
-
-		auto idxState = int(fullIndex) - FIRST_ANALOG_TRIGGER; // Get analog trigger index
-		if (idxState < 0 || idxState >= (int)triggerState.size())
-		{
-			COUT << "Error: Trigger " << fullIndex << " does not exist in state map. Dual Stage Trigger not possible." << endl;
+			trigger_rumble.start = offset + 0.05 * range;
 			return;
 		}
 
@@ -1022,14 +1028,14 @@ public:
 			{
 				trigger_rumble.mode = 1;
 				trigger_rumble.strength = UINT16_MAX;
-				trigger_rumble.start = getTriggerEffectStartPos() * MAX_TRIGGER_POS;
+				trigger_rumble.start = offset + getTriggerEffectStartPos() * range;
 			}
 			else
 			{
 				trigger_rumble.mode = 2;
 				trigger_rumble.strength = 0.1 * UINT16_MAX;
-				trigger_rumble.start = getTriggerEffectStartPos() * MAX_TRIGGER_POS;
-				trigger_rumble.end = min(1.f, getTriggerEffectStartPos() + 0.1f)  * MAX_TRIGGER_POS;
+				trigger_rumble.start = offset + getTriggerEffectStartPos() * range;
+				trigger_rumble.end = offset + min(1.f, getTriggerEffectStartPos() + 0.1f)  * range;
 			}
 			if (isSoftPullPressed(idxState, position))
 			{
@@ -1076,7 +1082,7 @@ public:
 				{
 					if (mode == TriggerMode::MUST_SKIP)
 					{
-						trigger_rumble.start = (position + 0.05) * MAX_TRIGGER_POS;
+						trigger_rumble.start = offset + (position + 0.05) * range;
 					}
 					triggerState[idxState] = DstState::SoftPress;
 					// Reset the time for hold soft press purposes.
@@ -1107,7 +1113,7 @@ public:
 				{
 					if (mode == TriggerMode::MUST_SKIP_R)
 					{
-						trigger_rumble.start = (position + 0.05) * MAX_TRIGGER_POS;
+						trigger_rumble.start = offset + (position + 0.05) * range;
 					}
 					triggerState[idxState] = DstState::SoftPress;
 				}
@@ -1123,8 +1129,8 @@ public:
 		case DstState::QuickFullPress:
 			trigger_rumble.mode = 2;
 			trigger_rumble.strength = UINT16_MAX;
-			trigger_rumble.start = 0.89 * MAX_TRIGGER_POS;
-			trigger_rumble.end = 0.99 * MAX_TRIGGER_POS;
+			trigger_rumble.start = offset + 0.89 * range;
+			trigger_rumble.end = offset + 0.99 * range;
 			if (position < 1.0f)
 			{
 				// Full press is being release
@@ -1140,8 +1146,8 @@ public:
 		case DstState::QuickFullRelease:
 			trigger_rumble.mode = 2;
 			trigger_rumble.strength = UINT16_MAX;
-			trigger_rumble.start = 0.89 * MAX_TRIGGER_POS;
-			trigger_rumble.end = 0.99 * MAX_TRIGGER_POS;
+			trigger_rumble.start = offset + 0.89 * range;
+			trigger_rumble.end = offset + 0.99 * range;
 			if (!isSoftPullPressed(idxState, position))
 			{
 				triggerState[idxState] = DstState::NoPress;
@@ -1166,8 +1172,8 @@ public:
 				if (mode == TriggerMode::NO_SKIP || mode == TriggerMode::MAY_SKIP || mode == TriggerMode::MAY_SKIP_R)
 				{
 					trigger_rumble.strength = min(int(UINT16_MAX), trigger_rumble.strength + int(1/30.f * tick_time  * UINT16_MAX));
-					trigger_rumble.start = min(0.89 * MAX_TRIGGER_POS, trigger_rumble.start + 1/150. * tick_time * MAX_TRIGGER_POS);
-					trigger_rumble.end = trigger_rumble.start + 0.1 * MAX_TRIGGER_POS;
+					trigger_rumble.start = offset + min(0.89, trigger_rumble.start + 1/150. * tick_time) * range;
+					trigger_rumble.end = trigger_rumble.start + 0.1 * range;
 					handleButtonChange(softIndex, true);
 					if (position == 1.0)
 					{
@@ -1179,8 +1185,8 @@ public:
 				else if (mode == TriggerMode::NO_SKIP_EXCLUSIVE)
 				{
 					trigger_rumble.strength = min(int(UINT16_MAX), trigger_rumble.strength + int(1/30.f * tick_time * UINT16_MAX));
-					trigger_rumble.start = min(0.89 * MAX_TRIGGER_POS, trigger_rumble.start + 1/150. * tick_time * MAX_TRIGGER_POS);
-					trigger_rumble.end = trigger_rumble.start + 0.1 * MAX_TRIGGER_POS;
+					trigger_rumble.start = offset + min(0.89, trigger_rumble.start + 1/150. * tick_time) * range;
+					trigger_rumble.end = trigger_rumble.start + 0.1 * range;
 					handleButtonChange(softIndex, false);
 					if (position == 1.0)
 					{
@@ -1200,8 +1206,8 @@ public:
 		case DstState::DelayFullPress:
 			trigger_rumble.mode = 2;
 			trigger_rumble.strength = UINT16_MAX;
-			trigger_rumble.start = 0.8 * MAX_TRIGGER_POS;
-			trigger_rumble.end = 0.99 * MAX_TRIGGER_POS;
+			trigger_rumble.start = offset + 0.8 * range;
+			trigger_rumble.end = offset + 0.99 * range;
 			if (position < 1.0)
 			{
 				// Full Press is being released
@@ -1218,8 +1224,8 @@ public:
 		case DstState::ExclFullPress:
 			trigger_rumble.mode = 2;
 			trigger_rumble.strength = UINT16_MAX;
-			trigger_rumble.start = 0.89 * MAX_TRIGGER_POS;
-			trigger_rumble.end = 0.99 * MAX_TRIGGER_POS;
+			trigger_rumble.start = offset + 0.89 * range;
+			trigger_rumble.end = offset + 0.99 * range;
 			if (position < 1.0f)
 			{
 				// Full press is being release
@@ -1367,6 +1373,10 @@ static void resetAllMappings()
 	scroll_sens.Reset();
 	rumble_enable.Reset();
 	adaptive_trigger.Reset();
+	left_trigger_offset.Reset();
+	left_trigger_range.Reset();
+	right_trigger_offset.Reset();
+	right_trigger_range.Reset();
 	touch_ds_mode.Reset();
 	for_each(touch_buttons.begin(), touch_buttons.end(), [](auto &map) { map.Reset(); });
 
@@ -2151,6 +2161,114 @@ void joyShockPollCallback(int jcHandle, JOY_SHOCK_STATE state, JOY_SHOCK_STATE l
 	deltaTime = ((float)chrono::duration_cast<chrono::microseconds>(timeNow - jc->time_now).count()) / 1000000.0f;
 	jc->time_now = timeNow;
 
+	if (triggersCalibrating)
+	{
+		auto rpos = jsl->GetRightTrigger(jcHandle);
+		auto lpos = jsl->GetLeftTrigger(jcHandle);
+		switch (triggersCalibrating)
+		{
+		case 1:
+			COUT << "Softly press on the right trigger only just until you feel the resistance, then press the dpad DOWN button" << endl;
+			tick_time = 100;
+			jc->right_effect.mode = 2;
+			jc->right_effect.start = 0;
+			jc->right_effect.end = 255;
+			jc->right_effect.strength = 255;
+			triggersCalibrating++;
+			break;
+		case 2:
+			if (jsl->GetButtons(jcHandle) & (1 << JSOFFSET_DOWN))
+			{
+				triggersCalibrating++;
+			}
+			break;
+		case 3:
+			DEBUG_LOG << "trigger pos is at " << int(rpos * 255.f) << " (" << int(rpos * 100.f) << "%) and effect pos is at " << int(jc->right_effect.start) << endl;
+			if (int(rpos * 255.f) > 0)
+			{
+				right_trigger_offset = jc->right_effect.start;
+				tick_time = 40;
+				triggersCalibrating++;
+			}
+			++jc->right_effect.start;
+			break;
+		case 4:
+			DEBUG_LOG << "trigger pos is at " << int(rpos * 255.f) << " (" << int(rpos * 100.f) << "%) and effect pos is at " << int(jc->right_effect.start) << endl;
+			if (int(rpos * 255.f) > 240)
+			{
+				tick_time = 100;
+				triggersCalibrating++;
+			}
+			++jc->right_effect.start;
+			break;
+		case 5:
+			DEBUG_LOG << "trigger pos is at " << int(rpos * 255.f) << " (" << int(rpos * 100.f) << "%) and effect pos is at " << int(jc->right_effect.start) << endl;
+			if (int(rpos * 255.f) == 255)
+			{
+				triggersCalibrating++;
+				right_trigger_range = int(jc->right_effect.start - right_trigger_offset);
+			}
+			++jc->right_effect.start;
+			break;
+		case 6:
+			COUT << "Softly press on the left trigger only just until you feel the resistance, then press the SOUTH button" << endl;
+			tick_time = 100;
+			jc->left_effect.mode = 2;
+			jc->left_effect.start = 0;
+			jc->left_effect.end = 255;
+			jc->left_effect.strength = 255;
+			triggersCalibrating++;
+			break;
+		case 7:
+			if (jsl->GetButtons(jcHandle) & (1 << JSOFFSET_S))
+			{
+				triggersCalibrating++;
+			}
+			break;
+		case 8:
+			DEBUG_LOG << "trigger pos is at " << int(lpos * 255.f) << " (" << int(lpos * 100.f) << "%) and effect pos is at " << int(jc->left_effect.start) << endl;
+			if (int(lpos * 255.f) > 0)
+			{
+				left_trigger_offset = jc->left_effect.start;
+				tick_time = 40;
+				triggersCalibrating++;
+			}
+			++jc->left_effect.start;
+			break;
+		case 9:
+			DEBUG_LOG << "trigger pos is at " << int(lpos * 255.f) << " (" << int(lpos * 100.f) << "%) and effect pos is at " << int(jc->left_effect.start) << endl;
+			if (int(lpos * 255.f) > 240)
+			{
+				tick_time = 100;
+				triggersCalibrating++;
+			}
+			++jc->left_effect.start;
+			break;
+		case 10:
+			DEBUG_LOG << "trigger pos is at " << int(lpos * 255.f) << " (" << int(lpos * 100.f) << "%) and effect pos is at " << int(jc->left_effect.start) << endl;
+			if (int(lpos * 255.f) == 255)
+			{
+				triggersCalibrating++;
+				left_trigger_range = int(jc->left_effect.start - left_trigger_offset);
+			}
+			++jc->left_effect.start;
+			break;
+		case 11:
+			COUT << "Your triggers have been successfully calibrated. Add the trigger offset and range values in your onreset.txt file to have those values set by default." << endl;
+			COUT_INFO << SettingID::RIGHT_TRIGGER_OFFSET << " = " << right_trigger_offset << endl;
+			COUT_INFO << SettingID::RIGHT_TRIGGER_RANGE << " = " << right_trigger_range << endl;
+			COUT_INFO << SettingID::LEFT_TRIGGER_OFFSET << " = " << left_trigger_offset << endl;
+			COUT_INFO << SettingID::LEFT_TRIGGER_RANGE << " = " << left_trigger_range << endl;
+			triggersCalibrating = 0;
+			tick_time.Reset();
+			break;
+		}
+		jsl->SetRightTriggerEffect(jcHandle, jc->right_effect);
+		jsl->SetLeftTriggerEffect(jcHandle, jc->left_effect);
+		jc->btnCommon->callback_lock.unlock();
+		return;
+	}
+
 	GamepadMotion &motion = jc->motion;
 
 	IMU_STATE imu = jsl->GetIMUState(jc->handle);
@@ -2707,6 +2825,11 @@ void CleanUp()
 	ReleaseConsole();
 }
 
+int filterClampByte(int current, int next)
+{
+	return max(0, min(0xff, next));
+}
+
 float filterClamp01(float current, float next)
 {
 	return max(0.0f, min(1.0f, next));
@@ -3227,6 +3350,11 @@ int main(int argc, char *argv[])
 	adaptive_trigger.SetFilter(&filterInvalidValue<Switch, Switch::INVALID>);
 	scroll_sens.SetFilter(&filterFloatPair);
 	touch_ds_mode.SetFilter(&filterTouchpadDualStageMode);
+	right_trigger_offset.SetFilter(&filterClampByte);
+	left_trigger_offset.SetFilter(&filterClampByte);
+	right_trigger_range.SetFilter(&filterClampByte);
+	left_trigger_range.SetFilter(&filterClampByte);
+
 	// light_bar needs no filter or listener. The callback polls and updates the color.
 	for (int i = argc - 1; i >= 0; --i)
 	{
@@ -3432,6 +3560,15 @@ int main(int argc, char *argv[])
 	commandRegistry.Add((new JSMAssignment<TriggerMode>(touch_ds_mode))
 	                      ->SetHelp("Dual stage mode for the touchpad TOUCH and CAPTURE (i.e. click) bindings."));
 	commandRegistry.Add((new JSMMacro("CLEAR"))->SetMacro(bind(&ClearConsole))->SetHelp("Removes all text in the console screen"));
+	commandRegistry.Add((new JSMMacro("CALIBRATE_TRIGGERS"))->SetMacro([](JSMMacro*, in_string) 
+		{
+			triggersCalibrating = 1;
+			return true;
+		})->SetHelp("Starts the trigger calibration procedure for the dualsense triggers."));
+	commandRegistry.Add((new JSMAssignment<int>(magic_enum::enum_name(SettingID::LEFT_TRIGGER_OFFSET).data(), left_trigger_offset)));
+	commandRegistry.Add((new JSMAssignment<int>(magic_enum::enum_name(SettingID::RIGHT_TRIGGER_OFFSET).data(), right_trigger_offset)));
+	commandRegistry.Add((new JSMAssignment<int>(magic_enum::enum_name(SettingID::LEFT_TRIGGER_RANGE).data(), left_trigger_range)));
+	commandRegistry.Add((new JSMAssignment<int>(magic_enum::enum_name(SettingID::RIGHT_TRIGGER_RANGE).data(), right_trigger_range)));
 
 	bool quit = false;
 	commandRegistry.Add((new JSMMacro("QUIT"))

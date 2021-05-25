@@ -253,6 +253,10 @@ enum class SettingID
 	TOUCHPAD_DUAL_STAGE_MODE,
 	CLEAR,
 	ADAPTIVE_TRIGGER,
+	LEFT_TRIGGER_OFFSET,
+	LEFT_TRIGGER_RANGE,
+	RIGHT_TRIGGER_OFFSET,
+	RIGHT_TRIGGER_RANGE,
 };
 
 // constexpr are like #define but with respect to typeness
