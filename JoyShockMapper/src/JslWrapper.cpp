@@ -66,7 +66,7 @@ public:
 
 	float GetRightY(int deviceId) override
 	{
-		return JslGetLeftX(deviceId);
+		return JslGetRightY(deviceId);
 	}
 
 	float GetLeftTrigger(int deviceId) override

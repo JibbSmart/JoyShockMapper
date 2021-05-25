@@ -192,8 +192,8 @@ endif()
 # magic_enum
 CPMAddPackage (
     NAME magic_enum
-    GITHUB_REPOSITORY Neargye/magic_enum
-    GIT_TAG v0.6.6
+    GITHUB_REPOSITORY jamek/magic_enum
+    GIT_TAG 47e34ada93e0bf70dcea551636755cd66d893768
 )
 
 target_link_libraries (
