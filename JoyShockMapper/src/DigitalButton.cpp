@@ -343,7 +343,8 @@ public:
 	REACT(Sync)
 	final
 	{
-		react(Released{ e.pressTime, e.turboTime, e.holdTime });
+		Released released{ e.pressTime, e.turboTime, e.holdTime };
+		react(released);
 		// Redirect change of state to the caller of the Sync
 		e.nextState = _nextState;
 		_nextState = nullptr;

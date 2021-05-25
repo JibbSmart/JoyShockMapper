@@ -10,6 +10,49 @@
 #include "JoyShockMapper.h"
 #include "PlatformDefinitions.h"
 
+
+// https://www.theurbanpenguin.com/4184-2/
+#define FOREGROUND_BLUE 34 // text color is blue.
+#define FOREGROUND_GREEN 32 // text color is green.
+#define FOREGROUND_RED 31 // text color is red.
+#define FOREGROUND_YELLOW 33 // Text color is yellow
+#define FOREGROUND_INTENSITY 0x0100 // text color is bold.
+#define DEFAULT_COLOR 37 // text color is white
+
+template<std::ostream *stdio, uint16_t color>
+struct ColorStream : public std::stringstream
+{
+	~ColorStream()
+	{
+
+		(*stdio) << "\033[" << (color >> 8) << ';' << (color & 0x00FF) << 'm' << str() << "\033[0;" << DEFAULT_COLOR << 'm';
+	}
+};
+
+streambuf *Log::makeBuffer(Level level)
+{
+	switch (level)
+	{
+	case Level::ERR:
+		return new ColorStream<&std::cerr, FOREGROUND_RED | FOREGROUND_INTENSITY>();
+	case Level::WARN:
+		return new ColorStream<&cout, FOREGROUND_YELLOW | FOREGROUND_INTENSITY>();
+	case Level::INFO:
+		return new ColorStream<&cout, FOREGROUND_BLUE | FOREGROUND_INTENSITY>();
+#if defined(NDEBUG) // release
+	case Level::UT:
+		return new NullBuffer(); // unused
+#else
+	case Level::UT:
+		return new ColorStream<&cout, FOREGROUND_BLUE | FOREGROUND_RED>(); // purplish
+#endif
+	case Level::BOLD:
+		return new ColorStream<&cout, FOREGROUND_GREEN | FOREGROUND_INTENSITY>();
+	default:
+		return new ColorStream<&std::cout, FOREGROUND_GREEN>();
+	}
+}
+
 const char *AUTOLOAD_FOLDER() {
 	std::string directory;
 
