@@ -577,7 +577,7 @@ istream &operator>>(istream &in, PathString &fxy);
 class Log
 {
 public:
-	enum Level
+	enum class Level
 	{
 		UT,
 		BASE,
