@@ -14,7 +14,13 @@
 #include <deque>
 #include <iomanip>
 #include <filesystem>
-#include <shellapi.h>
+#include <memory>
+#include <cfloat>
+#include <cuchar>
+
+#ifdef _WIN32
+    #include <shellapi.h>
+#endif
 
 #pragma warning(disable : 4996) // Disable deprecated API warnings
 
@@ -201,7 +207,8 @@ public:
 			float pressedTime = 0;
 			if (_pressedBtn == _negativeButton->_id)
 			{
-				pressedTime = _negativeButton->sendEvent(GetDuration{ now }).out_duration;
+			    auto dur = GetDuration{ now };
+				pressedTime = _negativeButton->sendEvent(dur).out_duration;
 				if (pressedTime < MAGIC_TAP_DURATION)
 				{
 					_negativeButton->sendEvent(isPressed);
@@ -211,7 +218,9 @@ public:
 			}
 			else // _pressedBtn == _positiveButton->_id
 			{
-				pressedTime = _positiveButton->sendEvent(GetDuration{ now }).out_duration;
+                auto dur = GetDuration{ now };
+
+                pressedTime = _positiveButton->sendEvent(dur).out_duration;
 				if (pressedTime < MAGIC_TAP_DURATION)
 				{
 					_negativeButton->sendEvent(isReleased);
@@ -369,9 +378,15 @@ public:
 	{
 		if (!sharedButtonCommon)
 		{
+#ifdef _WIN32
 			btnCommon = shared_ptr<DigitalButton::Common>(new DigitalButton::Common(
 			  bind(&JoyShock::handleViGEmNotification, this, placeholders::_1, placeholders::_2, placeholders::_3), &motion));
+#else
+            btnCommon = shared_ptr<DigitalButton::Common>(new DigitalButton::Common(
+                    bind(&JoyShock::handleViGEmNotification, this), &motion));
+#endif
 		}
+
 		_light_bar = getSetting<Color>(SettingID::LIGHT_BAR);
 
 		platform_controller_type = jsl->GetControllerType(handle);
@@ -441,7 +456,7 @@ public:
 		}
 		return true;
 	}
-
+#ifdef _WIN32
 	void handleViGEmNotification(UCHAR largeMotor, UCHAR smallMotor, Indicator indicator)
 	{
 		//static chrono::steady_clock::time_point last_call;
@@ -461,8 +476,10 @@ public:
 			break;
 		}
 		Rumble(smallMotor, largeMotor);
-	}
-
+		}
+#else
+void handleViGEmNotification() {}
+#endif
 	template<typename E>
 	E getSetting(SettingID index)
 	{
@@ -891,7 +908,7 @@ private:
 		DigitalButton *button = index < ButtonID::SIZE           ? &buttons[int(index)] :
 		  touchpadIndex >= 0 && touchpadIndex < touchpads.size() ? &touchpads[touchpadIndex].buttons[int(index) - FIRST_TOUCH_BUTTON] :
 		  index >= ButtonID::T1                                  ? &gridButtons[int(index) - int(ButtonID::T1)] :
-                                                                   throw exception("What index is this?");
+                                                                   throw std::runtime_error("What index is this?");
 		return button;
 	}
 
@@ -1072,7 +1089,8 @@ public:
 			}
 			else
 			{
-				if (buttons[int(softIndex)].sendEvent(GetDuration{ time_now }).out_duration >= getSetting(SettingID::TRIGGER_SKIP_DELAY))
+			    auto dur = GetDuration{ time_now };
+				if (buttons[int(softIndex)].sendEvent(dur).out_duration >= getSetting(SettingID::TRIGGER_SKIP_DELAY))
 				{
 					if (mode == TriggerMode::MUST_SKIP)
 					{
@@ -1103,7 +1121,8 @@ public:
 			}
 			else
 			{
-				if (buttons[int(softIndex)].sendEvent(GetDuration{ time_now }).out_duration >= getSetting(SettingID::TRIGGER_SKIP_DELAY))
+			    auto dur = GetDuration{ time_now };
+				if (buttons[int(softIndex)].sendEvent(dur).out_duration >= getSetting(SettingID::TRIGGER_SKIP_DELAY))
 				{
 					if (mode == TriggerMode::MUST_SKIP_R)
 					{
@@ -2847,6 +2866,7 @@ void UpdateRingModeFromStickMode(JSMVariable<RingMode> *stickRingMode, const Sti
 
 ControllerScheme UpdateVirtualController(ControllerScheme prevScheme, ControllerScheme nextScheme)
 {
+#ifdef _WIN32
 	bool success = true;
 	for (auto &js : handle_to_joyshock)
 	{
@@ -2865,6 +2885,7 @@ ControllerScheme UpdateVirtualController(ControllerScheme prevScheme, Controller
 		}
 	}
 	return success ? nextScheme : prevScheme;
+#endif
 }
 
 void OnVirtualControllerChange(const ControllerScheme &newScheme)
@@ -3117,6 +3138,9 @@ int __stdcall wWinMain(HINSTANCE hInstance, HINSTANCE prevInstance, LPWSTR cmdLi
 	auto handle = GetCurrentProcess();
 	QueryFullProcessImageNameW(handle, 0, &wmodule[0], &length);
 	string module(wmodule.begin(), wmodule.begin() + length);
+	whitelister.reset(Whitelister::getNew(false));
+
+
 
 #else
 int main(int argc, char *argv[])
@@ -3124,9 +3148,9 @@ int main(int argc, char *argv[])
 	static_cast<void>(argc);
 	static_cast<void>(argv);
 	void *trayIconData = nullptr;
+	string module(argv[0]);
 #endif // _WIN32
-	jsl.reset(JslWrapper::getNew());
-	whitelister.reset(Whitelister::getNew(false));
+
 	currentWorkingDir = GetCWD();
 
 	touch_buttons.reserve(int(ButtonID::T25) - FIRST_TOUCH_BUTTON); // This makes sure the items will never get copied and cause crashes
@@ -3138,7 +3162,8 @@ int main(int argc, char *argv[])
 		mappings.push_back(newButton);
 	}
 	// console
-	initConsole();
+    jsl.reset(JslWrapper::getNew());
+    initConsole();
 	COUT_BOLD << "Welcome to JoyShockMapper version " << version << '!' << endl;
 	//if (whitelister) COUT << "JoyShockMapper was successfully whitelisted!" << endl;
 	// Threads need to be created before listeners
@@ -3222,7 +3247,9 @@ int main(int argc, char *argv[])
 	touch_stick_radius.SetFilter([](auto current, auto next) {
 		return filterPositive(current, floorf(next));
 	});
+#ifdef _WIN32
 	virtual_controller.SetFilter(&UpdateVirtualController)->AddOnChangeListener(&OnVirtualControllerChange);
+#endif
 	rumble_enable.SetFilter(&filterInvalidValue<Switch, Switch::INVALID>);
 	adaptive_trigger.SetFilter(&filterInvalidValue<Switch, Switch::INVALID>);
 	scroll_sens.SetFilter(&filterFloatPair);
@@ -3472,6 +3499,7 @@ int main(int argc, char *argv[])
 #else
 		string arg = string(argv[0]);
 #endif
+
 		if (filesystem::is_regular_file(filesystem::status(arg)) &&
 		  arg != module)
 		{
@@ -3489,7 +3517,9 @@ int main(int argc, char *argv[])
 		commandRegistry.processLine(enteredCommand);
 		loading_lock.unlock();
 	}
+#ifdef _WIN32
 	LocalFree(argv);
+#endif
 	CleanUp();
 	return 0;
 }

@@ -6,6 +6,7 @@
 #include <functional>
 #include <sstream>
 #include <string>
+#include <memory>
 
 // This header file is meant to be included among all core JSM source files
 // And as such it should contain only constants, types and functions related to them

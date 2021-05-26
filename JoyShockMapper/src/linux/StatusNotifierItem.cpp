@@ -1,10 +1,12 @@
 #include "linux/StatusNotifierItem.h"
 
 #include <cstring>
+#include <libappindicator/app-indicator.h>
+
 
 TrayIcon *TrayIcon::getNew(TrayIconData applicationName, std::function<void()> &&beforeShow)
 {
-	return new StatusNotifierItem(applicationName, beforeShow);
+	return new StatusNotifierItem(applicationName, std::forward<std::function<void()>>(beforeShow));
 }
 
 

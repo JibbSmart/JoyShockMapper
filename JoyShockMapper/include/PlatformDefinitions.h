@@ -27,6 +27,7 @@ extern const char *BASE_JSM_CONFIG_FOLDER();
 #elif defined(__linux__)
 
 #include <cassert>
+#include <sstream>
 
 #define WINAPI
 #define VK_OEM_PLUS 0xBB
@@ -126,11 +127,10 @@ extern unsigned long GetCurrentProcessId();
 #define DEFAULT_COLOR 37 // text color is white
 
 template<std::ostream *stdio, uint16_t color>
-struct ColorStream : public std::stringstream
+struct ColorStream : public std::stringbuf
 {
 	~ColorStream()
 	{
-
 		(*stdio) << "\033[" << (color >> 8) << ';' << (color & 0x00FF) << 'm' << str() << "\033[0;" << DEFAULT_COLOR << 'm';
 	}
 };

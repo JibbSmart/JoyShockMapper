@@ -7,7 +7,7 @@ struct _XUSB_REPORT
 struct _DS4_REPORT
 {
 };
-
+/*
 void Gamepad::x360Notification(
   PVIGEM_CLIENT client,
   PVIGEM_TARGET target,
@@ -27,6 +27,7 @@ void Gamepad::ds4Notification(
   void *userData)
 {
 }
+
 
 Gamepad::Gamepad(ControllerScheme scheme)
   : _stateX360()
@@ -51,6 +52,7 @@ void Gamepad::init_x360()
 void Gamepad::init_ds4()
 {
 }
+*/
 
 bool Gamepad::isInitialized(std::string *errorMsg)
 {
@@ -66,13 +68,6 @@ ControllerScheme Gamepad::getType() const
 	return ControllerScheme::INVALID;
 }
 
-void Gamepad::setButtonX360(KeyCode btn, bool pressed)
-{
-}
-
-void Gamepad::setButtonDS4(KeyCode btn, bool pressed)
-{
-}
 
 void Gamepad::setLeftStick(float x, float y)
 {
