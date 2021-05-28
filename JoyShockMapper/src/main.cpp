@@ -110,7 +110,7 @@ JSMVariable<int> right_trigger_offset = JSMVariable<int>(25);
 JSMVariable<int> right_trigger_range = JSMVariable<int>(150);
 
 JSMVariable<PathString> currentWorkingDir = JSMVariable<PathString>(PathString());
-vector<JSMButton> touch_buttons; // array of virtual buttons on the touchpad grid
+vector<JSMButton> grid_mappings; // array of virtual buttons on the touchpad grid
 vector<JSMButton> mappings;      // array enables use of for each loop and other i/f
 mutex loading_lock;
 
@@ -134,17 +134,16 @@ class TouchStick
 	bool ignore_motion_stick = false;
 	// Handle a single touch related action. On per touch point
 public:
-	vector<DigitalButton> buttons; // Each touchstick gets it's own digital buttons. Is that smart?
+	map<ButtonID, DigitalButton> buttons; // Each touchstick gets it's own digital buttons. Is that smart?
 
 	TouchStick(int index, shared_ptr<DigitalButton::Context> common, int handle, GamepadMotion *motion)
 	  : _index(index)
 	{
-		size_t noTouchBtn = std::min(size_t(5), touch_buttons.size());
-		buttons.reserve(noTouchBtn);
-		for (int i = 0; i < noTouchBtn; ++i)
-		{
-			buttons.push_back(DigitalButton(common, touch_buttons[i]));
-		}
+		buttons.emplace(ButtonID::TUP, DigitalButton(common, mappings[int(ButtonID::TUP)]));
+		buttons.emplace(ButtonID::TDOWN, DigitalButton(common, mappings[int(ButtonID::TDOWN)]));
+		buttons.emplace(ButtonID::TLEFT, DigitalButton(common, mappings[int(ButtonID::TLEFT)]));
+		buttons.emplace(ButtonID::TRIGHT, DigitalButton(common, mappings[int(ButtonID::TRIGHT)]));
+		buttons.emplace(ButtonID::TRING, DigitalButton(common, mappings[int(ButtonID::TRING)]));
 	}
 
 	void handleTouchStickChange(shared_ptr<JoyShock> js, bool down, short movX, short movY, float delta_time);
@@ -409,8 +408,8 @@ public:
 		_context->_getMatchingSimBtn = bind(&JoyShock::GetMatchingSimBtn, this, placeholders::_1);
 		_context->_rumble = bind(&JoyShock::Rumble, this, placeholders::_1, placeholders::_2);
 
-		buttons.reserve(mappings.size());
-		for (int i = 0; i < mappings.size(); ++i)
+		buttons.reserve(LAST_ANALOG_TRIGGER); // Don't include touch stick buttons
+		for (int i = 0; i <= LAST_ANALOG_TRIGGER; ++i)
 		{
 			buttons.push_back(DigitalButton(_context, mappings[i]));
 		}
@@ -426,9 +425,9 @@ public:
 		{
 			touchpads.push_back(TouchStick(i, _context, handle, &motion));
 		}
-		touch_scroll_x.init(touchpads[0].buttons[int(ButtonID::TLEFT) - FIRST_TOUCH_BUTTON], touchpads[0].buttons[int(ButtonID::TRIGHT) - FIRST_TOUCH_BUTTON]);
-		touch_scroll_y.init(touchpads[0].buttons[int(ButtonID::TUP) - FIRST_TOUCH_BUTTON], touchpads[0].buttons[int(ButtonID::TDOWN) - FIRST_TOUCH_BUTTON]);
-		updateGridSize(grid_size.get().x() * grid_size.get().y() + 5);
+		touch_scroll_x.init(touchpads[0].buttons.find(ButtonID::TLEFT)->second, touchpads[0].buttons.find(ButtonID::TRIGHT)->second);
+		touch_scroll_y.init(touchpads[0].buttons.find(ButtonID::TUP)->second, touchpads[0].buttons.find(ButtonID::TDOWN)->second);
+		updateGridSize();
 		prevTouchState.t0Down = false;
 		prevTouchState.t1Down = false;
 	}
@@ -919,8 +918,8 @@ public:
 private:
 	DigitalButton *GetButton(ButtonID index, int touchpadIndex = -1)
 	{
-		DigitalButton *button = index < ButtonID::SIZE           ? &buttons[int(index)] :
-		  touchpadIndex >= 0 && touchpadIndex < touchpads.size() ? &touchpads[touchpadIndex].buttons[int(index) - FIRST_TOUCH_BUTTON] :
+		DigitalButton *button = int(index) < LAST_ANALOG_TRIGGER ? &buttons[int(index)] :
+		  touchpadIndex >= 0 && touchpadIndex < touchpads.size() ? &touchpads[touchpadIndex].buttons.find(index)->second :
 		  index >= ButtonID::T1                                  ? &gridButtons[int(index) - int(ButtonID::T1)] :
                                                                    throw exception("What index is this?");
 		return button;
@@ -1313,16 +1312,14 @@ public:
 		return false;
 	}
 
-	void updateGridSize(size_t noTouchBtns)
+	void updateGridSize()
 	{
-		int noGridBtns = max(size_t(0), min(touch_buttons.size(), noTouchBtns) - 5); // Don't include touch stick buttons
-
-		while (gridButtons.size() > noGridBtns)
+		while (gridButtons.size() > grid_mappings.size())
 			gridButtons.pop_back();
 
-		for (int i = gridButtons.size(); i < noGridBtns; ++i)
+		for (size_t i = gridButtons.size(); i < grid_mappings.size(); ++i)
 		{
-			JSMButton &map(touch_buttons[i + 5]);
+			JSMButton &map(grid_mappings[i]);
 			gridButtons.push_back(DigitalButton(_context, map));
 		}
 	}
@@ -1408,7 +1405,7 @@ static void resetAllMappings()
 	right_trigger_offset.Reset();
 	right_trigger_range.Reset();
 	touch_ds_mode.Reset();
-	for_each(touch_buttons.begin(), touch_buttons.end(), [](auto &map) { map.Reset(); });
+	for_each(grid_mappings.begin(), grid_mappings.end(), [](auto &map) { map.Reset(); });
 
 	os_mouse_speed = 1.0f;
 	last_flick_and_rotation = 0.0f;
@@ -2109,7 +2106,7 @@ void TouchCallback(int jcHandle, TOUCH_STATE newState, TOUCH_STATE prevState, fl
 			float row = floorf(point0.posY * grid_size.get().y());
 			float col = floorf(point0.posX * grid_size.get().x());
 			//cout << "I should be in button " << row << " " << col << endl;
-			index0 = int(row * grid_size.get().x() + col) + 5;
+			index0 = int(row * grid_size.get().x() + col);
 		}
 
 		if (point1.isDown())
@@ -2117,15 +2114,15 @@ void TouchCallback(int jcHandle, TOUCH_STATE newState, TOUCH_STATE prevState, fl
 			float row = floorf(point1.posY * grid_size.get().y());
 			float col = floorf(point1.posX * grid_size.get().x());
 			//cout << "I should be in button " << row << " " << col << endl;
-			index1 = int(row * grid_size.get().x() + col) + 5;
+			index1 = int(row * grid_size.get().x() + col);
 		}
 
-		for (int i = 5; i < touch_buttons.size(); ++i)
+		for (size_t i = 0; i < grid_mappings.size(); ++i)
 		{
 			auto optId = magic_enum::enum_cast<ButtonID>(FIRST_TOUCH_BUTTON + i);
 
 			// JSM can get touch button callbacks before the grid buttons are setup at startup. Just skip then.
-			if (optId && js->gridButtons.size() == touch_buttons.size() - 5)
+			if (optId && js->gridButtons.size() == grid_mappings.size())
 				js->handleButtonChange(*optId, i == index0 || i == index1);
 		}
 
@@ -2135,7 +2132,7 @@ void TouchCallback(int jcHandle, TOUCH_STATE newState, TOUCH_STATE prevState, fl
 	}
 	else if (mode == TouchpadMode::MOUSE)
 	{
-			// Disable gestures
+		// Disable gestures
 		/*if (point0.isDown() && point1.isDown())
 		{*/
 			//if (js->prevTouchState.t0Down && js->prevTouchState.t1Down)
@@ -3057,9 +3054,9 @@ void RefreshAutoLoadHelp(JSMAssignment<Switch> *autoloadCmd)
 void OnNewGridDimensions(CmdRegistry *registry, const FloatXY &newGridDims)
 {
 	_ASSERT_EXPR(registry, U("You forgot to bind the command registry properly!"));
-	auto numberOfButtons = size_t(newGridDims.first * newGridDims.second) + 5; // Add Touch stick buttons
+	auto numberOfButtons = size_t(newGridDims.first * newGridDims.second);
 
-	if (numberOfButtons < touch_buttons.size())
+	if (numberOfButtons < grid_mappings.size())
 	{
 		// Remove all extra touch button commands
 		bool successfulRemove = true;
@@ -3073,29 +3070,29 @@ void OnNewGridDimensions(CmdRegistry *registry, const FloatXY &newGridDims)
 		for (auto &js : handle_to_joyshock)
 		{
 			lock_guard guard(js.second->_context->callback_lock);
-			js.second->updateGridSize(numberOfButtons);
+			js.second->updateGridSize();
 		}
 
 		// Remove extra touch button variables
-		while (touch_buttons.size() > numberOfButtons)
-			touch_buttons.pop_back();
+		while (grid_mappings.size() > numberOfButtons)
+			grid_mappings.pop_back();
 	}
-	else if (numberOfButtons > touch_buttons.size())
+	else if (numberOfButtons > grid_mappings.size())
 	{
 		// Add new touch button variables and commands
-		for (int id = FIRST_TOUCH_BUTTON + int(touch_buttons.size()); touch_buttons.size() < numberOfButtons; ++id)
+		for (int id = FIRST_TOUCH_BUTTON + int(grid_mappings.size()); grid_mappings.size() < numberOfButtons; ++id)
 		{
 			JSMButton touchButton(*magic_enum::enum_cast<ButtonID>(id), Mapping::NO_MAPPING);
 			touchButton.SetFilter(&filterMapping);
-			touch_buttons.push_back(touchButton);
-			registry->Add(new JSMAssignment<Mapping>(touch_buttons.back()));
+			grid_mappings.push_back(touchButton);
+			registry->Add(new JSMAssignment<Mapping>(grid_mappings.back()));
 		}
 
 		// For all joyshocks, remove extra touch DigitalButtons
 		for (auto &js : handle_to_joyshock)
 		{
 			lock_guard guard(js.second->_context->callback_lock);
-			js.second->updateGridSize(numberOfButtons);
+			js.second->updateGridSize();
 		}
 	}
 	// Else numbers are the same, possibly just reconfigured
@@ -3296,7 +3293,7 @@ int main(int argc, char *argv[])
 	whitelister.reset(Whitelister::getNew(false));
 	currentWorkingDir = GetCWD();
 
-	touch_buttons.reserve(int(ButtonID::T25) - FIRST_TOUCH_BUTTON); // This makes sure the items will never get copied and cause crashes
+	grid_mappings.reserve(int(ButtonID::T25) - FIRST_TOUCH_BUTTON); // This makes sure the items will never get copied and cause crashes
 	mappings.reserve(MAPPING_SIZE);
 	for (int id = 0; id < MAPPING_SIZE; ++id)
 	{

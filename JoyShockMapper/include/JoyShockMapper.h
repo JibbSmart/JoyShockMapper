@@ -105,12 +105,6 @@ enum class ButtonID
 	LEAN_LEFT,
 	LEAN_RIGHT,
 	MIC,
-	TOUCH,   // Touch anywhere on the touchpad
-	ZLF,     // = FIRST_ANALOG_TRIGGER
-	CAPTURE, // Full press of touchpad touch + press
-	// insert more analog triggers here
-	ZRF,  // =  LAST_ANALOG_TRIGGER
-
 	LUP,
 	LDOWN,
 	LLEFT,
@@ -126,16 +120,22 @@ enum class ButtonID
 	MLEFT,
 	MRIGHT,
 	MRING,
+	TOUCH,   // Touch anywhere on the touchpad
+	ZLF,     // = FIRST_ANALOG_TRIGGER
+	CAPTURE, // Full press of touchpad touch + press
+	// insert more analog triggers here
+	ZRF,  // =  LAST_ANALOG_TRIGGER
 
-	SIZE, // Not a button
-
-	// Virtual buttons configured on the touchpad. The number of buttons vary dynamically, but they each need a different ID
-	TUP, // FIRST_TOUCH_BUTTON
+	TUP,
 	TDOWN,
 	TLEFT,
 	TRIGHT,
 	TRING,
-	T1,
+
+	SIZE, // Not a button
+
+	// Virtual buttons configured on the touchpad. The number of buttons vary dynamically, but they each need a different ID
+	T1,  // FIRST_TOUCH_BUTTON
 	T2,
 	T3,
 	T4,
