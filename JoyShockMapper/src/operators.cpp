@@ -6,6 +6,7 @@
 #include <memory>
 #include <algorithm>
 #include <iomanip>
+#include <cmath>
 
 static optional<float> getFloat(const string &str, size_t *newpos = nullptr)
 {

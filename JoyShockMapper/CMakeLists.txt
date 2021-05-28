@@ -150,6 +150,7 @@ target_include_directories (
 
 if(SDL)
 	# SDL2
+	set(HIDAPI ON)
 	CPMAddPackage (
 		NAME SDL2
 		GITHUB_REPOSITORY Electronicks/SDL
@@ -157,11 +158,17 @@ if(SDL)
 	)
 	
 	set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
-	
+
+
 	target_link_libraries (
 		${BINARY_NAME} PRIVATE
 		Platform::Dependencies
 		SDL2
+	)
+
+	target_sources (
+			${BINARY_NAME} PRIVATE
+			src/SDL2Wrapper.cpp
 	)
 
 	install (
@@ -174,6 +181,11 @@ else()
 		NAME JoyShockLibrary
 		GITHUB_REPOSITORY JibbSmart/JoyShockLibrary
 		GIT_TAG 0
+	)
+
+	target_sources (
+			${BINARY_NAME} PRIVATE
+			src/JslWrapper.cpp
 	)
 
 	target_link_libraries (

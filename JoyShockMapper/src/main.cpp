@@ -14,7 +14,13 @@
 #include <deque>
 #include <iomanip>
 #include <filesystem>
-#include <shellapi.h>
+#include <memory>
+#include <cfloat>
+#include <cuchar>
+
+#ifdef _WIN32
+    #include <shellapi.h>
+#endif
 
 #pragma warning(disable : 4996) // Disable deprecated API warnings
 
@@ -232,7 +238,8 @@ public:
 			float pressedTime = 0;
 			if (_pressedBtn == _negativeButton->_id)
 			{
-				pressedTime = _negativeButton->sendEvent(GetDuration{ now }).out_duration;
+			    GetDuration dur{ now };
+				pressedTime = _negativeButton->sendEvent(dur).out_duration;
 				if (pressedTime < MAGIC_TAP_DURATION)
 				{
 					_negativeButton->sendEvent(isPressed);
@@ -242,7 +249,8 @@ public:
 			}
 			else // _pressedBtn == _positiveButton->_id
 			{
-				pressedTime = _positiveButton->sendEvent(GetDuration{ now }).out_duration;
+                GetDuration dur{ now };
+                pressedTime = _positiveButton->sendEvent(dur).out_duration;
 				if (pressedTime < MAGIC_TAP_DURATION)
 				{
 					_negativeButton->sendEvent(isReleased);
@@ -922,7 +930,7 @@ private:
 		DigitalButton *button = index < ButtonID::SIZE           ? &buttons[int(index)] :
 		  touchpadIndex >= 0 && touchpadIndex < touchpads.size() ? &touchpads[touchpadIndex].buttons[int(index) - FIRST_TOUCH_BUTTON] :
 		  index >= ButtonID::T1                                  ? &gridButtons[int(index) - int(ButtonID::T1)] :
-                                                                   throw exception("What index is this?");
+                                                                   throw std::runtime_error("What index is this?");
 		return button;
 	}
 
@@ -1108,7 +1116,8 @@ public:
 			}
 			else
 			{
-				if (buttons[int(softIndex)].sendEvent(GetDuration{ time_now }).out_duration >= getSetting(SettingID::TRIGGER_SKIP_DELAY))
+			    GetDuration dur{ time_now };
+				if (buttons[int(softIndex)].sendEvent(dur).out_duration >= getSetting(SettingID::TRIGGER_SKIP_DELAY))
 				{
 					if (mode == TriggerMode::MUST_SKIP)
 					{
@@ -1139,7 +1148,8 @@ public:
 			}
 			else
 			{
-				if (buttons[int(softIndex)].sendEvent(GetDuration{ time_now }).out_duration >= getSetting(SettingID::TRIGGER_SKIP_DELAY))
+			    GetDuration dur{ time_now };
+				if (buttons[int(softIndex)].sendEvent(dur).out_duration >= getSetting(SettingID::TRIGGER_SKIP_DELAY))
 				{
 					if (mode == TriggerMode::MUST_SKIP_R)
 					{
@@ -3277,6 +3287,7 @@ int main(int argc, char *argv[])
 	static_cast<void>(argc);
 	static_cast<void>(argv);
 	void *trayIconData = nullptr;
+	string module(argv[0]);
 #endif // _WIN32
 	jsl.reset(JslWrapper::getNew());
 	whitelister.reset(Whitelister::getNew(false));
@@ -3639,6 +3650,7 @@ int main(int argc, char *argv[])
 #else
 		string arg = string(argv[0]);
 #endif
+
 		if (filesystem::is_regular_file(filesystem::status(arg)) &&
 		  arg != module)
 		{
@@ -3656,7 +3668,9 @@ int main(int argc, char *argv[])
 		commandRegistry.processLine(enteredCommand);
 		loading_lock.unlock();
 	}
+#ifdef _WIN32
 	LocalFree(argv);
+#endif
 	CleanUp();
 	return 0;
 }

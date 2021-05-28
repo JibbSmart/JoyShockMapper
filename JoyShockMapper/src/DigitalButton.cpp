@@ -353,7 +353,8 @@ public:
 	REACT(Sync)
 	final
 	{
-		react(Released{ e.pressTime, e.turboTime, e.holdTime });
+	    auto rel = Released{ e.pressTime, e.turboTime, e.holdTime };
+		react(rel);
 		// Redirect change of state to the caller of the Sync
 		e.nextState = _nextState;
 		_nextState = nullptr;
@@ -851,8 +852,10 @@ DigitalButton::Context::Context(Gamepad::Callback virtualControllerCallback, Gam
 {
 	rightMainMotion = mainMotion;
 	chordStack.push_front(ButtonID::NONE); //Always hold mapping none at the end to handle modeshifts and chords
+#ifdef _WIN32
 	if (virtual_controller.get() != ControllerScheme::NONE)
 	{
 		_vigemController.reset(Gamepad::getNew(virtual_controller.get(), virtualControllerCallback));
 	}
+#endif
 }
