@@ -11,11 +11,6 @@ public:
 
 	}
 
-	virtual WhitelisterImpl()
-	{
-
-	}
-
 	virtual bool ShowConsole() override
 	{
 
