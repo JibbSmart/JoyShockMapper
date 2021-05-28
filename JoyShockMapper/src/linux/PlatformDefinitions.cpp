@@ -2,6 +2,7 @@
 
 #include <string>
 #include <cstring>
+#include <iostream>
 
 #include <sys/types.h>
 #include <sys/stat.h>
@@ -107,6 +108,30 @@ const char *BASE_JSM_CONFIG_FOLDER() {
 unsigned long GetCurrentProcessId()
 {
 	return ::getpid();
+}
+
+streambuf *Log::makeBuffer(Level level)
+{
+    switch (level)
+    {
+        case Level::ERR:
+            return new ColorStream<&std::cerr, FOREGROUND_RED | FOREGROUND_INTENSITY>();
+        case Level::WARN:
+            return new ColorStream<&cout, FOREGROUND_YELLOW | FOREGROUND_INTENSITY>();
+        case Level::INFO:
+            return new ColorStream<&cout, FOREGROUND_BLUE | FOREGROUND_INTENSITY>();
+#if defined(NDEBUG) // release
+            case Level::UT:
+		return new NullBuffer(); // unused
+#else
+        case Level::UT:
+            return new ColorStream<&cout, FOREGROUND_BLUE | FOREGROUND_RED>(); // purplish
+#endif
+        case Level::BOLD:
+            return new ColorStream<&cout, FOREGROUND_GREEN | FOREGROUND_INTENSITY>();
+        default:
+            return new ColorStream<&std::cout, FOREGROUND_GREEN>();
+    }
 }
 
 

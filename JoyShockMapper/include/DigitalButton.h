@@ -104,10 +104,9 @@ class DigitalButton : public pocket_fsm::FiniteStateMachine<DigitalButtonState>
 public:
 	// All digital buttons need a reference to the same instance of the common structure within the same controller.
 	// It enables the buttons to synchronize and be aware of the state of the whole controller, access gyro etc...
-	struct Common
+	struct Context
 	{
-		Common(Gamepad::Callback virtualControllerCallback, GamepadMotion *mainMotion);
-		bool HasActiveToggle(const KeyCode &key) const;
+		Context(Gamepad::Callback virtualControllerCallback, GamepadMotion *mainMotion);
 		deque<pair<ButtonID, KeyCode>> gyroActionQueue; // Queue of gyro control actions currently in effect
 		deque<pair<ButtonID, KeyCode>> activeTogglesQueue;
 		deque<ButtonID> chordStack; // Represents the current active buttons in order from most recent to latest
@@ -119,7 +118,7 @@ public:
 		GamepadMotion *leftMotion = nullptr;
 	};
 
-	DigitalButton(shared_ptr<DigitalButton::Common> btnCommon, JSMButton &mapping);
+	DigitalButton(shared_ptr<DigitalButton::Context> _context, JSMButton &mapping);
 
 	const ButtonID _id;
 

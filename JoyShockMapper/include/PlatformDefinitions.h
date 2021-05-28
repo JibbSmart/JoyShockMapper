@@ -24,6 +24,7 @@ extern const char *BASE_JSM_CONFIG_FOLDER();
 #elif defined(__linux__)
 
 #include <cassert>
+#include <sstream>
 
 #define WINAPI
 #define VK_OEM_PLUS 0xBB

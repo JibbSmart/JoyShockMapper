@@ -34,9 +34,9 @@ private:
 public:
 	vector<BtnEvent> _instantReleaseQueue;
 	unsigned int _turboCount = 0;
-	DigitalButtonImpl(JSMButton &mapping, shared_ptr<DigitalButton::Common> common)
+	DigitalButtonImpl(JSMButton &mapping, shared_ptr<DigitalButton::Context> context)
 	  : _id(mapping._id)
-	  , _common(common)
+	  , _context(context)
 	  , _press_times()
 	  , _keyToRelease()
 	  , _mapping(mapping)
@@ -47,7 +47,7 @@ public:
 
 	const ButtonID _id; // Always ID first for easy debugging
 	string _nameToRelease;
-	shared_ptr<DigitalButton::Common> _common;
+	shared_ptr<DigitalButton::Context> _context;
 	chrono::steady_clock::time_point _press_times;
 	unique_ptr<Mapping> _keyToRelease; // At key press, remember what to release
 	const JSMButton &_mapping;
@@ -57,6 +57,16 @@ public:
 	inline float GetPressDurationMS(chrono::steady_clock::time_point time_now)
 	{
 		return static_cast<float>(chrono::duration_cast<chrono::milliseconds>(time_now - _press_times).count());
+	}
+
+	bool HasActiveToggle(shared_ptr<DigitalButton::Context> _context, const KeyCode& key) const
+	{
+		auto foundToggle = find_if(_context->activeTogglesQueue.cbegin(), _context->activeTogglesQueue.cend(),
+			[key] (auto& pair)
+			{
+				return pair.second == key; 
+			});
+		return foundToggle != _context->activeTogglesQueue.cend();
 	}
 
 	void ClearKey()
@@ -85,7 +95,7 @@ public:
 		if (!_keyToRelease)
 		{
 			// Look at active chord mappings starting with the latest activates chord
-			for (auto activeChord = _common->chordStack.cbegin(); activeChord != _common->chordStack.cend(); activeChord++)
+			for (auto activeChord = _context->chordStack.cbegin(); activeChord != _context->chordStack.cend(); activeChord++)
 			{
 				auto binding = _mapping.get(*activeChord);
 				if (binding && *activeChord != _id)
@@ -103,32 +113,32 @@ public:
 
 	void RegisterInstant(BtnEvent evt) override
 	{
-		//COUT << "Button " << _id << " registers instant " << evt << endl;
+		// DEBUG_LOG << "Button " << _id << " registers instant " << evt << endl;
 		_instantReleaseQueue.push_back(evt);
 	}
 
 	void ApplyGyroAction(KeyCode gyroAction) override
 	{
-		_common->gyroActionQueue.push_back({ _id, gyroAction });
+		_context->gyroActionQueue.push_back({ _id, gyroAction });
 	}
 
 	void RemoveGyroAction() override
 	{
-		auto gyroAction = find_if(_common->gyroActionQueue.begin(), _common->gyroActionQueue.end(),
+		auto gyroAction = find_if(_context->gyroActionQueue.begin(), _context->gyroActionQueue.end(),
 		  [this](auto pair) {
 			  // On a sim press, release the master button (the one who triggered the press)
 			  return pair.first == (_simPressMaster ? _simPressMaster->_id : _id);
 		  });
-		if (gyroAction != _common->gyroActionQueue.end())
+		if (gyroAction != _context->gyroActionQueue.end())
 		{
 			KeyCode key(gyroAction->second);
 			ClearAllActiveToggle(key);
-			for (auto currentlyActive = find_if(_common->gyroActionQueue.begin(), _common->gyroActionQueue.end(), bind(isSameKey, key, placeholders::_1));
-				 currentlyActive != _common->gyroActionQueue.end();
-				 currentlyActive = find_if(currentlyActive, _common->gyroActionQueue.end(), bind(isSameKey, key, placeholders::_1)))
+			for (auto currentlyActive = find_if(_context->gyroActionQueue.begin(), _context->gyroActionQueue.end(), bind(isSameKey, key, placeholders::_1));
+				 currentlyActive != _context->gyroActionQueue.end();
+				 currentlyActive = find_if(currentlyActive, _context->gyroActionQueue.end(), bind(isSameKey, key, placeholders::_1)))
 			{
 				DEBUG_LOG << "Removing active gyro action for " << key.name << endl;
-				currentlyActive = _common->gyroActionQueue.erase(currentlyActive);
+				currentlyActive = _context->gyroActionQueue.erase(currentlyActive);
 			}
 		}
 	}
@@ -136,17 +146,17 @@ public:
 	void SetRumble(int smallRumble, int bigRumble) override
 	{
 		DEBUG_LOG << "Rumbling at " << smallRumble << " and " << bigRumble << endl;
-		_common->_rumble(smallRumble, bigRumble);
+		_context->_rumble(smallRumble, bigRumble);
 	}
 
 	void ApplyBtnPress(KeyCode key) override
 	{
 		if (key.code >= X_UP && key.code <= X_START || key.code == PS_HOME || key.code == PS_PAD_CLICK)
 		{
-			if (_common->_vigemController)
-				_common->_vigemController->setButton(key, true);
+			if (_context->_vigemController)
+				_context->_vigemController->setButton(key, true);
 		}
-		else if (key.code != NO_HOLD_MAPPED && _common->HasActiveToggle(key) == false)
+		else if (key.code != NO_HOLD_MAPPED && HasActiveToggle(_context, key) == false)
 		{
 			DEBUG_LOG << "Pressing down on key " << key.name << endl;
 			pressKey(key, true);
@@ -157,8 +167,8 @@ public:
 	{
 		if (key.code >= X_UP && key.code <= X_START || key.code == PS_HOME || key.code == PS_PAD_CLICK)
 		{
-			if (_common->_vigemController)
-				_common->_vigemController->setButton(key, false);
+			if (_context->_vigemController)
+				_context->_vigemController->setButton(key, false);
 		}
 		else if (key.code != NO_HOLD_MAPPED)
 		{
@@ -170,15 +180,15 @@ public:
 
 	void ApplyButtonToggle(KeyCode key, EventActionIf::Callback apply, EventActionIf::Callback release) override
 	{
-		auto currentlyActive = find_if(_common->activeTogglesQueue.begin(), _common->activeTogglesQueue.end(),
+		auto currentlyActive = find_if(_context->activeTogglesQueue.begin(), _context->activeTogglesQueue.end(),
 		  [this, key](pair<ButtonID, KeyCode> pair) {
 			  return pair.first == _id && pair.second == key;
 		  });
-		if (currentlyActive == _common->activeTogglesQueue.end())
+		if (currentlyActive == _context->activeTogglesQueue.end())
 		{
 			DEBUG_LOG << "Adding active toggle for " << key.name << endl;
 			apply(this);
-			_common->activeTogglesQueue.push_front({ _id, key });
+			_context->activeTogglesQueue.push_front({ _id, key });
 		}
 		else
 		{
@@ -188,58 +198,58 @@ public:
 
 	void ClearAllActiveToggle(KeyCode key)
 	{
-		for (auto currentlyActive = find_if(_common->activeTogglesQueue.begin(), _common->activeTogglesQueue.end(), bind(isSameKey, key, placeholders::_1));
-		     currentlyActive != _common->activeTogglesQueue.end();
-		     currentlyActive = find_if(currentlyActive, _common->activeTogglesQueue.end(), bind(isSameKey, key, placeholders::_1)))
+		for (auto currentlyActive = find_if(_context->activeTogglesQueue.begin(), _context->activeTogglesQueue.end(), bind(isSameKey, key, placeholders::_1));
+		     currentlyActive != _context->activeTogglesQueue.end();
+		     currentlyActive = find_if(currentlyActive, _context->activeTogglesQueue.end(), bind(isSameKey, key, placeholders::_1)))
 		{
 			DEBUG_LOG << "Removing active toggle for " << key.name << endl;
-			currentlyActive = _common->activeTogglesQueue.erase(currentlyActive);
+			currentlyActive = _context->activeTogglesQueue.erase(currentlyActive);
 		}
 	}
 
 	void StartCalibration() override
 	{
 		COUT << "Starting continuous calibration" << endl;
-		if (_common->leftMotion)
+		if (_context->leftMotion)
 		{
 			int gyroMask = int(joycon_gyro_mask.get().value());
 			if (gyroMask & int(JoyconMask::IGNORE_LEFT) || gyroMask & int(JoyconMask::IGNORE_LEFT))
 			{
-				_common->rightMainMotion->ResetContinuousCalibration();
-				_common->rightMainMotion->StartContinuousCalibration();
+				_context->rightMainMotion->ResetContinuousCalibration();
+				_context->rightMainMotion->StartContinuousCalibration();
 			}
 			int motionMask = int(joycon_motion_mask.get().value());
 			if (motionMask & int(JoyconMask::IGNORE_RIGHT) || motionMask & int(JoyconMask::IGNORE_RIGHT))
 			{
-				_common->leftMotion->ResetContinuousCalibration();
-				_common->leftMotion->StartContinuousCalibration();
+				_context->leftMotion->ResetContinuousCalibration();
+				_context->leftMotion->StartContinuousCalibration();
 			}
 		}
 		else
 		{
-			_common->rightMainMotion->ResetContinuousCalibration();
-			_common->rightMainMotion->StartContinuousCalibration();
+			_context->rightMainMotion->ResetContinuousCalibration();
+			_context->rightMainMotion->StartContinuousCalibration();
 		}
 	}
 
 	void FinishCalibration() override
 	{
-		if (_common->leftMotion)
+		if (_context->leftMotion)
 		{
 			int gyroMask = int(joycon_gyro_mask.get().value());
 			if (gyroMask & int(JoyconMask::IGNORE_LEFT) || gyroMask & int(JoyconMask::IGNORE_LEFT))
 			{
-				_common->rightMainMotion->PauseContinuousCalibration();
+				_context->rightMainMotion->PauseContinuousCalibration();
 			}
 			int motionMask = int(joycon_motion_mask.get().value());
 			if (motionMask & int(JoyconMask::IGNORE_RIGHT) || motionMask & int(JoyconMask::IGNORE_RIGHT))
 			{
-				_common->rightMainMotion->PauseContinuousCalibration();
+				_context->rightMainMotion->PauseContinuousCalibration();
 			}
 		}
 		else
 		{
-			_common->rightMainMotion->PauseContinuousCalibration();
+			_context->rightMainMotion->PauseContinuousCalibration();
 		}
 		COUT << "Gyro calibration set" << endl;
 		ClearAllActiveToggle(KeyCode("CALIBRATE"));
@@ -282,11 +292,11 @@ void DigitalButtonState::react(Pressed &e)
 {
 	if (pimpl()->_id < ButtonID::SIZE || pimpl()->_id >= ButtonID::T1) // Can't chord touch stick buttons
 	{
-		auto foundChord = find(pimpl()->_common->chordStack.begin(), pimpl()->_common->chordStack.end(), pimpl()->_id);
-		if (foundChord == pimpl()->_common->chordStack.end())
+		auto foundChord = find(pimpl()->_context->chordStack.begin(), pimpl()->_context->chordStack.end(), pimpl()->_id);
+		if (foundChord == pimpl()->_context->chordStack.end())
 		{
 			//COUT << "Button " << index << " is pressed!" << endl;
-			pimpl()->_common->chordStack.push_front(pimpl()->_id); // Always push at the fromt to make it a stack
+			pimpl()->_context->chordStack.push_front(pimpl()->_id); // Always push at the fromt to make it a stack
 		}
 	}
 }
@@ -296,11 +306,11 @@ void DigitalButtonState::react(Released &e)
 {
 	if (pimpl()->_id < ButtonID::SIZE || pimpl()->_id >= ButtonID::T1) // Can't chord touch stick buttons?!?
 	{
-		auto foundChord = find(pimpl()->_common->chordStack.begin(), pimpl()->_common->chordStack.end(), pimpl()->_id);
-		if (foundChord != pimpl()->_common->chordStack.end())
+		auto foundChord = find(pimpl()->_context->chordStack.begin(), pimpl()->_context->chordStack.end(), pimpl()->_id);
+		if (foundChord != pimpl()->_context->chordStack.end())
 		{
 			//COUT << "Button " << index << " is released!" << endl;
-			pimpl()->_common->chordStack.erase(foundChord); // The chord is released
+			pimpl()->_context->chordStack.erase(foundChord); // The chord is released
 		}
 	}
 }
@@ -343,8 +353,8 @@ public:
 	REACT(Sync)
 	final
 	{
-		Released released{ e.pressTime, e.turboTime, e.holdTime };
-		react(released);
+	    Released rel{ e.pressTime, e.turboTime, e.holdTime };
+		react(rel);
 		// Redirect change of state to the caller of the Sync
 		e.nextState = _nextState;
 		_nextState = nullptr;
@@ -583,7 +593,7 @@ class WaitSim : public DigitalButtonState
 	{
 		DigitalButtonState::react(e);
 		// Is there a sim mapping on this button where the other button is in WaitSim state too?
-		auto simBtn = pimpl()->_common->_getMatchingSimBtn(pimpl()->_id);
+		auto simBtn = pimpl()->_context->_getMatchingSimBtn(pimpl()->_id);
 		if (simBtn)
 		{
 			changeState<SimPressSlave>();
@@ -807,7 +817,17 @@ class DblPressPress : public pocket_fsm::NestedStateMachine<ActiveMappingState, 
 class InstRelease : public DigitalButtonState
 {
 	DB_CONCRETE_STATE(InstRelease)
+
 	REACT(Pressed)
+	override
+	{
+		DigitalButtonState::react(e);
+		pimpl()->ReleaseInstant(BtnEvent::OnRelease);
+		pimpl()->ClearKey();
+		changeState<NoPress>();
+	}
+
+	REACT(Released)
 	override
 	{
 		DigitalButtonState::react(e);
@@ -822,28 +842,20 @@ class InstRelease : public DigitalButtonState
 
 // Top level interface
 
-DigitalButton::DigitalButton(shared_ptr<DigitalButton::Common> btnCommon, JSMButton &mapping)
+DigitalButton::DigitalButton(shared_ptr<DigitalButton::Context> _context, JSMButton &mapping)
   : _id(mapping._id)
 {
-	initialize(new NoPress(new DigitalButtonImpl(mapping, btnCommon)));
+	initialize(new NoPress(new DigitalButtonImpl(mapping, _context)));
 }
 
-DigitalButton::Common::Common(Gamepad::Callback virtualControllerCallback, GamepadMotion *mainMotion)
+DigitalButton::Context::Context(Gamepad::Callback virtualControllerCallback, GamepadMotion *mainMotion)
 {
 	rightMainMotion = mainMotion;
 	chordStack.push_front(ButtonID::NONE); //Always hold mapping none at the end to handle modeshifts and chords
+#ifdef _WIN32
 	if (virtual_controller.get() != ControllerScheme::NONE)
 	{
 		_vigemController.reset(Gamepad::getNew(virtual_controller.get(), virtualControllerCallback));
 	}
-}
-
-bool DigitalButton::Common::HasActiveToggle(const KeyCode& key) const
-{
-	auto foundToggle = find_if(activeTogglesQueue.cbegin(), activeTogglesQueue.cend(),
-		[key] (auto& pair)
-		{
-			return pair.second == key; 
-		});
-	return foundToggle != activeTogglesQueue.cend();
+#endif
 }

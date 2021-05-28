@@ -39,6 +39,19 @@ add_executable (
 	include/Mapping.h
 )
 
+if(SDL)
+	target_sources (
+		${BINARY_NAME} PRIVATE
+		src/SDL2Wrapper.cpp
+	)
+	add_definitions(-DSDL2)
+else()
+		target_sources (
+		${BINARY_NAME} PRIVATE
+		src/JslWrapper.cpp
+	)
+endif()
+
 if (WINDOWS)
     target_sources (
         ${BINARY_NAME} PRIVATE
@@ -50,19 +63,6 @@ if (WINDOWS)
         src/win32/HidHideWhitelister.cpp
         "Win32 Dialog.rc"                    include/win32/resource.h
     )
-
-    if(SDL)
-        target_sources (
-            ${BINARY_NAME} PRIVATE
-            src/SDL2Wrapper.cpp
-		)
-		add_definitions(-DSDL2)
-	else()
-	        target_sources (
-            ${BINARY_NAME} PRIVATE
-            src/JslWrapper.cpp
-		)
-    endif()
 
     # ViGEmClient
     CPMAddPackage (
@@ -150,6 +150,7 @@ target_include_directories (
 
 if(SDL)
 	# SDL2
+	set(HIDAPI ON)
 	CPMAddPackage (
 		NAME SDL2
 		GITHUB_REPOSITORY Electronicks/SDL
@@ -157,11 +158,17 @@ if(SDL)
 	)
 	
 	set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
-	
+
+
 	target_link_libraries (
 		${BINARY_NAME} PRIVATE
 		Platform::Dependencies
 		SDL2
+	)
+
+	target_sources (
+			${BINARY_NAME} PRIVATE
+			src/SDL2Wrapper.cpp
 	)
 
 	install (
@@ -174,6 +181,11 @@ else()
 		NAME JoyShockLibrary
 		GITHUB_REPOSITORY JibbSmart/JoyShockLibrary
 		GIT_TAG 0
+	)
+
+	target_sources (
+			${BINARY_NAME} PRIVATE
+			src/JslWrapper.cpp
 	)
 
 	target_link_libraries (

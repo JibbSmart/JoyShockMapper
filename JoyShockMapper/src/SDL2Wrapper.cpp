@@ -7,12 +7,17 @@
 #define INCLUDE_MATH_DEFINES
 #include <cmath> // M_PI
 #include <algorithm>
+#include <memory>
+#include <iostream>
+#include <cstring>
 
 extern JSMVariable<float> tick_time; // defined in main.cc
 
 struct ControllerDevice
 {
 	ControllerDevice(int id)
+	  : _has_accel(false)
+	  , _has_gyro(false)
 	{
 		SDL_memset(&_left_trigger_effect, 0, sizeof(SDL_JoystickTriggerEffect));
 		SDL_memset(&_right_trigger_effect, 0, sizeof(SDL_JoystickTriggerEffect));
@@ -22,15 +27,15 @@ struct ControllerDevice
 		{
 			_sdlController = SDL_GameControllerOpen(id);
 
-			if (SDL_GameControllerHasSensor(_sdlController, SDL_SENSOR_GYRO))
+			_has_gyro = SDL_GameControllerHasSensor(_sdlController, SDL_SENSOR_GYRO);
+			_has_accel = SDL_GameControllerHasSensor(_sdlController, SDL_SENSOR_ACCEL);
+
+			if (_has_gyro)
 			{
-				_has_gyro = true;
 				SDL_GameControllerSetSensorEnabled(_sdlController, SDL_SENSOR_GYRO, SDL_TRUE);
 			}
-
-			if (SDL_GameControllerHasSensor(_sdlController, SDL_SENSOR_ACCEL))
+			if (_has_accel)
 			{
-				_has_accel = true;
 				SDL_GameControllerSetSensorEnabled(_sdlController, SDL_SENSOR_ACCEL, SDL_TRUE);
 			}
 
@@ -79,8 +84,8 @@ struct ControllerDevice
 		return _sdlController != nullptr;
 	}
 
-	bool _has_gyro = true;
-	bool _has_accel = true;
+	bool _has_gyro;
+	bool _has_accel;
 	int _split_type = JS_SPLIT_TYPE_FULL;
 	int _ctrlr_type = 0;
 	uint16_t _small_rumble = 0;

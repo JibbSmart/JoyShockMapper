@@ -14,7 +14,13 @@
 #include <deque>
 #include <iomanip>
 #include <filesystem>
-#include <shellapi.h>
+#include <memory>
+#include <cfloat>
+#include <cuchar>
+
+#ifdef _WIN32
+    #include <shellapi.h>
+#endif
 
 #pragma warning(disable : 4996) // Disable deprecated API warnings
 
@@ -136,7 +142,7 @@ class TouchStick
 public:
 	vector<DigitalButton> buttons; // Each touchstick gets it's own digital buttons. Is that smart?
 
-	TouchStick(int index, shared_ptr<DigitalButton::Common> common, int handle, GamepadMotion *motion)
+	TouchStick(int index, shared_ptr<DigitalButton::Context> common, int handle, GamepadMotion *motion)
 	  : _index(index)
 	{
 		size_t noTouchBtn = std::min(size_t(5), touch_buttons.size());
@@ -154,6 +160,32 @@ public:
 		return _prevDown;
 	}
 };
+
+KeyCode::KeyCode()
+	: code()
+	, name()
+{
+}
+
+KeyCode::KeyCode(in_string keyName)
+	: code(nameToKey(keyName))
+	, name()
+{
+	if (code == COMMAND_ACTION)
+		name = keyName.substr(1, keyName.size() - 2); // Remove opening and closing quotation marks
+	else if (keyName.compare("SMALL_RUMBLE") == 0)
+	{
+		name = SMALL_RUMBLE;
+		code = RUMBLE;
+	}
+	else if (keyName.compare("BIG_RUMBLE") == 0)
+	{
+		name = BIG_RUMBLE;
+		code = RUMBLE;
+	}
+	else if (code != 0)
+		name = keyName;
+}
 
 class ScrollAxis
 {
@@ -206,7 +238,8 @@ public:
 			float pressedTime = 0;
 			if (_pressedBtn == _negativeButton->_id)
 			{
-				pressedTime = _negativeButton->sendEvent(GetDuration{ now }).out_duration;
+			    GetDuration dur{ now };
+				pressedTime = _negativeButton->sendEvent(dur).out_duration;
 				if (pressedTime < MAGIC_TAP_DURATION)
 				{
 					_negativeButton->sendEvent(isPressed);
@@ -216,7 +249,8 @@ public:
 			}
 			else // _pressedBtn == _positiveButton->_id
 			{
-				pressedTime = _positiveButton->sendEvent(GetDuration{ now }).out_duration;
+                GetDuration dur{ now };
+                pressedTime = _positiveButton->sendEvent(dur).out_duration;
 				if (pressedTime < MAGIC_TAP_DURATION)
 				{
 					_negativeButton->sendEvent(isReleased);
@@ -326,7 +360,7 @@ public:
 	float motion_stick_acceleration = 1.0;
 	vector<DstState> triggerState; // State of analog triggers when skip mode is active
 	vector<deque<float>> prevTriggerPosition;
-	shared_ptr<DigitalButton::Common> btnCommon;
+	shared_ptr<DigitalButton::Context> _context;
 
 	// Modeshifting the stick mode can create quirky behaviours on transition. These flags
 	// will be set upon returning to standard mode and ignore stick inputs until the stick
@@ -363,30 +397,30 @@ public:
 	JOY_SHOCK_TRIGGER_EFFECT right_effect;
 	JOY_SHOCK_TRIGGER_EFFECT unused_effect;
 
-	JoyShock(int uniqueHandle, int controllerSplitType, shared_ptr<DigitalButton::Common> sharedButtonCommon = nullptr)
+	JoyShock(int uniqueHandle, int controllerSplitType, shared_ptr<DigitalButton::Context> sharedButtonCommon = nullptr)
 	  : handle(uniqueHandle)
 	  , controller_split_type(controllerSplitType)
 	  , platform_controller_type(jsl->GetControllerType(uniqueHandle))
 	  , triggerState(NUM_ANALOG_TRIGGERS, DstState::NoPress)
 	  , prevTriggerPosition(NUM_ANALOG_TRIGGERS, deque<float>(MAGIC_TRIGGER_SMOOTHING, 0.f))
 	  , _light_bar(*light_bar.get())
-	  , btnCommon(sharedButtonCommon)
+	  , _context(sharedButtonCommon)
 	{
 		if (!sharedButtonCommon)
 		{
-			btnCommon = shared_ptr<DigitalButton::Common>(new DigitalButton::Common(
+			_context = shared_ptr<DigitalButton::Context>(new DigitalButton::Context(
 			  bind(&JoyShock::handleViGEmNotification, this, placeholders::_1, placeholders::_2, placeholders::_3), &motion));
 		}
 		_light_bar = getSetting<Color>(SettingID::LIGHT_BAR);
 
 		platform_controller_type = jsl->GetControllerType(handle);
-		btnCommon->_getMatchingSimBtn = bind(&JoyShock::GetMatchingSimBtn, this, placeholders::_1);
-		btnCommon->_rumble = bind(&JoyShock::Rumble, this, placeholders::_1, placeholders::_2);
+		_context->_getMatchingSimBtn = bind(&JoyShock::GetMatchingSimBtn, this, placeholders::_1);
+		_context->_rumble = bind(&JoyShock::Rumble, this, placeholders::_1, placeholders::_2);
 
 		buttons.reserve(mappings.size());
 		for (int i = 0; i < mappings.size(); ++i)
 		{
-			buttons.push_back(DigitalButton(btnCommon, mappings[i]));
+			buttons.push_back(DigitalButton(_context, mappings[i]));
 		}
 		right_scroll.init(buttons[int(ButtonID::RLEFT)], buttons[int(ButtonID::RRIGHT)]);
 		left_scroll.init(buttons[int(ButtonID::LLEFT)], buttons[int(ButtonID::LRIGHT)]);
@@ -398,7 +432,7 @@ public:
 		jsl->SetLightColour(handle, getSetting<Color>(SettingID::LIGHT_BAR).raw);
 		for (int i = 0; i < MAX_NO_OF_TOUCH; ++i)
 		{
-			touchpads.push_back(TouchStick(i, btnCommon, handle, &motion));
+			touchpads.push_back(TouchStick(i, _context, handle, &motion));
 		}
 		touch_scroll_x.init(touchpads[0].buttons[int(ButtonID::TLEFT) - FIRST_TOUCH_BUTTON], touchpads[0].buttons[int(ButtonID::TRIGHT) - FIRST_TOUCH_BUTTON]);
 		touch_scroll_y.init(touchpads[0].buttons[int(ButtonID::TUP) - FIRST_TOUCH_BUTTON], touchpads[0].buttons[int(ButtonID::TDOWN) - FIRST_TOUCH_BUTTON]);
@@ -411,11 +445,11 @@ public:
 	{
 		if (controller_split_type == JS_SPLIT_TYPE_LEFT)
 		{
-			btnCommon->leftMotion = nullptr;
+			_context->leftMotion = nullptr;
 		}
 		else
 		{
-			btnCommon->rightMainMotion = nullptr;
+			_context->rightMainMotion = nullptr;
 		}
 	}
 
@@ -433,12 +467,12 @@ public:
 		if (virtual_controller.get() != ControllerScheme::NONE)
 		{
 			string error = "There is no controller object";
-			if (!btnCommon->_vigemController || btnCommon->_vigemController->isInitialized(&error) == false)
+			if (!_context->_vigemController || _context->_vigemController->isInitialized(&error) == false)
 			{
 				CERR << "[ViGEm Client] " << error << endl;
 				return false;
 			}
-			else if (btnCommon->_vigemController->getType() != virtual_controller.get())
+			else if (_context->_vigemController->getType() != virtual_controller.get())
 			{
 				CERR << "[ViGEm Client] The controller is of the wrong type!" << endl;
 				return false;
@@ -454,7 +488,7 @@ public:
 		//auto diff = ((float)chrono::duration_cast<chrono::microseconds>(now - last_call).count()) / 1000000.0f;
 		//last_call = now;
 		//COUT_INFO << "Time since last vigem rumble is " << diff << " us" << endl;
-		lock_guard guard(this->btnCommon->callback_lock);
+		lock_guard guard(this->_context->callback_lock);
 		switch (platform_controller_type)
 		{
 		case JS_TYPE_DS4:
@@ -473,7 +507,7 @@ public:
 	{
 		static_assert(is_enum<E>::value, "Parameter of JoyShock::getSetting<E> has to be an enum type");
 		// Look at active chord mappings starting with the latest activates chord
-		for (auto activeChord = btnCommon->chordStack.begin(); activeChord != btnCommon->chordStack.end(); activeChord++)
+		for (auto activeChord = _context->chordStack.begin(); activeChord != _context->chordStack.end(); activeChord++)
 		{
 			optional<E> opt;
 			switch (index)
@@ -577,7 +611,7 @@ public:
 	float getSetting(SettingID index)
 	{
 		// Look at active chord mappings starting with the latest activates chord
-		for (auto activeChord = btnCommon->chordStack.begin(); activeChord != btnCommon->chordStack.end(); activeChord++)
+		for (auto activeChord = _context->chordStack.begin(); activeChord != _context->chordStack.end(); activeChord++)
 		{
 			optional<float> opt;
 			switch (index)
@@ -713,7 +747,7 @@ public:
 	FloatXY getSetting<FloatXY>(SettingID index)
 	{
 		// Look at active chord mappings starting with the latest activates chord
-		for (auto activeChord = btnCommon->chordStack.begin(); activeChord != btnCommon->chordStack.end(); activeChord++)
+		for (auto activeChord = _context->chordStack.begin(); activeChord != _context->chordStack.end(); activeChord++)
 		{
 			optional<FloatXY> opt;
 			switch (index)
@@ -749,7 +783,7 @@ public:
 		if (index == SettingID::GYRO_ON || index == SettingID::GYRO_OFF)
 		{
 			// Look at active chord mappings starting with the latest activates chord
-			for (auto activeChord = btnCommon->chordStack.begin(); activeChord != btnCommon->chordStack.end(); activeChord++)
+			for (auto activeChord = _context->chordStack.begin(); activeChord != _context->chordStack.end(); activeChord++)
 			{
 				auto opt = gyro_settings.get(*activeChord);
 				if (opt)
@@ -767,7 +801,7 @@ public:
 		if (index == SettingID::LIGHT_BAR)
 		{
 			// Look at active chord mappings starting with the latest activates chord
-			for (auto activeChord = btnCommon->chordStack.begin(); activeChord != btnCommon->chordStack.end(); activeChord++)
+			for (auto activeChord = _context->chordStack.begin(); activeChord != _context->chordStack.end(); activeChord++)
 			{
 				auto opt = light_bar.get(*activeChord);
 				if (opt)
@@ -896,13 +930,15 @@ private:
 		DigitalButton *button = index < ButtonID::SIZE           ? &buttons[int(index)] :
 		  touchpadIndex >= 0 && touchpadIndex < touchpads.size() ? &touchpads[touchpadIndex].buttons[int(index) - FIRST_TOUCH_BUTTON] :
 		  index >= ButtonID::T1                                  ? &gridButtons[int(index) - int(ButtonID::T1)] :
-                                                                   throw exception("What index is this?");
+                                                                   throw std::runtime_error("What index is this?");
 		return button;
 	}
 
-		bool isSoftPullPressed(int triggerIndex, float triggerPosition)
+	bool isSoftPullPressed(int triggerIndex, float triggerPosition)
 	{
 		float threshold = getSetting(SettingID::TRIGGER_THRESHOLD);
+		if (platform_controller_type == JS_TYPE_DS && getSetting<Switch>(SettingID::ADAPTIVE_TRIGGER) == Switch::ON)
+			threshold = max(0.f, threshold); // hair trigger disabled on dual sense when adaptive triggers are active
 		if (threshold >= 0)
 		{
 			return triggerPosition > threshold;
@@ -969,6 +1005,8 @@ public:
 	float getTriggerEffectStartPos()
 	{
 		float threshold = getSetting(SettingID::TRIGGER_THRESHOLD);
+		if (platform_controller_type == JS_TYPE_DS && getSetting<Switch>(SettingID::ADAPTIVE_TRIGGER) == Switch::ON)
+				threshold = max(0.f, threshold); // hair trigger disabled on dual sense when adaptive triggers are active
 		return clamp(threshold + 0.05f, 0.0f, 1.0f);
 	}
 
@@ -991,8 +1029,8 @@ public:
 
 		if (mode == TriggerMode::X_LT)
 		{
-			if (btnCommon->_vigemController)
-				btnCommon->_vigemController->setLeftTrigger(position);
+			if (_context->_vigemController)
+				_context->_vigemController->setLeftTrigger(position);
 			trigger_rumble.mode = 1;
 			trigger_rumble.strength = 0;
 			trigger_rumble.start = offset + 0.05 * range;
@@ -1000,8 +1038,8 @@ public:
 		}
 		else if (mode == TriggerMode::X_RT)
 		{
-			if (btnCommon->_vigemController)
-				btnCommon->_vigemController->setRightTrigger(position);
+			if (_context->_vigemController)
+				_context->_vigemController->setRightTrigger(position);
 			trigger_rumble.mode = 1;
 			trigger_rumble.strength = 0;
 			trigger_rumble.start = offset + 0.05 * range;
@@ -1078,7 +1116,8 @@ public:
 			}
 			else
 			{
-				if (buttons[int(softIndex)].sendEvent(GetDuration{ time_now }).out_duration >= getSetting(SettingID::TRIGGER_SKIP_DELAY))
+			    GetDuration dur{ time_now };
+				if (buttons[int(softIndex)].sendEvent(dur).out_duration >= getSetting(SettingID::TRIGGER_SKIP_DELAY))
 				{
 					if (mode == TriggerMode::MUST_SKIP)
 					{
@@ -1109,7 +1148,8 @@ public:
 			}
 			else
 			{
-				if (buttons[int(softIndex)].sendEvent(GetDuration{ time_now }).out_duration >= getSetting(SettingID::TRIGGER_SKIP_DELAY))
+			    GetDuration dur{ time_now };
+				if (buttons[int(softIndex)].sendEvent(dur).out_duration >= getSetting(SettingID::TRIGGER_SKIP_DELAY))
 				{
 					if (mode == TriggerMode::MUST_SKIP_R)
 					{
@@ -1172,7 +1212,7 @@ public:
 				if (mode == TriggerMode::NO_SKIP || mode == TriggerMode::MAY_SKIP || mode == TriggerMode::MAY_SKIP_R)
 				{
 					trigger_rumble.strength = min(int(UINT16_MAX), trigger_rumble.strength + int(1/30.f * tick_time  * UINT16_MAX));
-					trigger_rumble.start = offset + min(0.89, trigger_rumble.start + 1/150. * tick_time) * range;
+					trigger_rumble.start = min(offset + 0.89* range, trigger_rumble.start + 1/150. * tick_time * range);
 					trigger_rumble.end = trigger_rumble.start + 0.1 * range;
 					handleButtonChange(softIndex, true);
 					if (position == 1.0)
@@ -1185,7 +1225,7 @@ public:
 				else if (mode == TriggerMode::NO_SKIP_EXCLUSIVE)
 				{
 					trigger_rumble.strength = min(int(UINT16_MAX), trigger_rumble.strength + int(1/30.f * tick_time * UINT16_MAX));
-					trigger_rumble.start = offset + min(0.89, trigger_rumble.start + 1/150. * tick_time) * range;
+					trigger_rumble.start = min(offset + 0.89* range, trigger_rumble.start + 1/150. * tick_time * range);
 					trigger_rumble.end = trigger_rumble.start + 0.1 * range;
 					handleButtonChange(softIndex, false);
 					if (position == 1.0)
@@ -1253,7 +1293,7 @@ public:
 		// Use chord stack to know if a button is pressed, because the state from the callback
 		// only holds half the information when it comes to a joycon pair.
 		// Also, NONE is always part of the stack (for chord handling) but NONE is never pressed.
-		return btn != ButtonID::NONE && find(btnCommon->chordStack.begin(), btnCommon->chordStack.end(), btn) != btnCommon->chordStack.end();
+		return btn != ButtonID::NONE && find(_context->chordStack.begin(), _context->chordStack.end(), btn) != _context->chordStack.end();
 	}
 
 	// return true if it hits the outer deadzone
@@ -1293,7 +1333,7 @@ public:
 		for (int i = gridButtons.size(); i < noGridBtns; ++i)
 		{
 			JSMButton &map(touch_buttons[i + 5]);
-			gridButtons.push_back(DigitalButton(btnCommon, map));
+			gridButtons.push_back(DigitalButton(_context, map));
 		}
 	}
 };
@@ -1405,7 +1445,7 @@ void connectDevices(bool mergeJoycons = true)
 			if (mergeJoycons && otherJoyCon != handle_to_joyshock.end())
 			{
 				// The second JC points to the same common buttons as the other one.
-				js.reset(new JoyShock(handle, type, otherJoyCon->second->btnCommon));
+				js.reset(new JoyShock(handle, type, otherJoyCon->second->_context));
 			}
 			else
 			{
@@ -1947,16 +1987,16 @@ void processStick(shared_ptr<JoyShock> jc, float stickX, float stickY, float las
 	}
 	else if (stickMode == StickMode::LEFT_STICK)
 	{
-		if (jc->btnCommon->_vigemController)
+		if (jc->_context->_vigemController)
 		{
-			jc->btnCommon->_vigemController->setLeftStick(stickX, stickY);
+			jc->_context->_vigemController->setLeftStick(stickX, stickY);
 		}
 	}
 	else if (stickMode == StickMode::RIGHT_STICK)
 	{
-		if (jc->btnCommon->_vigemController)
+		if (jc->_context->_vigemController)
 		{
-			jc->btnCommon->_vigemController->setRightStick(stickX, stickY);
+			jc->_context->_vigemController->setRightStick(stickX, stickY);
 		}
 	}
 }
@@ -2041,7 +2081,7 @@ void TouchCallback(int jcHandle, TOUCH_STATE newState, TOUCH_STATE prevState, fl
 	if (!js || jsl->GetTouchpadDimension(jcHandle, tpSizeX, tpSizeY) == false)
 		return;
 
-	lock_guard guard(js->btnCommon->callback_lock);
+	lock_guard guard(js->_context->callback_lock);
 
 	TOUCH_POINT point0, point1;
 
@@ -2063,11 +2103,11 @@ void TouchCallback(int jcHandle, TOUCH_STATE newState, TOUCH_STATE prevState, fl
 			return id >= ButtonID::T1;
 		};
 
-		for (auto currentlyActive = find_if(js->btnCommon->chordStack.begin(), js->btnCommon->chordStack.end(), IS_TOUCH_BUTTON);
-		     currentlyActive != js->btnCommon->chordStack.end();
-		     currentlyActive = find_if(js->btnCommon->chordStack.begin(), js->btnCommon->chordStack.end(), IS_TOUCH_BUTTON))
+		for (auto currentlyActive = find_if(js->_context->chordStack.begin(), js->_context->chordStack.end(), IS_TOUCH_BUTTON);
+		     currentlyActive != js->_context->chordStack.end();
+		     currentlyActive = find_if(js->_context->chordStack.begin(), js->_context->chordStack.end(), IS_TOUCH_BUTTON))
 		{
-			js->btnCommon->chordStack.erase(currentlyActive);
+			js->_context->chordStack.erase(currentlyActive);
 		}
 	}
 	if (mode == TouchpadMode::GRID_AND_STICK)
@@ -2155,7 +2195,7 @@ void joyShockPollCallback(int jcHandle, JOY_SHOCK_STATE state, JOY_SHOCK_STATE l
 	shared_ptr<JoyShock> jc = handle_to_joyshock[jcHandle];
 	if (jc == nullptr)
 		return;
-	jc->btnCommon->callback_lock.lock();
+	jc->_context->callback_lock.lock();
 
 	auto timeNow = chrono::steady_clock::now();
 	deltaTime = ((float)chrono::duration_cast<chrono::microseconds>(timeNow - jc->time_now).count()) / 1000000.0f;
@@ -2265,7 +2305,7 @@ void joyShockPollCallback(int jcHandle, JOY_SHOCK_STATE state, JOY_SHOCK_STATE l
 		}
 		jsl->SetRightTriggerEffect(jcHandle, jc->right_effect);
 		jsl->SetLeftTriggerEffect(jcHandle, jc->left_effect);
-		jc->btnCommon->callback_lock.unlock();
+		jc->_context->callback_lock.unlock();
 		return;
 	}
 
@@ -2568,7 +2608,7 @@ void joyShockPollCallback(int jcHandle, JOY_SHOCK_STATE state, JOY_SHOCK_STATE l
 	bool trackball_y_pressed = false;
 
 	// Apply gyro modifiers in the queue from oldest to newest (thus giving priority to most recent)
-	for (auto pair : jc->btnCommon->gyroActionQueue)
+	for (auto pair : jc->_context->gyroActionQueue)
 	{
 		if (pair.second.code == GYRO_ON_BIND)
 			blockGyro = false;
@@ -2663,9 +2703,9 @@ void joyShockPollCallback(int jcHandle, JOY_SHOCK_STATE state, JOY_SHOCK_STATE l
 		  jc->getSetting(SettingID::MIN_GYRO_THRESHOLD), jc->getSetting(SettingID::MAX_GYRO_THRESHOLD), deltaTime,
 		  camSpeedX * jc->getSetting(SettingID::STICK_AXIS_X), -camSpeedY * jc->getSetting(SettingID::STICK_AXIS_Y), mouseCalibration);
 	}
-	if (jc->btnCommon->_vigemController)
+	if (jc->_context->_vigemController)
 	{
-		jc->btnCommon->_vigemController->update(); // Check for initialized built-in
+		jc->_context->_vigemController->update(); // Check for initialized built-in
 	}
 	auto newColor = jc->getSetting<Color>(SettingID::LIGHT_BAR);
 	if (jc->_light_bar != newColor)
@@ -2673,7 +2713,7 @@ void joyShockPollCallback(int jcHandle, JOY_SHOCK_STATE state, JOY_SHOCK_STATE l
 		jsl->SetLightColour(jc->handle, newColor.raw);
 		jc->_light_bar = newColor;
 	}
-	jc->btnCommon->callback_lock.unlock();
+	jc->_context->callback_lock.unlock();
 }
 
 // https://stackoverflow.com/a/25311622/1130520 says this is why filenames obtained by fgets don't work
@@ -2973,17 +3013,17 @@ ControllerScheme UpdateVirtualController(ControllerScheme prevScheme, Controller
 	bool success = true;
 	for (auto &js : handle_to_joyshock)
 	{
-		if (!js.second->btnCommon->_vigemController ||
-		  js.second->btnCommon->_vigemController->getType() != nextScheme)
+		if (!js.second->_context->_vigemController ||
+		  js.second->_context->_vigemController->getType() != nextScheme)
 		{
 			if (nextScheme == ControllerScheme::NONE)
 			{
-				js.second->btnCommon->_vigemController.reset(nullptr);
+				js.second->_context->_vigemController.reset(nullptr);
 			}
 			else
 			{
-				js.second->btnCommon->_vigemController.reset(Gamepad::getNew(nextScheme, bind(&JoyShock::handleViGEmNotification, js.second.get(), placeholders::_1, placeholders::_2, placeholders::_3)));
-				success &= js.second->btnCommon->_vigemController && js.second->btnCommon->_vigemController->isInitialized();
+				js.second->_context->_vigemController.reset(Gamepad::getNew(nextScheme, bind(&JoyShock::handleViGEmNotification, js.second.get(), placeholders::_1, placeholders::_2, placeholders::_3)));
+				success &= js.second->_context->_vigemController && js.second->_context->_vigemController->isInitialized();
 			}
 		}
 	}
@@ -3028,7 +3068,7 @@ void OnNewGridDimensions(CmdRegistry *registry, const FloatXY &newGridDims)
 		// For all joyshocks, remove extra touch DigitalButtons
 		for (auto &js : handle_to_joyshock)
 		{
-			lock_guard guard(js.second->btnCommon->callback_lock);
+			lock_guard guard(js.second->_context->callback_lock);
 			js.second->updateGridSize(numberOfButtons);
 		}
 
@@ -3050,7 +3090,7 @@ void OnNewGridDimensions(CmdRegistry *registry, const FloatXY &newGridDims)
 		// For all joyshocks, remove extra touch DigitalButtons
 		for (auto &js : handle_to_joyshock)
 		{
-			lock_guard guard(js.second->btnCommon->callback_lock);
+			lock_guard guard(js.second->_context->callback_lock);
 			js.second->updateGridSize(numberOfButtons);
 		}
 	}
@@ -3247,6 +3287,7 @@ int main(int argc, char *argv[])
 	static_cast<void>(argc);
 	static_cast<void>(argv);
 	void *trayIconData = nullptr;
+	string module(argv[0]);
 #endif // _WIN32
 	jsl.reset(JslWrapper::getNew());
 	whitelister.reset(Whitelister::getNew(false));
@@ -3609,6 +3650,7 @@ int main(int argc, char *argv[])
 #else
 		string arg = string(argv[0]);
 #endif
+
 		if (filesystem::is_regular_file(filesystem::status(arg)) &&
 		  arg != module)
 		{
@@ -3626,7 +3668,9 @@ int main(int argc, char *argv[])
 		commandRegistry.processLine(enteredCommand);
 		loading_lock.unlock();
 	}
+#ifdef _WIN32
 	LocalFree(argv);
+#endif
 	CleanUp();
 	return 0;
 }

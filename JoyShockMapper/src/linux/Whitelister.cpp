@@ -1,40 +1,43 @@
 #include "Whitelister.h"
 
-bool Whitelister::ShowHIDCerberus()
+
+class WhitelisterImpl : public Whitelister
 {
-    return false;
+public:
+	// TODO: Implement this class by interacting with some external whitelisting software
+
+	WhitelisterImpl()
+	{
+
+	}
+
+	virtual WhitelisterImpl()
+	{
+
+	}
+
+	virtual bool ShowConsole() override
+	{
+
+	}
+	virtual bool IsAvailable() override
+	{
+
+	}
+
+	virtual bool Add(string* optErrMsg = nullptr) override
+	{
+
+	}
+	virtual bool Remove(string* optErrMsg = nullptr) override
+	{
+
+	}
+};
+
+Whitelister* Whitelister::getNew(bool add)
+{
+	// return new WhitelisterImpl();
+	return nullptr;
 }
 
-bool Whitelister::IsHIDCerberusRunning()
-{
-    return false;
-}
-
-bool Whitelister::Add(std::string *)
-{
-    return false;
-}
-
-bool Whitelister::Remove(std::string *)
-{
-    return false;
-}
-
-std::string Whitelister::SendToHIDGuardian(std::string)
-{
-    return "";
-}
-
-std::string Whitelister::readUrl2(std::string &, long &, std::string *)
-{
-    return "";
-}
-
-void Whitelister::mParseUrl(std::string, std::string &, std::string &, std::string &)
-{
-}
-
-int Whitelister::getHeaderLength(char *)
-{
-    return 0;
-}
