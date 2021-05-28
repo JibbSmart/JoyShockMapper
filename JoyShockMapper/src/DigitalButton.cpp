@@ -103,7 +103,7 @@ public:
 
 	void RegisterInstant(BtnEvent evt) override
 	{
-		//COUT << "Button " << _id << " registers instant " << evt << endl;
+		// DEBUG_LOG << "Button " << _id << " registers instant " << evt << endl;
 		_instantReleaseQueue.push_back(evt);
 	}
 
@@ -806,7 +806,17 @@ class DblPressPress : public pocket_fsm::NestedStateMachine<ActiveMappingState, 
 class InstRelease : public DigitalButtonState
 {
 	DB_CONCRETE_STATE(InstRelease)
+
 	REACT(Pressed)
+	override
+	{
+		DigitalButtonState::react(e);
+		pimpl()->ReleaseInstant(BtnEvent::OnRelease);
+		pimpl()->ClearKey();
+		changeState<NoPress>();
+	}
+
+	REACT(Released)
 	override
 	{
 		DigitalButtonState::react(e);
