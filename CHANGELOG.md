@@ -3,6 +3,21 @@
 Most recent updates will appear first.
 This is a summary of new features and bugfixes. Read the README to learn how to use the features mentioned here.
 
+## 3.1.1
+
+Fix linux build
+Add Addaptive trigger calibration procedure and settings
+
+### Features
+
+* New Settings: LEFT_TRIGGER_OFFSET, LEFT_TRIGGER_RANGE, RIGHT_TRIGGER_OFFSET, RIGHT_TRIGGER_RANGE
+* New macro command CALIBRATE_TRIGGERS starts a trigger calibration procedure. See README
+
+### Bugfixes
+
+* Fix instant presses not releasing
+* Fix TOUCH binding flickering when the pad would be clicked but not touched
+
 ## 3.1.0
 
 SDL build of JSM has no label, and JSL build is marked as "legacy"

@@ -166,11 +166,6 @@ if(SDL)
 		SDL2
 	)
 
-	target_sources (
-			${BINARY_NAME} PRIVATE
-			src/SDL2Wrapper.cpp
-	)
-
 	install (
 		TARGETS ${BINARY_NAME} SDL2
 		RUNTIME DESTINATION ${PACKAGE_DIR}
@@ -181,11 +176,6 @@ else()
 		NAME JoyShockLibrary
 		GITHUB_REPOSITORY JibbSmart/JoyShockLibrary
 		GIT_TAG 0
-	)
-
-	target_sources (
-			${BINARY_NAME} PRIVATE
-			src/JslWrapper.cpp
 	)
 
 	target_link_libraries (
