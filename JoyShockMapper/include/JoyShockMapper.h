@@ -6,6 +6,7 @@
 #include <functional>
 #include <sstream>
 #include <string>
+#include <memory>
 
 // This header file is meant to be included among all core JSM source files
 // And as such it should contain only constants, types and functions related to them
@@ -101,6 +102,15 @@ enum class ButtonID
 	RSR,
 	L3,
 	R3,
+	LEAN_LEFT,
+	LEAN_RIGHT,
+	MIC,
+	TOUCH,   // Touch anywhere on the touchpad
+	ZLF,     // = FIRST_ANALOG_TRIGGER
+	CAPTURE, // Full press of touchpad touch + press
+	// insert more analog triggers here
+	ZRF,  // =  LAST_ANALOG_TRIGGER
+
 	LUP,
 	LDOWN,
 	LLEFT,
@@ -116,14 +126,7 @@ enum class ButtonID
 	MLEFT,
 	MRIGHT,
 	MRING,
-	LEAN_LEFT,
-	LEAN_RIGHT,
-	MIC,
-	TOUCH,   // Touch anywhere on the touchpad
-	ZLF,     // = FIRST_ANALOG_TRIGGER
-	CAPTURE, // Full press of touchpad touch + press
-	// insert more analog triggers here
-	ZRF,  // =  LAST_ANALOG_TRIGGER
+
 	SIZE, // Not a button
 
 	// Virtual buttons configured on the touchpad. The number of buttons vary dynamically, but they each need a different ID
@@ -437,31 +440,9 @@ struct KeyCode
 	WORD code;
 	string name;
 
-	inline KeyCode()
-	  : code()
-	  , name()
-	{
-	}
+	KeyCode();
 
-	inline KeyCode(in_string keyName)
-	  : code(nameToKey(keyName))
-	  , name()
-	{
-		if (code == COMMAND_ACTION)
-			name = keyName.substr(1, keyName.size() - 2); // Remove opening and closing quotation marks
-		else if (keyName.compare("SMALL_RUMBLE") == 0)
-		{
-			name = SMALL_RUMBLE;
-			code = RUMBLE;
-		}
-		else if (keyName.compare("BIG_RUMBLE") == 0)
-		{
-			name = BIG_RUMBLE;
-			code = RUMBLE;
-		}
-		else if (code != 0)
-			name = keyName;
-	}
+	KeyCode(in_string keyName);
 
 	inline bool isValid()
 	{
