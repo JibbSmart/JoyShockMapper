@@ -4,6 +4,9 @@
 #include "PlatformDefinitions.h"
 #include "InputHelpers.h"
 
+constexpr uint16_t DEFAULT_COLOR = FOREGROUND_RED | FOREGROUND_GREEN | FOREGROUND_BLUE; // White
+#define FOREGROUND_YELLOW FOREGROUND_RED | FOREGROUND_GREEN
+
 template<std::ostream *stdio, uint16_t color>
 class ColorStream : public stringbuf
 {
