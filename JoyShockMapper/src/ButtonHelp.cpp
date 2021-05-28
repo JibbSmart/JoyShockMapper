@@ -46,4 +46,9 @@ const map<ButtonID, string> buttonHelpMap{
 	{ ButtonID::MIC, "PS5 microphone button" },
 	{ ButtonID::ZLF, "Full pull binding of left trigger, only on controllers with analog triggers" },
 	{ ButtonID::ZRF, "Full pull binding of right trigger, only on controllers with analog triggers" },
+	{ ButtonID::TUP, "Touch stick tilted forward" },
+	{ ButtonID::TDOWN, "Touch stick tilted back" },
+	{ ButtonID::TLEFT, "Touch stick tilted left" },
+	{ ButtonID::TRIGHT, "Touch stick tilted right" },
+	{ ButtonID::TRING, "Touch ring binding, either inner or outer." },
 };

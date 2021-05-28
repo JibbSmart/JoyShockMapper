@@ -115,10 +115,10 @@ JSMSetting<Switch> adaptive_trigger = JSMSetting<Switch>(SettingID::ADAPTIVE_TRI
 JSMVariable<int> left_trigger_offset = JSMVariable<int>(25);
 JSMVariable<int> left_trigger_range = JSMVariable<int>(150);
 JSMVariable<int> right_trigger_offset = JSMVariable<int>(25);
-JSMVariable<int> right_trigger_range = JSMVariable<int>(25);
+JSMVariable<int> right_trigger_range = JSMVariable<int>(150);
 
 JSMVariable<PathString> currentWorkingDir = JSMVariable<PathString>(PathString());
-vector<JSMButton> touch_buttons; // array of virtual buttons on the touchpad grid
+vector<JSMButton> grid_mappings; // array of virtual buttons on the touchpad grid
 vector<JSMButton> mappings;      // array enables use of for each loop and other i/f
 mutex loading_lock;
 
@@ -128,7 +128,7 @@ unique_ptr<PollingThread> autoLoadThread;
 unique_ptr<PollingThread> minimizeThread;
 bool devicesCalibrating = false;
 unordered_map<int, shared_ptr<JoyShock>> handle_to_joyshock;
-int triggersCalibrating = 0;
+int triggerCalibrationStep = 0;
 
 class TouchStick
 {
@@ -142,17 +142,16 @@ class TouchStick
 	bool ignore_motion_stick = false;
 	// Handle a single touch related action. On per touch point
 public:
-	vector<DigitalButton> buttons; // Each touchstick gets it's own digital buttons. Is that smart?
+	map<ButtonID, DigitalButton> buttons; // Each touchstick gets it's own digital buttons. Is that smart?
 
 	TouchStick(int index, shared_ptr<DigitalButton::Context> common, int handle, GamepadMotion *motion)
 	  : _index(index)
 	{
-		size_t noTouchBtn = std::min(size_t(5), touch_buttons.size());
-		buttons.reserve(noTouchBtn);
-		for (int i = 0; i < noTouchBtn; ++i)
-		{
-			buttons.push_back(DigitalButton(common, touch_buttons[i]));
-		}
+		buttons.emplace(ButtonID::TUP, DigitalButton(common, mappings[int(ButtonID::TUP)]));
+		buttons.emplace(ButtonID::TDOWN, DigitalButton(common, mappings[int(ButtonID::TDOWN)]));
+		buttons.emplace(ButtonID::TLEFT, DigitalButton(common, mappings[int(ButtonID::TLEFT)]));
+		buttons.emplace(ButtonID::TRIGHT, DigitalButton(common, mappings[int(ButtonID::TRIGHT)]));
+		buttons.emplace(ButtonID::TRING, DigitalButton(common, mappings[int(ButtonID::TRING)]));
 	}
 
 	void handleTouchStickChange(shared_ptr<JoyShock> js, bool down, short movX, short movY, float delta_time);
@@ -419,8 +418,8 @@ public:
 		_context->_getMatchingSimBtn = bind(&JoyShock::GetMatchingSimBtn, this, placeholders::_1);
 		_context->_rumble = bind(&JoyShock::Rumble, this, placeholders::_1, placeholders::_2);
 
-		buttons.reserve(mappings.size());
-		for (int i = 0; i < mappings.size(); ++i)
+		buttons.reserve(LAST_ANALOG_TRIGGER); // Don't include touch stick buttons
+		for (int i = 0; i <= LAST_ANALOG_TRIGGER; ++i)
 		{
 			buttons.push_back(DigitalButton(_context, mappings[i]));
 		}
@@ -436,9 +435,9 @@ public:
 		{
 			touchpads.push_back(TouchStick(i, _context, handle, &motion));
 		}
-		touch_scroll_x.init(touchpads[0].buttons[int(ButtonID::TLEFT) - FIRST_TOUCH_BUTTON], touchpads[0].buttons[int(ButtonID::TRIGHT) - FIRST_TOUCH_BUTTON]);
-		touch_scroll_y.init(touchpads[0].buttons[int(ButtonID::TUP) - FIRST_TOUCH_BUTTON], touchpads[0].buttons[int(ButtonID::TDOWN) - FIRST_TOUCH_BUTTON]);
-		updateGridSize(grid_size.get().x() * grid_size.get().y() + 5);
+		touch_scroll_x.init(touchpads[0].buttons.find(ButtonID::TLEFT)->second, touchpads[0].buttons.find(ButtonID::TRIGHT)->second);
+		touch_scroll_y.init(touchpads[0].buttons.find(ButtonID::TUP)->second, touchpads[0].buttons.find(ButtonID::TDOWN)->second);
+		updateGridSize();
 		prevTouchState.t0Down = false;
 		prevTouchState.t1Down = false;
 	}
@@ -929,8 +928,8 @@ public:
 private:
 	DigitalButton *GetButton(ButtonID index, int touchpadIndex = -1)
 	{
-		DigitalButton *button = index < ButtonID::SIZE           ? &buttons[int(index)] :
-		  touchpadIndex >= 0 && touchpadIndex < touchpads.size() ? &touchpads[touchpadIndex].buttons[int(index) - FIRST_TOUCH_BUTTON] :
+		DigitalButton *button = int(index) < LAST_ANALOG_TRIGGER ? &buttons[int(index)] :
+		  touchpadIndex >= 0 && touchpadIndex < touchpads.size() ? &touchpads[touchpadIndex].buttons.find(index)->second :
 		  index >= ButtonID::T1                                  ? &gridButtons[int(index) - int(ButtonID::T1)] :
                                                                    throw std::runtime_error("What index is this?");
 		return button;
@@ -1325,16 +1324,14 @@ public:
 		return false;
 	}
 
-	void updateGridSize(size_t noTouchBtns)
+	void updateGridSize()
 	{
-		int noGridBtns = max(size_t(0), min(touch_buttons.size(), noTouchBtns) - 5); // Don't include touch stick buttons
-
-		while (gridButtons.size() > noGridBtns)
+		while (gridButtons.size() > grid_mappings.size())
 			gridButtons.pop_back();
 
-		for (int i = gridButtons.size(); i < noGridBtns; ++i)
+		for (size_t i = gridButtons.size(); i < grid_mappings.size(); ++i)
 		{
-			JSMButton &map(touch_buttons[i + 5]);
+			JSMButton &map(grid_mappings[i]);
 			gridButtons.push_back(DigitalButton(_context, map));
 		}
 	}
@@ -1420,7 +1417,7 @@ static void resetAllMappings()
 	right_trigger_offset.Reset();
 	right_trigger_range.Reset();
 	touch_ds_mode.Reset();
-	for_each(touch_buttons.begin(), touch_buttons.end(), [](auto &map) { map.Reset(); });
+	for_each(grid_mappings.begin(), grid_mappings.end(), [](auto &map) { map.Reset(); });
 
 	os_mouse_speed = 1.0f;
 	last_flick_and_rotation = 0.0f;
@@ -2097,7 +2094,7 @@ void TouchCallback(int jcHandle, TOUCH_STATE newState, TOUCH_STATE prevState, fl
 	point1.movY = js->prevTouchState.t1Down ? (newState.t1Y - js->prevTouchState.t1Y) * tpSizeY : 0.f;
 
 	auto mode = js->getSetting<TouchpadMode>(SettingID::TOUCHPAD_MODE);
-	js->handleButtonChange(ButtonID::TOUCH, point0.isDown() || point1.isDown());
+	// js->handleButtonChange(ButtonID::TOUCH, point0.isDown() || point1.isDown()); // This is handled by dual stage "trigger" step
 	if (!point0.isDown() && !point1.isDown())
 	{
 
@@ -2121,7 +2118,7 @@ void TouchCallback(int jcHandle, TOUCH_STATE newState, TOUCH_STATE prevState, fl
 			float row = floorf(point0.posY * grid_size.get().y());
 			float col = floorf(point0.posX * grid_size.get().x());
 			//cout << "I should be in button " << row << " " << col << endl;
-			index0 = int(row * grid_size.get().x() + col) + 5;
+			index0 = int(row * grid_size.get().x() + col);
 		}
 
 		if (point1.isDown())
@@ -2129,15 +2126,15 @@ void TouchCallback(int jcHandle, TOUCH_STATE newState, TOUCH_STATE prevState, fl
 			float row = floorf(point1.posY * grid_size.get().y());
 			float col = floorf(point1.posX * grid_size.get().x());
 			//cout << "I should be in button " << row << " " << col << endl;
-			index1 = int(row * grid_size.get().x() + col) + 5;
+			index1 = int(row * grid_size.get().x() + col);
 		}
 
-		for (int i = 5; i < touch_buttons.size(); ++i)
+		for (size_t i = 0; i < grid_mappings.size(); ++i)
 		{
 			auto optId = magic_enum::enum_cast<ButtonID>(FIRST_TOUCH_BUTTON + i);
 
 			// JSM can get touch button callbacks before the grid buttons are setup at startup. Just skip then.
-			if (optId && js->gridButtons.size() == touch_buttons.size() - 5)
+			if (optId && js->gridButtons.size() == grid_mappings.size())
 				js->handleButtonChange(*optId, i == index0 || i == index1);
 		}
 
@@ -2147,7 +2144,7 @@ void TouchCallback(int jcHandle, TOUCH_STATE newState, TOUCH_STATE prevState, fl
 	}
 	else if (mode == TouchpadMode::MOUSE)
 	{
-			// Disable gestures
+		// Disable gestures
 		/*if (point0.isDown() && point1.isDown())
 		{*/
 			//if (js->prevTouchState.t0Down && js->prevTouchState.t1Down)
@@ -2191,6 +2188,121 @@ void TouchCallback(int jcHandle, TOUCH_STATE newState, TOUCH_STATE prevState, fl
 	js->prevTouchState = newState;
 }
 
+void CalibrateTriggers(shared_ptr<JoyShock> jc)
+{
+	if (jsl->GetButtons(jc->handle) & (1 << JSOFFSET_HOME))
+	{
+		COUT << "Abandonning calibration" << endl;
+		triggerCalibrationStep = 0;
+		return;
+	}
+
+	auto rpos = jsl->GetRightTrigger(jc->handle);
+	auto lpos = jsl->GetLeftTrigger(jc->handle);
+	switch (triggerCalibrationStep)
+	{
+	case 1:
+		COUT << "Softly press on the right trigger until you just feel the resistance." << endl;
+		COUT << "Then press the dpad down button to proceed, or press HOME to abandon." << endl;
+		tick_time = 100;
+		jc->right_effect.mode = 2;
+		jc->right_effect.start = 0;
+		jc->right_effect.end = 255;
+		jc->right_effect.strength = 255;
+		triggerCalibrationStep++;
+		break;
+	case 2:
+		if (jsl->GetButtons(jc->handle) & (1 << JSOFFSET_DOWN))
+		{
+			triggerCalibrationStep++;
+		}
+		break;
+	case 3:
+		DEBUG_LOG << "trigger pos is at " << int(rpos * 255.f) << " (" << int(rpos * 100.f) << "%) and effect pos is at " << int(jc->right_effect.start) << endl;
+		if (int(rpos * 255.f) > 0)
+		{
+			right_trigger_offset = jc->right_effect.start;
+			tick_time = 40;
+			triggerCalibrationStep++;
+		}
+		++jc->right_effect.start;
+		break;
+	case 4:
+		DEBUG_LOG << "trigger pos is at " << int(rpos * 255.f) << " (" << int(rpos * 100.f) << "%) and effect pos is at " << int(jc->right_effect.start) << endl;
+		if (int(rpos * 255.f) > 240)
+		{
+			tick_time = 100;
+			triggerCalibrationStep++;
+		}
+		++jc->right_effect.start;
+		break;
+	case 5:
+		DEBUG_LOG << "trigger pos is at " << int(rpos * 255.f) << " (" << int(rpos * 100.f) << "%) and effect pos is at " << int(jc->right_effect.start) << endl;
+		if (int(rpos * 255.f) == 255)
+		{
+			triggerCalibrationStep++;
+			right_trigger_range = int(jc->right_effect.start - right_trigger_offset);
+		}
+		++jc->right_effect.start;
+		break;
+	case 6:
+		COUT << "Softly press on the left trigger until you just feel the resistance." << endl;
+		COUT << "Then press the cross button to proceed, or press HOME to abandon." << endl;
+		tick_time = 100;
+		jc->left_effect.mode = 2;
+		jc->left_effect.start = 0;
+		jc->left_effect.end = 255;
+		jc->left_effect.strength = 255;
+		triggerCalibrationStep++;
+		break;
+	case 7:
+		if (jsl->GetButtons(jc->handle) & (1 << JSOFFSET_S))
+		{
+			triggerCalibrationStep++;
+		}
+		break;
+	case 8:
+		DEBUG_LOG << "trigger pos is at " << int(lpos * 255.f) << " (" << int(lpos * 100.f) << "%) and effect pos is at " << int(jc->left_effect.start) << endl;
+		if (int(lpos * 255.f) > 0)
+		{
+			left_trigger_offset = jc->left_effect.start;
+			tick_time = 40;
+			triggerCalibrationStep++;
+		}
+		++jc->left_effect.start;
+		break;
+	case 9:
+		DEBUG_LOG << "trigger pos is at " << int(lpos * 255.f) << " (" << int(lpos * 100.f) << "%) and effect pos is at " << int(jc->left_effect.start) << endl;
+		if (int(lpos * 255.f) > 240)
+		{
+			tick_time = 100;
+			triggerCalibrationStep++;
+		}
+		++jc->left_effect.start;
+		break;
+	case 10:
+		DEBUG_LOG << "trigger pos is at " << int(lpos * 255.f) << " (" << int(lpos * 100.f) << "%) and effect pos is at " << int(jc->left_effect.start) << endl;
+		if (int(lpos * 255.f) == 255)
+		{
+			triggerCalibrationStep++;
+			left_trigger_range = int(jc->left_effect.start - left_trigger_offset);
+		}
+		++jc->left_effect.start;
+		break;
+	case 11:
+		COUT << "Your triggers have been successfully calibrated. Add the trigger offset and range values in your OnReset.txt file to have those values set by default." << endl;
+		COUT_INFO << SettingID::RIGHT_TRIGGER_OFFSET << " = " << right_trigger_offset << endl;
+		COUT_INFO << SettingID::RIGHT_TRIGGER_RANGE << " = " << right_trigger_range << endl;
+		COUT_INFO << SettingID::LEFT_TRIGGER_OFFSET << " = " << left_trigger_offset << endl;
+		COUT_INFO << SettingID::LEFT_TRIGGER_RANGE << " = " << left_trigger_range << endl;
+		triggerCalibrationStep = 0;
+		tick_time.Reset();
+		break;
+	}
+	jsl->SetRightTriggerEffect(jc->handle, jc->right_effect);
+	jsl->SetLeftTriggerEffect(jc->handle, jc->left_effect);
+}
+
 void joyShockPollCallback(int jcHandle, JOY_SHOCK_STATE state, JOY_SHOCK_STATE lastState, IMU_STATE imuState, IMU_STATE lastImuState, float deltaTime)
 {
 
@@ -2203,110 +2315,9 @@ void joyShockPollCallback(int jcHandle, JOY_SHOCK_STATE state, JOY_SHOCK_STATE l
 	deltaTime = ((float)chrono::duration_cast<chrono::microseconds>(timeNow - jc->time_now).count()) / 1000000.0f;
 	jc->time_now = timeNow;
 
-	if (triggersCalibrating)
+	if (triggerCalibrationStep)
 	{
-		auto rpos = jsl->GetRightTrigger(jcHandle);
-		auto lpos = jsl->GetLeftTrigger(jcHandle);
-		switch (triggersCalibrating)
-		{
-		case 1:
-			COUT << "Softly press on the right trigger only just until you feel the resistance, then press the dpad DOWN button" << endl;
-			tick_time = 100;
-			jc->right_effect.mode = 2;
-			jc->right_effect.start = 0;
-			jc->right_effect.end = 255;
-			jc->right_effect.strength = 255;
-			triggersCalibrating++;
-			break;
-		case 2:
-			if (jsl->GetButtons(jcHandle) & (1 << JSOFFSET_DOWN))
-			{
-				triggersCalibrating++;
-			}
-			break;
-		case 3:
-			DEBUG_LOG << "trigger pos is at " << int(rpos * 255.f) << " (" << int(rpos * 100.f) << "%) and effect pos is at " << int(jc->right_effect.start) << endl;
-			if (int(rpos * 255.f) > 0)
-			{
-				right_trigger_offset = jc->right_effect.start;
-				tick_time = 40;
-				triggersCalibrating++;
-			}
-			++jc->right_effect.start;
-			break;
-		case 4:
-			DEBUG_LOG << "trigger pos is at " << int(rpos * 255.f) << " (" << int(rpos * 100.f) << "%) and effect pos is at " << int(jc->right_effect.start) << endl;
-			if (int(rpos * 255.f) > 240)
-			{
-				tick_time = 100;
-				triggersCalibrating++;
-			}
-			++jc->right_effect.start;
-			break;
-		case 5:
-			DEBUG_LOG << "trigger pos is at " << int(rpos * 255.f) << " (" << int(rpos * 100.f) << "%) and effect pos is at " << int(jc->right_effect.start) << endl;
-			if (int(rpos * 255.f) == 255)
-			{
-				triggersCalibrating++;
-				right_trigger_range = int(jc->right_effect.start - right_trigger_offset);
-			}
-			++jc->right_effect.start;
-			break;
-		case 6:
-			COUT << "Softly press on the left trigger only just until you feel the resistance, then press the SOUTH button" << endl;
-			tick_time = 100;
-			jc->left_effect.mode = 2;
-			jc->left_effect.start = 0;
-			jc->left_effect.end = 255;
-			jc->left_effect.strength = 255;
-			triggersCalibrating++;
-			break;
-		case 7:
-			if (jsl->GetButtons(jcHandle) & (1 << JSOFFSET_S))
-			{
-				triggersCalibrating++;
-			}
-			break;
-		case 8:
-			DEBUG_LOG << "trigger pos is at " << int(lpos * 255.f) << " (" << int(lpos * 100.f) << "%) and effect pos is at " << int(jc->left_effect.start) << endl;
-			if (int(lpos * 255.f) > 0)
-			{
-				left_trigger_offset = jc->left_effect.start;
-				tick_time = 40;
-				triggersCalibrating++;
-			}
-			++jc->left_effect.start;
-			break;
-		case 9:
-			DEBUG_LOG << "trigger pos is at " << int(lpos * 255.f) << " (" << int(lpos * 100.f) << "%) and effect pos is at " << int(jc->left_effect.start) << endl;
-			if (int(lpos * 255.f) > 240)
-			{
-				tick_time = 100;
-				triggersCalibrating++;
-			}
-			++jc->left_effect.start;
-			break;
-		case 10:
-			DEBUG_LOG << "trigger pos is at " << int(lpos * 255.f) << " (" << int(lpos * 100.f) << "%) and effect pos is at " << int(jc->left_effect.start) << endl;
-			if (int(lpos * 255.f) == 255)
-			{
-				triggersCalibrating++;
-				left_trigger_range = int(jc->left_effect.start - left_trigger_offset);
-			}
-			++jc->left_effect.start;
-			break;
-		case 11:
-			COUT << "Your triggers have been successfully calibrated. Add the trigger offset and range values in your onreset.txt file to have those values set by default." << endl;
-			COUT_INFO << SettingID::RIGHT_TRIGGER_OFFSET << " = " << right_trigger_offset << endl;
-			COUT_INFO << SettingID::RIGHT_TRIGGER_RANGE << " = " << right_trigger_range << endl;
-			COUT_INFO << SettingID::LEFT_TRIGGER_OFFSET << " = " << left_trigger_offset << endl;
-			COUT_INFO << SettingID::LEFT_TRIGGER_RANGE << " = " << left_trigger_range << endl;
-			triggersCalibrating = 0;
-			tick_time.Reset();
-			break;
-		}
-		jsl->SetRightTriggerEffect(jcHandle, jc->right_effect);
-		jsl->SetLeftTriggerEffect(jcHandle, jc->left_effect);
+		CalibrateTriggers(jc);
 		jc->_context->callback_lock.unlock();
 		return;
 	}
@@ -3055,9 +3066,9 @@ void RefreshAutoLoadHelp(JSMAssignment<Switch> *autoloadCmd)
 void OnNewGridDimensions(CmdRegistry *registry, const FloatXY &newGridDims)
 {
 	_ASSERT_EXPR(registry, U("You forgot to bind the command registry properly!"));
-	auto numberOfButtons = size_t(newGridDims.first * newGridDims.second) + 5; // Add Touch stick buttons
+	auto numberOfButtons = size_t(newGridDims.first * newGridDims.second);
 
-	if (numberOfButtons < touch_buttons.size())
+	if (numberOfButtons < grid_mappings.size())
 	{
 		// Remove all extra touch button commands
 		bool successfulRemove = true;
@@ -3071,29 +3082,29 @@ void OnNewGridDimensions(CmdRegistry *registry, const FloatXY &newGridDims)
 		for (auto &js : handle_to_joyshock)
 		{
 			lock_guard guard(js.second->_context->callback_lock);
-			js.second->updateGridSize(numberOfButtons);
+			js.second->updateGridSize();
 		}
 
 		// Remove extra touch button variables
-		while (touch_buttons.size() > numberOfButtons)
-			touch_buttons.pop_back();
+		while (grid_mappings.size() > numberOfButtons)
+			grid_mappings.pop_back();
 	}
-	else if (numberOfButtons > touch_buttons.size())
+	else if (numberOfButtons > grid_mappings.size())
 	{
 		// Add new touch button variables and commands
-		for (int id = FIRST_TOUCH_BUTTON + int(touch_buttons.size()); touch_buttons.size() < numberOfButtons; ++id)
+		for (int id = FIRST_TOUCH_BUTTON + int(grid_mappings.size()); grid_mappings.size() < numberOfButtons; ++id)
 		{
 			JSMButton touchButton(*magic_enum::enum_cast<ButtonID>(id), Mapping::NO_MAPPING);
 			touchButton.SetFilter(&filterMapping);
-			touch_buttons.push_back(touchButton);
-			registry->Add(new JSMAssignment<Mapping>(touch_buttons.back()));
+			grid_mappings.push_back(touchButton);
+			registry->Add(new JSMAssignment<Mapping>(grid_mappings.back()));
 		}
 
 		// For all joyshocks, remove extra touch DigitalButtons
 		for (auto &js : handle_to_joyshock)
 		{
 			lock_guard guard(js.second->_context->callback_lock);
-			js.second->updateGridSize(numberOfButtons);
+			js.second->updateGridSize();
 		}
 	}
 	// Else numbers are the same, possibly just reconfigured
@@ -3295,7 +3306,7 @@ int main(int argc, char *argv[])
 	whitelister.reset(Whitelister::getNew(false));
 	currentWorkingDir = GetCWD();
 
-	touch_buttons.reserve(int(ButtonID::T25) - FIRST_TOUCH_BUTTON); // This makes sure the items will never get copied and cause crashes
+	grid_mappings.reserve(int(ButtonID::T25) - FIRST_TOUCH_BUTTON); // This makes sure the items will never get copied and cause crashes
 	mappings.reserve(MAPPING_SIZE);
 	for (int id = 0; id < MAPPING_SIZE; ++id)
 	{
@@ -3605,7 +3616,7 @@ int main(int argc, char *argv[])
 	commandRegistry.Add((new JSMMacro("CLEAR"))->SetMacro(bind(&ClearConsole))->SetHelp("Removes all text in the console screen"));
 	commandRegistry.Add((new JSMMacro("CALIBRATE_TRIGGERS"))->SetMacro([](JSMMacro*, in_string) 
 		{
-			triggersCalibrating = 1;
+			triggerCalibrationStep = 1;
 			return true;
 		})->SetHelp("Starts the trigger calibration procedure for the dualsense triggers."));
 	commandRegistry.Add((new JSMAssignment<int>(magic_enum::enum_name(SettingID::LEFT_TRIGGER_OFFSET).data(), left_trigger_offset)));
