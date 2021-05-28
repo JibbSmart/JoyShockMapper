@@ -481,6 +481,18 @@ ADAPTIVE_TRIGGER = OFF # Don't use force feedback in my triggers
 
 While adaptive triggers are enabled, the Dualsense controller will ignore hair trigger threshold, and consider it to be simply threshold zero. This is because the adaptive triggers fulfill the purpose of hair triggers by restricting uneccessary travelling distance. With adaptive triggers turned off, regular hair trigger is then accessible.
 
+Each trigger and each devices might have slightly different trigger properties, which causes a mismatch between the reported trigger position and the position setting in the resistance packet. Each trigger thus gets 2 new settings, an offset and a range, that can be determined through a single-time calibration procedure. You can start this procedure by entering the command ```CALIBRATE_TRIGGERS``` : you will be required to gently press on a trigger just until you feel the resistance push back. Then you press a button and you will feel the trigger slowly lower : make sure you press gently. Once you reach full press JSM will display to you the calculated offset and range for your trigger. The same procedure is done on the other trigger after.
+
+You should set these values in your OnReset.txt file so that they are always set properly for your controller.
+
+```
+LEFT_TRIGGER_OFFSET = 20     # My DS trigger calibration values
+LEFT_TRIGGER_RANGE = 167
+RIGHT_TRIGGER_OFFSET = 31
+RIGHT_TRIGGER_RANGE = 175
+```
+
+
 ### 3. Stick Configuration
 Each stick has 7 different operation modes:
 
