@@ -2082,7 +2082,7 @@ void TouchCallback(int jcHandle, TOUCH_STATE newState, TOUCH_STATE prevState, fl
 	point1.movY = js->prevTouchState.t1Down ? (newState.t1Y - js->prevTouchState.t1Y) * tpSizeY : 0.f;
 
 	auto mode = js->getSetting<TouchpadMode>(SettingID::TOUCHPAD_MODE);
-	js->handleButtonChange(ButtonID::TOUCH, point0.isDown() || point1.isDown());
+	// js->handleButtonChange(ButtonID::TOUCH, point0.isDown() || point1.isDown()); // This is handled by dual stage "trigger" step
 	if (!point0.isDown() && !point1.isDown())
 	{
 
