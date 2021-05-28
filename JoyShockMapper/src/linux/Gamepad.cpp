@@ -49,7 +49,7 @@ public:
 	{
 
 	}
-}
+};
 
 Gamepad *Gamepad::getNew(ControllerScheme scheme, Callback notification)
 {
