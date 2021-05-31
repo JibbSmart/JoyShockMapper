@@ -5,7 +5,7 @@ This is a summary of new features and bugfixes. Read the README to learn how to 
 
 ## 3.1.1
 
-Fix linux build
+Fix linux build (Thanks TauAkiou)
 Add Addaptive trigger calibration procedure and settings
 
 ### Features
