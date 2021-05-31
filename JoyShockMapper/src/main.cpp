@@ -85,6 +85,7 @@ JSMSetting<float> motion_deadzone_inner = JSMSetting<float>(SettingID::MOTION_DE
 JSMSetting<float> motion_deadzone_outer = JSMSetting<float>(SettingID::MOTION_DEADZONE_OUTER, 135.f);
 JSMSetting<float> lean_threshold = JSMSetting<float>(SettingID::LEAN_THRESHOLD, 15.f);
 JSMSetting<ControllerOrientation> controller_orientation = JSMSetting<ControllerOrientation>(SettingID::CONTROLLER_ORIENTATION, ControllerOrientation::FORWARD);
+JSMSetting<GyroSpace> gyro_space = JSMSetting<GyroSpace>(SettingID::GYRO_SPACE, GyroSpace::LOCAL);
 JSMSetting<float> trackball_decay = JSMSetting<float>(SettingID::TRACKBALL_DECAY, 1.0f);
 JSMSetting<float> mouse_ring_radius = JSMSetting<float>(SettingID::MOUSE_RING_RADIUS, 128.0f);
 JSMSetting<float> screen_resolution_x = JSMSetting<float>(SettingID::SCREEN_RESOLUTION_X, 1920.0f);
@@ -572,6 +573,9 @@ public:
 						opt = optional<E>(static_cast<E>(ControllerOrientation::FORWARD));
 					}
 				}
+				break;
+			case SettingID::GYRO_SPACE:
+				opt = GetOptionalSetting<E>(gyro_space, *activeChord);
 				break;
 			case SettingID::ZR_MODE:
 				opt = GetOptionalSetting<E>(zrMode, *activeChord);
@@ -2333,9 +2337,6 @@ void joyShockPollCallback(int jcHandle, JOY_SHOCK_STATE state, JOY_SHOCK_STATE l
 
 	float inGravX, inGravY, inGravZ;
 	motion.GetGravity(inGravX, inGravY, inGravZ);
-	inGravX *= 1.f / 9.8f; // to Gs
-	inGravY *= 1.f / 9.8f;
-	inGravZ *= 1.f / 9.8f;
 
 	float inQuatW, inQuatX, inQuatY, inQuatZ;
 	motion.GetOrientation(inQuatW, inQuatX, inQuatY, inQuatZ);
@@ -2365,31 +2366,121 @@ void joyShockPollCallback(int jcHandle, JOY_SHOCK_STATE state, JOY_SHOCK_STATE l
 
 	float gyroX = 0.0;
 	float gyroY = 0.0;
-	int mouse_x_flag = (int)jc->getSetting<GyroAxisMask>(SettingID::MOUSE_X_FROM_GYRO_AXIS);
-	if ((mouse_x_flag & (int)GyroAxisMask::X) > 0)
+	GyroSpace gyroSpace = jc->getSetting<GyroSpace>(SettingID::GYRO_SPACE);
+	if (gyroSpace == GyroSpace::LOCAL)
 	{
-		gyroX += inGyroX;
+		int mouse_x_flag = (int)jc->getSetting<GyroAxisMask>(SettingID::MOUSE_X_FROM_GYRO_AXIS);
+		if ((mouse_x_flag & (int)GyroAxisMask::X) > 0)
+		{
+			gyroX += inGyroX;
+		}
+		if ((mouse_x_flag & (int)GyroAxisMask::Y) > 0)
+		{
+			gyroX -= inGyroY;
+		}
+		if ((mouse_x_flag & (int)GyroAxisMask::Z) > 0)
+		{
+			gyroX -= inGyroZ;
+		}
+		int mouse_y_flag = (int)jc->getSetting<GyroAxisMask>(SettingID::MOUSE_Y_FROM_GYRO_AXIS);
+		if ((mouse_y_flag & (int)GyroAxisMask::X) > 0)
+		{
+			gyroY -= inGyroX;
+		}
+		if ((mouse_y_flag & (int)GyroAxisMask::Y) > 0)
+		{
+			gyroY += inGyroY;
+		}
+		if ((mouse_y_flag & (int)GyroAxisMask::Z) > 0)
+		{
+			gyroY += inGyroZ;
+		}
 	}
-	if ((mouse_x_flag & (int)GyroAxisMask::Y) > 0)
+	else if (gyroSpace == GyroSpace::WORLD_TURN || gyroSpace == GyroSpace::WORLD_LEAN)
 	{
-		gyroX -= inGyroY;
-	}
-	if ((mouse_x_flag & (int)GyroAxisMask::Z) > 0)
-	{
-		gyroX -= inGyroZ;
-	}
-	int mouse_y_flag = (int)jc->getSetting<GyroAxisMask>(SettingID::MOUSE_Y_FROM_GYRO_AXIS);
-	if ((mouse_y_flag & (int)GyroAxisMask::X) > 0)
-	{
+		float gravLength = sqrtf(inGravX * inGravX + inGravY * inGravY + inGravZ * inGravZ);
+		float normGravX = 0.f;
+		float normGravY = 0.f;
+		float normGravZ = 0.f;
+		if (gravLength > 0.f)
+		{
+			float gravNormalizer = 1.f / gravLength;
+			normGravX = inGravX * gravNormalizer;
+			normGravY = inGravY * gravNormalizer;
+			normGravZ = inGravZ * gravNormalizer;
+		}
+
+		float flatness = abs(normGravY);
+		if (flatness > 1.f)
+		{
+			flatness = 1.f;
+		}
+		float upness = sqrtf(1.f - flatness);
+		float flatFactor = min(flatness / 0.5f, 1.f);
+		float upFactor = min(upness / 0.5f, 1.f);
+		bool flatsideDown = normGravY < 0.f;
+		bool upsideDown = normGravZ < 0.f;
+
+		if (gyroSpace == GyroSpace::WORLD_TURN)
+		{
+			if (flatsideDown) inGyroY = -inGyroY;
+			if (upsideDown) inGyroZ = -inGyroZ;
+			if (flatness > upness)
+			{
+				float gyroSign = inGyroZ < 0.f ? -1.f : 1.f;
+				float reducedGyro = gyroSign * abs(inGyroY) * min(upness / flatness, abs(inGyroZ / inGyroY));
+				inGyroZ = reducedGyro + (inGyroZ - reducedGyro) * upFactor;
+			}
+			else
+			{
+				float gyroSign = inGyroY < 0.f ? -1.f : 1.f;
+				float reducedGyro = gyroSign * abs(inGyroZ) * min(flatness / upness, abs(inGyroY / inGyroZ));
+				inGyroY = reducedGyro + (inGyroY - reducedGyro) * flatFactor;
+			}
+		}
+		else // WORLD_LEAN
+		{
+			if (!upsideDown) inGyroY = -inGyroY;
+			if (flatsideDown) inGyroZ = -inGyroZ;
+			if (flatness > upness)
+			{
+				float gyroSign = inGyroZ < 0.f ? -1.f : 1.f;
+				float reducedGyro = gyroSign * abs(inGyroZ) * min(upness / flatness, abs(inGyroY / inGyroZ));
+				inGyroY = reducedGyro + (inGyroY - reducedGyro) * flatFactor;
+			}
+			else
+			{
+				float gyroSign = inGyroY < 0.f ? -1.f : 1.f;
+				float reducedGyro = gyroSign * abs(inGyroY) * min(flatness / upness, abs(inGyroZ / inGyroY));
+				inGyroZ = reducedGyro + (inGyroZ - reducedGyro) * upFactor;
+			}
+		}
+		float bigger;
+		float smaller;
+		if (abs(inGyroY) > abs(inGyroZ))
+		{
+			bigger = inGyroY;
+			smaller = inGyroZ;
+		}
+		else
+		{
+			bigger = inGyroZ;
+			smaller = inGyroY;
+		}
+		if (inGyroZ * inGyroY >= 0.f)
+		{
+			// same sign (ish)
+			const float gyroSign = bigger > 0.f ? 1.f : -1.f;
+			gyroX += gyroSign * sqrtf(bigger * bigger + smaller * smaller);
+		}
+		else
+		{
+			// opposite sign
+			const float gyroSign = bigger > 0.f ? 1.f : -1.f;
+			gyroX += gyroSign * sqrtf(bigger * bigger - smaller * smaller);
+		}
+
 		gyroY -= inGyroX;
-	}
-	if ((mouse_y_flag & (int)GyroAxisMask::Y) > 0)
-	{
-		gyroY += inGyroY;
-	}
-	if ((mouse_y_flag & (int)GyroAxisMask::Z) > 0)
-	{
-		gyroY += inGyroZ;
 	}
 	float gyroLength = sqrt(gyroX * gyroX + gyroY * gyroY);
 	// do gyro smoothing
@@ -3337,6 +3428,7 @@ int main(int argc, char *argv[])
 	joycon_gyro_mask.SetFilter(&filterInvalidValue<JoyconMask, JoyconMask::INVALID>);
 	joycon_motion_mask.SetFilter(&filterInvalidValue<JoyconMask, JoyconMask::INVALID>);
 	controller_orientation.SetFilter(&filterInvalidValue<ControllerOrientation, ControllerOrientation::INVALID>);
+	gyro_space.SetFilter(&filterInvalidValue<GyroSpace, GyroSpace::INVALID>);
 	zlMode.SetFilter(&filterTriggerMode);
 	zrMode.SetFilter(&filterTriggerMode);
 	flick_snap_mode.SetFilter(&filterInvalidValue<FlickSnapMode, FlickSnapMode::INVALID>);
@@ -3543,6 +3635,8 @@ int main(int argc, char *argv[])
 	                      ->SetHelp("Pick a gyro axis to operate on the mouse's Y axis. Valid values are the following: X, Y and Z."));
 	commandRegistry.Add((new JSMAssignment<ControllerOrientation>(controller_orientation))
 	                      ->SetHelp("Let the stick modes account for how you're holding the controller:\nFORWARD, LEFT, RIGHT, BACKWARD"));
+	commandRegistry.Add((new JSMAssignment<GyroSpace>(gyro_space))
+	                  	  ->SetHelp("How gyro input is converted to 2D input. With LOCAL, your MOUSE_X_FROM_GYRO_AXIS and MOUSE_Y_FROM_GYRO_AXIS settings decide which local angular axis maps to which 2D mouse axis.\nYour other options are WORLD_TURN and WORLD_LEAN. These both take gravity into account to combine your axes more reliably.\n\tUse WORLD_TURN if you like to turn your camera or move your cursor by turning your controller side to side.\n\tUse WORLD_LEAN if you'd rather lean your controller to turn the camera."));
 	commandRegistry.Add((new JSMAssignment<TriggerMode>(zlMode))
 	                      ->SetHelp("Controllers with a right analog trigger can use one of the following dual stage trigger modes:\nNO_FULL, NO_SKIP, MAY_SKIP, MUST_SKIP, MAY_SKIP_R, MUST_SKIP_R, NO_SKIP_EXCLUSIVE, X_LT, X_RT, PS_L2, PS_R2"));
 	commandRegistry.Add((new JSMAssignment<TriggerMode>(zrMode))
