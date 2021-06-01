@@ -3,6 +3,14 @@
 Most recent updates will appear first.
 This is a summary of new features and bugfixes. Read the README to learn how to use the features mentioned here.
 
+## 3.2.0
+
+Jibb added the new GYRO_SPACE setting for more one-size-fits-all gyro aiming. Default behaviour is unchanged, but set to WORLD_TURN to try the new algorithm (or WORLD_LEAN if you prefer to lean your controller side to side to turn the camera).
+
+### Features
+
+* GYRO_SPACE can be set to LOCAL (default), WORLD_TURN (recommended), or WORLD_LEAN.
+
 ## 3.1.1
 
 Fix linux build (Thanks TauAkiou)
