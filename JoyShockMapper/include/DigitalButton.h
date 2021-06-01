@@ -118,7 +118,7 @@ public:
 		shared_ptr<MotionIf> leftMotion = nullptr;
 	};
 
-	DigitalButton(shared_ptr<DigitalButton::Context> _btnContext, JSMButton &mapping);
+	DigitalButton(shared_ptr<DigitalButton::Context> _context, JSMButton &mapping);
 
 	const ButtonID _id;
 

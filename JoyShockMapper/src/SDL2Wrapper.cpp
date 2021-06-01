@@ -7,6 +7,9 @@
 #define INCLUDE_MATH_DEFINES
 #include <cmath> // M_PI
 #include <algorithm>
+#include <memory>
+#include <iostream>
+#include <cstring>
 
 extern JSMVariable<float> tick_time; // defined in main.cc
 
