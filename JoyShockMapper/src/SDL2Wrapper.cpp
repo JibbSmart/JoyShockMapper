@@ -27,49 +27,52 @@ struct ControllerDevice
 		{
 			_sdlController = SDL_GameControllerOpen(id);
 
-			_has_gyro = SDL_GameControllerHasSensor(_sdlController, SDL_SENSOR_GYRO);
-			_has_accel = SDL_GameControllerHasSensor(_sdlController, SDL_SENSOR_ACCEL);
+			if (_sdlController)
+			{
+				_has_gyro = SDL_GameControllerHasSensor(_sdlController, SDL_SENSOR_GYRO);
+				_has_accel = SDL_GameControllerHasSensor(_sdlController, SDL_SENSOR_ACCEL);
 
-			if (_has_gyro)
-			{
-				SDL_GameControllerSetSensorEnabled(_sdlController, SDL_SENSOR_GYRO, SDL_TRUE);
-			}
-			if (_has_accel)
-			{
-				SDL_GameControllerSetSensorEnabled(_sdlController, SDL_SENSOR_ACCEL, SDL_TRUE);
-			}
-
-			int vid = SDL_GameControllerGetVendor(_sdlController);
-			int pid = SDL_GameControllerGetProduct(_sdlController);
-			if (vid == 0x057e)
-			{
-				if (pid == 0x2006)
+				if (_has_gyro)
 				{
-					_split_type = JS_SPLIT_TYPE_LEFT;
+					SDL_GameControllerSetSensorEnabled(_sdlController, SDL_SENSOR_GYRO, SDL_TRUE);
 				}
-				else if (pid == 0x2007)
+				if (_has_accel)
 				{
-					_split_type = JS_SPLIT_TYPE_RIGHT;
+					SDL_GameControllerSetSensorEnabled(_sdlController, SDL_SENSOR_ACCEL, SDL_TRUE);
 				}
-			}
 
-			auto sdl_ctrlr_type = SDL_GameControllerGetType(_sdlController);
-			switch (sdl_ctrlr_type)
-			{
-			case SDL_GameControllerType::SDL_CONTROLLER_TYPE_NINTENDO_SWITCH_PRO:
-				if (_split_type == JS_SPLIT_TYPE_LEFT)
-					_ctrlr_type = JS_TYPE_JOYCON_LEFT;
-				else if (_split_type == JS_SPLIT_TYPE_RIGHT)
-					_ctrlr_type = JS_TYPE_JOYCON_RIGHT;
-				else
-					_ctrlr_type = JS_TYPE_PRO_CONTROLLER;
-				break;
-			case SDL_GameControllerType::SDL_CONTROLLER_TYPE_PS4:
-				_ctrlr_type = JS_TYPE_DS4;
-				break;
-			case SDL_GameControllerType::SDL_CONTROLLER_TYPE_PS5:
-				_ctrlr_type = JS_TYPE_DS;
-				break;
+				int vid = SDL_GameControllerGetVendor(_sdlController);
+				int pid = SDL_GameControllerGetProduct(_sdlController);
+				if (vid == 0x057e)
+				{
+					if (pid == 0x2006)
+					{
+						_split_type = JS_SPLIT_TYPE_LEFT;
+					}
+					else if (pid == 0x2007)
+					{
+						_split_type = JS_SPLIT_TYPE_RIGHT;
+					}
+				}
+
+				auto sdl_ctrlr_type = SDL_GameControllerGetType(_sdlController);
+				switch (sdl_ctrlr_type)
+				{
+				case SDL_GameControllerType::SDL_CONTROLLER_TYPE_NINTENDO_SWITCH_PRO:
+					if (_split_type == JS_SPLIT_TYPE_LEFT)
+						_ctrlr_type = JS_TYPE_JOYCON_LEFT;
+					else if (_split_type == JS_SPLIT_TYPE_RIGHT)
+						_ctrlr_type = JS_TYPE_JOYCON_RIGHT;
+					else
+						_ctrlr_type = JS_TYPE_PRO_CONTROLLER;
+					break;
+				case SDL_GameControllerType::SDL_CONTROLLER_TYPE_PS4:
+					_ctrlr_type = JS_TYPE_DS4;
+					break;
+				case SDL_GameControllerType::SDL_CONTROLLER_TYPE_PS5:
+					_ctrlr_type = JS_TYPE_DS;
+					break;
+				}
 			}
 		}
 	}

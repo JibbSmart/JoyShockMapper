@@ -238,7 +238,7 @@ public:
 			float pressedTime = 0;
 			if (_pressedBtn == _negativeButton->_id)
 			{
-			    GetDuration dur{ now };
+				GetDuration dur{ now };
 				pressedTime = _negativeButton->sendEvent(dur).out_duration;
 				if (pressedTime < MAGIC_TAP_DURATION)
 				{
@@ -249,8 +249,8 @@ public:
 			}
 			else // _pressedBtn == _positiveButton->_id
 			{
-                GetDuration dur{ now };
-                pressedTime = _positiveButton->sendEvent(dur).out_duration;
+				GetDuration dur{ now };
+				pressedTime = _positiveButton->sendEvent(dur).out_duration;
 				if (pressedTime < MAGIC_TAP_DURATION)
 				{
 					_negativeButton->sendEvent(isReleased);
@@ -1116,7 +1116,7 @@ public:
 			}
 			else
 			{
-			    GetDuration dur{ time_now };
+				GetDuration dur{ time_now };
 				if (buttons[int(softIndex)].sendEvent(dur).out_duration >= getSetting(SettingID::TRIGGER_SKIP_DELAY))
 				{
 					if (mode == TriggerMode::MUST_SKIP)
@@ -1148,7 +1148,7 @@ public:
 			}
 			else
 			{
-			    GetDuration dur{ time_now };
+				GetDuration dur{ time_now };
 				if (buttons[int(softIndex)].sendEvent(dur).out_duration >= getSetting(SettingID::TRIGGER_SKIP_DELAY))
 				{
 					if (mode == TriggerMode::MUST_SKIP_R)
@@ -1429,7 +1429,12 @@ void connectDevices(bool mergeJoycons = true)
 	vector<int> deviceHandles(numConnected, 0);
 	if (numConnected > 0)
 	{
-		jsl->GetConnectedDeviceHandles(&deviceHandles[0], numConnected);
+		numConnected = jsl->GetConnectedDeviceHandles(&deviceHandles[0], numConnected);
+
+		if (numConnected < deviceHandles.size())
+		{
+			deviceHandles.resize(numConnected);
+		}
 
 		for (auto handle : deviceHandles) // Don't use foreach!
 		{
@@ -3662,8 +3667,7 @@ int main(int argc, char *argv[])
 #else
 		string arg = string(argv[0]);
 #endif
-		if (filesystem::is_regular_file(filesystem::status(arg)) &&
-		  arg != module)
+		if (filesystem::is_regular_file(filesystem::status(arg)) && arg != module)
 		{
 			commandRegistry.loadConfigFile(arg);
 			autoloadSwitch = Switch::OFF;
