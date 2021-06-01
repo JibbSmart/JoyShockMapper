@@ -20,7 +20,7 @@ add_executable (
     src/quatMaths.cpp
     src/ButtonHelp.cpp
  	src/DigitalButton.cpp
-	src/GamepadMotion.cpp
+	src/MotionImpl.cpp
 	src/Mapping.cpp
     include/InputHelpers.h
     include/PlatformDefinitions.h
@@ -32,7 +32,7 @@ add_executable (
     include/Whitelister.h
     include/JoyShockMapper.h
     include/ColorCodes.h
-    include/GamepadMotion.h
+    include/MotionIf.h
 	include/Gamepad.h
 	include/DigitalButton.h
 	include/JslWrapper.h
@@ -206,11 +206,24 @@ target_link_libraries (
 CPMAddPackage (
     NAME pocket_fsm
     GITHUB_REPOSITORY Electronicks/pocket_fsm
-    GIT_TAG HFSM
+    GIT_TAG e447ec24c7a547bd1fbe8d964baa866a9cf146c8
 )
 
 target_link_libraries (
     ${BINARY_NAME} PRIVATE
     Platform::Dependencies
     pocket_fsm
+)
+
+# GamepadMotionHelpers
+CPMAddPackage (
+    NAME GamepadMotionHelpers
+    GITHUB_REPOSITORY JibbSmart/GamepadMotionHelpers
+    GIT_TAG main
+)
+
+target_link_libraries (
+    ${BINARY_NAME} PRIVATE
+    Platform::Dependencies
+    GamepadMotionHelpers
 )
