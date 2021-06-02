@@ -26,6 +26,7 @@ public:
 	virtual void ResetContinuousCalibration() = 0;
 	virtual void GetCalibrationOffset(float& xOffset, float& yOffset, float& zOffset) = 0;
 	virtual void SetCalibrationOffset(float xOffset, float yOffset, float zOffset, int weight) = 0;
+	virtual void SetAutoCalibration(bool enabled, float gyroThreshold, float accelThreshold) = 0;
 
 	void virtual ResetMotion() = 0;
 };

@@ -5,11 +5,12 @@ This is a summary of new features and bugfixes. Read the README to learn how to 
 
 ## 3.2.0
 
-Jibb added the new GYRO_SPACE setting for more one-size-fits-all gyro aiming. Default behaviour is unchanged, but set to WORLD_TURN to try the new algorithm (or WORLD_LEAN if you prefer to lean your controller side to side to turn the camera).
+Jibb added the new GYRO_SPACE setting for more one-size-fits-all gyro aiming. Default behaviour is unchanged, but set to WORLD_TURN to try the new algorithm (or WORLD_LEAN if you prefer to lean your controller side to side to turn the camera). He also added the option for automatic gyro calibration.
 
 ### Features
 
 * GYRO_SPACE can be set to LOCAL (default), WORLD_TURN (recommended), or WORLD_LEAN.
+* AUTO_CALIBRATE_GYRO can be set to ON to activate automatic calibration, which will try and detect when the controller is held still or put down and recalibrate automatically.
 
 ## 3.1.1
 

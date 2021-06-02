@@ -73,6 +73,20 @@ public:
 		gamepadMotion.SetCalibrationOffset(xOffset, yOffset, zOffset, weight);
 	}
 
+	virtual void SetAutoCalibration(bool enabled, float gyroThreshold, float accelThreshold) override
+	{
+		if (enabled)
+		{
+			gamepadMotion.SetCalibrationMode(GamepadMotionHelpers::CalibrationMode::Stillness | GamepadMotionHelpers::CalibrationMode::SensorFusion);
+			gamepadMotion.Settings.StillnessGyroDelta = gyroThreshold;
+			gamepadMotion.Settings.StillnessAccelDelta = accelThreshold;
+		}
+		else
+		{
+			gamepadMotion.SetCalibrationMode(GamepadMotionHelpers::CalibrationMode::Manual);
+		}
+	}
+
 	void virtual ResetMotion() override 
 	{
 		gamepadMotion.ResetMotion();

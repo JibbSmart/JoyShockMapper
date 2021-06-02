@@ -116,6 +116,7 @@ JSMVariable<int> left_trigger_offset = JSMVariable<int>(25);
 JSMVariable<int> left_trigger_range = JSMVariable<int>(150);
 JSMVariable<int> right_trigger_offset = JSMVariable<int>(25);
 JSMVariable<int> right_trigger_range = JSMVariable<int>(150);
+JSMVariable<Switch> auto_calibrate_gyro = JSMVariable<Switch>(Switch::OFF);
 
 JSMVariable<PathString> currentWorkingDir = JSMVariable<PathString>(PathString());
 vector<JSMButton> grid_mappings; // array of virtual buttons on the touchpad grid
@@ -1374,6 +1375,7 @@ static void resetAllMappings()
 	aim_x_sign.Reset();
 	gyro_y_sign.Reset();
 	gyro_x_sign.Reset();
+	gyro_space.Reset();
 	flick_time.Reset();
 	flick_time_exponent.Reset();
 	gyro_smooth_time.Reset();
@@ -2329,6 +2331,14 @@ void joyShockPollCallback(int jcHandle, JOY_SHOCK_STATE state, JOY_SHOCK_STATE l
 
 	IMU_STATE imu = jsl->GetIMUState(jc->handle);
 
+	if (auto_calibrate_gyro.get() == Switch::ON)
+	{
+		motion.SetAutoCalibration(true, 1.2f, 0.015f);
+	}
+	else
+	{
+		motion.SetAutoCalibration(false, 0.f, 0.f);
+	}
 	motion.ProcessMotion(imu.gyroX, imu.gyroY, imu.gyroZ, imu.accelX, imu.accelY, imu.accelZ, deltaTime);
 
 	float inGyroX, inGyroY, inGyroZ;
@@ -3499,6 +3509,7 @@ int main(int argc, char *argv[])
 	left_trigger_offset.SetFilter(&filterClampByte);
 	right_trigger_range.SetFilter(&filterClampByte);
 	left_trigger_range.SetFilter(&filterClampByte);
+	auto_calibrate_gyro.SetFilter(&filterInvalidValue<Switch, Switch::INVALID>);
 
 	// light_bar needs no filter or listener. The callback polls and updates the color.
 	for (int i = argc - 1; i >= 0; --i)
@@ -3716,6 +3727,8 @@ int main(int argc, char *argv[])
 	commandRegistry.Add((new JSMAssignment<int>(magic_enum::enum_name(SettingID::RIGHT_TRIGGER_OFFSET).data(), right_trigger_offset)));
 	commandRegistry.Add((new JSMAssignment<int>(magic_enum::enum_name(SettingID::LEFT_TRIGGER_RANGE).data(), left_trigger_range)));
 	commandRegistry.Add((new JSMAssignment<int>(magic_enum::enum_name(SettingID::RIGHT_TRIGGER_RANGE).data(), right_trigger_range)));
+	commandRegistry.Add((new JSMAssignment<Switch>("AUTO_CALIBRATE_GYRO", auto_calibrate_gyro))
+		->SetHelp("Gyro calibration happens automatically when this setting is ON. Otherwise you'll need to calibrate the gyro manually when using gyro aiming."));
 
 	bool quit = false;
 	commandRegistry.Add((new JSMMacro("QUIT"))
