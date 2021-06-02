@@ -12,6 +12,11 @@ Jibb added the new GYRO_SPACE setting for more one-size-fits-all gyro aiming. De
 * GYRO_SPACE can be set to LOCAL (default), WORLD_TURN (recommended), or WORLD_LEAN.
 * AUTO_CALIBRATE_GYRO can be set to ON to activate automatic calibration, which will try and detect when the controller is held still or put down and recalibrate automatically.
 
+### Bugfixes
+
+* Fixed crash when SDL ignores a connected controller
+* Fixed crash when ZRF gets pressed
+
 ## 3.1.1
 
 Fix linux build (Thanks TauAkiou)

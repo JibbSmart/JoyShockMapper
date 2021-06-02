@@ -18,9 +18,9 @@
 #include <cuchar>
 
 #ifdef _WIN32
-#include <shellapi.h>
+    #include <shellapi.h>
 #else
-#define UCHAR unsigned char
+    #define UCHAR unsigned char
 #endif
 
 #pragma warning(disable : 4996) // Disable deprecated API warnings
@@ -164,14 +164,14 @@ public:
 };
 
 KeyCode::KeyCode()
-  : code()
-  , name()
+	: code()
+	, name()
 {
 }
 
 KeyCode::KeyCode(in_string keyName)
-  : code(nameToKey(keyName))
-  , name()
+	: code(nameToKey(keyName))
+	, name()
 {
 	if (code == COMMAND_ACTION)
 		name = keyName.substr(1, keyName.size() - 2); // Remove opening and closing quotation marks
@@ -240,7 +240,7 @@ public:
 			float pressedTime = 0;
 			if (_pressedBtn == _negativeButton->_id)
 			{
-				GetDuration dur{ now };
+			    GetDuration dur{ now };
 				pressedTime = _negativeButton->sendEvent(dur).out_duration;
 				if (pressedTime < MAGIC_TAP_DURATION)
 				{
@@ -251,8 +251,8 @@ public:
 			}
 			else // _pressedBtn == _positiveButton->_id
 			{
-				GetDuration dur{ now };
-				pressedTime = _positiveButton->sendEvent(dur).out_duration;
+                GetDuration dur{ now };
+                pressedTime = _positiveButton->sendEvent(dur).out_duration;
 				if (pressedTime < MAGIC_TAP_DURATION)
 				{
 					_negativeButton->sendEvent(isReleased);
@@ -1121,7 +1121,7 @@ public:
 			}
 			else
 			{
-				GetDuration dur{ time_now };
+			    GetDuration dur{ time_now };
 				if (buttons[int(softIndex)].sendEvent(dur).out_duration >= getSetting(SettingID::TRIGGER_SKIP_DELAY))
 				{
 					if (mode == TriggerMode::MUST_SKIP)
@@ -1153,7 +1153,7 @@ public:
 			}
 			else
 			{
-				GetDuration dur{ time_now };
+			    GetDuration dur{ time_now };
 				if (buttons[int(softIndex)].sendEvent(dur).out_duration >= getSetting(SettingID::TRIGGER_SKIP_DELAY))
 				{
 					if (mode == TriggerMode::MUST_SKIP_R)
@@ -2155,30 +2155,30 @@ void TouchCallback(int jcHandle, TOUCH_STATE newState, TOUCH_STATE prevState, fl
 	else if (mode == TouchpadMode::MOUSE)
 	{
 		// Disable gestures
-		/*if (point0.isDown() && point1.isDown())
-		{*/
-		//if (js->prevTouchState.t0Down && js->prevTouchState.t1Down)
+		//if (point0.isDown() && point1.isDown())
 		//{
-		//	float x = fabsf(newState.t0X - newState.t1X);
-		//	float y = fabsf(newState.t0Y - newState.t1Y);
-		//	float angle = atan2f(y, x) / PI * 360;
-		//	float dist = sqrt(x * x + y * y);
-		//	x = fabsf(js->prevTouchState.t0X - js->prevTouchState.t1X);
-		//	y = fabsf(js->prevTouchState.t0Y - js->prevTouchState.t1Y);
-		//	float oldAngle = atan2f(y, x) / PI * 360;
-		//	float oldDist = sqrt(x * x + y * y);
-		//	if (angle != oldAngle)
-		//		DEBUG_LOG << "Angle went from " << oldAngle << " degrees to " << angle << " degress. Diff is " << angle - oldAngle << " degrees. ";
-		//	js->touch_scroll_x.ProcessScroll(angle - oldAngle, js->getSetting<FloatXY>(SettingID::SCROLL_SENS).x(), js->time_now);
-		//	if (dist != oldDist)
-		//		DEBUG_LOG << "Dist went from " << oldDist << " points to " << dist << " points. Diff is " << dist - oldDist << " points. ";
-		//	js->touch_scroll_y.ProcessScroll(dist - oldDist, js->getSetting<FloatXY>(SettingID::SCROLL_SENS).y(), js->time_now);
-		//}
-		//else
-		//{
-		//	js->touch_scroll_x.Reset(js->time_now);
-		//	js->touch_scroll_y.Reset(js->time_now);
-		//}
+			//if (js->prevTouchState.t0Down && js->prevTouchState.t1Down)
+			//{
+			//	float x = fabsf(newState.t0X - newState.t1X);
+			//	float y = fabsf(newState.t0Y - newState.t1Y);
+			//	float angle = atan2f(y, x) / PI * 360;
+			//	float dist = sqrt(x * x + y * y);
+			//	x = fabsf(js->prevTouchState.t0X - js->prevTouchState.t1X);
+			//	y = fabsf(js->prevTouchState.t0Y - js->prevTouchState.t1Y);
+			//	float oldAngle = atan2f(y, x) / PI * 360;
+			//	float oldDist = sqrt(x * x + y * y);
+			//	if (angle != oldAngle)
+			//		DEBUG_LOG << "Angle went from " << oldAngle << " degrees to " << angle << " degress. Diff is " << angle - oldAngle << " degrees. ";
+			//	js->touch_scroll_x.ProcessScroll(angle - oldAngle, js->getSetting<FloatXY>(SettingID::SCROLL_SENS).x(), js->time_now);
+			//	if (dist != oldDist)
+			//		DEBUG_LOG << "Dist went from " << oldDist << " points to " << dist << " points. Diff is " << dist - oldDist << " points. ";
+			//	js->touch_scroll_y.ProcessScroll(dist - oldDist, js->getSetting<FloatXY>(SettingID::SCROLL_SENS).y(), js->time_now);
+			//}
+			//else
+			//{
+			//	js->touch_scroll_x.Reset(js->time_now);
+			//	js->touch_scroll_y.Reset(js->time_now);
+			//}
 		//}
 		//else
 		//{
