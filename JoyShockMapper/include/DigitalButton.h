@@ -3,13 +3,13 @@
 #include "pocket_fsm.h"
 #include "JoyShockMapper.h"
 #include "Gamepad.h"
+#include "MotionIf.h"
 #include <chrono>
 #include <deque>
 #include <mutex>
 
 // Forward declarations
 class JSMButton;
-class GamepadMotion;
 class DigitalButton;      // Finite State Machine
 struct DigitalButtonImpl; // Button implementation
 
@@ -106,7 +106,7 @@ public:
 	// It enables the buttons to synchronize and be aware of the state of the whole controller, access gyro etc...
 	struct Context
 	{
-		Context(Gamepad::Callback virtualControllerCallback, GamepadMotion *mainMotion);
+		Context(Gamepad::Callback virtualControllerCallback, shared_ptr<MotionIf> mainMotion);
 		deque<pair<ButtonID, KeyCode>> gyroActionQueue; // Queue of gyro control actions currently in effect
 		deque<pair<ButtonID, KeyCode>> activeTogglesQueue;
 		deque<ButtonID> chordStack; // Represents the current active buttons in order from most recent to latest
@@ -114,8 +114,8 @@ public:
 		function<DigitalButton *(ButtonID)> _getMatchingSimBtn; // A functor to JoyShock::GetMatchingSimBtn
 		function<void(int small, int big)> _rumble;             // A functor to JoyShock::Rumble
 		mutex callback_lock;                                    // Needs to be in the common struct for both joycons to use the same
-		GamepadMotion *rightMainMotion = nullptr;
-		GamepadMotion *leftMotion = nullptr;
+		shared_ptr<MotionIf> rightMainMotion = nullptr;
+		shared_ptr<MotionIf> leftMotion = nullptr;
 	};
 
 	DigitalButton(shared_ptr<DigitalButton::Context> _context, JSMButton &mapping);

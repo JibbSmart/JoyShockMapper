@@ -1,6 +1,5 @@
 #include "DigitalButton.h"
 #include "JSMVariable.hpp"
-#include "GamepadMotion.h"
 #include "InputHelpers.h"
 
 // JSM global variables
@@ -210,46 +209,23 @@ public:
 	void StartCalibration() override
 	{
 		COUT << "Starting continuous calibration" << endl;
+		_context->rightMainMotion->ResetContinuousCalibration();
+		_context->rightMainMotion->StartContinuousCalibration();
 		if (_context->leftMotion)
 		{
-			int gyroMask = int(joycon_gyro_mask.get().value());
-			if (gyroMask & int(JoyconMask::IGNORE_LEFT) || gyroMask & int(JoyconMask::IGNORE_LEFT))
-			{
-				_context->rightMainMotion->ResetContinuousCalibration();
-				_context->rightMainMotion->StartContinuousCalibration();
-			}
-			int motionMask = int(joycon_motion_mask.get().value());
-			if (motionMask & int(JoyconMask::IGNORE_RIGHT) || motionMask & int(JoyconMask::IGNORE_RIGHT))
-			{
-				_context->leftMotion->ResetContinuousCalibration();
-				_context->leftMotion->StartContinuousCalibration();
-			}
-		}
-		else
-		{
-			_context->rightMainMotion->ResetContinuousCalibration();
-			_context->rightMainMotion->StartContinuousCalibration();
+			// Perform calibration on both gyros of a joycon pair regardless of mask
+			_context->leftMotion->ResetContinuousCalibration();
+			_context->leftMotion->StartContinuousCalibration();
 		}
 	}
 
 	void FinishCalibration() override
 	{
+		_context->rightMainMotion->PauseContinuousCalibration();
 		if (_context->leftMotion)
 		{
-			int gyroMask = int(joycon_gyro_mask.get().value());
-			if (gyroMask & int(JoyconMask::IGNORE_LEFT) || gyroMask & int(JoyconMask::IGNORE_LEFT))
-			{
-				_context->rightMainMotion->PauseContinuousCalibration();
-			}
-			int motionMask = int(joycon_motion_mask.get().value());
-			if (motionMask & int(JoyconMask::IGNORE_RIGHT) || motionMask & int(JoyconMask::IGNORE_RIGHT))
-			{
-				_context->rightMainMotion->PauseContinuousCalibration();
-			}
-		}
-		else
-		{
-			_context->rightMainMotion->PauseContinuousCalibration();
+			// Perform calibration on both gyros of a joycon pair regardless of mask
+			_context->leftMotion->PauseContinuousCalibration();
 		}
 		COUT << "Gyro calibration set" << endl;
 		ClearAllActiveToggle(KeyCode("CALIBRATE"));
@@ -848,9 +824,9 @@ DigitalButton::DigitalButton(shared_ptr<DigitalButton::Context> _context, JSMBut
 	initialize(new NoPress(new DigitalButtonImpl(mapping, _context)));
 }
 
-DigitalButton::Context::Context(Gamepad::Callback virtualControllerCallback, GamepadMotion *mainMotion)
+DigitalButton::Context::Context(Gamepad::Callback virtualControllerCallback, shared_ptr<MotionIf> mainMotion)
+	: rightMainMotion(mainMotion)
 {
-	rightMainMotion = mainMotion;
 	chordStack.push_front(ButtonID::NONE); //Always hold mapping none at the end to handle modeshifts and chords
 #ifdef _WIN32
 	if (virtual_controller.get() != ControllerScheme::NONE)

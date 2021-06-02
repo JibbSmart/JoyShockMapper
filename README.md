@@ -617,11 +617,11 @@ A common use for the motion sensors is to map left and right leans of the contro
 ### 4. Gyro Mouse Inputs
 **The first thing you need to know about gyro mouse inputs** is that a controller's gyro will often need calibrating. This just means telling the application where "zero" is. Just like a scale, the gyro needs a point of reference to compare against in order to accurately give a result. This is done by leaving the controller still, or holding it very still in your hands, and finding the average velocity over a short time of staying still. It needs to be averaged over some time because the gyro will pick up a little bit of "noise" -- tiny variations that aren't caused by any real movement -- but this noise is negligible compared to the shakiness of human hands trying to hold a controller still.
 
-When you first connect controllers to JoyShockMapper, they'll all begin "continuous calibration" -- this just means they're collecting the average velocity over a long period of time. This accumulated average is constantly applied to gyro inputs, so if the controller is left still for long enough, you should be able to play without obvious problems.
-
 If you have gyro mouse enabled and the gyro moves across the screen (even slowly) when the controller is lying still on a solid surface, your device needs calibrating. That's okay -- I do it at the beginning of most play sessions, especially with Nintendo devices, which seem to need it more often.
 
-To calibrate your gyro, place your controller on solid surface so that it's not moving at all, and then use the following commands:
+If you set **AUTO\_CALIBRATE\_GYRO** to **ON**, JoyShockMapper will try to detect when your controller is being held still or left on a steady surface and calibrate the gyro automatically. This is imperfect, though -- every automatic calibration solution will *sometimes* interpret slow and steady movement as the controller being held still. This can interrupt you making small adjustments to your aim or tracking slow/distant targets. It's also only a new feature, and we try not to change default behaviour. Also, it doesn't yet give you any settings to tweak its thresholds. For all of these reasons this setting is **OFF** by default, and it's recommended that you calibrate your gyro manually instead.
+
+To manually calibrate your gyro, place your controller on steady surface so that it's not moving at all, and then use the following commands:
 * **RESTART\_GYRO\_CALIBRATION** - All connected gyro devices will begin collecting gyro data, remembering the average collected so far and treating it as "zero".
 * **FINISH\_GYRO\_CALIBRATION** - Stop collecting gyro data for calibration. JoyShockMapper will use whatever it has already collected from that controller as the "zero" reference point for input from that controller.
 
@@ -645,8 +645,9 @@ JoyShockMapper allows you to say, "When turning slowly, I want this sensitivity.
 
 **Finally**, there are a bunch more settings you can tweak if you so desire:
 
+* **GYRO\_SPACE** (default LOCAL) - Simple gyro aiming solutions will map one of your controller's gyro axes to your camera/cursor's horizontal axis and one to the vertical axis. That's the behaviour you'll get with JoyShockMapper when GYRO\_SPACE is set to "LOCAL". This is simple to implement and leaves no room for misinterpretation, but aiming can feel off as you tilt your controller more and more. If you'd prefer a more advanced reading of the gyro combined with the accelerometer to more naturally handle different controller positions, WORLD\_TURN is the way to go. Or, if you prefer to lean your controller side to side to turn your camera, try WORLD\_LEAN.
 * **GYRO\_AXIS\_X** and **GYRO\_AXIS\_Y** (default STANDARD) - This allows you to invert the gyro directions if you wish. Want a left- gyro turn to translate to a right- in-game turn? Set GYRO\_AXIS\_X to INVERTED. For normal behaviour, set it to STANDARD.
-* **MOUSE\_X\_FROM\_GYRO\_AXIS** and **MOUSE\_Y\_FROM\_GYRO\_AXIS** (default Y and X, respectively) - Maybe you want to turn the camera left and right by rolling your controller about its local Z axis instead of turning it about its local Y axis. Or maybe you want to play with a single JoyCon sideways. This is how you do that. Your options are X, Y, Z, and NONE, if you want an axis of mouse movement unaffected by the gyro.
+* **MOUSE\_X\_FROM\_GYRO\_AXIS** and **MOUSE\_Y\_FROM\_GYRO\_AXIS** (default Y and X, respectively) - Maybe you want to turn the camera left and right by rolling your controller about its local Z axis instead of turning it about its local Y axis. Or maybe you want to play with a single JoyCon sideways. This is how you do that. Your options are X, Y, Z, and NONE, if you want an axis of mouse movement unaffected by the gyro. These settings only apply when GYRO\_SPACE is set to LOCAL.
 * **GYRO\_CUTOFF\_SPEED** (default 0.0 degrees per second) - Some games attempt to cover up small unintentional movements by setting a minimum speed below which gyro input will be ignored. This is that setting. It's never good. Don't use it. Some games won't even let you change or disable this "feature". I implemented it to see if it could be made good. I left it in there only so you can see for yourself that it's not good, or for you to perhaps show me how it can be.  
 It might be mostly harmless for interacting with a simple UI with big-ish buttons, but it's useless if the player will *ever* intentionally turn the controller slowly (such as to track a slow-moving target), because they may unintentionally fall below the cutoff speed. Even a very small cutoff speed might be so high that it's impossible to move the aimer at the same speed as a very slow-moving target.  
 One might argue that such a cutoff is too high, and it just needs to be set lower. But if the cutoff speed is small enough that it doesn't make the player's experience worse, it's probably also small enough that it's actually not doing anything.
@@ -918,7 +919,7 @@ T2,TDOWN = 8
 ### 9. Miscellaneous Commands
 There are a few other useful commands that don't fall under the above categories:
 
-* **RESET\_MAPPINGS** - This will reset all JoyShockMapper's settings to their default values. This way you don't have to manually unset button mappings or other settings when making a big change. It can be useful to always start your configuration files with the RESET\_MAPPINGS command. The only exceptions to this are the calibration state and AUTOLOAD.
+* **RESET\_MAPPINGS** - This will reset all JoyShockMapper's settings to their default values. This way you don't have to manually unset button mappings or other settings when making a big change. It can be useful to always start your configuration files with the RESET\_MAPPINGS command. The only exceptions to this are the gyro calibration state / settings and AUTOLOAD.
 * **RECONNECT\_CONTROLLERS** - Controllers connected after JoyShockMapper starts will be ignored until you tell it to RECONNECT\_CONTROLLERS. When this happens, all gyro calibration will reset on all controllers. You can add MERGE or SPLIT to indicate whether you want all joycons under a single controller or separate controllers. The player LED will help you identify whether they are merged or split.
 * **\# comments** - Any line or part of a line that begins with '\#' will be ignored. Use this to organise/annotate your configuration files, or to temporarily remove commands that you may want to add later.
 * **JOYCON\_GYRO\_MASK** (default IGNORE\_LEFT) - Most games that use gyro controls on Switch ignore the left JoyCon's gyro to avoid confusing behaviour when the JoyCons are held separately while playing. This is the default behaviour in JoyShockMapper. But you can also choose to IGNORE\_RIGHT, IGNORE\_BOTH, or USE\_BOTH.
@@ -941,11 +942,11 @@ What more? There are some configuration files that can be run automatically to s
 
 ### 1. OnStartup.txt
 
-When JoyShockMapper first boots up, it will attempt to load the commands found in the file OnStartup.txt. This file should be in the JSM_DIRECTORY, which is next to your executable by default. This is a great place to automatically calibrate the gyro, and load a default configuration for navigating the OS, and whitelisting JoyShockMapper.
+When JoyShockMapper first boots up, it will attempt to load the commands found in the file OnStartup.txt. This file should be in the JSM_DIRECTORY, which is next to your executable by default. This is a great place to automatically calibrate the gyro, load a default configuration for navigating the OS, and/or whitelisting JoyShockMapper.
 
 ### 2. OnReset.txt
 
-This configuration is found in the same location as OnStartup.txt explained above. This file is run each time RESET\_MAPPINGS is called, as well as before OnStartup.txt. This file is a good spot to have a CALIBRATE button for your controller, which you will typically always need.
+This configuration is found in the same location as OnStartup.txt explained above. This file is run each time RESET\_MAPPINGS is called, as well as before OnStartup.txt. This file is a good spot to set a CALIBRATE button for your controller and/or set your GYRO\_SPACE if you're not using the default value.
 
 ### 3. Autoload feature
 

@@ -185,6 +185,10 @@ public:
 				deviceHandleArray[i] = i + 1;
 				_controllerMap[deviceHandleArray[i]] = device;
 			}
+			else
+			{
+				delete device;
+			}
 		}
 		return _controllerMap.size();
 	}

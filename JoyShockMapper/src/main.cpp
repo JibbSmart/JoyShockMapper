@@ -2,7 +2,6 @@
 #include "JSMVersion.h"
 #include "JslWrapper.h"
 #include "DigitalButton.h"
-#include "GamepadMotion.h"
 #include "InputHelpers.h"
 #include "Whitelister.h"
 #include "TrayIcon.h"
@@ -19,9 +18,9 @@
 #include <cuchar>
 
 #ifdef _WIN32
-    #include <shellapi.h>
+#include <shellapi.h>
 #else
-    #define UCHAR unsigned char
+#define UCHAR unsigned char
 #endif
 
 #pragma warning(disable : 4996) // Disable deprecated API warnings
@@ -85,6 +84,7 @@ JSMSetting<float> motion_deadzone_inner = JSMSetting<float>(SettingID::MOTION_DE
 JSMSetting<float> motion_deadzone_outer = JSMSetting<float>(SettingID::MOTION_DEADZONE_OUTER, 135.f);
 JSMSetting<float> lean_threshold = JSMSetting<float>(SettingID::LEAN_THRESHOLD, 15.f);
 JSMSetting<ControllerOrientation> controller_orientation = JSMSetting<ControllerOrientation>(SettingID::CONTROLLER_ORIENTATION, ControllerOrientation::FORWARD);
+JSMSetting<GyroSpace> gyro_space = JSMSetting<GyroSpace>(SettingID::GYRO_SPACE, GyroSpace::LOCAL);
 JSMSetting<float> trackball_decay = JSMSetting<float>(SettingID::TRACKBALL_DECAY, 1.0f);
 JSMSetting<float> mouse_ring_radius = JSMSetting<float>(SettingID::MOUSE_RING_RADIUS, 128.0f);
 JSMSetting<float> screen_resolution_x = JSMSetting<float>(SettingID::SCREEN_RESOLUTION_X, 1920.0f);
@@ -116,6 +116,7 @@ JSMVariable<int> left_trigger_offset = JSMVariable<int>(25);
 JSMVariable<int> left_trigger_range = JSMVariable<int>(150);
 JSMVariable<int> right_trigger_offset = JSMVariable<int>(25);
 JSMVariable<int> right_trigger_range = JSMVariable<int>(150);
+JSMVariable<Switch> auto_calibrate_gyro = JSMVariable<Switch>(Switch::OFF);
 
 JSMVariable<PathString> currentWorkingDir = JSMVariable<PathString>(PathString());
 vector<JSMButton> grid_mappings; // array of virtual buttons on the touchpad grid
@@ -144,7 +145,7 @@ class TouchStick
 public:
 	map<ButtonID, DigitalButton> buttons; // Each touchstick gets it's own digital buttons. Is that smart?
 
-	TouchStick(int index, shared_ptr<DigitalButton::Context> common, int handle, GamepadMotion *motion)
+	TouchStick(int index, shared_ptr<DigitalButton::Context> common, int handle)
 	  : _index(index)
 	{
 		buttons.emplace(ButtonID::TUP, DigitalButton(common, mappings[int(ButtonID::TUP)]));
@@ -163,14 +164,14 @@ public:
 };
 
 KeyCode::KeyCode()
-	: code()
-	, name()
+  : code()
+  , name()
 {
 }
 
 KeyCode::KeyCode(in_string keyName)
-	: code(nameToKey(keyName))
-	, name()
+  : code(nameToKey(keyName))
+  , name()
 {
 	if (code == COMMAND_ACTION)
 		name = keyName.substr(1, keyName.size() - 2); // Remove opening and closing quotation marks
@@ -329,7 +330,7 @@ public:
 	const int MaxGyroSamples = 64;
 	const int NumSamples = 64;
 	int handle;
-	GamepadMotion motion;
+	shared_ptr<MotionIf> motion;
 	int platform_controller_type;
 
 	vector<DigitalButton> buttons;
@@ -406,11 +407,12 @@ public:
 	  , prevTriggerPosition(NUM_ANALOG_TRIGGERS, deque<float>(MAGIC_TRIGGER_SMOOTHING, 0.f))
 	  , _light_bar(*light_bar.get())
 	  , _context(sharedButtonCommon)
+	  , motion(MotionIf::getNew())
 	{
 		if (!sharedButtonCommon)
 		{
 			_context = shared_ptr<DigitalButton::Context>(new DigitalButton::Context(
-			  bind(&JoyShock::handleViGEmNotification, this, placeholders::_1, placeholders::_2, placeholders::_3), &motion));
+			  bind(&JoyShock::handleViGEmNotification, this, placeholders::_1, placeholders::_2, placeholders::_3), motion));
 		}
 		_light_bar = getSetting<Color>(SettingID::LIGHT_BAR);
 
@@ -433,7 +435,7 @@ public:
 		jsl->SetLightColour(handle, getSetting<Color>(SettingID::LIGHT_BAR).raw);
 		for (int i = 0; i < MAX_NO_OF_TOUCH; ++i)
 		{
-			touchpads.push_back(TouchStick(i, _context, handle, &motion));
+			touchpads.push_back(TouchStick(i, _context, handle));
 		}
 		touch_scroll_x.init(touchpads[0].buttons.find(ButtonID::TLEFT)->second, touchpads[0].buttons.find(ButtonID::TRIGHT)->second);
 		touch_scroll_y.init(touchpads[0].buttons.find(ButtonID::TUP)->second, touchpads[0].buttons.find(ButtonID::TDOWN)->second);
@@ -572,6 +574,9 @@ public:
 						opt = optional<E>(static_cast<E>(ControllerOrientation::FORWARD));
 					}
 				}
+				break;
+			case SettingID::GYRO_SPACE:
+				opt = GetOptionalSetting<E>(gyro_space, *activeChord);
 				break;
 			case SettingID::ZR_MODE:
 				opt = GetOptionalSetting<E>(zrMode, *activeChord);
@@ -926,15 +931,6 @@ public:
 	}
 
 private:
-	DigitalButton *GetButton(ButtonID index, int touchpadIndex = -1)
-	{
-		DigitalButton *button = int(index) < LAST_ANALOG_TRIGGER ? &buttons[int(index)] :
-		  touchpadIndex >= 0 && touchpadIndex < touchpads.size() ? &touchpads[touchpadIndex].buttons.find(index)->second :
-		  index >= ButtonID::T1                                  ? &gridButtons[int(index) - int(ButtonID::T1)] :
-                                                                   throw std::runtime_error("What index is this?");
-		return button;
-	}
-
 	bool isSoftPullPressed(int triggerIndex, float triggerPosition)
 	{
 		float threshold = getSetting(SettingID::TRIGGER_THRESHOLD);
@@ -979,18 +975,26 @@ private:
 		return isPressed;
 	}
 
-
 public:
 	void handleButtonChange(ButtonID id, bool pressed, int touchpadID = -1)
 	{
-		if (pressed)
+		DigitalButton *button = int(id) <= LAST_ANALOG_TRIGGER ? &buttons[int(id)] :
+		  touchpadID >= 0 && touchpadID < touchpads.size()     ? &touchpads[touchpadID].buttons.find(id)->second :
+		  id >= ButtonID::T1                                   ? &gridButtons[int(id) - int(ButtonID::T1)] :
+                                                                 nullptr;
+
+		if (!button)
+		{
+			CERR << "Button " << id << " with tocuchpadId " << touchpadID << " could not be found" << endl;
+		}
+		else if (pressed)
 		{
 			Pressed evt;
 			evt.time_now = time_now;
 			evt.turboTime = getSetting(SettingID::TURBO_PERIOD);
 			evt.holdTime = getSetting(SettingID::HOLD_PRESS_TIME);
 			evt.dblPressWindow = getSetting(SettingID::DBL_PRESS_WINDOW);
-			GetButton(id, touchpadID)->sendEvent(evt);
+			button->sendEvent(evt);
 		}
 		else
 		{
@@ -999,7 +1003,7 @@ public:
 			evt.turboTime = getSetting(SettingID::TURBO_PERIOD);
 			evt.holdTime = getSetting(SettingID::HOLD_PRESS_TIME);
 			evt.dblPressWindow = getSetting(SettingID::DBL_PRESS_WINDOW);
-			GetButton(id, touchpadID)->sendEvent(evt);
+			button->sendEvent(evt);
 		}
 	}
 
@@ -1007,7 +1011,7 @@ public:
 	{
 		float threshold = getSetting(SettingID::TRIGGER_THRESHOLD);
 		if (platform_controller_type == JS_TYPE_DS && getSetting<Switch>(SettingID::ADAPTIVE_TRIGGER) == Switch::ON)
-				threshold = max(0.f, threshold); // hair trigger disabled on dual sense when adaptive triggers are active
+			threshold = max(0.f, threshold); // hair trigger disabled on dual sense when adaptive triggers are active
 		return clamp(threshold + 0.05f, 0.0f, 1.0f);
 	}
 
@@ -1074,7 +1078,7 @@ public:
 				trigger_rumble.mode = 2;
 				trigger_rumble.strength = 0.1 * UINT16_MAX;
 				trigger_rumble.start = offset + getTriggerEffectStartPos() * range;
-				trigger_rumble.end = offset + min(1.f, getTriggerEffectStartPos() + 0.1f)  * range;
+				trigger_rumble.end = offset + min(1.f, getTriggerEffectStartPos() + 0.1f) * range;
 			}
 			if (isSoftPullPressed(idxState, position))
 			{
@@ -1212,8 +1216,8 @@ public:
 			{
 				if (mode == TriggerMode::NO_SKIP || mode == TriggerMode::MAY_SKIP || mode == TriggerMode::MAY_SKIP_R)
 				{
-					trigger_rumble.strength = min(int(UINT16_MAX), trigger_rumble.strength + int(1/30.f * tick_time  * UINT16_MAX));
-					trigger_rumble.start = min(offset + 0.89* range, trigger_rumble.start + 1/150. * tick_time * range);
+					trigger_rumble.strength = min(int(UINT16_MAX), trigger_rumble.strength + int(1 / 30.f * tick_time * UINT16_MAX));
+					trigger_rumble.start = min(offset + 0.89 * range, trigger_rumble.start + 1 / 150. * tick_time * range);
 					trigger_rumble.end = trigger_rumble.start + 0.1 * range;
 					handleButtonChange(softIndex, true);
 					if (position == 1.0)
@@ -1225,8 +1229,8 @@ public:
 				}
 				else if (mode == TriggerMode::NO_SKIP_EXCLUSIVE)
 				{
-					trigger_rumble.strength = min(int(UINT16_MAX), trigger_rumble.strength + int(1/30.f * tick_time * UINT16_MAX));
-					trigger_rumble.start = min(offset + 0.89* range, trigger_rumble.start + 1/150. * tick_time * range);
+					trigger_rumble.strength = min(int(UINT16_MAX), trigger_rumble.strength + int(1 / 30.f * tick_time * UINT16_MAX));
+					trigger_rumble.start = min(offset + 0.89 * range, trigger_rumble.start + 1 / 150. * tick_time * range);
 					trigger_rumble.end = trigger_rumble.start + 0.1 * range;
 					handleButtonChange(softIndex, false);
 					if (position == 1.0)
@@ -1238,7 +1242,7 @@ public:
 				else // NO_FULL, MUST_SKIP and MUST_SKIP_R
 				{
 					trigger_rumble.mode = 1;
-					trigger_rumble.strength = min(int(UINT16_MAX), trigger_rumble.strength + int(1/30.f * tick_time  * UINT16_MAX));
+					trigger_rumble.strength = min(int(UINT16_MAX), trigger_rumble.strength + int(1 / 30.f * tick_time * UINT16_MAX));
 					// keep old trigger_rumble.start
 					handleButtonChange(softIndex, true);
 				}
@@ -1371,6 +1375,7 @@ static void resetAllMappings()
 	aim_x_sign.Reset();
 	gyro_y_sign.Reset();
 	gyro_x_sign.Reset();
+	gyro_space.Reset();
 	flick_time.Reset();
 	flick_time_exponent.Reset();
 	gyro_smooth_time.Reset();
@@ -1588,7 +1593,7 @@ bool do_FINISH_GYRO_CALIBRATION()
 	COUT << "Finishing continuous calibration for all devices" << endl;
 	for (auto iter = handle_to_joyshock.begin(); iter != handle_to_joyshock.end(); ++iter)
 	{
-		iter->second->motion.PauseContinuousCalibration();
+		iter->second->motion->PauseContinuousCalibration();
 	}
 	devicesCalibrating = false;
 	return true;
@@ -1599,8 +1604,8 @@ bool do_RESTART_GYRO_CALIBRATION()
 	COUT << "Restarting continuous calibration for all devices" << endl;
 	for (auto iter = handle_to_joyshock.begin(); iter != handle_to_joyshock.end(); ++iter)
 	{
-		iter->second->motion.ResetContinuousCalibration();
-		iter->second->motion.StartContinuousCalibration();
+		iter->second->motion->ResetContinuousCalibration();
+		iter->second->motion->StartContinuousCalibration();
 	}
 	devicesCalibrating = true;
 	return true;
@@ -2147,42 +2152,42 @@ void TouchCallback(int jcHandle, TOUCH_STATE newState, TOUCH_STATE prevState, fl
 		// Disable gestures
 		/*if (point0.isDown() && point1.isDown())
 		{*/
-			//if (js->prevTouchState.t0Down && js->prevTouchState.t1Down)
-			//{
-			//	float x = fabsf(newState.t0X - newState.t1X);
-			//	float y = fabsf(newState.t0Y - newState.t1Y);
-			//	float angle = atan2f(y, x) / PI * 360;
-			//	float dist = sqrt(x * x + y * y);
-			//	x = fabsf(js->prevTouchState.t0X - js->prevTouchState.t1X);
-			//	y = fabsf(js->prevTouchState.t0Y - js->prevTouchState.t1Y);
-			//	float oldAngle = atan2f(y, x) / PI * 360;
-			//	float oldDist = sqrt(x * x + y * y);
-			//	if (angle != oldAngle)
-			//		DEBUG_LOG << "Angle went from " << oldAngle << " degrees to " << angle << " degress. Diff is " << angle - oldAngle << " degrees. ";
-			//	js->touch_scroll_x.ProcessScroll(angle - oldAngle, js->getSetting<FloatXY>(SettingID::SCROLL_SENS).x(), js->time_now);
-			//	if (dist != oldDist)
-			//		DEBUG_LOG << "Dist went from " << oldDist << " points to " << dist << " points. Diff is " << dist - oldDist << " points. ";
-			//	js->touch_scroll_y.ProcessScroll(dist - oldDist, js->getSetting<FloatXY>(SettingID::SCROLL_SENS).y(), js->time_now);
-			//}
-			//else
-			//{
-			//	js->touch_scroll_x.Reset(js->time_now);
-			//	js->touch_scroll_y.Reset(js->time_now);
-			//}
+		//if (js->prevTouchState.t0Down && js->prevTouchState.t1Down)
+		//{
+		//	float x = fabsf(newState.t0X - newState.t1X);
+		//	float y = fabsf(newState.t0Y - newState.t1Y);
+		//	float angle = atan2f(y, x) / PI * 360;
+		//	float dist = sqrt(x * x + y * y);
+		//	x = fabsf(js->prevTouchState.t0X - js->prevTouchState.t1X);
+		//	y = fabsf(js->prevTouchState.t0Y - js->prevTouchState.t1Y);
+		//	float oldAngle = atan2f(y, x) / PI * 360;
+		//	float oldDist = sqrt(x * x + y * y);
+		//	if (angle != oldAngle)
+		//		DEBUG_LOG << "Angle went from " << oldAngle << " degrees to " << angle << " degress. Diff is " << angle - oldAngle << " degrees. ";
+		//	js->touch_scroll_x.ProcessScroll(angle - oldAngle, js->getSetting<FloatXY>(SettingID::SCROLL_SENS).x(), js->time_now);
+		//	if (dist != oldDist)
+		//		DEBUG_LOG << "Dist went from " << oldDist << " points to " << dist << " points. Diff is " << dist - oldDist << " points. ";
+		//	js->touch_scroll_y.ProcessScroll(dist - oldDist, js->getSetting<FloatXY>(SettingID::SCROLL_SENS).y(), js->time_now);
+		//}
+		//else
+		//{
+		//	js->touch_scroll_x.Reset(js->time_now);
+		//	js->touch_scroll_y.Reset(js->time_now);
+		//}
 		//}
 		//else
 		//{
 		//	js->touch_scroll_x.Reset(js->time_now);
 		//	js->touch_scroll_y.Reset(js->time_now);
 		//  if (point0.isDown() ^ point1.isDown()) // XOR
-			if (point0.isDown() || point1.isDown())
-			{
-				TOUCH_POINT *downPoint = point0.isDown() ? &point0 : &point1;
-				FloatXY sens = js->getSetting<FloatXY>(SettingID::TOUCHPAD_SENS);
-				// if(downPoint->movX || downPoint->movY) cout << "Moving the cursor by " << std::dec << int(downPoint->movX) << " h and " << int(downPoint->movY) << " v" << endl;
-				moveMouse(downPoint->movX * sens.x(), downPoint->movY * sens.y());
-				// Ignore second touch point in this mode for now until gestures gets handled here
-			}
+		if (point0.isDown() || point1.isDown())
+		{
+			TOUCH_POINT *downPoint = point0.isDown() ? &point0 : &point1;
+			FloatXY sens = js->getSetting<FloatXY>(SettingID::TOUCHPAD_SENS);
+			// if(downPoint->movX || downPoint->movY) cout << "Moving the cursor by " << std::dec << int(downPoint->movX) << " h and " << int(downPoint->movY) << " v" << endl;
+			moveMouse(downPoint->movX * sens.x(), downPoint->movY * sens.y());
+			// Ignore second touch point in this mode for now until gestures gets handled here
+		}
 		//}
 	}
 	js->prevTouchState = newState;
@@ -2322,10 +2327,18 @@ void joyShockPollCallback(int jcHandle, JOY_SHOCK_STATE state, JOY_SHOCK_STATE l
 		return;
 	}
 
-	GamepadMotion &motion = jc->motion;
+	MotionIf &motion = *jc->motion;
 
 	IMU_STATE imu = jsl->GetIMUState(jc->handle);
 
+	if (auto_calibrate_gyro.get() == Switch::ON)
+	{
+		motion.SetAutoCalibration(true, 1.2f, 0.015f);
+	}
+	else
+	{
+		motion.SetAutoCalibration(false, 0.f, 0.f);
+	}
 	motion.ProcessMotion(imu.gyroX, imu.gyroY, imu.gyroZ, imu.accelX, imu.accelY, imu.accelZ, deltaTime);
 
 	float inGyroX, inGyroY, inGyroZ;
@@ -2333,9 +2346,6 @@ void joyShockPollCallback(int jcHandle, JOY_SHOCK_STATE state, JOY_SHOCK_STATE l
 
 	float inGravX, inGravY, inGravZ;
 	motion.GetGravity(inGravX, inGravY, inGravZ);
-	inGravX *= 1.f / 9.8f; // to Gs
-	inGravY *= 1.f / 9.8f;
-	inGravZ *= 1.f / 9.8f;
 
 	float inQuatW, inQuatX, inQuatY, inQuatZ;
 	motion.GetOrientation(inQuatW, inQuatX, inQuatY, inQuatZ);
@@ -2365,31 +2375,121 @@ void joyShockPollCallback(int jcHandle, JOY_SHOCK_STATE state, JOY_SHOCK_STATE l
 
 	float gyroX = 0.0;
 	float gyroY = 0.0;
-	int mouse_x_flag = (int)jc->getSetting<GyroAxisMask>(SettingID::MOUSE_X_FROM_GYRO_AXIS);
-	if ((mouse_x_flag & (int)GyroAxisMask::X) > 0)
+	GyroSpace gyroSpace = jc->getSetting<GyroSpace>(SettingID::GYRO_SPACE);
+	if (gyroSpace == GyroSpace::LOCAL)
 	{
-		gyroX += inGyroX;
+		int mouse_x_flag = (int)jc->getSetting<GyroAxisMask>(SettingID::MOUSE_X_FROM_GYRO_AXIS);
+		if ((mouse_x_flag & (int)GyroAxisMask::X) > 0)
+		{
+			gyroX += inGyroX;
+		}
+		if ((mouse_x_flag & (int)GyroAxisMask::Y) > 0)
+		{
+			gyroX -= inGyroY;
+		}
+		if ((mouse_x_flag & (int)GyroAxisMask::Z) > 0)
+		{
+			gyroX -= inGyroZ;
+		}
+		int mouse_y_flag = (int)jc->getSetting<GyroAxisMask>(SettingID::MOUSE_Y_FROM_GYRO_AXIS);
+		if ((mouse_y_flag & (int)GyroAxisMask::X) > 0)
+		{
+			gyroY -= inGyroX;
+		}
+		if ((mouse_y_flag & (int)GyroAxisMask::Y) > 0)
+		{
+			gyroY += inGyroY;
+		}
+		if ((mouse_y_flag & (int)GyroAxisMask::Z) > 0)
+		{
+			gyroY += inGyroZ;
+		}
 	}
-	if ((mouse_x_flag & (int)GyroAxisMask::Y) > 0)
+	else if (gyroSpace == GyroSpace::WORLD_TURN || gyroSpace == GyroSpace::WORLD_LEAN)
 	{
-		gyroX -= inGyroY;
-	}
-	if ((mouse_x_flag & (int)GyroAxisMask::Z) > 0)
-	{
-		gyroX -= inGyroZ;
-	}
-	int mouse_y_flag = (int)jc->getSetting<GyroAxisMask>(SettingID::MOUSE_Y_FROM_GYRO_AXIS);
-	if ((mouse_y_flag & (int)GyroAxisMask::X) > 0)
-	{
+		float gravLength = sqrtf(inGravX * inGravX + inGravY * inGravY + inGravZ * inGravZ);
+		float normGravX = 0.f;
+		float normGravY = 0.f;
+		float normGravZ = 0.f;
+		if (gravLength > 0.f)
+		{
+			float gravNormalizer = 1.f / gravLength;
+			normGravX = inGravX * gravNormalizer;
+			normGravY = inGravY * gravNormalizer;
+			normGravZ = inGravZ * gravNormalizer;
+		}
+
+		float flatness = abs(normGravY);
+		if (flatness > 1.f)
+		{
+			flatness = 1.f;
+		}
+		float upness = sqrtf(1.f - flatness);
+		float flatFactor = min(flatness / 0.5f, 1.f);
+		float upFactor = min(upness / 0.5f, 1.f);
+		bool flatsideDown = normGravY < 0.f;
+		bool upsideDown = normGravZ < 0.f;
+
+		if (gyroSpace == GyroSpace::WORLD_TURN)
+		{
+			if (flatsideDown) inGyroY = -inGyroY;
+			if (upsideDown) inGyroZ = -inGyroZ;
+			if (flatness > upness)
+			{
+				float gyroSign = inGyroZ < 0.f ? -1.f : 1.f;
+				float reducedGyro = gyroSign * abs(inGyroY) * min(upness / flatness, abs(inGyroZ / inGyroY));
+				inGyroZ = reducedGyro + (inGyroZ - reducedGyro) * upFactor;
+			}
+			else
+			{
+				float gyroSign = inGyroY < 0.f ? -1.f : 1.f;
+				float reducedGyro = gyroSign * abs(inGyroZ) * min(flatness / upness, abs(inGyroY / inGyroZ));
+				inGyroY = reducedGyro + (inGyroY - reducedGyro) * flatFactor;
+			}
+		}
+		else // WORLD_LEAN
+		{
+			if (!upsideDown) inGyroY = -inGyroY;
+			if (flatsideDown) inGyroZ = -inGyroZ;
+			if (flatness > upness)
+			{
+				float gyroSign = inGyroZ < 0.f ? -1.f : 1.f;
+				float reducedGyro = gyroSign * abs(inGyroZ) * min(upness / flatness, abs(inGyroY / inGyroZ));
+				inGyroY = reducedGyro + (inGyroY - reducedGyro) * flatFactor;
+			}
+			else
+			{
+				float gyroSign = inGyroY < 0.f ? -1.f : 1.f;
+				float reducedGyro = gyroSign * abs(inGyroY) * min(flatness / upness, abs(inGyroZ / inGyroY));
+				inGyroZ = reducedGyro + (inGyroZ - reducedGyro) * upFactor;
+			}
+		}
+		float bigger;
+		float smaller;
+		if (abs(inGyroY) > abs(inGyroZ))
+		{
+			bigger = inGyroY;
+			smaller = inGyroZ;
+		}
+		else
+		{
+			bigger = inGyroZ;
+			smaller = inGyroY;
+		}
+		if (inGyroZ * inGyroY >= 0.f)
+		{
+			// same sign (ish)
+			const float gyroSign = bigger > 0.f ? 1.f : -1.f;
+			gyroX += gyroSign * sqrtf(bigger * bigger + smaller * smaller);
+		}
+		else
+		{
+			// opposite sign
+			const float gyroSign = bigger > 0.f ? 1.f : -1.f;
+			gyroX += gyroSign * sqrtf(bigger * bigger - smaller * smaller);
+		}
+
 		gyroY -= inGyroX;
-	}
-	if ((mouse_y_flag & (int)GyroAxisMask::Y) > 0)
-	{
-		gyroY += inGyroY;
-	}
-	if ((mouse_y_flag & (int)GyroAxisMask::Z) > 0)
-	{
-		gyroY += inGyroZ;
 	}
 	float gyroLength = sqrt(gyroX * gyroX + gyroY * gyroY);
 	// do gyro smoothing
@@ -3337,6 +3437,7 @@ int main(int argc, char *argv[])
 	joycon_gyro_mask.SetFilter(&filterInvalidValue<JoyconMask, JoyconMask::INVALID>);
 	joycon_motion_mask.SetFilter(&filterInvalidValue<JoyconMask, JoyconMask::INVALID>);
 	controller_orientation.SetFilter(&filterInvalidValue<ControllerOrientation, ControllerOrientation::INVALID>);
+	gyro_space.SetFilter(&filterInvalidValue<GyroSpace, GyroSpace::INVALID>);
 	zlMode.SetFilter(&filterTriggerMode);
 	zrMode.SetFilter(&filterTriggerMode);
 	flick_snap_mode.SetFilter(&filterInvalidValue<FlickSnapMode, FlickSnapMode::INVALID>);
@@ -3408,6 +3509,7 @@ int main(int argc, char *argv[])
 	left_trigger_offset.SetFilter(&filterClampByte);
 	right_trigger_range.SetFilter(&filterClampByte);
 	left_trigger_range.SetFilter(&filterClampByte);
+	auto_calibrate_gyro.SetFilter(&filterInvalidValue<Switch, Switch::INVALID>);
 
 	// light_bar needs no filter or listener. The callback polls and updates the color.
 	for (int i = argc - 1; i >= 0; --i)
@@ -3543,6 +3645,8 @@ int main(int argc, char *argv[])
 	                      ->SetHelp("Pick a gyro axis to operate on the mouse's Y axis. Valid values are the following: X, Y and Z."));
 	commandRegistry.Add((new JSMAssignment<ControllerOrientation>(controller_orientation))
 	                      ->SetHelp("Let the stick modes account for how you're holding the controller:\nFORWARD, LEFT, RIGHT, BACKWARD"));
+	commandRegistry.Add((new JSMAssignment<GyroSpace>(gyro_space))
+	                  	  ->SetHelp("How gyro input is converted to 2D input. With LOCAL, your MOUSE_X_FROM_GYRO_AXIS and MOUSE_Y_FROM_GYRO_AXIS settings decide which local angular axis maps to which 2D mouse axis.\nYour other options are WORLD_TURN and WORLD_LEAN. These both take gravity into account to combine your axes more reliably.\n\tUse WORLD_TURN if you like to turn your camera or move your cursor by turning your controller side to side.\n\tUse WORLD_LEAN if you'd rather lean your controller to turn the camera."));
 	commandRegistry.Add((new JSMAssignment<TriggerMode>(zlMode))
 	                      ->SetHelp("Controllers with a right analog trigger can use one of the following dual stage trigger modes:\nNO_FULL, NO_SKIP, MAY_SKIP, MUST_SKIP, MAY_SKIP_R, MUST_SKIP_R, NO_SKIP_EXCLUSIVE, X_LT, X_RT, PS_L2, PS_R2"));
 	commandRegistry.Add((new JSMAssignment<TriggerMode>(zrMode))
@@ -3610,19 +3714,21 @@ int main(int argc, char *argv[])
 	commandRegistry.Add((new JSMAssignment<Switch>(rumble_enable))
 	                      ->SetHelp("Disable the rumbling feature from vigem. Valid values are ON and OFF."));
 	commandRegistry.Add((new JSMAssignment<Switch>(adaptive_trigger))
-						  ->SetHelp("Control the adaptive trigger feature of the DualSense. Valid values are ON and OFF."));
+	                      ->SetHelp("Control the adaptive trigger feature of the DualSense. Valid values are ON and OFF."));
 	commandRegistry.Add((new JSMAssignment<TriggerMode>(touch_ds_mode))
 	                      ->SetHelp("Dual stage mode for the touchpad TOUCH and CAPTURE (i.e. click) bindings."));
 	commandRegistry.Add((new JSMMacro("CLEAR"))->SetMacro(bind(&ClearConsole))->SetHelp("Removes all text in the console screen"));
-	commandRegistry.Add((new JSMMacro("CALIBRATE_TRIGGERS"))->SetMacro([](JSMMacro*, in_string) 
-		{
-			triggerCalibrationStep = 1;
-			return true;
-		})->SetHelp("Starts the trigger calibration procedure for the dualsense triggers."));
+	commandRegistry.Add((new JSMMacro("CALIBRATE_TRIGGERS"))->SetMacro([](JSMMacro *, in_string) {
+		                                                        triggerCalibrationStep = 1;
+		                                                        return true;
+	                                                        })
+	                      ->SetHelp("Starts the trigger calibration procedure for the dualsense triggers."));
 	commandRegistry.Add((new JSMAssignment<int>(magic_enum::enum_name(SettingID::LEFT_TRIGGER_OFFSET).data(), left_trigger_offset)));
 	commandRegistry.Add((new JSMAssignment<int>(magic_enum::enum_name(SettingID::RIGHT_TRIGGER_OFFSET).data(), right_trigger_offset)));
 	commandRegistry.Add((new JSMAssignment<int>(magic_enum::enum_name(SettingID::LEFT_TRIGGER_RANGE).data(), left_trigger_range)));
 	commandRegistry.Add((new JSMAssignment<int>(magic_enum::enum_name(SettingID::RIGHT_TRIGGER_RANGE).data(), right_trigger_range)));
+	commandRegistry.Add((new JSMAssignment<Switch>("AUTO_CALIBRATE_GYRO", auto_calibrate_gyro))
+		->SetHelp("Gyro calibration happens automatically when this setting is ON. Otherwise you'll need to calibrate the gyro manually when using gyro aiming."));
 
 	bool quit = false;
 	commandRegistry.Add((new JSMMacro("QUIT"))
@@ -3663,7 +3769,6 @@ int main(int argc, char *argv[])
 #else
 		string arg = string(argv[0]);
 #endif
-
 		if (filesystem::is_regular_file(filesystem::status(arg)) &&
 		  arg != module)
 		{
