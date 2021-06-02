@@ -221,7 +221,7 @@ target_link_libraries (
 CPMAddPackage (
     NAME GamepadMotionHelpers
     GITHUB_REPOSITORY JibbSmart/GamepadMotionHelpers
-    GIT_TAG main
+    GIT_TAG wip
 )
 
 target_link_libraries (

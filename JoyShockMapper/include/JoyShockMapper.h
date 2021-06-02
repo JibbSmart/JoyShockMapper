@@ -235,6 +235,7 @@ enum class SettingID
 	FLICK_DEADZONE_ANGLE,
 	FLICK_TIME_EXPONENT,
 	CONTROLLER_ORIENTATION,
+	GYRO_SPACE,
 	TRACKBALL_DECAY,
 	TRIGGER_SKIP_DELAY,
 	TURBO_PERIOD,
@@ -274,6 +275,13 @@ constexpr float MAGIC_INSTANT_DURATION = 40.0f;       // in milliseconds
 constexpr float MAGIC_EXTENDED_TAP_DURATION = 500.0f; // in milliseconds
 constexpr int MAGIC_TRIGGER_SMOOTHING = 5;            // in samples
 
+enum class GyroSpace
+{
+	LOCAL,
+	WORLD_TURN,
+	WORLD_LEAN,
+	INVALID
+};
 enum class ControllerOrientation
 {
 	FORWARD,
