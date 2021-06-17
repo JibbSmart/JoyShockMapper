@@ -498,5 +498,13 @@ WORD nameToKey(const std::string &name)
 	{
 		return PS_PAD_CLICK;
 	}
+	if (name.compare("X_RT") == 0 || name.compare("PS_R2") == 0)
+	{
+		return X_RT;
+	}
+	if (name.compare("X_LT") == 0 || name.compare("PS_L2") == 0)
+	{
+		return X_LT;
+	}
 	return 0x00;
 }

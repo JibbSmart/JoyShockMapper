@@ -750,6 +750,7 @@ X_LB, X_RB : The xbox bumper buttons
 X_LS, X_RS : The xbox stick click buttons
 X_BACK, X_START, X_GUIDE : The xbox control buttons
 X_UP, X_DOWN, X_LEFT, X_RIGHT : The xbox dpad directions
+X_LT, X_RT : Digital trigger bindings
 # There is no CAPTURE / SHARE (Series X) button binding yet in ViGEm
 ```
 
@@ -761,9 +762,12 @@ RIGHT_STICK_MODE = RIGHT_STICK
 
 * **New trigger mode available**
 ```
+# Using analog triggers
 ZL_MODE = X_LT
 ZR_MODE = X_RT
 ```
+
+Using both analog and digital trigger bindings at the same time leads to undefined behaviours. Use modeshift as defined in the next section to disable analog triggers while a digital trigger binding is active.
 
 You will also find a default xbox layout in the GyroConfigs folder that you can use to set up a standard xbox controller configuration. But of course, you can remap buttons elsewhere, or combine them in using the event modifiers, chords, simultaneous presses and such.
 
@@ -796,6 +800,7 @@ PS_L3, PS_R3 : The playstation stick click buttons
 PS_SHARE, PS_OPTIONS : The playstation control buttons
 PS_UP, PS_DOWN, PS_LEFT, PS_RIGHT : The playstation dpad directions
 PS_HOME, PS_PAD_CLICK : The playstation home and pad click buttons
+PS_L2, PS_R2 : The playstation digital trigger bindings
 ```
 
 * **New stick mode available** These are exactly the same as the xbox names
@@ -806,9 +811,13 @@ RIGHT_STICK_MODE = RIGHT_STICK
 
 * **New trigger mode available**. JoyShockMapper will display the trigger mode as the xbox name : the trigger will still work properly.
 ```
+# Using analog triggers
 ZL_MODE = PS_L2
 ZR_MODE = PS_R2
 ```
+
+Using both analog and digital trigger bindings at the same time leads to undefined behaviours. Use modeshift as defined in the next section to disable analog triggers while a digital trigger binding is active.
+
 
 ### 7. Modeshifts
 

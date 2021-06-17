@@ -155,6 +155,15 @@ public:
 			if (_context->_vigemController)
 				_context->_vigemController->setButton(key, true);
 		}
+		else if (key.code == X_LT)
+		{
+			if (_context->_vigemController)
+				_context->_vigemController->setLeftTrigger(1.f);		}
+		else if (key.code == X_RT)
+		{
+			if (_context->_vigemController)
+				_context->_vigemController->setRightTrigger(1.f);
+		}
 		else if (key.code != NO_HOLD_MAPPED && HasActiveToggle(_context, key) == false)
 		{
 			DEBUG_LOG << "Pressing down on key " << key.name << endl;
@@ -168,6 +177,16 @@ public:
 		{
 			if (_context->_vigemController)
 				_context->_vigemController->setButton(key, false);
+		}
+		else if (key.code == X_LT)
+		{
+			if (_context->_vigemController)
+				_context->_vigemController->setLeftTrigger(0.f);
+		}
+		else if (key.code == X_RT)
+		{
+			if (_context->_vigemController)
+				_context->_vigemController->setRightTrigger(0.f);
 		}
 		else if (key.code != NO_HOLD_MAPPED)
 		{
