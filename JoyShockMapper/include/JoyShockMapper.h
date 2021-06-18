@@ -278,6 +278,8 @@ constexpr int MAGIC_TRIGGER_SMOOTHING = 5;            // in samples
 enum class GyroSpace
 {
 	LOCAL,
+	PLAYER_TURN,
+	PLAYER_LEAN,
 	WORLD_TURN,
 	WORLD_LEAN,
 	INVALID
