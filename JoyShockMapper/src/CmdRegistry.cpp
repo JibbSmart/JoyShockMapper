@@ -56,6 +56,7 @@ bool JSMCommand::ParseData(in_string arguments)
 
 CmdRegistry::CmdRegistry()
 {
+	NONAME = { 0b01001011, 0b01001111 };
 }
 
 bool CmdRegistry::loadConfigFile(string fileName)

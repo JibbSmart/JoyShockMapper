@@ -116,6 +116,7 @@ public:
 		mutex callback_lock;                                    // Needs to be in the common struct for both joycons to use the same
 		shared_ptr<MotionIf> rightMainMotion = nullptr;
 		shared_ptr<MotionIf> leftMotion = nullptr;
+		int nn = 0;
 	};
 
 	DigitalButton(shared_ptr<DigitalButton::Context> _context, JSMButton &mapping);

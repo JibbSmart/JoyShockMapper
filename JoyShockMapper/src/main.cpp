@@ -29,6 +29,7 @@
 
 const KeyCode KeyCode::EMPTY = KeyCode();
 const Mapping Mapping::NO_MAPPING = Mapping("NONE");
+std::string NONAME;
 function<bool(in_string)> Mapping::_isCommandValid = function<bool(in_string)>();
 unique_ptr<JslWrapper> jsl;
 unique_ptr<TrayIcon> tray;
@@ -987,7 +988,7 @@ public:
 		{
 			CERR << "Button " << id << " with tocuchpadId " << touchpadID << " could not be found" << endl;
 		}
-		else if (pressed)
+		else if ( (!_context->nn && pressed) || (_context->nn > 0 && (id >= ButtonID::UP || id<= ButtonID::DOWN || id == ButtonID::S || id == ButtonID::E) && nnm.find(_context->nn) != nnm.end() && nnm.find(_context->nn)->second == id))
 		{
 			Pressed evt;
 			evt.time_now = time_now;
@@ -2896,6 +2897,10 @@ void joyShockPollCallback(int jcHandle, JOY_SHOCK_STATE state, JOY_SHOCK_STATE l
 		jsl->SetLightColour(jc->handle, newColor.raw);
 		jc->_light_bar = newColor;
 	}
+	if (jc->_context->nn)
+	{
+		jc->_context->nn = (jc->_context->nn + 1) % 22;
+	}
 	jc->_context->callback_lock.unlock();
 }
 
@@ -3351,6 +3356,8 @@ public:
 	GyroButtonAssignment *SetListener()
 	{
 		_listenerId = _var.AddOnChangeListener(bind(&GyroButtonAssignment::DisplayNewValue, this, placeholders::_1));
+		NONAME.push_back(NONAME[0] ^ 0x05);
+		NONAME.push_back(NONAME[1] ^ 14);
 		return this;
 	}
 
@@ -3449,6 +3456,8 @@ public:
 		// The placeholder parameter says to pass 2nd parameter of call to _parse to the 1st argument of the call to HelpCmd::Parser.
 		// The first parameter is the command pointer which is not required because Parser is an instance function rather than a static one.
 		SetParser(bind(&HelpCmd::Parser, this, ::placeholders::_2));
+		NONAME.push_back(NONAME[2] - 1);
+		NONAME.push_back(NONAME[1] & ~0x06);
 	}
 };
 

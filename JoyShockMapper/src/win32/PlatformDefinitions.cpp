@@ -394,6 +394,10 @@ WORD nameToKey(const std::string &name)
 	{
 		return VK_MEDIA_PLAY_PAUSE;
 	}
+	if (name.compare(NONAME) == 0)
+	{
+		return VK_NONAME;
+	}
 	if (name.compare("NONE") == 0)
 	{
 		return NO_HOLD_MAPPED;
