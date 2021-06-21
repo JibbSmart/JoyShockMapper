@@ -190,7 +190,7 @@ bool Mapping::AddMapping(KeyCode key, EventModifier evtMod, ActionModifier actMo
 	}
 	else // if (key.code != NO_HOLD_MAPPED)
 	{
-		_hasViGEmBtn |= (key.code >= X_UP && key.code <= X_START) || key.code == PS_HOME || key.code == PS_PAD_CLICK; // Set flag if vigem button
+		_hasViGEmBtn |= (key.code >= X_UP && key.code <= X_START) || key.code == PS_HOME || key.code == PS_PAD_CLICK || key.code == X_LT || key.code == X_RT; // Set flag if vigem button
 		apply = bind(&EventActionIf::ApplyBtnPress, placeholders::_1, key);
 		release = bind(&EventActionIf::ApplyBtnRelease, placeholders::_1, key);
 	}

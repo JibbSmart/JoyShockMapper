@@ -645,7 +645,7 @@ JoyShockMapper allows you to say, "When turning slowly, I want this sensitivity.
 
 **Finally**, there are a bunch more settings you can tweak if you so desire:
 
-* **GYRO\_SPACE** (default LOCAL) - Simple gyro aiming solutions will map one of your controller's gyro axes to your camera/cursor's horizontal axis and one to the vertical axis. That's the behaviour you'll get with JoyShockMapper when GYRO\_SPACE is set to "LOCAL". This is simple to implement and leaves no room for misinterpretation, but aiming can feel off as you tilt your controller more and more. If you'd prefer a more advanced reading of the gyro combined with the accelerometer to more naturally handle different controller positions, WORLD\_TURN is the way to go. Or, if you prefer to lean your controller side to side to turn your camera, try WORLD\_LEAN.
+* **GYRO\_SPACE** (default LOCAL) - Simple gyro aiming solutions will map one of your controller's gyro axes to your camera/cursor's horizontal axis and one to the vertical axis. That's the behaviour you'll get with JoyShockMapper when GYRO\_SPACE is set to "LOCAL". This is simple to implement and leaves no room for misinterpretation, but aiming can feel off as you tilt your controller more and more. If you'd prefer a more advanced reading of the gyro combined with the accelerometer to more naturally handle different controller positions, PLAYER\_TURN is the way to go. Or, if you prefer to lean your controller side to side to turn your camera, try PLAYER\_LEAN. Finally, WORLD\_TURN and WORLD\_LEAN account for gravity more strictly than the PLAYER\_* options.
 * **GYRO\_AXIS\_X** and **GYRO\_AXIS\_Y** (default STANDARD) - This allows you to invert the gyro directions if you wish. Want a left- gyro turn to translate to a right- in-game turn? Set GYRO\_AXIS\_X to INVERTED. For normal behaviour, set it to STANDARD.
 * **MOUSE\_X\_FROM\_GYRO\_AXIS** and **MOUSE\_Y\_FROM\_GYRO\_AXIS** (default Y and X, respectively) - Maybe you want to turn the camera left and right by rolling your controller about its local Z axis instead of turning it about its local Y axis. Or maybe you want to play with a single JoyCon sideways. This is how you do that. Your options are X, Y, Z, and NONE, if you want an axis of mouse movement unaffected by the gyro. These settings only apply when GYRO\_SPACE is set to LOCAL.
 * **GYRO\_CUTOFF\_SPEED** (default 0.0 degrees per second) - Some games attempt to cover up small unintentional movements by setting a minimum speed below which gyro input will be ignored. This is that setting. It's never good. Don't use it. Some games won't even let you change or disable this "feature". I implemented it to see if it could be made good. I left it in there only so you can see for yourself that it's not good, or for you to perhaps show me how it can be.  
@@ -750,6 +750,7 @@ X_LB, X_RB : The xbox bumper buttons
 X_LS, X_RS : The xbox stick click buttons
 X_BACK, X_START, X_GUIDE : The xbox control buttons
 X_UP, X_DOWN, X_LEFT, X_RIGHT : The xbox dpad directions
+X_LT, X_RT : Digital trigger bindings
 # There is no CAPTURE / SHARE (Series X) button binding yet in ViGEm
 ```
 
@@ -761,9 +762,12 @@ RIGHT_STICK_MODE = RIGHT_STICK
 
 * **New trigger mode available**
 ```
+# Using analog triggers
 ZL_MODE = X_LT
 ZR_MODE = X_RT
 ```
+
+Using both analog and digital trigger bindings at the same time leads to undefined behaviours. Use modeshift as defined in the next section to disable analog triggers while a digital trigger binding is active.
 
 You will also find a default xbox layout in the GyroConfigs folder that you can use to set up a standard xbox controller configuration. But of course, you can remap buttons elsewhere, or combine them in using the event modifiers, chords, simultaneous presses and such.
 
@@ -796,6 +800,7 @@ PS_L3, PS_R3 : The playstation stick click buttons
 PS_SHARE, PS_OPTIONS : The playstation control buttons
 PS_UP, PS_DOWN, PS_LEFT, PS_RIGHT : The playstation dpad directions
 PS_HOME, PS_PAD_CLICK : The playstation home and pad click buttons
+PS_L2, PS_R2 : The playstation digital trigger bindings
 ```
 
 * **New stick mode available** These are exactly the same as the xbox names
@@ -806,9 +811,13 @@ RIGHT_STICK_MODE = RIGHT_STICK
 
 * **New trigger mode available**. JoyShockMapper will display the trigger mode as the xbox name : the trigger will still work properly.
 ```
+# Using analog triggers
 ZL_MODE = PS_L2
 ZR_MODE = PS_R2
 ```
+
+Using both analog and digital trigger bindings at the same time leads to undefined behaviours. Use modeshift as defined in the next section to disable analog triggers while a digital trigger binding is active.
+
 
 ### 7. Modeshifts
 

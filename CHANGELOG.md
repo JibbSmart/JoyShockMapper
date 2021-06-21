@@ -3,6 +3,15 @@
 Most recent updates will appear first.
 This is a summary of new features and bugfixes. Read the README to learn how to use the features mentioned here.
 
+## 3.2.1
+
+**Backwards compatibility note!** The GYRO_SPACE options WORLD_TURN and WORLD_LEAN have been renamed PLAYER_TURN and PLAYER_LEAN. "Player space", which is was introduced in 3.2.0 (and has been improved here), is different to "world space". WORLD_TURN and WORLD_LEAN now refer to slightly different options that use the gravity direction more strictly, and as a result are more prone to error.
+
+### Bugfixes
+* PLAYER_TURN and PLAYER_LEAN behaviours have been improved.
+* Virtual Xbox and DS4 triggers can be bound to digital buttons.
+* Easter Egg. Can you find it?
+
 ## 3.2.0
 
 Jibb added the new GYRO_SPACE setting for more one-size-fits-all gyro aiming. Default behaviour is unchanged, but set to WORLD_TURN to try the new algorithm (or WORLD_LEAN if you prefer to lean your controller side to side to turn the camera). He also added the option for automatic gyro calibration.

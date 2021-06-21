@@ -56,6 +56,8 @@ constexpr WORD X_RS = 0xF3;
 constexpr WORD X_BACK = 0xF4;
 constexpr WORD X_START = 0xF5;
 constexpr WORD X_GUIDE = 0xB8;
+constexpr WORD X_LT = 0xD8;
+constexpr WORD X_RT = 0xD9;
 
 // DS4 buttons
 constexpr WORD PS_UP = 0xE8;
@@ -74,6 +76,8 @@ constexpr WORD PS_SHARE = 0xF4;
 constexpr WORD PS_OPTIONS = 0xF5;
 constexpr WORD PS_HOME = 0xB8;
 constexpr WORD PS_PAD_CLICK = 0xB9;
+constexpr WORD PS_L2 = 0xD8;
+constexpr WORD PS_R2 = 0xD9;
 
 // All enums should have an INVALID field for proper use with templated << and >> operators
 
@@ -278,6 +282,8 @@ constexpr int MAGIC_TRIGGER_SMOOTHING = 5;            // in samples
 enum class GyroSpace
 {
 	LOCAL,
+	PLAYER_TURN,
+	PLAYER_LEAN,
 	WORLD_TURN,
 	WORLD_LEAN,
 	INVALID
