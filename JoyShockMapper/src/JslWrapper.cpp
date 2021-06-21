@@ -186,7 +186,7 @@ public:
 
 	int GetControllerSplitType(int deviceId) override
 	{
-		return JslGetControllerType(deviceId);
+		return JslGetControllerSplitType(deviceId);
 	}
 
 	int GetControllerColour(int deviceId) override
