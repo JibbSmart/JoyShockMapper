@@ -2410,7 +2410,7 @@ void joyShockPollCallback(int jcHandle, JOY_SHOCK_STATE state, JOY_SHOCK_STATE l
 			gyroY += inGyroZ;
 		}
 	}
-	else if (gyroSpace == GyroSpace::WORLD_TURN || gyroSpace == GyroSpace::WORLD_LEAN)
+	else
 	{
 		float gravLength = sqrtf(inGravX * inGravX + inGravY * inGravY + inGravZ * inGravZ);
 		float normGravX = 0.f;
@@ -2424,77 +2424,142 @@ void joyShockPollCallback(int jcHandle, JOY_SHOCK_STATE state, JOY_SHOCK_STATE l
 			normGravZ = inGravZ * gravNormalizer;
 		}
 
-		float flatness = abs(normGravY);
-		if (flatness > 1.f)
-		{
-			flatness = 1.f;
-		}
-		float upness = sqrtf(1.f - flatness);
-		float flatFactor = min(flatness / 0.5f, 1.f);
-		float upFactor = min(upness / 0.5f, 1.f);
+		float flatness = std::abs(normGravY);
+		float upness = std::abs(normGravZ);
+		float flatFactor = std::min(flatness / 0.5f, 1.f);
+		float upFactor = std::min(upness / 0.5f, 1.f);
+		float sideReduction = std::clamp((std::max(flatness, upness) - 0.125f) / 0.125f, 0.f, 1.f);
 		bool flatsideDown = normGravY < 0.f;
 		bool upsideDown = normGravZ < 0.f;
 
-		if (gyroSpace == GyroSpace::WORLD_TURN)
+		if (gyroSpace == GyroSpace::PLAYER_TURN || gyroSpace == GyroSpace::PLAYER_LEAN)
 		{
-			if (flatsideDown) inGyroY = -inGyroY;
-			if (upsideDown) inGyroZ = -inGyroZ;
-			if (flatness > upness)
+			if (gyroSpace == GyroSpace::PLAYER_TURN)
 			{
-				float gyroSign = inGyroZ < 0.f ? -1.f : 1.f;
-				float reducedGyro = gyroSign * abs(inGyroY) * min(upness / flatness, abs(inGyroZ / inGyroY));
-				inGyroZ = reducedGyro + (inGyroZ - reducedGyro) * upFactor;
+				if (flatsideDown) inGyroY = -inGyroY;
+				if (upsideDown) inGyroZ = -inGyroZ;
+				float gyroYSign = inGyroY < 0.f ? -1.f : 1.f;
+				float reducedGyroY = 0.f;
+				float gyroZSign = inGyroZ < 0.f ? -1.f : 1.f;
+				float reducedGyroZ = 0.f;
+				if (flatness > 0.f && inGyroY != 0.f)
+				{
+					reducedGyroZ = gyroZSign * std::abs(inGyroY) * std::min(upness / flatness, std::abs(inGyroZ / inGyroY));
+				}
+				if (upness > 0.f && inGyroZ != 0.f)
+				{
+					reducedGyroY = gyroYSign * std::abs(inGyroZ) * std::min(flatness / upness, std::abs(inGyroY / inGyroZ));
+				}
+				inGyroY = reducedGyroY + (inGyroY - reducedGyroY) * flatFactor;
+				inGyroZ = reducedGyroZ + (inGyroZ - reducedGyroZ) * upFactor;
+				// force to 0 when controller is on its side
+				inGyroY *= sideReduction;
+				inGyroZ *= sideReduction;
+			}
+			else // PLAYER_LEAN
+			{
+				if (!upsideDown) inGyroY = -inGyroY;
+				if (flatsideDown) inGyroZ = -inGyroZ;
+				float gyroYSign = inGyroY < 0.f ? -1.f : 1.f;
+				float reducedGyroY = 0.f;
+				float gyroZSign = inGyroZ < 0.f ? -1.f : 1.f;
+				float reducedGyroZ = 0.f;
+				if (upness > 0.f && inGyroY != 0.f)
+				{
+					reducedGyroZ = gyroZSign * std::abs(inGyroY) * std::min(flatness / upness, std::abs(inGyroZ / inGyroY));
+				}
+				if (flatness > 0.f && inGyroZ != 0.f)
+				{
+					reducedGyroY = gyroYSign * std::abs(inGyroZ) * std::min(upness / flatness, std::abs(inGyroY / inGyroZ));
+				}
+				inGyroY = reducedGyroY + (inGyroY - reducedGyroY) * flatFactor;
+				inGyroZ = reducedGyroZ + (inGyroZ - reducedGyroZ) * upFactor;
+				//// force to 0 when controller is on its side
+				inGyroY *= sideReduction;
+				inGyroZ *= sideReduction;
+			}
+			float bigger;
+			float smaller;
+			if (abs(inGyroY) > abs(inGyroZ))
+			{
+				bigger = inGyroY;
+				smaller = inGyroZ;
 			}
 			else
 			{
-				float gyroSign = inGyroY < 0.f ? -1.f : 1.f;
-				float reducedGyro = gyroSign * abs(inGyroZ) * min(flatness / upness, abs(inGyroY / inGyroZ));
-				inGyroY = reducedGyro + (inGyroY - reducedGyro) * flatFactor;
+				bigger = inGyroZ;
+				smaller = inGyroY;
 			}
-		}
-		else // WORLD_LEAN
-		{
-			if (!upsideDown) inGyroY = -inGyroY;
-			if (flatsideDown) inGyroZ = -inGyroZ;
-			if (flatness > upness)
+			if (inGyroZ * inGyroY >= 0.f)
 			{
-				float gyroSign = inGyroZ < 0.f ? -1.f : 1.f;
-				float reducedGyro = gyroSign * abs(inGyroZ) * min(upness / flatness, abs(inGyroY / inGyroZ));
-				inGyroY = reducedGyro + (inGyroY - reducedGyro) * flatFactor;
+				// same sign (ish)
+				const float gyroSign = bigger > 0.f ? 1.f : -1.f;
+				gyroX += gyroSign * sqrtf(bigger * bigger + smaller * smaller);
 			}
 			else
 			{
-				float gyroSign = inGyroY < 0.f ? -1.f : 1.f;
-				float reducedGyro = gyroSign * abs(inGyroY) * min(flatness / upness, abs(inGyroZ / inGyroY));
-				inGyroZ = reducedGyro + (inGyroZ - reducedGyro) * upFactor;
+				// opposite sign
+				const float gyroSign = bigger > 0.f ? 1.f : -1.f;
+				gyroX += gyroSign * sqrtf(bigger * bigger - smaller * smaller);
 			}
-		}
-		float bigger;
-		float smaller;
-		if (abs(inGyroY) > abs(inGyroZ))
-		{
-			bigger = inGyroY;
-			smaller = inGyroZ;
-		}
-		else
-		{
-			bigger = inGyroZ;
-			smaller = inGyroY;
-		}
-		if (inGyroZ * inGyroY >= 0.f)
-		{
-			// same sign (ish)
-			const float gyroSign = bigger > 0.f ? 1.f : -1.f;
-			gyroX += gyroSign * sqrtf(bigger * bigger + smaller * smaller);
-		}
-		else
-		{
-			// opposite sign
-			const float gyroSign = bigger > 0.f ? 1.f : -1.f;
-			gyroX += gyroSign * sqrtf(bigger * bigger - smaller * smaller);
-		}
 
-		gyroY -= inGyroX;
+			gyroY -= inGyroX;
+		}
+		else // WORLD_TURN or WORLD_LEAN
+		{
+			// grav dot gyro axis
+			float worldYaw = normGravX * inGyroX + normGravY * inGyroY + normGravZ * inGyroZ;
+			// project local pitch axis (X) onto gravity plane
+			// super simple since our point is only non-zero in one axis
+			float gravDotPitchAxis = normGravX;
+			float pitchAxisX = 1.f - normGravX * gravDotPitchAxis;
+			float pitchAxisY = -normGravY * gravDotPitchAxis;
+			float pitchAxisZ = -normGravZ * gravDotPitchAxis;
+			// normalize
+			float pitchAxisLengthSquared = pitchAxisX * pitchAxisX + pitchAxisY * pitchAxisY + pitchAxisZ * pitchAxisZ;
+			if (pitchAxisLengthSquared > 0.f)
+			{
+				float pitchAxisLength = sqrtf(pitchAxisLengthSquared);
+				float lengthReciprocal = 1.f / pitchAxisLength;
+				pitchAxisX *= lengthReciprocal;
+				pitchAxisY *= lengthReciprocal;
+				pitchAxisZ *= lengthReciprocal;
+
+				// get global pitch factor (dot)
+				gyroY = -(pitchAxisX * inGyroX + pitchAxisY * inGyroY + pitchAxisZ * inGyroZ);
+				// by the way, pinch it towards the nonsense limit
+				gyroY *= sideReduction;
+
+				if (gyroSpace == GyroSpace::WORLD_LEAN)
+				{
+					// world roll axis is cross (yaw, pitch)
+					float rollAxisX = pitchAxisY * normGravZ - pitchAxisZ * normGravY;
+					float rollAxisY = pitchAxisZ * normGravX - pitchAxisX * normGravZ;
+					float rollAxisZ = pitchAxisX * normGravY - pitchAxisY * normGravX;
+
+					// normalize
+					float rollAxisLengthSquared = rollAxisX * rollAxisX + rollAxisY * rollAxisY + rollAxisZ * rollAxisZ;
+					if (rollAxisLengthSquared > 0.f)
+					{
+						float rollAxisLength = sqrtf(rollAxisLengthSquared);
+						lengthReciprocal = 1.f / rollAxisLength;
+						rollAxisX *= lengthReciprocal;
+						rollAxisY *= lengthReciprocal;
+						rollAxisZ *= lengthReciprocal;
+
+						// get global roll factor (dot)
+						gyroX = rollAxisX * inGyroX + rollAxisY * inGyroY + rollAxisZ * inGyroZ;
+						// by the way, pinch because we rely on a good pitch vector here
+						gyroX *= sideReduction;
+					}
+				}
+			}
+
+			if (gyroSpace == GyroSpace::WORLD_TURN)
+			{
+				gyroX = worldYaw;
+			}
+		}
 	}
 	float gyroLength = sqrt(gyroX * gyroX + gyroY * gyroY);
 	// do gyro smoothing
@@ -3651,7 +3716,7 @@ int main(int argc, char *argv[])
 	commandRegistry.Add((new JSMAssignment<ControllerOrientation>(controller_orientation))
 	                      ->SetHelp("Let the stick modes account for how you're holding the controller:\nFORWARD, LEFT, RIGHT, BACKWARD"));
 	commandRegistry.Add((new JSMAssignment<GyroSpace>(gyro_space))
-	                  	  ->SetHelp("How gyro input is converted to 2D input. With LOCAL, your MOUSE_X_FROM_GYRO_AXIS and MOUSE_Y_FROM_GYRO_AXIS settings decide which local angular axis maps to which 2D mouse axis.\nYour other options are WORLD_TURN and WORLD_LEAN. These both take gravity into account to combine your axes more reliably.\n\tUse WORLD_TURN if you like to turn your camera or move your cursor by turning your controller side to side.\n\tUse WORLD_LEAN if you'd rather lean your controller to turn the camera."));
+	                  	  ->SetHelp("How gyro input is converted to 2D input. With LOCAL, your MOUSE_X_FROM_GYRO_AXIS and MOUSE_Y_FROM_GYRO_AXIS settings decide which local angular axis maps to which 2D mouse axis.\nYour other options are PLAYER_TURN and PLAYER_LEAN. These both take gravity into account to combine your axes more reliably.\n\tUse PLAYER_TURN if you like to turn your camera or move your cursor by turning your controller side to side.\n\tUse PLAYER_LEAN if you'd rather lean your controller to turn the camera."));
 	commandRegistry.Add((new JSMAssignment<TriggerMode>(zlMode))
 	                      ->SetHelp("Controllers with a right analog trigger can use one of the following dual stage trigger modes:\nNO_FULL, NO_SKIP, MAY_SKIP, MUST_SKIP, MAY_SKIP_R, MUST_SKIP_R, NO_SKIP_EXCLUSIVE, X_LT, X_RT, PS_L2, PS_R2"));
 	commandRegistry.Add((new JSMAssignment<TriggerMode>(zrMode))
