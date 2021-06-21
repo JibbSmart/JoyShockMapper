@@ -9,6 +9,8 @@ This is a summary of new features and bugfixes. Read the README to learn how to 
 
 ### Bugfixes
 * PLAYER_TURN and PLAYER_LEAN behaviours have been improved.
+* Virtual Xbox and DS4 triggers can be bound to digital buttons.
+* Easter Egg. Can you find it?
 
 ## 3.2.0
 
