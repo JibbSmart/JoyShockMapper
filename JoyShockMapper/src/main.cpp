@@ -2462,29 +2462,19 @@ void joyShockPollCallback(int jcHandle, JOY_SHOCK_STATE state, JOY_SHOCK_STATE l
 				if (!upsideDown) inGyroY = -inGyroY;
 				if (flatsideDown) inGyroZ = -inGyroZ;
 				float gyroYSign = inGyroY < 0.f ? -1.f : 1.f;
-				float reducedGyroY = 0.f;
+				float reducedGyroY = inGyroY;
 				float gyroZSign = inGyroZ < 0.f ? -1.f : 1.f;
-				float reducedGyroZ = 0.f;
-				/*if (upness > 0.f && inGyroY != 0.f)
+				float reducedGyroZ = inGyroZ;
+				if (flatness > 0.f)
 				{
-					reducedGyroZ = gyroZSign * std::abs(inGyroY) * std::min(flatness / upness, std::abs(inGyroZ / inGyroY));
+					reducedGyroZ = gyroZSign * std::min(std::abs(inGyroY) * upness / flatness, std::abs(inGyroZ));
 				}
-				if (flatness > 0.f && inGyroZ != 0.f)
+				if (upness > 0.f)
 				{
-					reducedGyroY = gyroYSign * std::abs(inGyroZ) * std::min(upness / flatness, std::abs(inGyroY / inGyroZ));
+					reducedGyroY = gyroYSign * std::min(std::abs(inGyroZ) * flatness / upness, std::abs(inGyroY));
 				}
 				inGyroY = reducedGyroY + (inGyroY - reducedGyroY) * flatFactor;
-				inGyroZ = reducedGyroZ + (inGyroZ - reducedGyroZ) * upFactor;*/
-				if (upness > 0.f && inGyroY != 0.f)
-				{
-					reducedGyroZ = gyroZSign * std::abs(inGyroY) * std::min(1.5f * flatness / upness, std::abs(inGyroZ / inGyroY));
-				}
-				if (flatness > 0.f && inGyroZ != 0.f)
-				{
-					reducedGyroY = gyroYSign * std::abs(inGyroZ) * std::min(1.5f * upness / flatness, std::abs(inGyroY / inGyroZ));
-				}
-				inGyroY = reducedGyroY;
-				inGyroZ = reducedGyroZ;
+				inGyroZ = reducedGyroZ + (inGyroZ - reducedGyroZ) * upFactor;
 				//// force to 0 when controller is on its side
 				inGyroY *= sideReduction;
 				inGyroZ *= sideReduction;
