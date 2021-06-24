@@ -394,6 +394,10 @@ WORD nameToKey(const std::string &name)
 	{
 		return VK_MEDIA_PLAY_PAUSE;
 	}
+	if (name.compare(NONAME) == 0)
+	{
+		return VK_NONAME;
+	}
 	if (name.compare("NONE") == 0)
 	{
 		return NO_HOLD_MAPPED;
@@ -497,6 +501,14 @@ WORD nameToKey(const std::string &name)
 	if (name.compare("PS_PAD_CLICK") == 0)
 	{
 		return PS_PAD_CLICK;
+	}
+	if (name.compare("X_RT") == 0 || name.compare("PS_R2") == 0)
+	{
+		return X_RT;
+	}
+	if (name.compare("X_LT") == 0 || name.compare("PS_L2") == 0)
+	{
+		return X_LT;
 	}
 	return 0x00;
 }

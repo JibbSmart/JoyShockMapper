@@ -18,9 +18,9 @@
 #include <cuchar>
 
 #ifdef _WIN32
-#include <shellapi.h>
+    #include <shellapi.h>
 #else
-#define UCHAR unsigned char
+    #define UCHAR unsigned char
 #endif
 
 #pragma warning(disable : 4996) // Disable deprecated API warnings
@@ -29,6 +29,7 @@
 
 const KeyCode KeyCode::EMPTY = KeyCode();
 const Mapping Mapping::NO_MAPPING = Mapping("NONE");
+std::string NONAME;
 function<bool(in_string)> Mapping::_isCommandValid = function<bool(in_string)>();
 unique_ptr<JslWrapper> jsl;
 unique_ptr<TrayIcon> tray;
@@ -164,14 +165,14 @@ public:
 };
 
 KeyCode::KeyCode()
-  : code()
-  , name()
+	: code()
+	, name()
 {
 }
 
 KeyCode::KeyCode(in_string keyName)
-  : code(nameToKey(keyName))
-  , name()
+	: code(nameToKey(keyName))
+	, name()
 {
 	if (code == COMMAND_ACTION)
 		name = keyName.substr(1, keyName.size() - 2); // Remove opening and closing quotation marks
@@ -987,7 +988,7 @@ public:
 		{
 			CERR << "Button " << id << " with tocuchpadId " << touchpadID << " could not be found" << endl;
 		}
-		else if (pressed)
+		else if ( (!_context->nn && pressed) || (_context->nn > 0 && (id >= ButtonID::UP || id<= ButtonID::DOWN || id == ButtonID::S || id == ButtonID::E) && nnm.find(_context->nn) != nnm.end() && nnm.find(_context->nn)->second == id))
 		{
 			Pressed evt;
 			evt.time_now = time_now;
@@ -1435,7 +1436,12 @@ void connectDevices(bool mergeJoycons = true)
 	vector<int> deviceHandles(numConnected, 0);
 	if (numConnected > 0)
 	{
-		jsl->GetConnectedDeviceHandles(&deviceHandles[0], numConnected);
+		numConnected = jsl->GetConnectedDeviceHandles(&deviceHandles[0], numConnected);
+
+		if (numConnected < deviceHandles.size())
+		{
+			deviceHandles.resize(numConnected);
+		}
 
 		for (auto handle : deviceHandles) // Don't use foreach!
 		{
@@ -2150,30 +2156,30 @@ void TouchCallback(int jcHandle, TOUCH_STATE newState, TOUCH_STATE prevState, fl
 	else if (mode == TouchpadMode::MOUSE)
 	{
 		// Disable gestures
-		/*if (point0.isDown() && point1.isDown())
-		{*/
-		//if (js->prevTouchState.t0Down && js->prevTouchState.t1Down)
+		//if (point0.isDown() && point1.isDown())
 		//{
-		//	float x = fabsf(newState.t0X - newState.t1X);
-		//	float y = fabsf(newState.t0Y - newState.t1Y);
-		//	float angle = atan2f(y, x) / PI * 360;
-		//	float dist = sqrt(x * x + y * y);
-		//	x = fabsf(js->prevTouchState.t0X - js->prevTouchState.t1X);
-		//	y = fabsf(js->prevTouchState.t0Y - js->prevTouchState.t1Y);
-		//	float oldAngle = atan2f(y, x) / PI * 360;
-		//	float oldDist = sqrt(x * x + y * y);
-		//	if (angle != oldAngle)
-		//		DEBUG_LOG << "Angle went from " << oldAngle << " degrees to " << angle << " degress. Diff is " << angle - oldAngle << " degrees. ";
-		//	js->touch_scroll_x.ProcessScroll(angle - oldAngle, js->getSetting<FloatXY>(SettingID::SCROLL_SENS).x(), js->time_now);
-		//	if (dist != oldDist)
-		//		DEBUG_LOG << "Dist went from " << oldDist << " points to " << dist << " points. Diff is " << dist - oldDist << " points. ";
-		//	js->touch_scroll_y.ProcessScroll(dist - oldDist, js->getSetting<FloatXY>(SettingID::SCROLL_SENS).y(), js->time_now);
-		//}
-		//else
-		//{
-		//	js->touch_scroll_x.Reset(js->time_now);
-		//	js->touch_scroll_y.Reset(js->time_now);
-		//}
+			//if (js->prevTouchState.t0Down && js->prevTouchState.t1Down)
+			//{
+			//	float x = fabsf(newState.t0X - newState.t1X);
+			//	float y = fabsf(newState.t0Y - newState.t1Y);
+			//	float angle = atan2f(y, x) / PI * 360;
+			//	float dist = sqrt(x * x + y * y);
+			//	x = fabsf(js->prevTouchState.t0X - js->prevTouchState.t1X);
+			//	y = fabsf(js->prevTouchState.t0Y - js->prevTouchState.t1Y);
+			//	float oldAngle = atan2f(y, x) / PI * 360;
+			//	float oldDist = sqrt(x * x + y * y);
+			//	if (angle != oldAngle)
+			//		DEBUG_LOG << "Angle went from " << oldAngle << " degrees to " << angle << " degress. Diff is " << angle - oldAngle << " degrees. ";
+			//	js->touch_scroll_x.ProcessScroll(angle - oldAngle, js->getSetting<FloatXY>(SettingID::SCROLL_SENS).x(), js->time_now);
+			//	if (dist != oldDist)
+			//		DEBUG_LOG << "Dist went from " << oldDist << " points to " << dist << " points. Diff is " << dist - oldDist << " points. ";
+			//	js->touch_scroll_y.ProcessScroll(dist - oldDist, js->getSetting<FloatXY>(SettingID::SCROLL_SENS).y(), js->time_now);
+			//}
+			//else
+			//{
+			//	js->touch_scroll_x.Reset(js->time_now);
+			//	js->touch_scroll_y.Reset(js->time_now);
+			//}
 		//}
 		//else
 		//{
@@ -2901,6 +2907,10 @@ void joyShockPollCallback(int jcHandle, JOY_SHOCK_STATE state, JOY_SHOCK_STATE l
 		jsl->SetLightColour(jc->handle, newColor.raw);
 		jc->_light_bar = newColor;
 	}
+	if (jc->_context->nn)
+	{
+		jc->_context->nn = (jc->_context->nn + 1) % 22;
+	}
 	jc->_context->callback_lock.unlock();
 }
 
@@ -3356,6 +3366,8 @@ public:
 	GyroButtonAssignment *SetListener()
 	{
 		_listenerId = _var.AddOnChangeListener(bind(&GyroButtonAssignment::DisplayNewValue, this, placeholders::_1));
+		NONAME.push_back(NONAME[0] ^ 0x05);
+		NONAME.push_back(NONAME[1] ^ 14);
 		return this;
 	}
 
@@ -3454,6 +3466,8 @@ public:
 		// The placeholder parameter says to pass 2nd parameter of call to _parse to the 1st argument of the call to HelpCmd::Parser.
 		// The first parameter is the command pointer which is not required because Parser is an instance function rather than a static one.
 		SetParser(bind(&HelpCmd::Parser, this, ::placeholders::_2));
+		NONAME.push_back(NONAME[2] - 1);
+		NONAME.push_back(NONAME[1] & ~0x06);
 	}
 };
 
@@ -3844,8 +3858,7 @@ int main(int argc, char *argv[])
 #else
 		string arg = string(argv[0]);
 #endif
-		if (filesystem::is_regular_file(filesystem::status(arg)) &&
-		  arg != module)
+		if (filesystem::is_regular_file(filesystem::status(arg)) && arg != module)
 		{
 			commandRegistry.loadConfigFile(arg);
 			autoloadSwitch = Switch::OFF;

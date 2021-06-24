@@ -2,6 +2,8 @@
 
 #include <string>
 
+extern std::string NONAME;
+
 #ifdef _WIN32
 
 #include <Windows.h>

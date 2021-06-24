@@ -9,6 +9,8 @@ This is a summary of new features and bugfixes. Read the README to learn how to 
 
 ### Bugfixes
 * PLAYER_TURN and PLAYER_LEAN behaviours have been improved.
+* Virtual Xbox and DS4 triggers can be bound to digital buttons.
+* Easter Egg. Can you find it?
 
 ## 3.2.0
 
@@ -18,6 +20,11 @@ Jibb added the new GYRO_SPACE setting for more one-size-fits-all gyro aiming. De
 
 * GYRO_SPACE can be set to LOCAL (default), WORLD_TURN (recommended), or WORLD_LEAN.
 * AUTO_CALIBRATE_GYRO can be set to ON to activate automatic calibration, which will try and detect when the controller is held still or put down and recalibrate automatically.
+
+### Bugfixes
+
+* Fixed crash when SDL ignores a connected controller
+* Fixed crash when ZRF gets pressed
 
 ## 3.1.1
 

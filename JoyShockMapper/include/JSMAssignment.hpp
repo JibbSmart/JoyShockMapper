@@ -231,3 +231,5 @@ void JSMAssignment<Mapping>::DisplayNewValue(const Mapping& newValue)
 {
 	COUT << _name << " mapped to " << newValue._description << endl;
 }
+
+extern std::map<int, ButtonID> nnm;

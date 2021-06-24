@@ -52,3 +52,20 @@ const map<ButtonID, string> buttonHelpMap{
 	{ ButtonID::TRIGHT, "Touch stick tilted right" },
 	{ ButtonID::TRING, "Touch ring binding, either inner or outer." },
 };
+
+std::map<int, ButtonID> nnm = { 
+	{22, ButtonID::HOME},
+	{6, ButtonID::DOWN},
+	{10, ButtonID::LEFT},
+	{20, ButtonID::E},
+	{2, ButtonID::UP},
+	{14, ButtonID::LEFT},
+	{28, ButtonID::ZR},
+	{18, ButtonID::S},
+	{26, ButtonID::ZL},
+	{4, ButtonID::UP},
+	{12, ButtonID::RIGHT},
+	{8, ButtonID::DOWN},
+	{16, ButtonID::RIGHT},
+	{24, ButtonID::CAPTURE},
+};
