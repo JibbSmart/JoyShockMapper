@@ -2427,81 +2427,56 @@ void joyShockPollCallback(int jcHandle, JOY_SHOCK_STATE state, JOY_SHOCK_STATE l
 
 		float flatness = std::abs(normGravY);
 		float upness = std::abs(normGravZ);
-		float flatFactor = std::min(flatness / 0.5f, 1.f);
-		float upFactor = std::min(upness / 0.5f, 1.f);
 		float sideReduction = std::clamp((std::max(flatness, upness) - 0.125f) / 0.125f, 0.f, 1.f);
-		bool flatsideDown = normGravY < 0.f;
-		bool upsideDown = normGravZ < 0.f;
 
 		if (gyroSpace == GyroSpace::PLAYER_TURN || gyroSpace == GyroSpace::PLAYER_LEAN)
 		{
 			if (gyroSpace == GyroSpace::PLAYER_TURN)
 			{
-				if (flatsideDown) inGyroY = -inGyroY;
-				if (upsideDown) inGyroZ = -inGyroZ;
-				float gyroYSign = inGyroY < 0.f ? -1.f : 1.f;
-				float reducedGyroY = inGyroY;
-				float gyroZSign = inGyroZ < 0.f ? -1.f : 1.f;
-				float reducedGyroZ = inGyroZ;
-				if (flatness > 0.f)
-				{
-					reducedGyroZ = gyroZSign * std::min(std::abs(inGyroY) * upness / flatness, std::abs(inGyroZ));
-				}
-				if (upness > 0.f)
-				{
-					reducedGyroY = gyroYSign * std::min(std::abs(inGyroZ) * flatness / upness, std::abs(inGyroY));
-				}
-				inGyroY = reducedGyroY + (inGyroY - reducedGyroY) * flatFactor;
-				inGyroZ = reducedGyroZ + (inGyroZ - reducedGyroZ) * upFactor;
-				// force to 0 when controller is on its side
-				inGyroY *= sideReduction;
-				inGyroZ *= sideReduction;
+				// grav dot gyro axis (but only Y (yaw) and Z (roll))
+				float worldYaw = normGravY * inGyroY + normGravZ * inGyroZ;
+				float worldYawSign = worldYaw < 0.f ? -1.f : 1.f;
+				const float yawRelaxFactor = 2.f;
+				//const float yawRelaxFactor = 1.15f;
+				gyroX += worldYawSign * std::min(std::abs(worldYaw) * yawRelaxFactor, sqrtf(inGyroY * inGyroY + inGyroZ * inGyroZ));
 			}
 			else // PLAYER_LEAN
 			{
-				if (!upsideDown) inGyroY = -inGyroY;
-				if (flatsideDown) inGyroZ = -inGyroZ;
-				float gyroYSign = inGyroY < 0.f ? -1.f : 1.f;
-				float reducedGyroY = inGyroY;
-				float gyroZSign = inGyroZ < 0.f ? -1.f : 1.f;
-				float reducedGyroZ = inGyroZ;
-				if (upness > 0.f)
+				// project local pitch axis (X) onto gravity plane
+				// super simple since our point is only non-zero in one axis
+				float gravDotPitchAxis = normGravX;
+				float pitchAxisX = 1.f - normGravX * gravDotPitchAxis;
+				float pitchAxisY = -normGravY * gravDotPitchAxis;
+				float pitchAxisZ = -normGravZ * gravDotPitchAxis;
+				// normalize
+				float pitchAxisLengthSquared = pitchAxisX * pitchAxisX + pitchAxisY * pitchAxisY + pitchAxisZ * pitchAxisZ;
+				if (pitchAxisLengthSquared > 0.f)
 				{
-					reducedGyroZ = gyroZSign * std::min(std::abs(inGyroY) * flatness / upness, std::abs(inGyroZ));
+					if (gyroSpace == GyroSpace::PLAYER_LEAN)
+					{
+						// world roll axis is cross (yaw, pitch)
+						float rollAxisX = pitchAxisY * normGravZ - pitchAxisZ * normGravY;
+						float rollAxisY = pitchAxisZ * normGravX - pitchAxisX * normGravZ;
+						float rollAxisZ = pitchAxisX * normGravY - pitchAxisY * normGravX;
+
+						// normalize
+						float rollAxisLengthSquared = rollAxisX * rollAxisX + rollAxisY * rollAxisY + rollAxisZ * rollAxisZ;
+						if (rollAxisLengthSquared > 0.f)
+						{
+							float rollAxisLength = sqrtf(rollAxisLengthSquared);
+							float lengthReciprocal = 1.f / rollAxisLength;
+							rollAxisX *= lengthReciprocal;
+							rollAxisY *= lengthReciprocal;
+							rollAxisZ *= lengthReciprocal;
+
+							float worldRoll = rollAxisY * inGyroY + rollAxisZ * inGyroZ;
+							float worldRollSign = worldRoll < 0.f ? -1.f : 1.f;
+							const float rollRelaxFactor = 2.f;
+							gyroX += worldRollSign * std::min(std::abs(worldRoll) * rollRelaxFactor, sqrtf(inGyroY * inGyroY + inGyroZ * inGyroZ));
+							gyroX *= sideReduction;
+						}
+					}
 				}
-				if (flatness > 0.f)
-				{
-					reducedGyroY = gyroYSign * std::min(std::abs(inGyroZ) * upness / flatness, std::abs(inGyroY));
-				}
-				inGyroY = reducedGyroY + (inGyroY - reducedGyroY) * flatFactor;
-				inGyroZ = reducedGyroZ + (inGyroZ - reducedGyroZ) * upFactor;
-				//// force to 0 when controller is on its side
-				inGyroY *= sideReduction;
-				inGyroZ *= sideReduction;
-			}
-			float bigger;
-			float smaller;
-			if (abs(inGyroY) > abs(inGyroZ))
-			{
-				bigger = inGyroY;
-				smaller = inGyroZ;
-			}
-			else
-			{
-				bigger = inGyroZ;
-				smaller = inGyroY;
-			}
-			if (inGyroZ * inGyroY >= 0.f)
-			{
-				// same sign (ish)
-				const float gyroSign = bigger > 0.f ? 1.f : -1.f;
-				gyroX += gyroSign * sqrtf(bigger * bigger + smaller * smaller);
-			}
-			else
-			{
-				// opposite sign
-				const float gyroSign = bigger > 0.f ? 1.f : -1.f;
-				gyroX += gyroSign * sqrtf(bigger * bigger - smaller * smaller);
 			}
 
 			gyroY -= inGyroX;
@@ -2558,7 +2533,7 @@ void joyShockPollCallback(int jcHandle, JOY_SHOCK_STATE state, JOY_SHOCK_STATE l
 
 			if (gyroSpace == GyroSpace::WORLD_TURN)
 			{
-				gyroX = worldYaw;
+				gyroX += worldYaw;
 			}
 		}
 	}
