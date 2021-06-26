@@ -3,21 +3,144 @@
 Most recent updates will appear first.
 This is a summary of new features and bugfixes. Read the README to learn how to use the features mentioned here.
 
-## 3.0.0
-Nicolas added ViGEm support for virtual xbox and DS4 for buttons, triggers and sticks as well as rumble forwarding.
-Added colored console lines
-Added DS4 rumble commands and light bar setting
-Added hair trigger soft press as a negative threshold and trigger modes SCROLL_WHEEL and NO_SKIP_EXCLUSIVE
-Added ability to hide JSM from the taskbar when minimized, with a checkbox in the tray icon
-Added help strings for button mapping
-Handle drag n drop files into the console better
-Improve command error handling
+## 3.2.1
+
+**Backwards compatibility note!** The GYRO_SPACE options WORLD_TURN and WORLD_LEAN have been renamed PLAYER_TURN and PLAYER_LEAN. "Player space", which is was introduced in 3.2.0 (and has been improved here), is different to "world space". WORLD_TURN and WORLD_LEAN now refer to slightly different options that use the gravity direction more strictly, and as a result are more prone to error.
+
+### Bugfixes
+* PLAYER_TURN and PLAYER_LEAN behaviours have been improved.
+* Virtual Xbox and DS4 triggers can be bound to digital buttons.
+* Easter Egg. Can you find it?
+
+## 3.2.0
+
+Jibb added the new GYRO_SPACE setting for more one-size-fits-all gyro aiming. Default behaviour is unchanged, but set to WORLD_TURN to try the new algorithm (or WORLD_LEAN if you prefer to lean your controller side to side to turn the camera). He also added the option for automatic gyro calibration.
 
 ### Features
-* New Bindings: TOUCH, T1-T25 touch buttons, Touch stick bindings
-* New settings for touch joystick such as mode, inner deadzone, and stick radius
+
+* GYRO_SPACE can be set to LOCAL (default), WORLD_TURN (recommended), or WORLD_LEAN.
+* AUTO_CALIBRATE_GYRO can be set to ON to activate automatic calibration, which will try and detect when the controller is held still or put down and recalibrate automatically.
+
+### Bugfixes
+
+* Fixed crash when SDL ignores a connected controller
+* Fixed crash when ZRF gets pressed
+
+## 3.1.1
+
+Fix linux build (Thanks TauAkiou)
+Add Addaptive trigger calibration procedure and settings
+
+### Features
+
+* New Settings: LEFT_TRIGGER_OFFSET, LEFT_TRIGGER_RANGE, RIGHT_TRIGGER_OFFSET, RIGHT_TRIGGER_RANGE
+* New macro command CALIBRATE_TRIGGERS starts a trigger calibration procedure. See README
+
+### Bugfixes
+
+* Fix instant presses not releasing
+* Fix TOUCH binding flickering when the pad would be clicked but not touched
+
+## 3.1.0
+
+SDL build of JSM has no label, and JSL build is marked as "legacy"
+Dualsense Adaptive trigger support, MIC button support
+DS and DS4 touchpad support. See features below
+HidHide support and improved error logs
+DBL_PRESS_WINDOW is now a modeshift-able setting and hold time is not restricted by it anymore
+The first press of double press enables mapping. See README
+Tons of refactoring and code improvements in preparation for unit tests
+Gestures from the beta has been disabled
+
+### Features
+
+* Touchpad mouse, grid (1-25 buttons) and stick available
+* New settings related to touchpad features
+  * TOUCHPAD_MODE sets to either MOUSE or GRID_AND_STICK
+  * GRID_SIZE takes rows and colums (max grid 25 buttons)
+  * TOUCH_STICK_MODE is a regular stick mode for a touch stick
+  * TOUCH_STICK_DEADZONE_INNER, TOUCH_STICK_RADIUS, TOUCH_RING_MODE
+  * TOUCHPAD_SENS controls the mouse mode sensitivity
+  * ADAPTIVE_TRIGGER switch can turn trigger resistance off: hair trigger is not available on DS when Adaptive Triggers are on.
+* New MIC binding used by DS only
+* Dualsense applies adaptive trigger setting based on trigger mode and state
+* HidHide support: hidhide remembers applications, so you don't need to add to whitelist at every start
+* DBL_PRESS_WINDOW default value is now same os hold press : 150 ms
+
+### Bugfixes
+
+* Gyro active toggle didn't clear after another gyro release
+* An active toggle hides subsequent presses of the same key
+* Controller type didn't report properly
+* Tray menu loads a relative path to minimize pathing issue
+* Fixed an issue in the beta where adaptive triggers were "ticking"
+
+## 3.0.2
+
+Reverting blocked key presses and bugfix
+
+### Bugfixes
+
+* Crash occurs when another software creates vigem controllers and SDL2 tries to connect to it.
+
+## 3.0.1
+
+Bugfixes and console improvements
+
+### Features
+
+* CLEAR command cleans up the console window
+* JSM blocks key presses into it's own terminal window
+
+### Bugfixes
+
+* Inverted stick Y axis on the JSL version of JSM
+* Turbo press does not release without the start press binding
+
+
+## 3.0.0
+Jibb added JSL-specific features to SDL2 so that JSM could use SDL2 instead. This means support for many non-gyro controllers, including Xbox, Stadia, and almost every common generic PC controller. Also made it so that low report-rate controllers (eg Switch controllers) are sampled multiple times for smooth gyro on high refresh rate monitors.
+
+**SDL2 is now the official version of JSM going forward.** JSM will also be released with JSL for the time being in case there are features there unavailable in SDL2 yet.
+
+Nicolas added ViGEm support for virtual xbox and DS4 for buttons, triggers and sticks as well as rumble forwarding.
+
+Added colored console lines
+
+Added rumble commands and DS4 light bar setting and TOUCH binding
+
+Added DS4 dual stage mode for toupad touch and click.
+
+Added hair trigger soft press as a negative threshold and trigger modes SCROLL_WHEEL and NO_SKIP_EXCLUSIVE
+
+Added ability to hide JSM from the taskbar when minimized, with a checkbox in the tray icon
+
+Added help strings for button mapping
+
+Added argument to RECONNECT_CONTROLLERS [MERGE|SPLIT] used to determine joycon behaviour
+
+Added handler to modeshift a gyro button to NONE\ as no button since NONE is used to remove the modeshift.
+
+Handle drag n drop files into the console better
+
+Improve command error handling
+
+Improved README separation
+
+Improved desktop recommended config
+
+
+### Features
+* New Bindings: TOUCH for the touch pad and dual stage mode for TOUCH and CAPTURE bindings
+* New Mappings for ViGEm controller bindings. See README
+* Added Mappings SMALL_RUMBLE, BIG_RUMBLE and Rhhhh (h being hex digits)
+* Added settings STICK_DEADZONE_INNER|OUTER, TICK_TIME (aka polling period), LIGHT_BAR, SCROLL_SENS, VIRTUAL_CONTROLLER, RUMBLE ( = ON|OFF) and TOUCHPAD_DUAL_STAGE_MODE
+* Added JOYCON_SIDEWAYS as a controller orientation
+* Added Stick Mode SCROLL_WHEEL
+* Added TriggerMode NO_SKIP_EXCLUSIVE
 * Assigning a negative value to trigger threshold enables hair trigger
-* New setting HIDE_MINIMIZED will hide JSM when set to ON. OFF is default
+* New setting HIDE\_MINIMIZED will hide JSM when set to ON. OFF is default
+* Support for many non-gyro controllers: Xbox, Stadia, GameCube, PS3 (without motion), and many generic PC controllers via SDL2
 
 ## 2.2.0
 Nicolas added more keybinds. Robin fixed issues with building on Linux and improved PlayStation controller support.
@@ -219,4 +342,4 @@ In 1.1, Jibb added more ways to enable or disable the gyro, changed the default 
 * Statically linked runtime so that users don't have to have any particular MSVC runtimes installed.
 
 ## 1.0
-JoyShockMapper 1.0 was the first public release of JoyShockMapper, created by Jibb Smart. Its features are too many to list in the changelog, but explore the README to see what it offers!
+JoyShockMapper 1.0 was the first public release of JoyShockMapper, created by Jibb Smart. It includes the original implementation of flick stick and the first example of gyro controls meeting the standards detailed on GyroWiki (including advanced options like two-sensitivity acceleration and soft-tiered smoothing). Other features include tap and hold button bindings, rich traditional stick aiming options, and a "real world calibration" setting that made it possible to use the same stick and gyro settings across different games.

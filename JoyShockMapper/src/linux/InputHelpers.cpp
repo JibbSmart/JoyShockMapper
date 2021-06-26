@@ -515,7 +515,7 @@ int pressMouse(WORD vkKey, bool isPressed)
 // send key press
 int pressKey(KeyCode vkKey, bool pressed)
 {
-	if (vkKey == 0)
+	if (vkKey.code == 0)
 		return 0;
 	if (vkKey.code <= V_WHEEL_DOWN)
 	{
@@ -714,8 +714,19 @@ void ShowConsole()
 {
 }
 
+void initConsole() {
+}
+
+bool ClearConsole() {
+    return true;
+}
+
 void ReleaseConsole()
 {
+}
+
+void UnhideConsole() {
+
 }
 
 bool IsVisible()
@@ -726,45 +737,4 @@ bool IsVisible()
 bool isConsoleMinimized()
 {
 	return false;
-}
-
-PollingThread::~PollingThread()
-{
-	if (_continue)
-	{
-		Stop();
-		std::this_thread::sleep_for(std::chrono::milliseconds{ _sleepTimeMs });
-	}
-	// Let poll function cleanup
-	pthread_join(_thread, nullptr);
-}
-
-bool PollingThread::Start()
-{
-	if (_thread && !_continue) // thread is running but hasn't stopped yet
-	{
-		std::this_thread::sleep_for(std::chrono::milliseconds{ _sleepTimeMs });
-	}
-	if (!_thread) // thread is clear
-	{
-		_continue = true;
-		pthread_create(&_thread, nullptr, (void *(*)(void *)) & PollingThread::pollFunction, this);
-		_tid = _thread;
-	}
-	return isRunning();
-}
-
-DWORD PollingThread::pollFunction(LPVOID param)
-{
-	auto workerThread = static_cast<PollingThread *>(param);
-	if (workerThread)
-	{
-		while (workerThread->_continue && workerThread->_loopContent(workerThread->_funcParam))
-		{
-			std::this_thread::sleep_for(
-			  std::chrono::milliseconds{ workerThread->_sleepTimeMs });
-		}
-	}
-
-	return 0;
 }

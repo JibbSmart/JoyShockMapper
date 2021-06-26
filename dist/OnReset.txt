@@ -1,0 +1,4 @@
+# Always have a calibrate button. Toggle on tap or hold to calibrate
+# Each joycon should have a calibrate button. That's why there's two bindings here.
+HOME = CALIBRATE CALIBRATE
+CAPTURE = CALIBRATE CALIBRATE

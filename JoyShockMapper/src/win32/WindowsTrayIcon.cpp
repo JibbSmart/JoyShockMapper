@@ -25,6 +25,11 @@
 //using WinToastLib::WinToastTemplate;
 //using WinToastLib::WinToast;
 
+TrayIcon *TrayIcon::getNew(TrayIconData processData, std::function<void()> &&beforeShow)
+{
+	return new WindowsTrayIcon(processData, beforeShow);
+}
+
 struct MenuItem
 {
 	std::wstring label;
@@ -160,27 +165,28 @@ DWORD WINAPI WindowsTrayIcon::MessageHandlerLoop(LPVOID param)
 	return 1;
 }
 
-/*bool WindowsTrayIcon::SendToast(std::wstring message)
+bool WindowsTrayIcon::SendNotification(const std::wstring &message)
 {
-	WinToastTemplate templ = WinToastTemplate(WinToastTemplate::ImageAndText02);
-	templ.setTextField(L"JoyShockMapper", WinToastTemplate::FirstLine);
-	templ.setTextField(message.c_str(), WinToastTemplate::SecondLine);
-	templ.setImagePath(L"./gyro_icon.png");
+	//WinToastTemplate templ = WinToastTemplate(WinToastTemplate::ImageAndText02);
+	//templ.setTextField(L"JoyShockMapper", WinToastTemplate::FirstLine);
+	//templ.setTextField(message.c_str(), WinToastTemplate::SecondLine);
+	//templ.setImagePath(L"./gyro_icon.png");
 
-	WinToast::WinToastError err = WinToast::NoError;
-	if (!toastReady)
-	{
-		printf("WinToast could not initialize\n");
-		return false;
-	}
-	else if(WinToast::instance()->showToast(templ, std::make_unique<JSMToasts>(), &err) == -1 || err != WinToast::NoError) {
-		printf("WinToast Error: %S\n", WinToast::strerror(err).c_str());
-		return false;
-	}
+	//WinToast::WinToastError err = WinToast::NoError;
+	//if (!toastReady)
+	//{
+	//	printf("WinToast could not initialize\n");
+	//	return false;
+	//}
+	//else if (WinToast::instance()->showToast(templ, std::make_unique<JSMToasts>(), &err) == -1 || err != WinToast::NoError)
+	//{
+	//	printf("WinToast Error: %S\n", WinToast::strerror(err).c_str());
+	//	return false;
+	//}
 	return true;
-}/**/
+}
 
-void WindowsTrayIcon::AddMenuItem(const std::wstring &label, std::function<void()> onClick)
+void WindowsTrayIcon::AddMenuItem(const std::wstring &label, ClickCallbackType &&onClick)
 {
 	auto btn = new MenuItemButton;
 	btn->label = label;
@@ -188,7 +194,7 @@ void WindowsTrayIcon::AddMenuItem(const std::wstring &label, std::function<void(
 	_menuMap.push_back(btn);
 }
 
-void WindowsTrayIcon::AddMenuItem(const std::wstring &label, std::function<void(bool)> onClick, std::function<bool()> getState)
+void WindowsTrayIcon::AddMenuItem(const std::wstring &label, ClickCallbackTypeChecked &&onClick, StateCallbackType &&getState)
 {
 	auto tgl = new MenuItemToggle;
 	tgl->label = label;
@@ -197,7 +203,7 @@ void WindowsTrayIcon::AddMenuItem(const std::wstring &label, std::function<void(
 	_menuMap.push_back(tgl);
 }
 
-void WindowsTrayIcon::AddMenuItem(const std::wstring &label, const std::wstring &sublabel, std::function<void()> onClick)
+void WindowsTrayIcon::AddMenuItem(const std::wstring &label, const std::wstring &sublabel, ClickCallbackType &&onClick)
 {
 	auto menuiter = std::find_if(_menuMap.begin(), _menuMap.end(),
 	  [label](auto item) {

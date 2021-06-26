@@ -6,74 +6,35 @@
 #include <type_traits>
 #include <utility>
 
-template<typename TrayIconImplementation>
-class TrayIconInterface
+class TrayIcon
 {
-public:
-	inline TrayIconInterface(TrayIconData platformData, std::function<void()> &&beforeShow)
-	  : implementation_{ platformData, std::move(beforeShow) }
+protected:
+	TrayIcon()
 	{
 	}
-
-	inline ~TrayIconInterface() = default;
 
 public:
-	inline bool Show()
-	{
-		return implementation_.Show();
-	}
+	using ClickCallbackType = std::function<void()>;
+	using ClickCallbackTypeChecked = std::function<void(bool)>;
+	using StateCallbackType = std::function<bool()>;
 
-	inline bool Hide()
-	{
-		return implementation_.Hide();
-	}
+	virtual ~TrayIcon(){};
 
-	inline bool SendNotification(const UnicodeString &message)
-	{
-		return implementation_.SendNotification(message);
-	}
+	static TrayIcon *getNew(TrayIconData applicationName, std::function<void()> &&beforeShow);
 
-	template<typename Callback>
-	inline void AddMenuItem(const UnicodeString &label, Callback &&onClick)
-	{
-		// static_assert(std::is_invocable_r_v<void, Callback> || std::is_invocable_r_v<void, Callback, bool>, "");
+	virtual bool Show() = 0;
 
-		implementation_.AddMenuItem(label, std::forward<Callback>(onClick));
-	}
+	virtual bool Hide() = 0;
 
-	template<typename ClickCallback, typename StateCallback>
-	inline void AddMenuItem(const UnicodeString &label, ClickCallback &&onClick, StateCallback &&getState)
-	{
-		// static_assert(std::is_invocable_r_v<void, ClickCallback, bool>, "");
-		// static_assert(std::is_invocable_r_v<bool, ClickCallback>, "");
+	virtual bool SendNotification(const UnicodeString &message) = 0;
 
-		implementation_.AddMenuItem(label, std::forward<ClickCallback>(onClick), std::forward<StateCallback>(getState));
-	}
+	virtual void AddMenuItem(const UnicodeString &label, ClickCallbackType &&onClick) = 0;
 
-	template<typename Callback>
-	inline void AddMenuItem(const UnicodeString &label, const UnicodeString &subLabel, Callback &&onClick)
-	{
-		implementation_.AddMenuItem(label, subLabel, std::forward<Callback>(onClick));
-	}
+	virtual void AddMenuItem(const UnicodeString &label, ClickCallbackTypeChecked &&onClick, StateCallbackType &&getState) = 0;
 
-	inline void ClearMenuMap()
-	{
-		implementation_.ClearMenuMap();
-	}
+	virtual void AddMenuItem(const UnicodeString &label, const UnicodeString &subLabel, ClickCallbackType &&onClick) = 0;
 
-	inline operator bool()
-	{
-		return implementation_.operator bool();
-	}
+	virtual void ClearMenuMap() = 0;
 
-private:
-	TrayIconImplementation implementation_;
+	virtual operator bool() = 0;
 };
-
-#ifdef _WIN32
-#include "win32/WindowsTrayIcon.h"
-using TrayIcon = TrayIconInterface<WindowsTrayIcon>;
-#else
-#include "linux/StatusNotifierItem.h"
-using TrayIcon = TrayIconInterface<StatusNotifierItem>;
-#endif
