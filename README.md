@@ -109,7 +109,7 @@ In order to build on Linux, the following dependencies must be met, with their r
 - SDL2
 - hidapi
 
-####Distribution-Specific Package Names:
+###Distribution-Specific Package Names:
 
 * Fedora: ```SDL2-devel libappindicator-gtk3-devel libevdev-devel gtk3-devel libusb-devel hidapi-devel```
 * Please provide an issue report or pull request to have additional library lists added.
