@@ -3,6 +3,14 @@
 Most recent updates will appear first.
 This is a summary of new features and bugfixes. Read the README to learn how to use the features mentioned here.
 
+## 3.2.2
+
+Jibb fixed some bugs related to motion stick and lean bindings.
+
+### Bugfixes
+* SET_MOTION_STICK_NEUTRAL should now behave correctly instead of accumulating errors over time.
+* Motion stick and lean bindings should respect gravity more readily. This will also improve WORLD_TURN and WORLD_LEAN behaviour for those who use either of those GYRO_SPACE settings.
+
 ## 3.2.1
 
 **Backwards compatibility note!** The GYRO_SPACE options WORLD_TURN and WORLD_LEAN have been renamed PLAYER_TURN and PLAYER_LEAN. "Player space", which is was introduced in 3.2.0 (and has been improved here), is different to "world space". WORLD_TURN and WORLD_LEAN now refer to slightly different options that use the gravity direction more strictly, and as a result are more prone to error.
