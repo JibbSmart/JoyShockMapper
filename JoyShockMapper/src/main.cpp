@@ -334,6 +334,8 @@ public:
 	shared_ptr<MotionIf> motion;
 	int platform_controller_type;
 
+	Vec lastGrav = Vec(0.f, -1.f, 0.f);
+
 	vector<DigitalButton> buttons;
 	vector<DigitalButton> gridButtons;
 	vector<TouchStick> touchpads;
@@ -2356,6 +2358,27 @@ void joyShockPollCallback(int jcHandle, JOY_SHOCK_STATE state, JOY_SHOCK_STATE l
 	float inQuatW, inQuatX, inQuatY, inQuatZ;
 	motion.GetOrientation(inQuatW, inQuatX, inQuatY, inQuatZ);
 
+	//// These are for sanity checking sensor fusion against a simple complementary filter:
+	//float angle = sqrtf(inGyroX * inGyroX + inGyroY * inGyroY + inGyroZ * inGyroZ) * PI / 180.f * deltaTime;
+	//Vec normAxis = Vec(-inGyroX, -inGyroY, -inGyroZ).Normalized();
+	//Quat reverseRotation = Quat(cosf(angle * 0.5f), normAxis.x, normAxis.y, normAxis.z);
+	//reverseRotation.Normalize();
+	//jc->lastGrav *= reverseRotation;
+	//Vec newGrav = Vec(-imu.accelX, -imu.accelY, -imu.accelZ);
+	//jc->lastGrav += (newGrav - jc->lastGrav) * 0.01f;
+	//
+	//Vec normFancyGrav = Vec(inGravX, inGravY, inGravZ).Normalized();
+	//Vec normSimpleGrav = jc->lastGrav.Normalized();
+	//
+	//float gravAngleDiff = acosf(normFancyGrav.Dot(normSimpleGrav)) * 180.f / PI;
+	
+	//COUT << "Angle diff: " << gravAngleDiff << "\n\tFancy gravity: " << normFancyGrav.x << ", " << normFancyGrav.y << ", " << normFancyGrav.z << "\n\tSimple gravity: " << normSimpleGrav.x << ", " << normSimpleGrav.y << ", " << normSimpleGrav.z << "\n";
+	//COUT << "Quat: " << inQuatW << ", " << inQuatX << ", " << inQuatY << ", " << inQuatZ << "\n";
+
+	//inGravX = normSimpleGrav.x;
+	//inGravY = normSimpleGrav.y;
+	//inGravZ = normSimpleGrav.z;
+
 	//COUT << "DS4 accel: %.4f, %.4f, %.4f\n", imuState.accelX, imuState.accelY, imuState.accelZ);
 	//COUT << "\tDS4 gyro: %.4f, %.4f, %.4f\n", imuState.gyroX, imuState.gyroY, imuState.gyroZ);
 	//COUT << "\tDS4 quat: %.4f, %.4f, %.4f, %.4f | accel: %.4f, %.4f, %.4f | grav: %.4f, %.4f, %.4f\n",
@@ -2371,10 +2394,18 @@ void joyShockPollCallback(int jcHandle, JOY_SHOCK_STATE state, JOY_SHOCK_STATE l
 
 	if (jc->set_neutral_quat)
 	{
-		jc->neutralQuatW = inQuatW;
-		jc->neutralQuatX = inQuatX;
-		jc->neutralQuatY = inQuatY;
-		jc->neutralQuatZ = inQuatZ;
+		// motion stick neutral should be calculated from the gravity vector
+		Vec gravDirection = Vec(inGravX, inGravY, inGravZ);
+		Vec normalizedGravDirection = gravDirection.Normalized();
+		float diffAngle = acosf(std::clamp(-gravDirection.y, -1.f, 1.f));
+		Vec neutralGravAxis = Vec(0.0f, -1.0f, 0.0f).Cross(normalizedGravDirection);
+		Quat neutralQuat = Quat(cosf(diffAngle * 0.5f), neutralGravAxis.x, neutralGravAxis.y, neutralGravAxis.z);
+		neutralQuat.Normalize();
+
+		jc->neutralQuatW = neutralQuat.w;
+		jc->neutralQuatX = neutralQuat.x;
+		jc->neutralQuatY = neutralQuat.y;
+		jc->neutralQuatZ = neutralQuat.z;
 		jc->set_neutral_quat = false;
 		COUT << "Neutral orientation for device " << jc->handle << " set..." << endl;
 	}
@@ -2427,81 +2458,56 @@ void joyShockPollCallback(int jcHandle, JOY_SHOCK_STATE state, JOY_SHOCK_STATE l
 
 		float flatness = std::abs(normGravY);
 		float upness = std::abs(normGravZ);
-		float flatFactor = std::min(flatness / 0.5f, 1.f);
-		float upFactor = std::min(upness / 0.5f, 1.f);
 		float sideReduction = std::clamp((std::max(flatness, upness) - 0.125f) / 0.125f, 0.f, 1.f);
-		bool flatsideDown = normGravY < 0.f;
-		bool upsideDown = normGravZ < 0.f;
 
 		if (gyroSpace == GyroSpace::PLAYER_TURN || gyroSpace == GyroSpace::PLAYER_LEAN)
 		{
 			if (gyroSpace == GyroSpace::PLAYER_TURN)
 			{
-				if (flatsideDown) inGyroY = -inGyroY;
-				if (upsideDown) inGyroZ = -inGyroZ;
-				float gyroYSign = inGyroY < 0.f ? -1.f : 1.f;
-				float reducedGyroY = 0.f;
-				float gyroZSign = inGyroZ < 0.f ? -1.f : 1.f;
-				float reducedGyroZ = 0.f;
-				if (flatness > 0.f && inGyroY != 0.f)
-				{
-					reducedGyroZ = gyroZSign * std::abs(inGyroY) * std::min(upness / flatness, std::abs(inGyroZ / inGyroY));
-				}
-				if (upness > 0.f && inGyroZ != 0.f)
-				{
-					reducedGyroY = gyroYSign * std::abs(inGyroZ) * std::min(flatness / upness, std::abs(inGyroY / inGyroZ));
-				}
-				inGyroY = reducedGyroY + (inGyroY - reducedGyroY) * flatFactor;
-				inGyroZ = reducedGyroZ + (inGyroZ - reducedGyroZ) * upFactor;
-				// force to 0 when controller is on its side
-				inGyroY *= sideReduction;
-				inGyroZ *= sideReduction;
+				// grav dot gyro axis (but only Y (yaw) and Z (roll))
+				float worldYaw = normGravY * inGyroY + normGravZ * inGyroZ;
+				float worldYawSign = worldYaw < 0.f ? -1.f : 1.f;
+				const float yawRelaxFactor = 2.f; // 60 degree buffer
+				//const float yawRelaxFactor = 1.41f; // 45 degree buffer
+				//const float yawRelaxFactor = 1.15f; // 30 degree buffer
+				gyroX += worldYawSign * std::min(std::abs(worldYaw) * yawRelaxFactor, sqrtf(inGyroY * inGyroY + inGyroZ * inGyroZ));
 			}
 			else // PLAYER_LEAN
 			{
-				if (!upsideDown) inGyroY = -inGyroY;
-				if (flatsideDown) inGyroZ = -inGyroZ;
-				float gyroYSign = inGyroY < 0.f ? -1.f : 1.f;
-				float reducedGyroY = 0.f;
-				float gyroZSign = inGyroZ < 0.f ? -1.f : 1.f;
-				float reducedGyroZ = 0.f;
-				if (upness > 0.f && inGyroY != 0.f)
+				// project local pitch axis (X) onto gravity plane
+				// super simple since our point is only non-zero in one axis
+				float gravDotPitchAxis = normGravX;
+				float pitchAxisX = 1.f - normGravX * gravDotPitchAxis;
+				float pitchAxisY = -normGravY * gravDotPitchAxis;
+				float pitchAxisZ = -normGravZ * gravDotPitchAxis;
+				// normalize
+				float pitchAxisLengthSquared = pitchAxisX * pitchAxisX + pitchAxisY * pitchAxisY + pitchAxisZ * pitchAxisZ;
+				if (pitchAxisLengthSquared > 0.f)
 				{
-					reducedGyroZ = gyroZSign * std::abs(inGyroY) * std::min(flatness / upness, std::abs(inGyroZ / inGyroY));
+					// world roll axis is cross (yaw, pitch)
+					float rollAxisX = pitchAxisY * normGravZ - pitchAxisZ * normGravY;
+					float rollAxisY = pitchAxisZ * normGravX - pitchAxisX * normGravZ;
+					float rollAxisZ = pitchAxisX * normGravY - pitchAxisY * normGravX;
+
+					// normalize
+					float rollAxisLengthSquared = rollAxisX * rollAxisX + rollAxisY * rollAxisY + rollAxisZ * rollAxisZ;
+					if (rollAxisLengthSquared > 0.f)
+					{
+						float rollAxisLength = sqrtf(rollAxisLengthSquared);
+						float lengthReciprocal = 1.f / rollAxisLength;
+						rollAxisX *= lengthReciprocal;
+						rollAxisY *= lengthReciprocal;
+						rollAxisZ *= lengthReciprocal;
+
+						float worldRoll = rollAxisY * inGyroY + rollAxisZ * inGyroZ;
+						float worldRollSign = worldRoll < 0.f ? -1.f : 1.f;
+						//const float rollRelaxFactor = 2.f; // 60 degree buffer
+						const float rollRelaxFactor = 1.41f; // 45 degree buffer
+						//const float rollRelaxFactor = 1.15f; // 30 degree buffer
+						gyroX += worldRollSign * std::min(std::abs(worldRoll) * rollRelaxFactor, sqrtf(inGyroY * inGyroY + inGyroZ * inGyroZ));
+						gyroX *= sideReduction;
+					}
 				}
-				if (flatness > 0.f && inGyroZ != 0.f)
-				{
-					reducedGyroY = gyroYSign * std::abs(inGyroZ) * std::min(upness / flatness, std::abs(inGyroY / inGyroZ));
-				}
-				inGyroY = reducedGyroY + (inGyroY - reducedGyroY) * flatFactor;
-				inGyroZ = reducedGyroZ + (inGyroZ - reducedGyroZ) * upFactor;
-				//// force to 0 when controller is on its side
-				inGyroY *= sideReduction;
-				inGyroZ *= sideReduction;
-			}
-			float bigger;
-			float smaller;
-			if (abs(inGyroY) > abs(inGyroZ))
-			{
-				bigger = inGyroY;
-				smaller = inGyroZ;
-			}
-			else
-			{
-				bigger = inGyroZ;
-				smaller = inGyroY;
-			}
-			if (inGyroZ * inGyroY >= 0.f)
-			{
-				// same sign (ish)
-				const float gyroSign = bigger > 0.f ? 1.f : -1.f;
-				gyroX += gyroSign * sqrtf(bigger * bigger + smaller * smaller);
-			}
-			else
-			{
-				// opposite sign
-				const float gyroSign = bigger > 0.f ? 1.f : -1.f;
-				gyroX += gyroSign * sqrtf(bigger * bigger - smaller * smaller);
 			}
 
 			gyroY -= inGyroX;
@@ -2558,7 +2564,7 @@ void joyShockPollCallback(int jcHandle, JOY_SHOCK_STATE state, JOY_SHOCK_STATE l
 
 			if (gyroSpace == GyroSpace::WORLD_TURN)
 			{
-				gyroX = worldYaw;
+				gyroX += worldYaw;
 			}
 		}
 	}
@@ -2645,7 +2651,7 @@ void joyShockPollCallback(int jcHandle, JOY_SHOCK_STATE state, JOY_SHOCK_STATE l
 	  (jc->controller_split_type & (int)jc->getSetting<JoyconMask>(SettingID::JOYCON_MOTION_MASK)) == 0)
 	{
 		Quat neutralQuat = Quat(jc->neutralQuatW, jc->neutralQuatX, jc->neutralQuatY, jc->neutralQuatZ);
-		Vec grav = Vec(inGravX, inGravY, inGravZ) * neutralQuat;
+		Vec grav = Vec(inGravX, inGravY, inGravZ) * neutralQuat.Inverse();
 
 		float lastCalX = jc->lastMotionStickX;
 		float lastCalY = jc->lastMotionStickY;
