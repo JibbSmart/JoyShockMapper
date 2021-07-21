@@ -328,8 +328,8 @@ private:
 	}
 
 public:
-	const int MaxGyroSamples = 64;
-	const int NumSamples = 64;
+	const int MaxGyroSamples = 256;
+	const int NumSamples = 256;
 	int handle;
 	shared_ptr<MotionIf> motion;
 	int platform_controller_type;
@@ -2571,7 +2571,7 @@ void joyShockPollCallback(int jcHandle, JOY_SHOCK_STATE state, JOY_SHOCK_STATE l
 	float gyroLength = sqrt(gyroX * gyroX + gyroY * gyroY);
 	// do gyro smoothing
 	// convert gyro smooth time to number of samples
-	auto numGyroSamples = 1.f / tick_time * jc->getSetting(SettingID::GYRO_SMOOTH_TIME); // samples per second * seconds = samples
+	auto numGyroSamples = jc->getSetting(SettingID::GYRO_SMOOTH_TIME) * 1000.f / tick_time.get();
 	if (numGyroSamples < 1)
 		numGyroSamples = 1; // need at least 1 sample
 	auto threshold = jc->getSetting(SettingID::GYRO_SMOOTH_THRESHOLD);
