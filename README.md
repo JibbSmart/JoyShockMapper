@@ -94,7 +94,7 @@ Generate the project by runnning the following in a command prompt at the projec
   * To create a Visual Studio x64 configuration: ```cmake .. -G "Visual Studio 16 2019" -A x64 .```
 - Linux:
   * ```mkdir build && cd build```
-  * ```cmake .. -DCMAKE_CXX_COMPILER=clang++ -DSDL=1 && cmake --build .```
+  * ```cmake .. -DCMAKE_CXX_COMPILER=clang++ -DSDL=1 -DHIDAPI=ON && cmake --build .```
 
 ### Linux specific notes
 Please note that JoyShockMapper is primarily written for Windows and is a program in rapid development.
