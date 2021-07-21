@@ -187,6 +187,6 @@ public:
 	virtual void SetLightColour(int deviceId, int colour) = 0;
 	virtual void SetRumble(int deviceId, int smallRumble, int bigRumble) = 0;
 	virtual void SetPlayerNumber(int deviceId, int number) = 0;
-	virtual void SetLeftTriggerEffect(int deviceId, const JOY_SHOCK_TRIGGER_EFFECT &triggerEffect) = 0;
-	virtual void SetRightTriggerEffect(int deviceId, const JOY_SHOCK_TRIGGER_EFFECT &triggerEffect) = 0;
+	virtual void SetTriggerEffect(int deviceId, const JOY_SHOCK_TRIGGER_EFFECT &leftTriggerEffect, const JOY_SHOCK_TRIGGER_EFFECT &rightTriggerEffect) { };
+	virtual void SetMicLight(int deviceId, unsigned char mode) { }
 };

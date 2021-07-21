@@ -6,9 +6,12 @@ This is a summary of new features and bugfixes. Read the README to learn how to 
 ## 3.2.2
 
 Jibb fixed some bugs related to motion stick and lean bindings.
-Nicolas fixed some bugs too
+Nicolas fixed some bugs too and makes use of the official SDL2 repo
 TauAkiou helped fix some linux build and updated the README
 Github user mmmaisel added some better error handling of the linux build
+
+### Features
+An active toggle on the DualSense mic button will turn on the mic light.
 
 ### Bugfixes
 * SET_MOTION_STICK_NEUTRAL should now behave correctly instead of accumulating errors over time.

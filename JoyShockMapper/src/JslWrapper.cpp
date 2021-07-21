@@ -208,16 +208,6 @@ public:
 	{
 		JslSetPlayerNumber(deviceId, number);
 	}
-
-	void SetLeftTriggerEffect(int deviceId, const JOY_SHOCK_TRIGGER_EFFECT& triggerEffect)
-	{
-		// Unsupported ATM
-	}
-
-	void SetRightTriggerEffect(int deviceId, const JOY_SHOCK_TRIGGER_EFFECT& triggerEffect)
-	{
-		// Unsupported ATM
-	}
 };
 
 JslWrapper* JslWrapper::getNew()

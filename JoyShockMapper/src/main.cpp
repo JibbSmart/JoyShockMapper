@@ -18,9 +18,9 @@
 #include <cuchar>
 
 #ifdef _WIN32
-    #include <shellapi.h>
+#include <shellapi.h>
 #else
-    #define UCHAR unsigned char
+#define UCHAR unsigned char
 #endif
 
 #pragma warning(disable : 4996) // Disable deprecated API warnings
@@ -165,14 +165,14 @@ public:
 };
 
 KeyCode::KeyCode()
-	: code()
-	, name()
+  : code()
+  , name()
 {
 }
 
 KeyCode::KeyCode(in_string keyName)
-	: code(nameToKey(keyName))
-	, name()
+  : code(nameToKey(keyName))
+  , name()
 {
 	if (code == COMMAND_ACTION)
 		name = keyName.substr(1, keyName.size() - 2); // Remove opening and closing quotation marks
@@ -241,7 +241,7 @@ public:
 			float pressedTime = 0;
 			if (_pressedBtn == _negativeButton->_id)
 			{
-			    GetDuration dur{ now };
+				GetDuration dur{ now };
 				pressedTime = _negativeButton->sendEvent(dur).out_duration;
 				if (pressedTime < MAGIC_TAP_DURATION)
 				{
@@ -252,8 +252,8 @@ public:
 			}
 			else // _pressedBtn == _positiveButton->_id
 			{
-                GetDuration dur{ now };
-                pressedTime = _positiveButton->sendEvent(dur).out_duration;
+				GetDuration dur{ now };
+				pressedTime = _positiveButton->sendEvent(dur).out_duration;
 				if (pressedTime < MAGIC_TAP_DURATION)
 				{
 					_negativeButton->sendEvent(isReleased);
@@ -989,8 +989,9 @@ public:
 		if (!button)
 		{
 			CERR << "Button " << id << " with tocuchpadId " << touchpadID << " could not be found" << endl;
+			return;
 		}
-		else if ( (!_context->nn && pressed) || (_context->nn > 0 && (id >= ButtonID::UP || id<= ButtonID::DOWN || id == ButtonID::S || id == ButtonID::E) && nnm.find(_context->nn) != nnm.end() && nnm.find(_context->nn)->second == id))
+		else if ((!_context->nn && pressed) || (_context->nn > 0 && (id >= ButtonID::UP || id <= ButtonID::DOWN || id == ButtonID::S || id == ButtonID::E) && nnm.find(_context->nn) != nnm.end() && nnm.find(_context->nn)->second == id))
 		{
 			Pressed evt;
 			evt.time_now = time_now;
@@ -1124,7 +1125,7 @@ public:
 			}
 			else
 			{
-			    GetDuration dur{ time_now };
+				GetDuration dur{ time_now };
 				if (buttons[int(softIndex)].sendEvent(dur).out_duration >= getSetting(SettingID::TRIGGER_SKIP_DELAY))
 				{
 					if (mode == TriggerMode::MUST_SKIP)
@@ -1156,7 +1157,7 @@ public:
 			}
 			else
 			{
-			    GetDuration dur{ time_now };
+				GetDuration dur{ time_now };
 				if (buttons[int(softIndex)].sendEvent(dur).out_duration >= getSetting(SettingID::TRIGGER_SKIP_DELAY))
 				{
 					if (mode == TriggerMode::MUST_SKIP_R)
@@ -2160,28 +2161,28 @@ void TouchCallback(int jcHandle, TOUCH_STATE newState, TOUCH_STATE prevState, fl
 		// Disable gestures
 		//if (point0.isDown() && point1.isDown())
 		//{
-			//if (js->prevTouchState.t0Down && js->prevTouchState.t1Down)
-			//{
-			//	float x = fabsf(newState.t0X - newState.t1X);
-			//	float y = fabsf(newState.t0Y - newState.t1Y);
-			//	float angle = atan2f(y, x) / PI * 360;
-			//	float dist = sqrt(x * x + y * y);
-			//	x = fabsf(js->prevTouchState.t0X - js->prevTouchState.t1X);
-			//	y = fabsf(js->prevTouchState.t0Y - js->prevTouchState.t1Y);
-			//	float oldAngle = atan2f(y, x) / PI * 360;
-			//	float oldDist = sqrt(x * x + y * y);
-			//	if (angle != oldAngle)
-			//		DEBUG_LOG << "Angle went from " << oldAngle << " degrees to " << angle << " degress. Diff is " << angle - oldAngle << " degrees. ";
-			//	js->touch_scroll_x.ProcessScroll(angle - oldAngle, js->getSetting<FloatXY>(SettingID::SCROLL_SENS).x(), js->time_now);
-			//	if (dist != oldDist)
-			//		DEBUG_LOG << "Dist went from " << oldDist << " points to " << dist << " points. Diff is " << dist - oldDist << " points. ";
-			//	js->touch_scroll_y.ProcessScroll(dist - oldDist, js->getSetting<FloatXY>(SettingID::SCROLL_SENS).y(), js->time_now);
-			//}
-			//else
-			//{
-			//	js->touch_scroll_x.Reset(js->time_now);
-			//	js->touch_scroll_y.Reset(js->time_now);
-			//}
+		//if (js->prevTouchState.t0Down && js->prevTouchState.t1Down)
+		//{
+		//	float x = fabsf(newState.t0X - newState.t1X);
+		//	float y = fabsf(newState.t0Y - newState.t1Y);
+		//	float angle = atan2f(y, x) / PI * 360;
+		//	float dist = sqrt(x * x + y * y);
+		//	x = fabsf(js->prevTouchState.t0X - js->prevTouchState.t1X);
+		//	y = fabsf(js->prevTouchState.t0Y - js->prevTouchState.t1Y);
+		//	float oldAngle = atan2f(y, x) / PI * 360;
+		//	float oldDist = sqrt(x * x + y * y);
+		//	if (angle != oldAngle)
+		//		DEBUG_LOG << "Angle went from " << oldAngle << " degrees to " << angle << " degress. Diff is " << angle - oldAngle << " degrees. ";
+		//	js->touch_scroll_x.ProcessScroll(angle - oldAngle, js->getSetting<FloatXY>(SettingID::SCROLL_SENS).x(), js->time_now);
+		//	if (dist != oldDist)
+		//		DEBUG_LOG << "Dist went from " << oldDist << " points to " << dist << " points. Diff is " << dist - oldDist << " points. ";
+		//	js->touch_scroll_y.ProcessScroll(dist - oldDist, js->getSetting<FloatXY>(SettingID::SCROLL_SENS).y(), js->time_now);
+		//}
+		//else
+		//{
+		//	js->touch_scroll_x.Reset(js->time_now);
+		//	js->touch_scroll_y.Reset(js->time_now);
+		//}
 		//}
 		//else
 		//{
@@ -2312,8 +2313,7 @@ void CalibrateTriggers(shared_ptr<JoyShock> jc)
 		tick_time.Reset();
 		break;
 	}
-	jsl->SetRightTriggerEffect(jc->handle, jc->right_effect);
-	jsl->SetLeftTriggerEffect(jc->handle, jc->left_effect);
+	jsl->SetTriggerEffect(jc->handle, jc->left_effect, jc->right_effect);
 }
 
 void joyShockPollCallback(int jcHandle, JOY_SHOCK_STATE state, JOY_SHOCK_STATE lastState, IMU_STATE imuState, IMU_STATE lastImuState, float deltaTime)
@@ -2371,7 +2371,7 @@ void joyShockPollCallback(int jcHandle, JOY_SHOCK_STATE state, JOY_SHOCK_STATE l
 	//Vec normSimpleGrav = jc->lastGrav.Normalized();
 	//
 	//float gravAngleDiff = acosf(normFancyGrav.Dot(normSimpleGrav)) * 180.f / PI;
-	
+
 	//COUT << "Angle diff: " << gravAngleDiff << "\n\tFancy gravity: " << normFancyGrav.x << ", " << normFancyGrav.y << ", " << normFancyGrav.z << "\n\tSimple gravity: " << normSimpleGrav.x << ", " << normSimpleGrav.y << ", " << normSimpleGrav.z << "\n";
 	//COUT << "Quat: " << inQuatW << ", " << inQuatX << ", " << inQuatY << ", " << inQuatZ << "\n";
 
@@ -2608,6 +2608,11 @@ void joyShockPollCallback(int jcHandle, JOY_SHOCK_STATE state, JOY_SHOCK_STATE l
 
 	jc->time_now = std::chrono::steady_clock::now();
 
+	bool previousMicToggleState = find_if(jc->_context->activeTogglesQueue.cbegin(), jc->_context->activeTogglesQueue.cend(),
+	                                [](const auto &pair) {
+		                                return pair.first == ButtonID::MIC;
+	                                }) != jc->_context->activeTogglesQueue.cend();
+
 	// sticks!
 	ControllerOrientation controllerOrientation = jc->getSetting<ControllerOrientation>(SettingID::CONTROLLER_ORIENTATION);
 	float camSpeedX = 0.0f;
@@ -2767,14 +2772,24 @@ void joyShockPollCallback(int jcHandle, JOY_SHOCK_STATE state, JOY_SHOCK_STATE l
 
 	if (jc->getSetting<Switch>(SettingID::ADAPTIVE_TRIGGER) == Switch::ON)
 	{
-		jsl->SetRightTriggerEffect(jc->handle, jc->right_effect);
-		jsl->SetLeftTriggerEffect(jc->handle, jc->left_effect);
+		jsl->SetTriggerEffect(jc->handle, jc->left_effect, jc->right_effect);
 	}
 	else
 	{
 		JOY_SHOCK_TRIGGER_EFFECT none;
-		jsl->SetRightTriggerEffect(jc->handle, none);
-		jsl->SetLeftTriggerEffect(jc->handle, none);
+		jsl->SetTriggerEffect(jc->handle, none, none);
+	}
+
+	bool currentMicToggleState = find_if(jc->_context->activeTogglesQueue.cbegin(), jc->_context->activeTogglesQueue.cend(),
+	                               [](const auto &pair) {
+		                               return pair.first == ButtonID::MIC;
+	                               }) != jc->_context->activeTogglesQueue.cend();
+	for (auto controller : handle_to_joyshock)
+	{
+		if (!previousMicToggleState && currentMicToggleState)
+			jsl->SetMicLight(controller.first, 1);
+		else if (previousMicToggleState && !currentMicToggleState)
+			jsl->SetMicLight(controller.first, 0);
 	}
 
 	// Handle buttons before GYRO because some of them may affect the value of blockGyro
@@ -3731,7 +3746,7 @@ int main(int argc, char *argv[])
 	commandRegistry.Add((new JSMAssignment<ControllerOrientation>(controller_orientation))
 	                      ->SetHelp("Let the stick modes account for how you're holding the controller:\nFORWARD, LEFT, RIGHT, BACKWARD"));
 	commandRegistry.Add((new JSMAssignment<GyroSpace>(gyro_space))
-	                  	  ->SetHelp("How gyro input is converted to 2D input. With LOCAL, your MOUSE_X_FROM_GYRO_AXIS and MOUSE_Y_FROM_GYRO_AXIS settings decide which local angular axis maps to which 2D mouse axis.\nYour other options are PLAYER_TURN and PLAYER_LEAN. These both take gravity into account to combine your axes more reliably.\n\tUse PLAYER_TURN if you like to turn your camera or move your cursor by turning your controller side to side.\n\tUse PLAYER_LEAN if you'd rather lean your controller to turn the camera."));
+	                      ->SetHelp("How gyro input is converted to 2D input. With LOCAL, your MOUSE_X_FROM_GYRO_AXIS and MOUSE_Y_FROM_GYRO_AXIS settings decide which local angular axis maps to which 2D mouse axis.\nYour other options are PLAYER_TURN and PLAYER_LEAN. These both take gravity into account to combine your axes more reliably.\n\tUse PLAYER_TURN if you like to turn your camera or move your cursor by turning your controller side to side.\n\tUse PLAYER_LEAN if you'd rather lean your controller to turn the camera."));
 	commandRegistry.Add((new JSMAssignment<TriggerMode>(zlMode))
 	                      ->SetHelp("Controllers with a right analog trigger can use one of the following dual stage trigger modes:\nNO_FULL, NO_SKIP, MAY_SKIP, MUST_SKIP, MAY_SKIP_R, MUST_SKIP_R, NO_SKIP_EXCLUSIVE, X_LT, X_RT, PS_L2, PS_R2"));
 	commandRegistry.Add((new JSMAssignment<TriggerMode>(zrMode))
@@ -3813,7 +3828,7 @@ int main(int argc, char *argv[])
 	commandRegistry.Add((new JSMAssignment<int>(magic_enum::enum_name(SettingID::LEFT_TRIGGER_RANGE).data(), left_trigger_range)));
 	commandRegistry.Add((new JSMAssignment<int>(magic_enum::enum_name(SettingID::RIGHT_TRIGGER_RANGE).data(), right_trigger_range)));
 	commandRegistry.Add((new JSMAssignment<Switch>("AUTO_CALIBRATE_GYRO", auto_calibrate_gyro))
-		->SetHelp("Gyro calibration happens automatically when this setting is ON. Otherwise you'll need to calibrate the gyro manually when using gyro aiming."));
+	                      ->SetHelp("Gyro calibration happens automatically when this setting is ON. Otherwise you'll need to calibrate the gyro manually when using gyro aiming."));
 
 	bool quit = false;
 	commandRegistry.Add((new JSMMacro("QUIT"))
