@@ -314,11 +314,10 @@ struct TOUCH_POINT
 class JoyShock
 {
 private:
-	float _weightsRemaining[64];
-	float _flickSamples[64];
+	float _flickSamples[256];
 	int _frontSample = 0;
 
-	FloatXY _gyroSamples[64];
+	FloatXY _gyroSamples[256];
 	int _frontGyroSample = 0;
 
 	template<typename E1, typename E2>
