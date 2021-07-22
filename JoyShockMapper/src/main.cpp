@@ -419,7 +419,6 @@ public:
 		}
 		_light_bar = getSetting<Color>(SettingID::LIGHT_BAR);
 
-		platform_controller_type = jsl->GetControllerType(handle);
 		_context->_getMatchingSimBtn = bind(&JoyShock::GetMatchingSimBtn, this, placeholders::_1);
 		_context->_rumble = bind(&JoyShock::Rumble, this, placeholders::_1, placeholders::_2);
 
@@ -2731,26 +2730,29 @@ void joyShockPollCallback(int jcHandle, JOY_SHOCK_STATE state, JOY_SHOCK_STATE l
 		case JS_TYPE_DS4:
 		{
 			float triggerpos = buttons & (1 << JSOFFSET_CAPTURE) ? 1.f :
-			  touch                                              ? 0.99f :
-                                                                   0.f;
+				touch                                              ? 0.99f :
+																	0.f;
 			jc->handleTriggerChange(ButtonID::TOUCH, ButtonID::CAPTURE, jc->getSetting<TriggerMode>(SettingID::TOUCHPAD_DUAL_STAGE_MODE), triggerpos, jc->unused_effect);
-		}
-		break;
-		default:
+		} break;
+		case JS_TYPE_XBOX:
+			jc->handleButtonChange(ButtonID::CAPTURE, buttons & (1 << JSOFFSET_CAPTURE)); // Xbox One S share button
+			jc->handleButtonChange(ButtonID::RSL, buttons & (1 << JSOFFSET_SL2));	      // Xbox Elite back paddles
+			jc->handleButtonChange(ButtonID::RSR, buttons & (1 << JSOFFSET_SR2));
+			jc->handleButtonChange(ButtonID::LSL, buttons & (1 << JSOFFSET_SL));
+			jc->handleButtonChange(ButtonID::LSR, buttons & (1 << JSOFFSET_SR));
+			break;
+		default: // Switch Pro controllers and left joycon
 		{
-			jc->handleButtonChange(ButtonID::TOUCH, touch);
 			jc->handleButtonChange(ButtonID::CAPTURE, buttons & (1 << JSOFFSET_CAPTURE));
 			jc->handleButtonChange(ButtonID::LSL, buttons & (1 << JSOFFSET_SL));
-		}
-		break;
+			jc->handleButtonChange(ButtonID::LSR, buttons & (1 << JSOFFSET_SR));
+		} break;
 		}
 
-		// SL and SR are mapped to back paddle positions:
-		jc->handleButtonChange(ButtonID::LSR, buttons & (1 << JSOFFSET_SR));
 	}
-	else // split type is RIGHT
+	else // split type IS right
 	{
-		// SL and SR are mapped to back paddle positions:
+		// Right joycon bumpers
 		jc->handleButtonChange(ButtonID::RSL, buttons & (1 << JSOFFSET_SL));
 		jc->handleButtonChange(ButtonID::RSR, buttons & (1 << JSOFFSET_SR));
 	}
@@ -3643,10 +3645,10 @@ int main(int argc, char *argv[])
 		commandRegistry.Add((new JSMAssignment<Mapping>(mapping.getName(), mapping))->SetHelp(buttonHelpMap.at(mapping._id)));
 	}
 	// SL and SR are shorthand for two different mappings
-	commandRegistry.Add(new JSMAssignment<Mapping>("SL", "", mappings[(int)ButtonID::LSL], true));
-	commandRegistry.Add(new JSMAssignment<Mapping>("SL", "", mappings[(int)ButtonID::RSL], true));
-	commandRegistry.Add(new JSMAssignment<Mapping>("SR", "", mappings[(int)ButtonID::LSR], true));
-	commandRegistry.Add(new JSMAssignment<Mapping>("SR", "", mappings[(int)ButtonID::RSR], true));
+	commandRegistry.Add(new JSMAssignment<Mapping>("SL", "LSL", mappings[(int)ButtonID::LSL], true));
+	commandRegistry.Add(new JSMAssignment<Mapping>("SL", "RSL", mappings[(int)ButtonID::RSL], true));
+	commandRegistry.Add(new JSMAssignment<Mapping>("SR", "LSR", mappings[(int)ButtonID::LSR], true));
+	commandRegistry.Add(new JSMAssignment<Mapping>("SR", "RSR", mappings[(int)ButtonID::RSR], true));
 
 	commandRegistry.Add((new JSMAssignment<FloatXY>(min_gyro_sens))
 	                      ->SetHelp("Minimum gyro sensitivity when turning controller at or below MIN_GYRO_THRESHOLD.\nYou can assign a second value as a different vertical sensitivity."));
