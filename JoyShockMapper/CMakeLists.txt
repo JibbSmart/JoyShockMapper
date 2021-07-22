@@ -153,8 +153,8 @@ if(SDL)
 	set(HIDAPI ON)
 	CPMAddPackage (
 		NAME SDL2
-		GITHUB_REPOSITORY Electronicks/SDL
-		GIT_TAG main
+		GITHUB_REPOSITORY libsdl-org/SDL
+		GIT_TAG d135c0762f11c29eb9cce377648f25e5a91b4522
 	)
 	
 	set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
@@ -221,7 +221,7 @@ target_link_libraries (
 CPMAddPackage (
     NAME GamepadMotionHelpers
     GITHUB_REPOSITORY JibbSmart/GamepadMotionHelpers
-    GIT_TAG wip
+    GIT_TAG main
 )
 
 target_link_libraries (

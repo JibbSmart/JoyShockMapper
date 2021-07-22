@@ -5,12 +5,24 @@ This is a summary of new features and bugfixes. Read the README to learn how to 
 
 ## 3.2.2
 
-Jibb fixed some bugs related to gyro smoothing, motion stick and lean bindings.
+Jibb fixed some bugs related to motion stick and lean bindings.
+Nicolas fixed some bugs too and makes use of the official SDL2 repo
+TauAkiou helped fix some linux build and updated the README
+Github user mmmaisel added some better error handling of the linux build
+
+### Features
+An active toggle on the DualSense mic button will turn on the mic light.
 
 ### Bugfixes
 * SET_MOTION_STICK_NEUTRAL should now behave correctly instead of accumulating errors over time.
 * Motion stick and lean bindings should respect gravity more readily. This will also improve WORLD_TURN and WORLD_LEAN behaviour for those who use either of those GYRO_SPACE settings.
 * GYRO_SMOOTH_TIME hasn't been working correctly since moving to a fixed tick rate (3.0). This has now been fixed.
+* Stick aim inversion didn't work
+* Linux easter egg fix (What is VK_NONAME? What does it do?)
+* Linux error handling improvement (thanks mmmaisel)
+* RIGHT_RING_MODE was confounded with LEFT_RING_MODE
+* Fix the numkeys triggering home-end-pup-pdwn-ins-del-arrow keys and vice versa
+* README linux notes updated (Thanks TauAkiou)
 
 ## 3.2.1
 

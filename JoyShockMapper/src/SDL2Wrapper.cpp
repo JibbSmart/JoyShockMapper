@@ -13,16 +13,45 @@
 
 extern JSMVariable<float> tick_time; // defined in main.cc
 
+enum TriggerEffectMode : uint8_t
+{
+	None = 0x05,
+	Rigid = 0x01,
+	Pulse = 0x02,
+	Advanced = 0x24,
+};
+
+typedef struct
+{
+	Uint8 ucEnableBits1;              /* 0 */
+	Uint8 ucEnableBits2;              /* 1 */
+	Uint8 ucRumbleRight;              /* 2 */
+	Uint8 ucRumbleLeft;               /* 3 */
+	Uint8 ucHeadphoneVolume;          /* 4 */
+	Uint8 ucSpeakerVolume;            /* 5 */
+	Uint8 ucMicrophoneVolume;         /* 6 */
+	Uint8 ucAudioEnableBits;          /* 7 */
+	Uint8 ucMicLightMode;             /* 8 */
+	Uint8 ucAudioMuteBits;            /* 9 */
+	Uint8 rgucRightTriggerEffect[11]; /* 10 */
+	Uint8 rgucLeftTriggerEffect[11];  /* 21 */
+	Uint8 rgucUnknown1[6];            /* 32 */
+	Uint8 ucLedFlags;                 /* 38 */
+	Uint8 rgucUnknown2[2];            /* 39 */
+	Uint8 ucLedAnim;                  /* 41 */
+	Uint8 ucLedBrightness;            /* 42 */
+	Uint8 ucPadLights;                /* 43 */
+	Uint8 ucLedRed;                   /* 44 */
+	Uint8 ucLedGreen;                 /* 45 */
+	Uint8 ucLedBlue;                  /* 46 */
+} DS5EffectsState_t;
+
 struct ControllerDevice
 {
 	ControllerDevice(int id)
 	  : _has_accel(false)
 	  , _has_gyro(false)
 	{
-		SDL_memset(&_left_trigger_effect, 0, sizeof(SDL_JoystickTriggerEffect));
-		SDL_memset(&_right_trigger_effect, 0, sizeof(SDL_JoystickTriggerEffect));
-		_left_trigger_effect.mode = SDL_JOYSTICK_TRIGGER_NO_EFFECT;
-		_right_trigger_effect.mode = SDL_JOYSTICK_TRIGGER_NO_EFFECT;
 		if (SDL_IsGameController(id))
 		{
 			_sdlController = SDL_GameControllerOpen(id);
@@ -72,6 +101,10 @@ struct ControllerDevice
 				case SDL_GameControllerType::SDL_CONTROLLER_TYPE_PS5:
 					_ctrlr_type = JS_TYPE_DS;
 					break;
+				case SDL_GameControllerType::SDL_CONTROLLER_TYPE_XBOX360:
+				case SDL_GameControllerType::SDL_CONTROLLER_TYPE_XBOXONE:
+					_ctrlr_type = JS_TYPE_XBOX;
+					break;
 				}
 			}
 		}
@@ -93,8 +126,6 @@ struct ControllerDevice
 	int _ctrlr_type = 0;
 	uint16_t _small_rumble = 0;
 	uint16_t _big_rumble = 0;
-	SDL_JoystickTriggerEffect _left_trigger_effect;
-	SDL_JoystickTriggerEffect _right_trigger_effect;
 	SDL_GameController *_sdlController = nullptr;
 };
 
@@ -109,6 +140,7 @@ public:
 		SDL_SetHint(SDL_HINT_JOYSTICK_HIDAPI_SWITCH_HOME_LED, "0");
 		SDL_SetHint(SDL_HINT_JOYSTICK_HIDAPI_PS4_RUMBLE, "1");
 		SDL_SetHint(SDL_HINT_JOYSTICK_HIDAPI_PS5_RUMBLE, "1");
+		SDL_SetHint(SDL_HINT_JOYSTICK_HIDAPI_XBOX, "1");
 		SDL_SetHint(SDL_HINT_JOYSTICK_THREAD, "1");
 		SDL_Init(SDL_INIT_GAMECONTROLLER);
 	}
@@ -145,7 +177,6 @@ public:
 				}
 				// Perform rumble
 				SDL_GameControllerRumble(iter->second->_sdlController, iter->second->_small_rumble, iter->second->_big_rumble, tick_time.get() + 5);
-				SDL_GameControllerSetTriggerEffect(iter->second->_sdlController, &iter->second->_left_trigger_effect, &iter->second->_right_trigger_effect, tick_time.get() + 5);
 			}
 		}
 
@@ -303,8 +334,8 @@ public:
 			{ SDL_CONTROLLER_BUTTON_DPAD_RIGHT, JSOFFSET_RIGHT },
 			{ SDL_CONTROLLER_BUTTON_PADDLE2, JSOFFSET_SL }, // LSL
 			{ SDL_CONTROLLER_BUTTON_PADDLE4, JSOFFSET_SR }, // LSR
-			{ SDL_CONTROLLER_BUTTON_PADDLE3, JSOFFSET_SL }, // RSL
-			{ SDL_CONTROLLER_BUTTON_PADDLE1, JSOFFSET_SR }, // RSR
+			{ SDL_CONTROLLER_BUTTON_PADDLE3, JSOFFSET_SL2 }, // RSL
+			{ SDL_CONTROLLER_BUTTON_PADDLE1, JSOFFSET_SR2 }, // RSR
 		};
 		int buttons = 0;
 		for (auto pair : sdl2jsl)
@@ -525,49 +556,55 @@ public:
 		SDL_GameControllerSetPlayerIndex(_controllerMap[deviceId]->_sdlController, number);
 	}
 
-	void SetLeftTriggerEffect(int deviceId, const JOY_SHOCK_TRIGGER_EFFECT &triggerEffect) override
+	void SetTriggerEffect(int deviceId, const JOY_SHOCK_TRIGGER_EFFECT &leftTriggerEffect, const JOY_SHOCK_TRIGGER_EFFECT &rightTriggerEffect) override
 	{
-		SetTriggerEffect(_controllerMap[deviceId]->_left_trigger_effect, triggerEffect);
-	}
-	void SetRightTriggerEffect(int deviceId, const JOY_SHOCK_TRIGGER_EFFECT &triggerEffect) override
-	{
-		SetTriggerEffect(_controllerMap[deviceId]->_right_trigger_effect, triggerEffect);
+		DS5EffectsState_t effectPacket;
+		memset(&effectPacket, 0, sizeof(effectPacket));
+		effectPacket.ucEnableBits1 |= 0x08 | 0x04; // Enable left and right trigger effect respectively
+		LoadTriggerEffect(effectPacket.rgucLeftTriggerEffect, &leftTriggerEffect);
+		LoadTriggerEffect(effectPacket.rgucRightTriggerEffect, &rightTriggerEffect);
+
+		SDL_GameControllerSendEffect(_controllerMap[deviceId]->_sdlController, &effectPacket, sizeof(effectPacket));
 	}
 
-	void SetTriggerEffect(SDL_JoystickTriggerEffect &trigger_effect, const JOY_SHOCK_TRIGGER_EFFECT &triggerEffect)
+	virtual void SetMicLight(int deviceId, uint8_t mode) override
 	{
-		trigger_effect = reinterpret_cast<const SDL_JoystickTriggerEffect &>(triggerEffect);
+		// COUT << "Setting mic light mode to " << int(mode) << endl;
+		DS5EffectsState_t effectPacket;
+		memset(&effectPacket, 0, sizeof(effectPacket));
+		effectPacket.ucEnableBits2 |= 0x01; /* Enable microphone light */
+
+		effectPacket.ucMicLightMode = mode; /* Bitmask, 0x00 = off, 0x01 = solid, 0x02 = pulse */
+
+		SDL_GameControllerSendEffect(_controllerMap[deviceId]->_sdlController, &effectPacket, sizeof(effectPacket));
 	}
 
-	/*		
-		switch (triggerEffect)
+private:
+	static void
+	LoadTriggerEffect(Uint8 *rgucTriggerEffect, const JOY_SHOCK_TRIGGER_EFFECT *trigger_effect)
+	{
+		rgucTriggerEffect[0] = (uint8_t)trigger_effect->mode;
+		switch (TriggerEffectMode(trigger_effect->mode))
 		{
-		case small_early_rigid:
-			trigger_effect.mode = SDL_JOYSTICK_TRIGGER_CONSTANT;
-			trigger_effect.start = 0.15 * UINT8_MAX;
-			trigger_effect.strength = 0;
+		case TriggerEffectMode::Rigid:
+			rgucTriggerEffect[1] = trigger_effect->start;
+			rgucTriggerEffect[2] = trigger_effect->strength >> 8;
 			break;
-		case small_early_pulse:
-			trigger_effect.mode = SDL_JOYSTICK_TRIGGER_SEGMENT;
-			trigger_effect.start = 0.2 * UINT8_MAX;
-			trigger_effect.end = 0.25 * UINT8_MAX;
-			trigger_effect.strength = UINT16_MAX;
+		case TriggerEffectMode::Pulse:
+			rgucTriggerEffect[1] = trigger_effect->start;
+			rgucTriggerEffect[2] = trigger_effect->end;
+			rgucTriggerEffect[3] = trigger_effect->strength >> 8;
 			break;
-		case large_late_pulse:
-			trigger_effect.mode = SDL_JOYSTICK_TRIGGER_SEGMENT;
-			trigger_effect.start = 0.56 * UINT8_MAX;
-			trigger_effect.end = 0.63 * UINT8_MAX;
-			trigger_effect.strength = UINT16_MAX;
+		case TriggerEffectMode::Advanced:
+			rgucTriggerEffect[1] = trigger_effect->frequency;
+			rgucTriggerEffect[2] = trigger_effect->strength >> 8;
+			rgucTriggerEffect[3] = trigger_effect->start;
 			break;
-		case large_early_rigid:
-			trigger_effect.mode = SDL_JOYSTICK_TRIGGER_CONSTANT;
-			trigger_effect.start = 0.15 * UINT8_MAX;
-			trigger_effect.strength = UINT16_MAX;
-			break;
+		case TriggerEffectMode::None:
 		default:
-			trigger_effect.mode = SDL_JOYSTICK_TRIGGER_NO_EFFECT;
-			break;
-		}*/
+			rgucTriggerEffect[0] = 0x05; // no effect
+		}
+	}
 };
 
 JslWrapper *JslWrapper::getNew()

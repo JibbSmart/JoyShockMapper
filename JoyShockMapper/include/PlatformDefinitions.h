@@ -98,6 +98,7 @@ extern const char *BASE_JSM_CONFIG_FOLDER();
 #define VK_MBUTTON 0x04
 #define VK_XBUTTON1 0x05
 #define VK_XBUTTON2 0x06
+#define VK_NONAME 0xFC
 
 #define U(string) string
 #define _ASSERT_EXPR(condition, message) assert(condition)

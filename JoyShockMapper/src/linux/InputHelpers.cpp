@@ -304,7 +304,7 @@ public:
 	};
 
 public:
-	VirtualInputDevice(Device device) noexcept
+	VirtualInputDevice(Device device)
 	  : device_{ libevdev_new() }
 	{
 		if (device == Device::MOUSE)
@@ -340,7 +340,9 @@ public:
 		  &uinput_device_);
 		if (error != 0)
 		{
-			std::fprintf(stderr, "Failed to create virtual device: %s\n", std::strerror(-error));
+			throw std::runtime_error(
+				std::string("Failed to create virtual device: ") +
+				std::strerror(-error) + std::string("\n"));
 		}
 	}
 

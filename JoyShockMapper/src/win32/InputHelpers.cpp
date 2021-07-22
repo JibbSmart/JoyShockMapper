@@ -71,19 +71,19 @@ int pressMouse(KeyCode vkKey, bool isPressed)
 	if (input.mi.dwFlags)
 	{ // Ignore if there's no event ID (ex: "wheel release")
 		auto result = SendInput(1, &input, sizeof(input));
-		//COUT << vkKey.name << endl;
-		//COUT << vkKey.code << endl;
+		//COUT << key.name << endl;
+		//COUT << key.key << endl;
 		return result;
 	}
 	return 0;
 }
 
 //// send mouse button
-//int pressMouse(KeyCode vkKey, bool isPressed)
+//int pressMouse(KeyCode key, bool isPressed)
 //{
 //	INPUT input;
 //	input.type = INPUT_MOUSE;
-//	if (vkKey == VK_LBUTTON)
+//	if (key == VK_LBUTTON)
 //	{
 //		input.mi.dwFlags = isPressed ? MOUSEEVENTF_LEFTDOWN : MOUSEEVENTF_LEFTUP;
 //	}
@@ -97,29 +97,44 @@ int pressMouse(KeyCode vkKey, bool isPressed)
 //	return SendInput(1, &input, sizeof(input));
 //}
 
+bool isNumLockKey(KeyCode key)
+{
+	static array<uint8_t, 11> keys { VK_DECIMAL, VK_HOME, VK_END, VK_INSERT, VK_DELETE, VK_PRIOR, VK_NEXT, VK_UP, VK_DOWN, VK_LEFT, VK_RIGHT };
+	return (key.code >= VK_NUMPAD0 && key.code <= VK_NUMPAD9) || find(keys.begin(), keys.end(), key.code) != keys.end();
+}
+
+bool isExtendedKey(KeyCode key)
+{
+	return (key.code >= VK_LEFT && key.code <= VK_DOWN) ||
+	  (key.code >= VK_LWIN && key.code <= VK_NUMPAD9) ||
+	  (key.code >= VK_BROWSER_BACK && key.code <= VK_LAUNCH_APP2);
+}
+
 // send key press
 int pressKey(KeyCode vkKey, bool pressed)
 {
 	if (vkKey.code == 0)
 		return 0;
-	if (vkKey.code <= V_WHEEL_DOWN)
-	{ // Highest mouse ID
+	if (vkKey.code <= V_WHEEL_DOWN) // Highest mouse ID
 		return pressMouse(vkKey, pressed);
-	}
+
 	INPUT input;
+	memset(&input, 0, sizeof(INPUT));
 	input.type = INPUT_KEYBOARD;
 	input.ki.time = 0;
-	input.ki.dwFlags = KEYEVENTF_SCANCODE;
-	input.ki.dwFlags |= pressed ? 0 : KEYEVENTF_KEYUP;
-	if ((vkKey.code >= VK_LEFT && vkKey.code <= VK_DOWN) ||
-	  (vkKey.code >= VK_LWIN && vkKey.code <= VK_NUMPAD9) ||
-	  (vkKey.code >= VK_BROWSER_BACK && vkKey.code <= VK_LAUNCH_APP2))
+	input.ki.dwFlags = pressed ? 0 : KEYEVENTF_KEYUP;
+	if (isNumLockKey(vkKey))
 	{
-		input.ki.dwFlags |= KEYEVENTF_EXTENDEDKEY;
+		input.ki.wVk = vkKey.code;
+		input.ki.wScan = 0;
 	}
-	//input.ki.wVk = vkKey;
-	input.ki.wVk = 0;
-	input.ki.wScan = MapVirtualKey(vkKey.code, MAPVK_VK_TO_VSC);
+	else
+	{
+		input.ki.wVk = 0;
+		input.ki.wScan = MapVirtualKey(vkKey.code, MAPVK_VK_TO_VSC);
+		input.ki.dwFlags |= KEYEVENTF_SCANCODE;
+	}
+
 	return SendInput(1, &input, sizeof(input));
 }
 
