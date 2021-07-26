@@ -2606,11 +2606,6 @@ void joyShockPollCallback(int jcHandle, JOY_SHOCK_STATE state, JOY_SHOCK_STATE l
 
 	jc->time_now = std::chrono::steady_clock::now();
 
-	bool previousMicToggleState = find_if(jc->_context->activeTogglesQueue.cbegin(), jc->_context->activeTogglesQueue.cend(),
-	                                [](const auto &pair) {
-		                                return pair.first == ButtonID::MIC;
-	                                }) != jc->_context->activeTogglesQueue.cend();
-
 	// sticks!
 	ControllerOrientation controllerOrientation = jc->getSetting<ControllerOrientation>(SettingID::CONTROLLER_ORIENTATION);
 	float camSpeedX = 0.0f;
@@ -2787,10 +2782,7 @@ void joyShockPollCallback(int jcHandle, JOY_SHOCK_STATE state, JOY_SHOCK_STATE l
 	                               }) != jc->_context->activeTogglesQueue.cend();
 	for (auto controller : handle_to_joyshock)
 	{
-		if (!previousMicToggleState && currentMicToggleState)
-			jsl->SetMicLight(controller.first, 1);
-		else if (previousMicToggleState && !currentMicToggleState)
-			jsl->SetMicLight(controller.first, 0);
+		jsl->SetMicLight(controller.first, currentMicToggleState ? 1 : 0);
 	}
 
 	// Handle buttons before GYRO because some of them may affect the value of blockGyro

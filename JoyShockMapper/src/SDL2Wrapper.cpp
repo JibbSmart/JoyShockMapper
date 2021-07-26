@@ -13,6 +13,11 @@
 
 extern JSMVariable<float> tick_time; // defined in main.cc
 
+bool operator!=(const JOY_SHOCK_TRIGGER_EFFECT &lha, const JOY_SHOCK_TRIGGER_EFFECT &rha)
+{
+	return lha.mode != rha.mode || lha.strength != rha.strength || lha.start != rha.start || lha.end != rha.end || lha.frequency != rha.frequency;
+}
+
 enum TriggerEffectMode : uint8_t
 {
 	None = 0x05,
@@ -112,6 +117,12 @@ struct ControllerDevice
 
 	virtual ~ControllerDevice()
 	{
+		_micLight = 0;
+		memset(&_leftTriggerEffect, 0, sizeof(_leftTriggerEffect));
+		memset(&_rightTriggerEffect, 0, sizeof(_rightTriggerEffect));
+		_big_rumble = 0;
+		_small_rumble = 0;
+		SendEffect();
 		SDL_GameControllerClose(_sdlController);
 	}
 
@@ -120,12 +131,65 @@ struct ControllerDevice
 		return _sdlController != nullptr;
 	}
 
+private:
+	void LoadTriggerEffect(Uint8 *rgucTriggerEffect, const JOY_SHOCK_TRIGGER_EFFECT *trigger_effect)
+	{
+		rgucTriggerEffect[0] = (uint8_t)trigger_effect->mode;
+		switch (TriggerEffectMode(trigger_effect->mode))
+		{
+		case TriggerEffectMode::Rigid:
+			rgucTriggerEffect[1] = trigger_effect->start;
+			rgucTriggerEffect[2] = trigger_effect->strength >> 8;
+			break;
+		case TriggerEffectMode::Pulse:
+			rgucTriggerEffect[1] = trigger_effect->start;
+			rgucTriggerEffect[2] = trigger_effect->end;
+			rgucTriggerEffect[3] = trigger_effect->strength >> 8;
+			break;
+		case TriggerEffectMode::Advanced:
+			rgucTriggerEffect[1] = trigger_effect->frequency;
+			rgucTriggerEffect[2] = trigger_effect->strength >> 8;
+			rgucTriggerEffect[3] = trigger_effect->start;
+			break;
+		case TriggerEffectMode::None:
+		default:
+			rgucTriggerEffect[0] = 0x05; // no effect
+		}
+	}
+
+public:
+	void SendEffect()
+	{
+		DS5EffectsState_t effectPacket;
+		memset(&effectPacket, 0, sizeof(effectPacket));
+
+		// Add adaptive trigger data
+		effectPacket.ucEnableBits1 |= 0x08 | 0x04; // Enable left and right trigger effect respectively
+		LoadTriggerEffect(effectPacket.rgucLeftTriggerEffect, &_leftTriggerEffect);
+		LoadTriggerEffect(effectPacket.rgucRightTriggerEffect, &_rightTriggerEffect);
+
+		// Add current rumbling data
+		effectPacket.ucEnableBits1 |= 0x01 | 0x02;
+		effectPacket.ucRumbleLeft = _big_rumble >> 8;
+		effectPacket.ucRumbleRight = _small_rumble >> 8;
+
+		// Add current mic light
+		effectPacket.ucEnableBits2 |= 0x01; /* Enable microphone light */
+		effectPacket.ucMicLightMode = _micLight; /* Bitmask, 0x00 = off, 0x01 = solid, 0x02 = pulse */
+
+		// Send to controller
+		SDL_GameControllerSendEffect(_sdlController, &effectPacket, sizeof(effectPacket));
+	}
+
 	bool _has_gyro;
 	bool _has_accel;
 	int _split_type = JS_SPLIT_TYPE_FULL;
 	int _ctrlr_type = 0;
 	uint16_t _small_rumble = 0;
 	uint16_t _big_rumble = 0;
+	JOY_SHOCK_TRIGGER_EFFECT _leftTriggerEffect;
+	JOY_SHOCK_TRIGGER_EFFECT _rightTriggerEffect;
+	uint8_t _micLight = 0;
 	SDL_GameController *_sdlController = nullptr;
 };
 
@@ -176,7 +240,7 @@ public:
 					inst->g_touch_callback(iter->first, touch, dummy3, tick_time.get());
 				}
 				// Perform rumble
-				SDL_GameControllerRumble(iter->second->_sdlController, iter->second->_small_rumble, iter->second->_big_rumble, tick_time.get() + 5);
+				SDL_GameControllerRumble(iter->second->_sdlController, iter->second->_big_rumble, iter->second->_small_rumble, tick_time.get() + 5);
 			}
 		}
 
@@ -332,8 +396,8 @@ public:
 			{ SDL_CONTROLLER_BUTTON_DPAD_DOWN, JSOFFSET_DOWN },
 			{ SDL_CONTROLLER_BUTTON_DPAD_LEFT, JSOFFSET_LEFT },
 			{ SDL_CONTROLLER_BUTTON_DPAD_RIGHT, JSOFFSET_RIGHT },
-			{ SDL_CONTROLLER_BUTTON_PADDLE2, JSOFFSET_SL }, // LSL
-			{ SDL_CONTROLLER_BUTTON_PADDLE4, JSOFFSET_SR }, // LSR
+			{ SDL_CONTROLLER_BUTTON_PADDLE2, JSOFFSET_SL },  // LSL
+			{ SDL_CONTROLLER_BUTTON_PADDLE4, JSOFFSET_SR },  // LSR
 			{ SDL_CONTROLLER_BUTTON_PADDLE3, JSOFFSET_SL2 }, // RSL
 			{ SDL_CONTROLLER_BUTTON_PADDLE1, JSOFFSET_SR2 }, // RSR
 		};
@@ -547,8 +611,8 @@ public:
 	{
 		// Rumble command needs to be sent at every poll in SDL, so the next value is set here and the actual call
 		// is done after the callback return
-		_controllerMap[deviceId]->_small_rumble = clamp(smallRumble, 0, 255) << 8;
-		_controllerMap[deviceId]->_big_rumble = clamp(bigRumble, 0, 255) << 8;
+		_controllerMap[deviceId]->_small_rumble = clamp(smallRumble, 0, int(UINT16_MAX));
+		_controllerMap[deviceId]->_big_rumble = clamp(bigRumble, 0, int(UINT16_MAX));
 	}
 
 	void SetPlayerNumber(int deviceId, int number) override
@@ -556,53 +620,25 @@ public:
 		SDL_GameControllerSetPlayerIndex(_controllerMap[deviceId]->_sdlController, number);
 	}
 
-	void SetTriggerEffect(int deviceId, const JOY_SHOCK_TRIGGER_EFFECT &leftTriggerEffect, const JOY_SHOCK_TRIGGER_EFFECT &rightTriggerEffect) override
+	void SetTriggerEffect(int deviceId, const JOY_SHOCK_TRIGGER_EFFECT &_leftTriggerEffect, const JOY_SHOCK_TRIGGER_EFFECT &_rightTriggerEffect) override
 	{
-		DS5EffectsState_t effectPacket;
-		memset(&effectPacket, 0, sizeof(effectPacket));
-		effectPacket.ucEnableBits1 |= 0x08 | 0x04; // Enable left and right trigger effect respectively
-		LoadTriggerEffect(effectPacket.rgucLeftTriggerEffect, &leftTriggerEffect);
-		LoadTriggerEffect(effectPacket.rgucRightTriggerEffect, &rightTriggerEffect);
+		if (_leftTriggerEffect != _controllerMap[deviceId]->_leftTriggerEffect || _rightTriggerEffect != _controllerMap[deviceId]->_rightTriggerEffect)
+		{
+			// Update active trigger effect
+			_controllerMap[deviceId]->_leftTriggerEffect = _leftTriggerEffect;
+			_controllerMap[deviceId]->_rightTriggerEffect = _rightTriggerEffect;
 
-		SDL_GameControllerSendEffect(_controllerMap[deviceId]->_sdlController, &effectPacket, sizeof(effectPacket));
+			_controllerMap[deviceId]->SendEffect();
+		}
 	}
 
 	virtual void SetMicLight(int deviceId, uint8_t mode) override
 	{
-		// COUT << "Setting mic light mode to " << int(mode) << endl;
-		DS5EffectsState_t effectPacket;
-		memset(&effectPacket, 0, sizeof(effectPacket));
-		effectPacket.ucEnableBits2 |= 0x01; /* Enable microphone light */
-
-		effectPacket.ucMicLightMode = mode; /* Bitmask, 0x00 = off, 0x01 = solid, 0x02 = pulse */
-
-		SDL_GameControllerSendEffect(_controllerMap[deviceId]->_sdlController, &effectPacket, sizeof(effectPacket));
-	}
-
-private:
-	static void
-	LoadTriggerEffect(Uint8 *rgucTriggerEffect, const JOY_SHOCK_TRIGGER_EFFECT *trigger_effect)
-	{
-		rgucTriggerEffect[0] = (uint8_t)trigger_effect->mode;
-		switch (TriggerEffectMode(trigger_effect->mode))
+		if (mode != _controllerMap[deviceId]->_micLight)
 		{
-		case TriggerEffectMode::Rigid:
-			rgucTriggerEffect[1] = trigger_effect->start;
-			rgucTriggerEffect[2] = trigger_effect->strength >> 8;
-			break;
-		case TriggerEffectMode::Pulse:
-			rgucTriggerEffect[1] = trigger_effect->start;
-			rgucTriggerEffect[2] = trigger_effect->end;
-			rgucTriggerEffect[3] = trigger_effect->strength >> 8;
-			break;
-		case TriggerEffectMode::Advanced:
-			rgucTriggerEffect[1] = trigger_effect->frequency;
-			rgucTriggerEffect[2] = trigger_effect->strength >> 8;
-			rgucTriggerEffect[3] = trigger_effect->start;
-			break;
-		case TriggerEffectMode::None:
-		default:
-			rgucTriggerEffect[0] = 0x05; // no effect
+			_controllerMap[deviceId]->_micLight = mode;
+
+			_controllerMap[deviceId]->SendEffect();
 		}
 	}
 };

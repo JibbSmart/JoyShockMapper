@@ -154,7 +154,7 @@ if(SDL)
 	CPMAddPackage (
 		NAME SDL2
 		GITHUB_REPOSITORY libsdl-org/SDL
-		GIT_TAG d135c0762f11c29eb9cce377648f25e5a91b4522
+		GIT_TAG 3b7649c578b1ff98fb3f1c76fc1a586fe75fb617
 	)
 	
 	set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")

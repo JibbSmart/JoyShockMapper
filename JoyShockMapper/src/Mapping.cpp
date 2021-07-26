@@ -184,7 +184,7 @@ bool Mapping::AddMapping(KeyCode key, EventModifier evtMod, ActionModifier actMo
 			array<uint8_t, 2> bytes;
 		} rumble;
 		rumble.raw = stoi(key.name.substr(1, 4), nullptr, 16);
-		apply = bind(&EventActionIf::SetRumble, placeholders::_1, rumble.bytes[1], rumble.bytes[0]);
+		apply = bind(&EventActionIf::SetRumble, placeholders::_1, rumble.bytes[0] << 8, rumble.bytes[1] << 8);
 		release = bind(&EventActionIf::SetRumble, placeholders::_1, 0, 0);
 		_tapDurationMs = MAGIC_EXTENDED_TAP_DURATION; // Unused in regular press
 	}
