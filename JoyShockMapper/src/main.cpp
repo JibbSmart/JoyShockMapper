@@ -2728,13 +2728,15 @@ void joyShockPollCallback(int jcHandle, JOY_SHOCK_STATE state, JOY_SHOCK_STATE l
 																	0.f;
 			jc->handleTriggerChange(ButtonID::TOUCH, ButtonID::CAPTURE, jc->getSetting<TriggerMode>(SettingID::TOUCHPAD_DUAL_STAGE_MODE), triggerpos, jc->unused_effect);
 		} break;
-		case JS_TYPE_XBOX:
-			jc->handleButtonChange(ButtonID::CAPTURE, buttons & (1 << JSOFFSET_CAPTURE)); // Xbox One S share button
-			jc->handleButtonChange(ButtonID::RSL, buttons & (1 << JSOFFSET_SL2));	      // Xbox Elite back paddles
-			jc->handleButtonChange(ButtonID::RSR, buttons & (1 << JSOFFSET_SR2));
-			jc->handleButtonChange(ButtonID::LSL, buttons & (1 << JSOFFSET_SL));
-			jc->handleButtonChange(ButtonID::LSR, buttons & (1 << JSOFFSET_SR));
-			break;
+		case JS_TYPE_XBOXONE_ELITE:
+            jc->handleButtonChange(ButtonID::RSL, buttons & (1 << JSOFFSET_SL2)); //Xbox Elite back paddles
+            jc->handleButtonChange(ButtonID::RSR, buttons & (1 << JSOFFSET_SR2));
+            jc->handleButtonChange(ButtonID::LSL, buttons & (1 << JSOFFSET_SL));
+            jc->handleButtonChange(ButtonID::LSR, buttons & (1 << JSOFFSET_SR));
+			break;    
+        case JS_TYPE_XBOX_SERIES:
+            jc->handleButtonChange(ButtonID::CAPTURE, buttons & (1 << JSOFFSET_CAPTURE));
+			break;   
 		default: // Switch Pro controllers and left joycon
 		{
 			jc->handleButtonChange(ButtonID::CAPTURE, buttons & (1 << JSOFFSET_CAPTURE));

@@ -20,7 +20,9 @@ typedef struct {
 #define JS_TYPE_PRO_CONTROLLER 3
 #define JS_TYPE_DS4 4
 #define JS_TYPE_DS 5
-#define JS_TYPE_XBOX 6
+#define JS_TYPE_XBOXONE 6
+#define JS_TYPE_XBOXONE_ELITE 7
+#define JS_TYPE_XBOX_SERIES 8
 
 #define JS_SPLIT_TYPE_LEFT 1
 #define JS_SPLIT_TYPE_RIGHT 2
