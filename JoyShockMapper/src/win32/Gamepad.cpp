@@ -667,25 +667,25 @@ void GamepadImpl::setButtonDS4(KeyCode btn, bool pressed)
 
 void GamepadImpl::setLeftStick(float x, float y)
 {
-	_stateX360->sThumbLX = int16_t(clamp(x, -1.f, 1.f) * SHRT_MAX);
-	_stateX360->sThumbLY = int16_t(clamp(y, -1.f, 1.f) * SHRT_MAX);
+	_stateX360->sThumbLX = clamp(int(_stateX360->sThumbLX + SHRT_MAX*clamp(x, -1.f, 1.f)), SHRT_MIN, SHRT_MAX);
+	_stateX360->sThumbLY = clamp(int(_stateX360->sThumbLY + SHRT_MAX*clamp(y, -1.f, 1.f)), SHRT_MIN, SHRT_MAX);
 
-	_stateDS4->bThumbLX = uint8_t((clamp(x / 2.f, -.5f, .5f) + .5f) * UCHAR_MAX);
-	_stateDS4->bThumbLY = uint8_t((clamp(-y / 2.f, -.5f, .5f) + .5f) * UCHAR_MAX);
+	_stateDS4->bThumbLX = clamp(int(_stateX360->sThumbLX + UCHAR_MAX*(clamp(x / 2.f, -.5f, .5f) + .5f)), 0, UCHAR_MAX);
+	_stateDS4->bThumbLY = clamp(int(_stateX360->sThumbLY + UCHAR_MAX*(clamp(-y / 2.f, -.5f, .5f) + .5f)), 0, UCHAR_MAX);
 }
 
 void GamepadImpl::setRightStick(float x, float y)
 {
-	_stateX360->sThumbRX = int16_t(clamp(x, -1.f, 1.f) * SHRT_MAX);
-	_stateX360->sThumbRY = int16_t(clamp(y, -1.f, 1.f) * SHRT_MAX);
+	_stateX360->sThumbRX = clamp(int(_stateX360->sThumbRX + SHRT_MAX*clamp(x, -1.f, 1.f)), SHRT_MIN, SHRT_MAX);
+	_stateX360->sThumbRY = clamp(int(_stateX360->sThumbRY + SHRT_MAX*clamp(y, -1.f, 1.f)), SHRT_MIN, SHRT_MAX);
 
-	_stateDS4->bThumbRX = uint8_t((clamp(x / 2.f, -.5f, .5f) + .5f) * UCHAR_MAX);
-	_stateDS4->bThumbRY = uint8_t((clamp(-y / 2.f, -.5f, .5f) + .5f) * UCHAR_MAX);
+	_stateDS4->bThumbRX = clamp(int(_stateX360->sThumbLX + UCHAR_MAX*(clamp(x / 2.f, -.5f, .5f) + .5f)), 0, UCHAR_MAX);
+	_stateDS4->bThumbRY = clamp(int(_stateX360->sThumbLY + UCHAR_MAX*(clamp(-y / 2.f, -.5f, .5f) + .5f)), 0, UCHAR_MAX);
 }
 
 void GamepadImpl::setLeftTrigger(float val)
 {
-	_stateX360->bLeftTrigger = uint8_t(clamp(val, 0.f, 1.f) * UCHAR_MAX);
+	_stateX360->bLeftTrigger = clamp(int(_stateX360->bLeftTrigger + uint8_t(clamp(val, 0.f, 1.f) * UCHAR_MAX)), 0, UCHAR_MAX);
 	_stateDS4->bTriggerL = _stateX360->bLeftTrigger;
 	if (val > 0)
 		SetPressed(_stateDS4->wButtons, DS4_BUTTON_TRIGGER_LEFT);
@@ -695,7 +695,7 @@ void GamepadImpl::setLeftTrigger(float val)
 
 void GamepadImpl::setRightTrigger(float val)
 {
-	_stateX360->bRightTrigger = uint8_t(clamp(val, 0.f, 1.f) * UCHAR_MAX);
+	_stateX360->bRightTrigger = clamp(int(_stateX360->bRightTrigger + uint8_t(clamp(val, 0.f, 1.f) * UCHAR_MAX)), 0, UCHAR_MAX);
 	_stateDS4->bTriggerR = _stateX360->bRightTrigger;
 	if (val > 0)
 		SetPressed(_stateDS4->wButtons, DS4_BUTTON_TRIGGER_RIGHT);
@@ -718,6 +718,18 @@ void GamepadImpl::update()
 			vigem_target_x360_update(VigemClient::get(), _gamepad, *_stateX360.get());
 			break;
 		}
+		_stateDS4->bThumbLX = 0;
+		_stateDS4->bThumbLY = 0;
+		_stateDS4->bThumbRX = 0;
+		_stateDS4->bThumbRY = 0;
+		_stateDS4->bTriggerL = 0;
+		_stateDS4->bTriggerR = 0;
+		_stateX360->sThumbLX = 0;
+		_stateX360->sThumbLY = 0;
+		_stateX360->sThumbRX = 0;
+		_stateX360->sThumbRY = 0;
+		_stateX360->bLeftTrigger = 0;
+		_stateX360->bRightTrigger = 0;
 	}
 }
 
