@@ -333,7 +333,7 @@ bool SetCWD(in_string newCWD)
 DWORD ShowOnlineHelp()
 {
 	COUT << "See the latest user manual at the web page below:" << endl
-	     << "https://github.com/JibbSmart/JoyShockMapper/blob/master/README.md" << endl;
+	     << "https://github.com/Electronicks/JoyShockMapper/blob/master/README.md" << endl;
 	return 0;
 	// SECURE CODING! https://www.oreilly.com/library/view/secure-programming-cookbook/0596003943/ch01s08.html
 	//STARTUPINFOA startupInfo;
