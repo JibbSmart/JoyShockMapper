@@ -189,8 +189,12 @@ enum class SettingID
 	MOTION_STICK_MODE,
 	GYRO_OFF,
 	GYRO_ON,
-	STICK_AXIS_X,
-	STICK_AXIS_Y,
+	LEFT_STICK_AXIS,
+	RIGHT_STICK_AXIS,
+	MOTION_STICK_AXIS,
+	TOUCH_STICK_AXIS,
+	STICK_AXIS_X,      // Legacy command
+	STICK_AXIS_Y,      // Legacy command
 	GYRO_AXIS_X,
 	GYRO_AXIS_Y,
 	RECONNECT_CONTROLLERS,
@@ -444,6 +448,8 @@ union Color
 	} rgb;
 };
 
+using AxisSignPair = pair<AxisMode, AxisMode>;
+
 // Needs to be accessed publicly
 extern WORD nameToKey(const std::string &name);
 
@@ -552,6 +558,14 @@ ostream &operator<<(ostream &out, const FloatXY &fxy);
 istream &operator>>(istream &in, FloatXY &fxy);
 bool operator==(const FloatXY &lhs, const FloatXY &rhs);
 inline bool operator!=(const FloatXY &lhs, const FloatXY &rhs)
+{
+	return !(lhs == rhs);
+}
+
+ostream& operator<<(ostream& out, const AxisSignPair& fxy);
+istream& operator>>(istream& in, AxisSignPair& fxy);
+bool operator==(const AxisSignPair& lhs, const AxisSignPair& rhs);
+inline bool operator!=(const AxisSignPair& lhs, const AxisSignPair& rhs)
 {
 	return !(lhs == rhs);
 }

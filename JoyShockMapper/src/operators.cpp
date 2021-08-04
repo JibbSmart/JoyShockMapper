@@ -225,6 +225,55 @@ istream &operator>>(istream &in, AxisMode &am)
 	return in;
 }
 
+ostream& operator<<(ostream& out, const AxisSignPair& asp)
+{
+	out << asp.first;
+	if (asp.first != asp.second)
+	{
+		out << " " << asp.second;
+	}
+	return out;
+}
+
+istream& operator>>(istream& in, AxisSignPair& asp)
+{
+	size_t pos;
+	string value;
+	getline(in, value);
+	stringstream ss(value);
+	ss >> asp.first;
+	if (asp.first != AxisMode::INVALID)
+	{
+		if (ss.eof())
+		{
+			asp.second = asp.first;
+		}
+		else
+		{
+			AxisMode second = AxisMode::INVALID;
+			ss >> second;
+			if (second != AxisMode::INVALID)
+			{
+				asp.second = second;
+			}
+			else
+			{
+				in.setstate(in.failbit);
+			}
+		}
+	}
+	else
+	{
+		in.setstate(in.failbit);
+	}
+	return in;
+}
+
+bool operator==(const AxisSignPair& lhs, const AxisSignPair& rhs)
+{
+	return lhs.first == rhs.first && lhs.second == rhs.second;
+}
+
 istream &operator>>(istream &in, PathString &fxy)
 {
 	// 260 is windows MAX_PATH length

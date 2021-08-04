@@ -64,8 +64,12 @@ JSMSetting<FloatXY> stick_sens = JSMSetting<FloatXY>(SettingID::STICK_SENS, { 36
 JSMSetting<float> real_world_calibration = JSMSetting<float>(SettingID::REAL_WORLD_CALIBRATION, 40.0f);
 JSMSetting<float> in_game_sens = JSMSetting<float>(SettingID::IN_GAME_SENS, 1.0f);
 JSMSetting<float> trigger_threshold = JSMSetting<float>(SettingID::TRIGGER_THRESHOLD, 0.0f);
-JSMSetting<AxisMode> aim_x_sign = JSMSetting<AxisMode>(SettingID::STICK_AXIS_X, AxisMode::STANDARD);
-JSMSetting<AxisMode> aim_y_sign = JSMSetting<AxisMode>(SettingID::STICK_AXIS_Y, AxisMode::STANDARD);
+JSMSetting<AxisSignPair> left_stick_axis = JSMSetting<AxisSignPair>(SettingID::LEFT_STICK_AXIS, { AxisMode::STANDARD, AxisMode::STANDARD });
+JSMSetting<AxisSignPair> right_stick_axis = JSMSetting<AxisSignPair>(SettingID::RIGHT_STICK_AXIS, { AxisMode::STANDARD, AxisMode::STANDARD });
+JSMSetting<AxisSignPair> motion_stick_axis = JSMSetting<AxisSignPair>(SettingID::MOTION_STICK_AXIS, { AxisMode::STANDARD, AxisMode::STANDARD });
+JSMSetting<AxisSignPair> touch_stick_axis = JSMSetting<AxisSignPair>(SettingID::TOUCH_STICK_AXIS, { AxisMode::STANDARD, AxisMode::STANDARD });
+JSMSetting<AxisMode> aim_x_sign = JSMSetting<AxisMode>(SettingID::STICK_AXIS_X, AxisMode::STANDARD); // Legacy command
+JSMSetting<AxisMode> aim_y_sign = JSMSetting<AxisMode>(SettingID::STICK_AXIS_Y, AxisMode::STANDARD); // Legacy command
 JSMSetting<AxisMode> gyro_y_sign = JSMSetting<AxisMode>(SettingID::GYRO_AXIS_Y, AxisMode::STANDARD);
 JSMSetting<AxisMode> gyro_x_sign = JSMSetting<AxisMode>(SettingID::GYRO_AXIS_X, AxisMode::STANDARD);
 JSMSetting<float> flick_time = JSMSetting<float>(SettingID::FLICK_TIME, 0.1f);
@@ -643,12 +647,6 @@ public:
 				if (opt && platform_controller_type == JS_TYPE_DS && getSetting<Switch>(SettingID::ADAPTIVE_TRIGGER) == Switch::ON)
 					opt = optional(max(0.f, *opt)); // hair trigger disabled on dual sense when adaptive triggers are active
 				break;
-			case SettingID::STICK_AXIS_X:
-				opt = GetOptionalSetting<float>(aim_x_sign, *activeChord);
-				break;
-			case SettingID::STICK_AXIS_Y:
-				opt = GetOptionalSetting<float>(aim_y_sign, *activeChord);
-				break;
 			case SettingID::GYRO_AXIS_X:
 				opt = GetOptionalSetting<float>(gyro_x_sign, *activeChord);
 				break;
@@ -817,6 +815,37 @@ public:
 		}
 		stringstream ss;
 		ss << "Index " << index << " is not a valid Color";
+		throw invalid_argument(ss.str().c_str());
+	}
+
+	template<>
+	AxisSignPair getSetting<AxisSignPair>(SettingID index)
+	{
+		// Look at active chord mappings starting with the latest activates chord
+		for (auto activeChord = _context->chordStack.begin(); activeChord != _context->chordStack.end(); activeChord++)
+		{
+			optional<AxisSignPair> opt;
+			switch (index)
+			{
+			case SettingID::LEFT_STICK_AXIS:
+				opt = left_stick_axis.get(*activeChord);
+				break;
+			case SettingID::RIGHT_STICK_AXIS:
+				opt = right_stick_axis.get(*activeChord);
+				break;
+			case SettingID::MOTION_STICK_AXIS:
+				opt = motion_stick_axis.get(*activeChord);
+				break;
+			case SettingID::TOUCH_STICK_AXIS:
+				opt = touch_stick_axis.get(*activeChord);
+				break;
+			}
+			if (opt)
+				return *opt;
+		} // Check next Chord
+
+		stringstream ss;
+		ss << "Index " << index << " is not a valid AxisSignPair setting";
 		throw invalid_argument(ss.str().c_str());
 	}
 
@@ -1373,8 +1402,10 @@ static void resetAllMappings()
 	zrMode.Reset();
 	trigger_threshold.Reset();
 	gyro_settings.Reset();
-	aim_y_sign.Reset();
-	aim_x_sign.Reset();
+	left_stick_axis.Reset();
+	right_stick_axis.Reset();
+	motion_stick_axis.Reset();
+	touch_stick_axis.Reset();
 	gyro_y_sign.Reset();
 	gyro_x_sign.Reset();
 	gyro_space.Reset();
@@ -1864,12 +1895,6 @@ void processStick(shared_ptr<JoyShock> jc, float stickX, float stickY, float las
 		break;
 	}
 
-	// Stick inversion
-	stickX *= jc->getSetting(SettingID::STICK_AXIS_X);
-	stickY *= jc->getSetting(SettingID::STICK_AXIS_Y);
-	lastX *= jc->getSetting(SettingID::STICK_AXIS_X);
-	lastY *= jc->getSetting(SettingID::STICK_AXIS_Y);
-
 	outerDeadzone = 1.0f - outerDeadzone;
 	jc->processDeadZones(lastX, lastY, innerDeadzone, outerDeadzone);
 	bool pegged = jc->processDeadZones(stickX, stickY, innerDeadzone, outerDeadzone);
@@ -2026,13 +2051,14 @@ void TouchStick::handleTouchStickChange(shared_ptr<JoyShock> js, bool down, shor
 	bool lockMouse = false;
 	float camSpeedX = 0.f;
 	float camSpeedY = 0.f;
+	auto axisSign = js->getSetting<AxisSignPair>(SettingID::TOUCH_STICK_AXIS);
 
-	processStick(js, stickX, stickY, _currentLocation.x(), _currentLocation.y(), innerDeadzone, 0.f,
+	processStick(js, stickX * float(axisSign.first), stickY *float(axisSign.second), _currentLocation.x() * float(axisSign.first), _currentLocation.y() * float(axisSign.second), innerDeadzone, 0.f,
 	  ringMode, stickMode, ButtonID::TRING, ButtonID::TLEFT, ButtonID::TRIGHT, ButtonID::TUP, ButtonID::TDOWN,
 	  controllerOrientation, mouseCalibrationFactor, delta_time, touch_stick_acceleration, touch_last_cal,
 	  is_flicking_touch, ignore_motion_stick, anyStickInput, lockMouse, camSpeedX, camSpeedY, &js->touch_scroll_x, _index);
 
-	moveMouse(camSpeedX * js->getSetting(SettingID::STICK_AXIS_X), -camSpeedY * js->getSetting(SettingID::STICK_AXIS_Y));
+	moveMouse(camSpeedX * float(js->getSetting<AxisSignPair>(SettingID::TOUCH_STICK_AXIS).first), -camSpeedY *float(js->getSetting<AxisSignPair>(SettingID::TOUCH_STICK_AXIS).second));
 
 	if (!down && _prevDown)
 	{
@@ -2615,34 +2641,32 @@ void joyShockPollCallback(int jcHandle, JOY_SHOCK_STATE state, JOY_SHOCK_STATE l
 	if (jc->controller_split_type != JS_SPLIT_TYPE_RIGHT)
 	{
 		// let's do these sticks... don't want to constantly send input, so we need to compare them to last time
-		float lastCalX = jc->lastLX;
-		float lastCalY = jc->lastLY;
-		float calX = jsl->GetLeftX(jc->handle);
-		float calY = jsl->GetLeftY(jc->handle);
+		auto axisSign = jc->getSetting<AxisSignPair>(SettingID::LEFT_STICK_AXIS);
+		float calX = jsl->GetLeftX(jc->handle) * float(axisSign.first);
+		float calY = jsl->GetLeftY(jc->handle) * float(axisSign.second);
 
-		jc->lastLX = calX;
-		jc->lastLY = calY;
-
-		processStick(jc, calX, calY, lastCalX, lastCalY, jc->getSetting(SettingID::LEFT_STICK_DEADZONE_INNER), jc->getSetting(SettingID::LEFT_STICK_DEADZONE_OUTER),
+		processStick(jc, calX, calY, jc->lastLX, jc->lastLY, jc->getSetting(SettingID::LEFT_STICK_DEADZONE_INNER), jc->getSetting(SettingID::LEFT_STICK_DEADZONE_OUTER),
 		  jc->getSetting<RingMode>(SettingID::LEFT_RING_MODE), jc->getSetting<StickMode>(SettingID::LEFT_STICK_MODE),
 		  ButtonID::LRING, ButtonID::LLEFT, ButtonID::LRIGHT, ButtonID::LUP, ButtonID::LDOWN, controllerOrientation,
 		  mouseCalibrationFactor, deltaTime, jc->left_acceleration, jc->left_last_cal, jc->is_flicking_left, jc->ignore_left_stick_mode, leftAny, lockMouse, camSpeedX, camSpeedY, &jc->left_scroll);
+
+		jc->lastLX = calX;
+		jc->lastLY = calY;
 	}
 
 	if (jc->controller_split_type != JS_SPLIT_TYPE_LEFT)
 	{
-		float lastCalX = jc->lastRX;
-		float lastCalY = jc->lastRY;
-		float calX = jsl->GetRightX(jc->handle);
-		float calY = jsl->GetRightY(jc->handle);
+		auto axisSign = jc->getSetting<AxisSignPair>(SettingID::RIGHT_STICK_AXIS);
+		float calX = jsl->GetRightX(jc->handle) * float(axisSign.first);
+		float calY = jsl->GetRightY(jc->handle) * float(axisSign.second);
 
-		jc->lastRX = calX;
-		jc->lastRY = calY;
-
-		processStick(jc, calX, calY, lastCalX, lastCalY, jc->getSetting(SettingID::RIGHT_STICK_DEADZONE_INNER), jc->getSetting(SettingID::RIGHT_STICK_DEADZONE_OUTER),
+		processStick(jc, calX, calY, jc->lastRX, jc->lastRY, jc->getSetting(SettingID::RIGHT_STICK_DEADZONE_INNER), jc->getSetting(SettingID::RIGHT_STICK_DEADZONE_OUTER),
 		  jc->getSetting<RingMode>(SettingID::RIGHT_RING_MODE), jc->getSetting<StickMode>(SettingID::RIGHT_STICK_MODE),
 		  ButtonID::RRING, ButtonID::RLEFT, ButtonID::RRIGHT, ButtonID::RUP, ButtonID::RDOWN, controllerOrientation,
 		  mouseCalibrationFactor, deltaTime, jc->right_acceleration, jc->right_last_cal, jc->is_flicking_right, jc->ignore_right_stick_mode, rightAny, lockMouse, camSpeedX, camSpeedY, &jc->right_scroll);
+
+		jc->lastRX = calX;
+		jc->lastRY = calY;
 	}
 
 	if (jc->controller_split_type == JS_SPLIT_TYPE_FULL ||
@@ -2654,8 +2678,9 @@ void joyShockPollCallback(int jcHandle, JOY_SHOCK_STATE state, JOY_SHOCK_STATE l
 		float lastCalX = jc->lastMotionStickX;
 		float lastCalY = jc->lastMotionStickY;
 		// use gravity vector deflection
-		float calX = grav.x;
-		float calY = -grav.z;
+		auto axisSign = jc->getSetting<AxisSignPair>(SettingID::MOTION_STICK_AXIS);
+		float calX = grav.x * float(axisSign.first);
+		float calY = -grav.z * float(axisSign.second);
 		float gravLength2D = sqrtf(grav.x * grav.x + grav.z * grav.z);
 		float gravStickDeflection = atan2f(gravLength2D, -grav.y) / PI;
 		if (gravLength2D > 0)
@@ -2664,13 +2689,13 @@ void joyShockPollCallback(int jcHandle, JOY_SHOCK_STATE state, JOY_SHOCK_STATE l
 			calY *= gravStickDeflection / gravLength2D;
 		}
 
-		jc->lastMotionStickX = calX;
-		jc->lastMotionStickY = calY;
-
-		processStick(jc, calX, calY, lastCalX, lastCalY, jc->getSetting(SettingID::MOTION_DEADZONE_INNER) / 180.f, jc->getSetting(SettingID::MOTION_DEADZONE_OUTER) / 180.f,
+		processStick(jc, calX, calY, jc->lastMotionStickX, jc->lastMotionStickY, jc->getSetting(SettingID::MOTION_DEADZONE_INNER) / 180.f, jc->getSetting(SettingID::MOTION_DEADZONE_OUTER) / 180.f,
 		  jc->getSetting<RingMode>(SettingID::MOTION_RING_MODE), jc->getSetting<StickMode>(SettingID::MOTION_STICK_MODE),
 		  ButtonID::MRING, ButtonID::MLEFT, ButtonID::MRIGHT, ButtonID::MUP, ButtonID::MDOWN, controllerOrientation,
 		  mouseCalibrationFactor, deltaTime, jc->motion_stick_acceleration, jc->motion_last_cal, jc->is_flicking_motion, jc->ignore_motion_stick_mode, motionAny, lockMouse, camSpeedX, camSpeedY, nullptr);
+
+		jc->lastMotionStickX = calX;
+		jc->lastMotionStickY = calY;
 
 		float gravLength3D = grav.Length();
 		if (gravLength3D > 0)
@@ -2724,27 +2749,28 @@ void joyShockPollCallback(int jcHandle, JOY_SHOCK_STATE state, JOY_SHOCK_STATE l
 		case JS_TYPE_DS4:
 		{
 			float triggerpos = buttons & (1 << JSOFFSET_CAPTURE) ? 1.f :
-				touch                                              ? 0.99f :
-																	0.f;
+			  touch                                              ? 0.99f :
+                                                                   0.f;
 			jc->handleTriggerChange(ButtonID::TOUCH, ButtonID::CAPTURE, jc->getSetting<TriggerMode>(SettingID::TOUCHPAD_DUAL_STAGE_MODE), triggerpos, jc->unused_effect);
-		} break;
+		}
+		break;
 		case JS_TYPE_XBOXONE_ELITE:
-            jc->handleButtonChange(ButtonID::RSL, buttons & (1 << JSOFFSET_SL2)); //Xbox Elite back paddles
-            jc->handleButtonChange(ButtonID::RSR, buttons & (1 << JSOFFSET_SR2));
-            jc->handleButtonChange(ButtonID::LSL, buttons & (1 << JSOFFSET_SL));
-            jc->handleButtonChange(ButtonID::LSR, buttons & (1 << JSOFFSET_SR));
-			break;    
-        case JS_TYPE_XBOX_SERIES:
-            jc->handleButtonChange(ButtonID::CAPTURE, buttons & (1 << JSOFFSET_CAPTURE));
-			break;   
+			jc->handleButtonChange(ButtonID::RSL, buttons & (1 << JSOFFSET_SL2)); //Xbox Elite back paddles
+			jc->handleButtonChange(ButtonID::RSR, buttons & (1 << JSOFFSET_SR2));
+			jc->handleButtonChange(ButtonID::LSL, buttons & (1 << JSOFFSET_SL));
+			jc->handleButtonChange(ButtonID::LSR, buttons & (1 << JSOFFSET_SR));
+			break;
+		case JS_TYPE_XBOX_SERIES:
+			jc->handleButtonChange(ButtonID::CAPTURE, buttons & (1 << JSOFFSET_CAPTURE));
+			break;
 		default: // Switch Pro controllers and left joycon
 		{
 			jc->handleButtonChange(ButtonID::CAPTURE, buttons & (1 << JSOFFSET_CAPTURE));
 			jc->handleButtonChange(ButtonID::LSL, buttons & (1 << JSOFFSET_SL));
 			jc->handleButtonChange(ButtonID::LSR, buttons & (1 << JSOFFSET_SR));
-		} break;
 		}
-
+		break;
+		}
 	}
 	else // split type IS right
 	{
@@ -3111,6 +3137,13 @@ FloatXY filterFloatPair(FloatXY current, FloatXY next)
       current;
 }
 
+AxisSignPair filterSignPair(AxisSignPair current, AxisSignPair next)
+{
+	return next.first != AxisMode::INVALID && next.second != AxisMode::INVALID ?
+      next :
+      current;
+}
+
 float filterHoldPressDelay(float c, float next)
 {
 	if (next <= sim_press_window)
@@ -3299,6 +3332,24 @@ void OnNewGridDimensions(CmdRegistry *registry, const FloatXY &newGridDims)
 		}
 	}
 	// Else numbers are the same, possibly just reconfigured
+}
+
+void OnNewStickAxis(AxisMode newAxisMode, bool isVertical)
+{
+	if (isVertical)
+	{
+		left_stick_axis = { left_stick_axis.get()->first, newAxisMode };
+		right_stick_axis = { right_stick_axis.get()->first, newAxisMode };
+		motion_stick_axis = { motion_stick_axis.get()->first, newAxisMode };
+		touch_stick_axis = { touch_stick_axis.get()->first, newAxisMode };
+	}
+	else // is horizontal
+	{
+		left_stick_axis = { newAxisMode, left_stick_axis.get()->second };
+		right_stick_axis = { newAxisMode, right_stick_axis.get()->second };
+		motion_stick_axis = { newAxisMode, motion_stick_axis.get()->second };
+		touch_stick_axis = { newAxisMode, touch_stick_axis.get()->second };
+	}
 }
 
 class GyroSensAssignment : public JSMAssignment<FloatXY>
@@ -3544,8 +3595,12 @@ int main(int argc, char *argv[])
 	real_world_calibration.SetFilter(&filterFloat);
 	in_game_sens.SetFilter(bind(&fmaxf, 0.0001f, ::placeholders::_2));
 	trigger_threshold.SetFilter(&filterFloat);
-	aim_x_sign.SetFilter(&filterInvalidValue<AxisMode, AxisMode::INVALID>);
-	aim_y_sign.SetFilter(&filterInvalidValue<AxisMode, AxisMode::INVALID>);
+	left_stick_axis.SetFilter(&filterSignPair);
+	right_stick_axis.SetFilter(&filterSignPair);
+	motion_stick_axis.SetFilter(&filterSignPair);
+	touch_stick_axis.SetFilter(&filterSignPair);
+	aim_x_sign.SetFilter(&filterInvalidValue<AxisMode, AxisMode::INVALID>)->AddOnChangeListener(bind(OnNewStickAxis, placeholders::_1, false));
+	aim_y_sign.SetFilter(&filterInvalidValue<AxisMode, AxisMode::INVALID>)->AddOnChangeListener(bind(OnNewStickAxis, placeholders::_1, true));
 	gyro_x_sign.SetFilter(&filterInvalidValue<AxisMode, AxisMode::INVALID>);
 	gyro_y_sign.SetFilter(&filterInvalidValue<AxisMode, AxisMode::INVALID>);
 	flick_time.SetFilter(bind(&fmaxf, 0.0001f, ::placeholders::_2));
@@ -3673,10 +3728,6 @@ int main(int argc, char *argv[])
 	                      ->SetHelp("Assign a controller button to disable the gyro when pressed."));
 	commandRegistry.Add((new GyroButtonAssignment(SettingID::GYRO_ON, true))->SetListener() // Set only one listener
 	                      ->SetHelp("Assign a controller button to enable the gyro when pressed."));
-	commandRegistry.Add((new JSMAssignment<AxisMode>(aim_x_sign))
-	                      ->SetHelp("When in AIM mode, set stick X axis inversion. Valid values are the following:\nSTANDARD or 1, and INVERTED or -1"));
-	commandRegistry.Add((new JSMAssignment<AxisMode>(aim_y_sign))
-	                      ->SetHelp("When in AIM mode, set stick Y axis inversion. Valid values are the following:\nSTANDARD or 1, and INVERTED or -1"));
 	commandRegistry.Add((new JSMAssignment<AxisMode>(gyro_x_sign))
 	                      ->SetHelp("Set gyro X axis inversion. Valid values are the following:\nSTANDARD or 1, and INVERTED or -1"));
 	commandRegistry.Add((new JSMAssignment<AxisMode>(gyro_y_sign))
@@ -3795,6 +3846,10 @@ int main(int argc, char *argv[])
 	                      ->SetHelp("Set a mouse mode for the touchpad stick. Valid values are the following:\nNO_MOUSE, AIM, FLICK, FLICK_ONLY, ROTATE_ONLY, MOUSE_RING, MOUSE_AREA, OUTER_RING, INNER_RING"));
 	commandRegistry.Add((new JSMAssignment<float>(touch_stick_radius))
 	                      ->SetHelp("Set the radius of the touchpad stick. The center of the stick is always the first point of contact. Use a very large value (ex: 800) to use it as swipe gesture."));
+	commandRegistry.Add((new JSMAssignment<float>(touch_deadzone_inner))
+	                      ->SetHelp("Sets the radius of the circle in which a touch stick input sends no output."));
+	commandRegistry.Add((new JSMAssignment<RingMode>(touch_ring_mode))
+	                      ->SetHelp("Sets the ring mode for the touch stick. Valid values are INNER and OUTER"));
 	commandRegistry.Add((new JSMAssignment<Color>(light_bar))
 	                      ->SetHelp("Changes the color bar of the DS4. Either enter as a hex code (xRRGGBB), as three decimal values between 0 and 255 (RRR GGG BBB), or as a common color name in all caps and underscores."));
 	commandRegistry.Add((new JSMAssignment<FloatXY>(touchpad_sens))
@@ -3824,6 +3879,17 @@ int main(int argc, char *argv[])
 	commandRegistry.Add((new JSMAssignment<int>(magic_enum::enum_name(SettingID::RIGHT_TRIGGER_RANGE).data(), right_trigger_range)));
 	commandRegistry.Add((new JSMAssignment<Switch>("AUTO_CALIBRATE_GYRO", auto_calibrate_gyro))
 	                      ->SetHelp("Gyro calibration happens automatically when this setting is ON. Otherwise you'll need to calibrate the gyro manually when using gyro aiming."));
+	commandRegistry.Add((new JSMAssignment<AxisSignPair>(left_stick_axis))
+	                      ->SetHelp("When in AIM mode, set stick X axis inversion. Valid values are the following:\nSTANDARD or 1, and INVERTED or -1"));
+	commandRegistry.Add((new JSMAssignment<AxisSignPair>(right_stick_axis))
+	                      ->SetHelp("When in AIM mode, set stick X axis inversion. Valid values are the following:\nSTANDARD or 1, and INVERTED or -1"));
+	commandRegistry.Add((new JSMAssignment<AxisSignPair>(motion_stick_axis))
+	                      ->SetHelp("When in AIM mode, set stick X axis inversion. Valid values are the following:\nSTANDARD or 1, and INVERTED or -1"));
+	commandRegistry.Add((new JSMAssignment<AxisSignPair>(touch_stick_axis))
+	                      ->SetHelp("When in AIM mode, set stick X axis inversion. Valid values are the following:\nSTANDARD or 1, and INVERTED or -1"));
+
+	commandRegistry.Add(new JSMAssignment<AxisMode>(aim_x_sign, true));
+	commandRegistry.Add(new JSMAssignment<AxisMode>(aim_y_sign, true));
 
 	bool quit = false;
 	commandRegistry.Add((new JSMMacro("QUIT"))

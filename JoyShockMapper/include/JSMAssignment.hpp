@@ -195,18 +195,18 @@ public:
 		}
 	}
 
-	JSMAssignment(in_string name, JSMVariable<T>& var)
-	  : JSMAssignment(name, name, var)
+	JSMAssignment(in_string name, JSMVariable<T>& var, bool inNoListener = false)
+	  : JSMAssignment(name, name, var, inNoListener)
 	{
 	}
 
-	JSMAssignment(JSMSetting<T>& var)
-	  : JSMAssignment(magic_enum::enum_name(var._id).data(), var)
+	JSMAssignment(JSMSetting<T>& var, bool inNoListener = false)
+	  : JSMAssignment(magic_enum::enum_name(var._id).data(), var, inNoListener)
 	{
 	}
 
-	JSMAssignment(JSMButton& var)
-	  : JSMAssignment(magic_enum::enum_name(var._id).data(), var)
+	JSMAssignment(JSMButton& var, bool inNoListener = false)
+	  : JSMAssignment(magic_enum::enum_name(var._id).data(), var, inNoListener)
 	{
 	}
 
