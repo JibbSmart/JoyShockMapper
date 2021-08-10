@@ -3,6 +3,20 @@
 Most recent updates will appear first.
 This is a summary of new features and bugfixes. Read the README to learn how to use the features mentioned here.
 
+## 3.2.3
+
+Nicolas is adding separate axis inversion settings for each stick. Like other XY settings, one or two parameters can be provided if X and Y axis don't have the same value. Legacy STICK_AXIS_X and STICK_AXIS_Y are preserved but operate on the new settings.
+Nicolas also pushed some bugfixes
+
+### Features
+* New settings LEFT_STICK_AXIS, RIGHT_STICK_AXIS, MOTION_STICK_AXIS and TOUCH_STICK_AXIS can be set to STANDARD or INVERTED. A different vertical value can be set by providing a second value.
+
+### Bugfixes
+* Missing TOUCH_DEADZONE_INNER and TOUCH_RING_MODE commands
+* Multiple sources of virtual controller stick and trigger inputs will add up instead of override.
+* README didn't point to the official readme
+
+
 ## 3.2.2
 
 Jibb fixed some bugs related to motion stick and lean bindings.

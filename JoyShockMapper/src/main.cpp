@@ -1406,6 +1406,8 @@ static void resetAllMappings()
 	right_stick_axis.Reset();
 	motion_stick_axis.Reset();
 	touch_stick_axis.Reset();
+    aim_y_sign.Reset();
+	aim_x_sign.Reset();
 	gyro_y_sign.Reset();
 	gyro_x_sign.Reset();
 	gyro_space.Reset();
