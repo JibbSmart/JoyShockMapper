@@ -15,6 +15,7 @@ Nicolas also pushed some bugfixes
 * Missing TOUCH_DEADZONE_INNER and TOUCH_RING_MODE commands
 * Multiple sources of virtual controller stick and trigger inputs will add up instead of override.
 * README didn't point to the official readme
+* Don't send adaptive trigger data to non DS controllers... herp de derp
 
 
 ## 3.2.2

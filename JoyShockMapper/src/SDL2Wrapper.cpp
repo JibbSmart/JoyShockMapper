@@ -187,25 +187,28 @@ private:
 public:
 	void SendEffect()
 	{
-		DS5EffectsState_t effectPacket;
-		memset(&effectPacket, 0, sizeof(effectPacket));
+		if (_ctrlr_type == JS_TYPE_DS)
+		{
+			DS5EffectsState_t effectPacket;
+			memset(&effectPacket, 0, sizeof(effectPacket));
 
-		// Add adaptive trigger data
-		effectPacket.ucEnableBits1 |= 0x08 | 0x04; // Enable left and right trigger effect respectively
-		LoadTriggerEffect(effectPacket.rgucLeftTriggerEffect, &_leftTriggerEffect);
-		LoadTriggerEffect(effectPacket.rgucRightTriggerEffect, &_rightTriggerEffect);
+			// Add adaptive trigger data
+			effectPacket.ucEnableBits1 |= 0x08 | 0x04; // Enable left and right trigger effect respectively
+			LoadTriggerEffect(effectPacket.rgucLeftTriggerEffect, &_leftTriggerEffect);
+			LoadTriggerEffect(effectPacket.rgucRightTriggerEffect, &_rightTriggerEffect);
 
-		// Add current rumbling data
-		effectPacket.ucEnableBits1 |= 0x01 | 0x02;
-		effectPacket.ucRumbleLeft = _big_rumble >> 8;
-		effectPacket.ucRumbleRight = _small_rumble >> 8;
+			// Add current rumbling data
+			effectPacket.ucEnableBits1 |= 0x01 | 0x02;
+			effectPacket.ucRumbleLeft = _big_rumble >> 8;
+			effectPacket.ucRumbleRight = _small_rumble >> 8;
 
-		// Add current mic light
-		effectPacket.ucEnableBits2 |= 0x01; /* Enable microphone light */
-		effectPacket.ucMicLightMode = _micLight; /* Bitmask, 0x00 = off, 0x01 = solid, 0x02 = pulse */
+			// Add current mic light
+			effectPacket.ucEnableBits2 |= 0x01;      /* Enable microphone light */
+			effectPacket.ucMicLightMode = _micLight; /* Bitmask, 0x00 = off, 0x01 = solid, 0x02 = pulse */
 
-		// Send to controller
-		SDL_GameControllerSendEffect(_sdlController, &effectPacket, sizeof(effectPacket));
+			// Send to controller
+			SDL_GameControllerSendEffect(_sdlController, &effectPacket, sizeof(effectPacket));
+		}
 	}
 
 	bool _has_gyro;
