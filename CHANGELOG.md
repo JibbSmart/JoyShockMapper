@@ -5,6 +5,11 @@ This is a summary of new features and bugfixes. Read the README to learn how to 
 
 ## 3.2.3
 
+### Bugfixes
+* Fixed RSL and RSR not registering
+
+## 3.2.3
+
 Nicolas is adding separate axis inversion settings for each stick. Like other XY settings, one or two parameters can be provided if X and Y axis don't have the same value. Legacy STICK_AXIS_X and STICK_AXIS_Y are preserved but operate on the new settings.
 Nicolas also pushed some bugfixes
 

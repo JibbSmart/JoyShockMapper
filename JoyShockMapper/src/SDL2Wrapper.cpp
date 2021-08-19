@@ -428,8 +428,6 @@ public:
 			{ SDL_CONTROLLER_BUTTON_DPAD_RIGHT, JSOFFSET_RIGHT },
 			{ SDL_CONTROLLER_BUTTON_PADDLE2, JSOFFSET_SL },  // LSL
 			{ SDL_CONTROLLER_BUTTON_PADDLE4, JSOFFSET_SR },  // LSR
-			{ SDL_CONTROLLER_BUTTON_PADDLE3, JSOFFSET_SL2 }, // RSL
-			{ SDL_CONTROLLER_BUTTON_PADDLE1, JSOFFSET_SR2 }, // RSR
 		};
 		int buttons = 0;
 		for (auto pair : sdl2jsl)
@@ -444,8 +442,13 @@ public:
 		case JS_TYPE_DS4:
 			buttons |= SDL_GameControllerGetButton(_controllerMap[deviceId]->_sdlController, SDL_CONTROLLER_BUTTON_TOUCHPAD) > 0 ? 1 << JSOFFSET_CAPTURE : 0;
 			break;
+		case JS_TYPE_JOYCON_RIGHT:
+			buttons |= SDL_GameControllerGetButton(_controllerMap[deviceId]->_sdlController, SDL_CONTROLLER_BUTTON_PADDLE3) > 0 ? 1 << JSOFFSET_SL : 0;
+			buttons |= SDL_GameControllerGetButton(_controllerMap[deviceId]->_sdlController, SDL_CONTROLLER_BUTTON_PADDLE1) > 0 ? 1 << JSOFFSET_SR : 0;
 		default:
 			buttons |= SDL_GameControllerGetButton(_controllerMap[deviceId]->_sdlController, SDL_CONTROLLER_BUTTON_MISC1) > 0 ? 1 << JSOFFSET_CAPTURE : 0;
+			buttons |= SDL_GameControllerGetButton(_controllerMap[deviceId]->_sdlController, SDL_CONTROLLER_BUTTON_PADDLE3) > 0 ? 1 << JSOFFSET_SL2 : 0;
+			buttons |= SDL_GameControllerGetButton(_controllerMap[deviceId]->_sdlController, SDL_CONTROLLER_BUTTON_PADDLE1) > 0 ? 1 << JSOFFSET_SR2 : 0;
 			break;
 		}
 		return buttons;
