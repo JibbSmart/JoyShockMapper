@@ -10,6 +10,15 @@
 //
 #pragma comment(lib, "setupapi.lib")
 
+enum AnalogElement
+{
+    LSTICK,
+    RSTICK,
+    LTRIG,
+    RTRIG,
+    COUNT,
+};
+
 class VigemClient
 {
 	static unique_ptr<VigemClient> _inst;
@@ -148,6 +157,8 @@ private:
 	PVIGEM_TARGET _gamepad = nullptr;
 	unique_ptr<XUSB_REPORT> _stateX360;
 	unique_ptr<DS4_REPORT> _stateDS4;
+
+	std::vector<bool> _zeroElement;
 };
 
 void GamepadImpl::x360Notification(
@@ -186,6 +197,7 @@ GamepadImpl::GamepadImpl(ControllerScheme scheme, Callback notification)
   : _stateX360(new XUSB_REPORT)
   , _stateDS4(new DS4_REPORT)
   , _notification()
+  , _zeroElement(true, AnalogElement::COUNT)
 {
 	XUSB_REPORT_INIT(_stateX360.get());
 	DS4_REPORT_INIT(_stateDS4.get());
@@ -668,6 +680,15 @@ void GamepadImpl::setButtonDS4(KeyCode btn, bool pressed)
 
 void GamepadImpl::setLeftStick(float x, float y)
 {
+	if (_zeroElement[AnalogElement::LSTICK])
+	{
+		_stateX360->sThumbLX = 0;
+		_stateX360->sThumbLY = 0;
+		_stateDS4->bThumbLX = 0;
+		_stateDS4->bThumbLY = 0;
+		_zeroElement[AnalogElement::LSTICK] = false;
+	}
+
 	_stateX360->sThumbLX = clamp(int(_stateX360->sThumbLX + SHRT_MAX*clamp(x, -1.f, 1.f)), SHRT_MIN, SHRT_MAX);
 	_stateX360->sThumbLY = clamp(int(_stateX360->sThumbLY + SHRT_MAX*clamp(y, -1.f, 1.f)), SHRT_MIN, SHRT_MAX);
 
@@ -677,6 +698,15 @@ void GamepadImpl::setLeftStick(float x, float y)
 
 void GamepadImpl::setRightStick(float x, float y)
 {
+	if (_zeroElement[AnalogElement::RSTICK])
+	{
+		_stateX360->sThumbRX = 0;
+		_stateX360->sThumbRY = 0;
+		_stateDS4->bThumbRX = 0;
+		_stateDS4->bThumbRY = 0;
+		_zeroElement[AnalogElement::RSTICK] = false;
+	}
+
 	_stateX360->sThumbRX = clamp(int(_stateX360->sThumbRX + SHRT_MAX*clamp(x, -1.f, 1.f)), SHRT_MIN, SHRT_MAX);
 	_stateX360->sThumbRY = clamp(int(_stateX360->sThumbRY + SHRT_MAX*clamp(y, -1.f, 1.f)), SHRT_MIN, SHRT_MAX);
 
@@ -698,6 +728,13 @@ void GamepadImpl::setStick(float x, float y, bool isLeft)
 
 void GamepadImpl::setLeftTrigger(float val)
 {
+	if (_zeroElement[AnalogElement::LTRIG])
+	{
+		_stateX360->bLeftTrigger = 0;
+		_stateDS4->bTriggerL = 0;
+		_zeroElement[AnalogElement::LTRIG] = false;
+	}
+
 	_stateX360->bLeftTrigger = clamp(int(_stateX360->bLeftTrigger + uint8_t(clamp(val, 0.f, 1.f) * UCHAR_MAX)), 0, UCHAR_MAX);
 	_stateDS4->bTriggerL = _stateX360->bLeftTrigger;
 	if (val > 0)
@@ -708,6 +745,13 @@ void GamepadImpl::setLeftTrigger(float val)
 
 void GamepadImpl::setRightTrigger(float val)
 {
+	if (_zeroElement[AnalogElement::RTRIG])
+	{
+		_stateX360->bRightTrigger = 0;
+		_stateDS4->bTriggerR = 0;
+		_zeroElement[AnalogElement::RTRIG] = false;
+	}
+
 	_stateX360->bRightTrigger = clamp(int(_stateX360->bRightTrigger + uint8_t(clamp(val, 0.f, 1.f) * UCHAR_MAX)), 0, UCHAR_MAX);
 	_stateDS4->bTriggerR = _stateX360->bRightTrigger;
 	if (val > 0)
@@ -731,18 +775,8 @@ void GamepadImpl::update()
 			vigem_target_x360_update(VigemClient::get(), _gamepad, *_stateX360.get());
 			break;
 		}
-		_stateDS4->bThumbLX = 0;
-		_stateDS4->bThumbLY = 0;
-		_stateDS4->bThumbRX = 0;
-		_stateDS4->bThumbRY = 0;
-		_stateDS4->bTriggerL = 0;
-		_stateDS4->bTriggerR = 0;
-		_stateX360->sThumbLX = 0;
-		_stateX360->sThumbLY = 0;
-		_stateX360->sThumbRX = 0;
-		_stateX360->sThumbRY = 0;
-		_stateX360->bLeftTrigger = 0;
-		_stateX360->bRightTrigger = 0;
+		_zeroElement.clear();
+		_zeroElement.resize(AnalogElement::COUNT, true);
 	}
 }
 
