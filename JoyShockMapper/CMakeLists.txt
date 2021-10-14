@@ -39,20 +39,20 @@ add_executable (
 	include/Mapping.h
 )
 
-if(SDL)
-	target_sources (
-		${BINARY_NAME} PRIVATE
-		src/SDL2Wrapper.cpp
-	)
-	add_definitions(-DSDL2)
-else()
-		target_sources (
-		${BINARY_NAME} PRIVATE
-		src/JslWrapper.cpp
-	)
-endif()
-
 if (WINDOWS)
+	if(SDL)
+		target_sources (
+				${BINARY_NAME} PRIVATE
+				src/SDL2Wrapper.cpp
+		)
+		add_definitions(-DSDL2)
+	else()
+		target_sources (
+				${BINARY_NAME} PRIVATE
+				src/JslWrapper.cpp
+		)
+	endif()
+
     target_sources (
         ${BINARY_NAME} PRIVATE
         src/win32/InputHelpers.cpp
@@ -125,6 +125,19 @@ if (WINDOWS)
 endif ()
 
 if (LINUX)
+	if(SDL OR NOT DEFINED SDL)
+		target_sources (
+				${BINARY_NAME} PRIVATE
+				src/SDL2Wrapper.cpp
+		)
+		add_definitions(-DSDL2)
+	else()
+		target_sources (
+				${BINARY_NAME} PRIVATE
+				src/JslWrapper.cpp
+		)
+	endif()
+
     target_sources (
         ${BINARY_NAME} PRIVATE
         src/linux/Init.cpp
@@ -148,7 +161,7 @@ target_include_directories (
     "${PROJECT_BINARY_DIR}/${PROJECT_NAME}/include"
 )
 
-if(SDL)
+if(SDL OR NOT DEFINED SDL)
 	# SDL2
 	set(HIDAPI ON)
 	CPMAddPackage (
