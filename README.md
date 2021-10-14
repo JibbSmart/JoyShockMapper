@@ -94,7 +94,7 @@ Generate the project by runnning the following in a command prompt at the projec
   * To create a Visual Studio x64 configuration: ```cmake .. -G "Visual Studio 16 2019" -A x64 .```
 - Linux:
   * ```mkdir build && cd build```
-  * ```cmake .. -DCMAKE_CXX_COMPILER=clang++ -DSDL=1 -DHIDAPI=ON && cmake --build .```
+  * ```cmake .. -DCMAKE_CXX_COMPILER=clang++ && cmake --build .```
 
 ### Linux specific notes
 Please note that JoyShockMapper is primarily written for Windows and is a program in rapid development.
@@ -102,6 +102,7 @@ Please note that JoyShockMapper is primarily written for Windows and is a progra
 While JSM can be built for Linux, please note that the rapid pace of development and limited number of Linux maintainers means that the Linux release may not always build.
 
 In order to build on Linux, the following dependencies must be met, with their respective development packages:
+- clang++ (see below bug)
 - gtk+3
 - libappindicator3
 - libevdev
@@ -111,7 +112,8 @@ In order to build on Linux, the following dependencies must be met, with their r
 
 **Distribution-Specific Package Names:**
 
-* Fedora: ```SDL2-devel libappindicator-gtk3-devel libevdev-devel gtk3-devel libusb-devel hidapi-devel```
+* Fedora: ```clang SDL2-devel libappindicator-gtk3-devel libevdev-devel gtk3-devel libusb-devel hidapi-devel```
+* Arch: ```clang sdl2 libappindicator-gtk3 libevdev gtk3 libusb hidapi```
 * Please provide an issue report or pull request to have additional library lists added.
 
 Due to a [bug](https://stackoverflow.com/questions/49707184/explicit-specialization-in-non-namespace-scope-does-not-compile-in-gcc) in GCC, the project in its current form will only build with Clang.
