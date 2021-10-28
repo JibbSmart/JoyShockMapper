@@ -670,8 +670,8 @@ void GamepadImpl::setLeftStick(float x, float y)
 	_stateX360->sThumbLX = clamp(int(_stateX360->sThumbLX + SHRT_MAX*clamp(x, -1.f, 1.f)), SHRT_MIN, SHRT_MAX);
 	_stateX360->sThumbLY = clamp(int(_stateX360->sThumbLY + SHRT_MAX*clamp(y, -1.f, 1.f)), SHRT_MIN, SHRT_MAX);
 
-	_stateDS4->bThumbLX = clamp(int(_stateX360->sThumbLX + UCHAR_MAX*(clamp(x / 2.f, -.5f, .5f) + .5f)), 0, UCHAR_MAX);
-	_stateDS4->bThumbLY = clamp(int(_stateX360->sThumbLY + UCHAR_MAX*(clamp(-y / 2.f, -.5f, .5f) + .5f)), 0, UCHAR_MAX);
+	_stateDS4->bThumbLX = clamp(int(UCHAR_MAX*(clamp(x / 2.f, -.5f, .5f) + .5f)), 0, UCHAR_MAX);
+	_stateDS4->bThumbLY = clamp(int(UCHAR_MAX*(clamp(-y / 2.f, -.5f, .5f) + .5f)), 0, UCHAR_MAX);
 }
 
 void GamepadImpl::setRightStick(float x, float y)
@@ -679,8 +679,8 @@ void GamepadImpl::setRightStick(float x, float y)
 	_stateX360->sThumbRX = clamp(int(_stateX360->sThumbRX + SHRT_MAX*clamp(x, -1.f, 1.f)), SHRT_MIN, SHRT_MAX);
 	_stateX360->sThumbRY = clamp(int(_stateX360->sThumbRY + SHRT_MAX*clamp(y, -1.f, 1.f)), SHRT_MIN, SHRT_MAX);
 
-	_stateDS4->bThumbRX = clamp(int(_stateX360->sThumbLX + UCHAR_MAX*(clamp(x / 2.f, -.5f, .5f) + .5f)), 0, UCHAR_MAX);
-	_stateDS4->bThumbRY = clamp(int(_stateX360->sThumbLY + UCHAR_MAX*(clamp(-y / 2.f, -.5f, .5f) + .5f)), 0, UCHAR_MAX);
+	_stateDS4->bThumbRX = clamp(int(UCHAR_MAX*(clamp(x / 2.f, -.5f, .5f) + .5f)), 0, UCHAR_MAX);
+	_stateDS4->bThumbRY = clamp(int(UCHAR_MAX*(clamp(-y / 2.f, -.5f, .5f) + .5f)), 0, UCHAR_MAX);
 }
 
 void GamepadImpl::setLeftTrigger(float val)
