@@ -3,6 +3,13 @@
 Most recent updates will appear first.
 This is a summary of new features and bugfixes. Read the README to learn how to use the features mentioned here.
 
+## 3.3.0
+
+Jibb added basic support for mapping gyro to virtual controller sticks.
+
+### Features
+* GYRO_OUTPUT can be set to RIGHT_STICK to convert gyro to stick instead of mouse. Find it in the README to see other settings available, including "UNDEADZONE" andn "UNPOWER".
+
 ## 3.2.3
 
 ### Bugfixes

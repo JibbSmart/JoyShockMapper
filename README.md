@@ -833,6 +833,20 @@ ZR_MODE = PS_R2
 
 Using both analog and digital trigger bindings at the same time leads to undefined behaviours. Use modeshift as defined in the next section to disable analog triggers while a digital trigger binding is active.
 
+#### 6.3 Virtual Controller Gyro
+While the virtual controller can't output gyro, JoyShockMapper can convert gyro input to stick output. For example:
+```
+GYRO_OUTPUT = RIGHT_STICK
+```
+
+```GYRO_OUTPUT``` can also be set to ```LEFT_STICK``` or left at its default value of ```MOUSE```, which means gyro will be converted to mouse input.
+
+Because games tend to do a lof of processing on stick input to turn it into camera movement, you'll want to counter that processing to convert it to a decent camera movement. So far, here are your options:
+* **RIGHT_STICK_UNDEADZONE_INNER** / **LEFT_STICK_UNDEADZONE_INNER** (default 0) - This will counter the game's inner deadzone. For example, if a game has a deadzone of 0.25 (that's 25% off the stick movement range), very small gyro inputs will convert to a stick radius of just over 0.25 so that the game detects them right away. When gyro output is assigned to this stick and no gyro is detected (if GYRO_SENS is 0, for example), this stick position will be set to the edge of this deadzone. This means you can tweak this deadzone value until you get the largest value that doesn't move the camera automatically to find the exact inner deadzone.
+* **RIGHT_STICK_UNDEADZONE_OUTER** / **LEFT_STICK_UNDEADZONE_OUTER** (default 0) - Distance from the outer theoretical edge of the stick's range that will be considered "full tilt". Gyro velocity will be mapped to a stick position between \_STICK_UNDEADZONE_INNER and \_STICK_UNDEADZONE_OUTER.
+* **RIGHT_STICK_UNPOWER** / **LEFT_STICK_UNPOWER** (default 0) - A power curve is often applied to stick input to give players more with small movements at the cost of less precision with very large movements. If you know what the exponent is, putting it here will counter that power curve to hopefully give you linearly proportional camera control. The default value of 0 does nothing, which is effectively the same as setting it to 1, since that assumes a linear curve.
+
+Games sometimes do a lot of other processing to the stick input: easing in, acceleration, direction warping, angular deadzones, for example. JSM does not yet have a way to counter these effects.
 
 ### 7. Modeshifts
 
