@@ -31,6 +31,7 @@ public:
 	virtual void setButton(KeyCode btn, bool pressed) = 0;
 	virtual void setLeftStick(float x, float y) = 0;
 	virtual void setRightStick(float x, float y) = 0;
+	virtual void setStick(float x, float y, bool isLeft) = 0;
 	virtual void setLeftTrigger(float) = 0;
 	virtual void setRightTrigger(float) = 0;
 	virtual void update() = 0;

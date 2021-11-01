@@ -275,6 +275,7 @@ enum class SettingID
 	RIGHT_STICK_UNDEADZONE_INNER,
 	RIGHT_STICK_UNDEADZONE_OUTER,
 	RIGHT_STICK_UNPOWER,
+	GYRO_OUTPUT,
 };
 
 // constexpr are like #define but with respect to typeness
@@ -391,6 +392,13 @@ enum class DstState
 	DelayFullPress,
 	PressStartResp,
 	ExclFullPress,
+	INVALID
+};
+enum class GyroOutput
+{
+	MOUSE,
+	LEFT_STICK,
+	RIGHT_STICK,
 	INVALID
 };
 
