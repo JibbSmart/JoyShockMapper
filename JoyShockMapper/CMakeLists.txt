@@ -22,6 +22,8 @@ add_executable (
  	src/DigitalButton.cpp
 	src/MotionImpl.cpp
 	src/Mapping.cpp
+    src/TriggerEffectGenerator.cpp
+    include/TriggerEffectGenerator.h
     include/InputHelpers.h
     include/PlatformDefinitions.h
     include/TrayIcon.h

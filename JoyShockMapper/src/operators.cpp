@@ -1,4 +1,5 @@
 #include "JoyShockMapper.h"
+#include "JslWrapper.h"
 #include "ColorCodes.h"
 
 #include <cstring>
@@ -225,7 +226,7 @@ istream &operator>>(istream &in, AxisMode &am)
 	return in;
 }
 
-ostream& operator<<(ostream& out, const AxisSignPair& asp)
+ostream &operator<<(ostream &out, const AxisSignPair &asp)
 {
 	out << asp.first;
 	if (asp.first != asp.second)
@@ -235,7 +236,7 @@ ostream& operator<<(ostream& out, const AxisSignPair& asp)
 	return out;
 }
 
-istream& operator>>(istream& in, AxisSignPair& asp)
+istream &operator>>(istream &in, AxisSignPair &asp)
 {
 	size_t pos;
 	string value;
@@ -269,7 +270,7 @@ istream& operator>>(istream& in, AxisSignPair& asp)
 	return in;
 }
 
-bool operator==(const AxisSignPair& lhs, const AxisSignPair& rhs)
+bool operator==(const AxisSignPair &lhs, const AxisSignPair &rhs)
 {
 	return lhs.first == rhs.first && lhs.second == rhs.second;
 }
@@ -326,4 +327,85 @@ ostream &operator<<(ostream &out, const Color &color)
 bool operator==(const Color &lhs, const Color &rhs)
 {
 	return lhs.raw == rhs.raw;
+}
+
+istream &operator>>(istream &in, AdaptiveTriggerSetting &atm)
+{
+	string s;
+	in >> s;
+	auto opt = magic_enum::enum_cast<AdaptiveTriggerMode>(s);
+
+	memset(&atm, 0, sizeof(AdaptiveTriggerSetting));
+	atm.mode = opt ? *opt : AdaptiveTriggerMode::INVALID;
+
+	switch (atm.mode)
+	{
+	case AdaptiveTriggerMode::SEGMENT:
+		in >> atm.start >> atm.end >> atm.force;
+		break;
+	case AdaptiveTriggerMode::RESISTANCE:
+		in >> atm.start >> atm.force;
+		break;
+	case AdaptiveTriggerMode::BOW:
+		in >> atm.start >> atm.end >> atm.force >> atm.forceExtra;
+		break;
+	case AdaptiveTriggerMode::GALLOPING:
+		in >> atm.start >> atm.end >> atm.force >> atm.forceExtra >> atm.frequency;
+		break;
+	case AdaptiveTriggerMode::SEMI_AUTOMATIC:
+		in >> atm.start >> atm.end >> atm.force;
+		break;
+	case AdaptiveTriggerMode::AUTOMATIC:
+		in >> atm.start >> atm.force >> atm.frequency;
+		break;
+	case AdaptiveTriggerMode::MACHINE:
+		in >> atm.start >> atm.end >> atm.force >> atm.forceExtra >> atm.frequency >> atm.frequencyExtra;
+		break;
+	default:
+		break;
+	}
+	return in;
+}
+
+ostream &operator<<(ostream &out, const AdaptiveTriggerSetting &atm)
+{
+	out << atm.mode << ' ';
+	switch (atm.mode)
+	{
+	case AdaptiveTriggerMode::SEGMENT:
+		out << atm.start << ' ' << atm.end << ' ' << atm.force;
+		break;
+	case AdaptiveTriggerMode::RESISTANCE:
+		out << atm.start << ' ' << atm.force;
+		break;
+	case AdaptiveTriggerMode::BOW:
+		out << atm.start << ' ' << atm.end << ' ' << atm.force << ' ' << atm.forceExtra;
+		break;
+	case AdaptiveTriggerMode::GALLOPING:
+		out << atm.start << ' ' << atm.end << ' ' << atm.force << ' ' << atm.forceExtra << ' ' << atm.frequency;
+		break;
+	case AdaptiveTriggerMode::SEMI_AUTOMATIC:
+		out << atm.start << ' ' << atm.end << ' ' << atm.force;
+		break;
+	case AdaptiveTriggerMode::AUTOMATIC:
+		out << atm.start << ' ' << atm.force << ' ' << atm.frequency;
+		break;
+	case AdaptiveTriggerMode::MACHINE:
+		out << atm.start << ' ' << atm.end << ' ' << atm.force << ' ' << atm.forceExtra << ' ' << atm.frequency << ' ' << atm.frequencyExtra;
+		break;
+	default:
+		break;
+	}
+	return out;
+}
+
+bool operator==(const AdaptiveTriggerSetting &lhs, const AdaptiveTriggerSetting &rhs)
+{
+	return lhs.mode == rhs.mode &&
+		lhs.start == rhs.start &&
+		lhs.end == rhs.end &&
+		lhs.force == rhs.force &&
+		lhs.frequency == rhs.frequency &&
+		lhs.forceExtra == rhs.forceExtra &&
+		lhs.frequencyExtra == rhs.frequencyExtra;
 }

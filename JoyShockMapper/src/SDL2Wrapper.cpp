@@ -10,21 +10,9 @@
 #include <memory>
 #include <iostream>
 #include <cstring>
+#include "TriggerEffectGenerator.h"
 
 extern JSMVariable<float> tick_time; // defined in main.cc
-
-bool operator!=(const JOY_SHOCK_TRIGGER_EFFECT &lha, const JOY_SHOCK_TRIGGER_EFFECT &rha)
-{
-	return lha.mode != rha.mode || lha.strength != rha.strength || lha.start != rha.start || lha.end != rha.end || lha.frequency != rha.frequency;
-}
-
-enum TriggerEffectMode : uint8_t
-{
-	None = 0x05,
-	Rigid = 0x01,
-	Pulse = 0x02,
-	Advanced = 0x24,
-};
 
 typedef struct
 {
@@ -159,26 +147,40 @@ struct ControllerDevice
 	}
 
 private:
-	void LoadTriggerEffect(Uint8 *rgucTriggerEffect, const JOY_SHOCK_TRIGGER_EFFECT *trigger_effect)
+	void LoadTriggerEffect(Uint8 *rgucTriggerEffect, const AdaptiveTriggerSetting *trigger_effect)
 	{
+		using namespace ExtendInput::DataTools::DualSense;
+		//ExtendInput::DataTools::DualSense::TriggerEffectGenerator::Bow(rgucTriggerEffect, 0, 0, 5, 3, 8);
+		//ExtendInput::DataTools::DualSense::TriggerEffectGenerator::Galloping(rgucTriggerEffect, 0, 0, 9, 3, 5, 3);
 		rgucTriggerEffect[0] = (uint8_t)trigger_effect->mode;
-		switch (TriggerEffectMode(trigger_effect->mode))
+		switch (trigger_effect->mode)
 		{
-		case TriggerEffectMode::Rigid:
-			rgucTriggerEffect[1] = trigger_effect->start;
-			rgucTriggerEffect[2] = trigger_effect->strength >> 8;
+        case AdaptiveTriggerMode::RESISTANCE_RAW:
+			TriggerEffectGenerator::SimpleResistance(rgucTriggerEffect, 0, trigger_effect->start, trigger_effect->force);
 			break;
-		case TriggerEffectMode::Pulse:
+		case AdaptiveTriggerMode::SEGMENT:
 			rgucTriggerEffect[1] = trigger_effect->start;
 			rgucTriggerEffect[2] = trigger_effect->end;
-			rgucTriggerEffect[3] = trigger_effect->strength >> 8;
+			rgucTriggerEffect[3] = trigger_effect->force >> 8;
 			break;
-		case TriggerEffectMode::Advanced:
-			rgucTriggerEffect[1] = trigger_effect->frequency;
-			rgucTriggerEffect[2] = trigger_effect->strength >> 8;
-			rgucTriggerEffect[3] = trigger_effect->start;
+		case AdaptiveTriggerMode::RESISTANCE:
+			TriggerEffectGenerator::Resistance(rgucTriggerEffect, 0, trigger_effect->start, trigger_effect->force);
 			break;
-		case TriggerEffectMode::None:
+		case AdaptiveTriggerMode::BOW:
+			TriggerEffectGenerator::Bow(rgucTriggerEffect, 0, trigger_effect->start, trigger_effect->end, trigger_effect->force, trigger_effect->forceExtra);
+			break;
+		case AdaptiveTriggerMode::GALLOPING:
+			TriggerEffectGenerator::Galloping(rgucTriggerEffect, 0, trigger_effect->start, trigger_effect->end, trigger_effect->force, trigger_effect->forceExtra, trigger_effect->frequency);
+			break;
+	    case AdaptiveTriggerMode::SEMI_AUTOMATIC:
+			TriggerEffectGenerator::SemiAutomaticGun(rgucTriggerEffect, 0, trigger_effect->start, trigger_effect->end, trigger_effect->force);
+			break;
+		case AdaptiveTriggerMode::AUTOMATIC:
+			TriggerEffectGenerator::AutomaticGun(rgucTriggerEffect, 0, trigger_effect->start, trigger_effect->force, trigger_effect->frequency);
+			break;
+		case AdaptiveTriggerMode::MACHINE:
+			TriggerEffectGenerator::Machine(rgucTriggerEffect, 0, trigger_effect->start, trigger_effect->end, trigger_effect->force, trigger_effect->forceExtra, trigger_effect->frequency, trigger_effect->frequencyExtra);
+			break;
 		default:
 			rgucTriggerEffect[0] = 0x05; // no effect
 		}
@@ -217,8 +219,8 @@ public:
 	int _ctrlr_type = 0;
 	uint16_t _small_rumble = 0;
 	uint16_t _big_rumble = 0;
-	JOY_SHOCK_TRIGGER_EFFECT _leftTriggerEffect;
-	JOY_SHOCK_TRIGGER_EFFECT _rightTriggerEffect;
+	AdaptiveTriggerSetting _leftTriggerEffect;
+	AdaptiveTriggerSetting _rightTriggerEffect;
 	uint8_t _micLight = 0;
 	SDL_GameController *_sdlController = nullptr;
 };
@@ -653,7 +655,7 @@ public:
 		SDL_GameControllerSetPlayerIndex(_controllerMap[deviceId]->_sdlController, number);
 	}
 
-	void SetTriggerEffect(int deviceId, const JOY_SHOCK_TRIGGER_EFFECT &_leftTriggerEffect, const JOY_SHOCK_TRIGGER_EFFECT &_rightTriggerEffect) override
+	void SetTriggerEffect(int deviceId, const AdaptiveTriggerSetting &_leftTriggerEffect, const AdaptiveTriggerSetting &_rightTriggerEffect) override
 	{
 		if (_leftTriggerEffect != _controllerMap[deviceId]->_leftTriggerEffect || _rightTriggerEffect != _controllerMap[deviceId]->_rightTriggerEffect)
 		{

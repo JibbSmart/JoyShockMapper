@@ -117,7 +117,9 @@ JSMVariable<Switch> hide_minimized = JSMVariable<Switch>(Switch::OFF);
 JSMVariable<ControllerScheme> virtual_controller = JSMVariable<ControllerScheme>(ControllerScheme::NONE);
 JSMSetting<TriggerMode> touch_ds_mode = JSMSetting<TriggerMode>(SettingID::TOUCHPAD_DUAL_STAGE_MODE, TriggerMode::NO_SKIP);
 JSMSetting<Switch> rumble_enable = JSMSetting<Switch>(SettingID::RUMBLE, Switch::ON);
-JSMSetting<Switch> adaptive_trigger = JSMSetting<Switch>(SettingID::ADAPTIVE_TRIGGER, Switch::ON);
+JSMSetting<Switch> adaptive_trigger = JSMSetting<Switch>(SettingID::ADAPTIVE_TRIGGER, Switch::ON );
+JSMSetting<AdaptiveTriggerSetting> left_trigger_effect = JSMSetting<AdaptiveTriggerSetting>(SettingID::LEFT_TRIGGER_EFFECT, AdaptiveTriggerSetting() );
+JSMSetting<AdaptiveTriggerSetting> right_trigger_effect = JSMSetting<AdaptiveTriggerSetting>(SettingID::RIGHT_TRIGGER_EFFECT, AdaptiveTriggerSetting() );
 JSMVariable<int> left_trigger_offset = JSMVariable<int>(25);
 JSMVariable<int> left_trigger_range = JSMVariable<int>(150);
 JSMVariable<int> right_trigger_offset = JSMVariable<int>(25);
@@ -417,9 +419,9 @@ public:
 	int lastGyroIndexY = 0;
 
 	Color _light_bar;
-	JOY_SHOCK_TRIGGER_EFFECT left_effect;
-	JOY_SHOCK_TRIGGER_EFFECT right_effect;
-	JOY_SHOCK_TRIGGER_EFFECT unused_effect;
+	AdaptiveTriggerSetting left_effect;
+	AdaptiveTriggerSetting right_effect;
+	AdaptiveTriggerSetting unused_effect;
 
 	JoyShock(int uniqueHandle, int controllerSplitType, shared_ptr<DigitalButton::Context> sharedButtonCommon = nullptr)
 	  : handle(uniqueHandle)
@@ -669,7 +671,7 @@ public:
 				break;
 			case SettingID::TRIGGER_THRESHOLD:
 				opt = trigger_threshold.get(*activeChord);
-				if (opt && platform_controller_type == JS_TYPE_DS && getSetting<Switch>(SettingID::ADAPTIVE_TRIGGER) == Switch::ON)
+				if (opt && platform_controller_type == JS_TYPE_DS && getSetting<AdaptiveTriggerSetting>(SettingID::ADAPTIVE_TRIGGER).mode != AdaptiveTriggerMode::ON)
 					opt = optional(max(0.f, *opt)); // hair trigger disabled on dual sense when adaptive triggers are active
 				break;
 			case SettingID::GYRO_AXIS_X:
@@ -868,6 +870,24 @@ public:
 	}
 
 	template<>
+	AdaptiveTriggerSetting getSetting<AdaptiveTriggerSetting>(SettingID index)
+	{
+		if (index == SettingID::ADAPTIVE_TRIGGER)
+		{
+			// Look at active chord mappings starting with the latest activates chord
+			for (auto activeChord = _context->chordStack.begin(); activeChord != _context->chordStack.end(); activeChord++)
+			{
+				auto opt = adaptive_trigger.get(*activeChord);
+				if (opt)
+					return *opt;
+			}
+		}
+		stringstream ss;
+		ss << "Index " << index << " is not a valid Color";
+		throw invalid_argument(ss.str().c_str());
+	}
+
+	template<>
 	AxisSignPair getSetting<AxisSignPair>(SettingID index)
 	{
 		// Look at active chord mappings starting with the latest activates chord
@@ -1013,7 +1033,7 @@ private:
 	bool isSoftPullPressed(int triggerIndex, float triggerPosition)
 	{
 		float threshold = getSetting(SettingID::TRIGGER_THRESHOLD);
-		if (platform_controller_type == JS_TYPE_DS && getSetting<Switch>(SettingID::ADAPTIVE_TRIGGER) == Switch::ON)
+		if (platform_controller_type == JS_TYPE_DS && getSetting<AdaptiveTriggerSetting>(SettingID::ADAPTIVE_TRIGGER).mode != AdaptiveTriggerMode::OFF)
 			threshold = max(0.f, threshold); // hair trigger disabled on dual sense when adaptive triggers are active
 		if (threshold >= 0)
 		{
@@ -1090,12 +1110,12 @@ public:
 	float getTriggerEffectStartPos()
 	{
 		float threshold = getSetting(SettingID::TRIGGER_THRESHOLD);
-		if (platform_controller_type == JS_TYPE_DS && getSetting<Switch>(SettingID::ADAPTIVE_TRIGGER) == Switch::ON)
+		if (platform_controller_type == JS_TYPE_DS && getSetting<AdaptiveTriggerSetting>(SettingID::ADAPTIVE_TRIGGER).mode != AdaptiveTriggerMode::OFF)
 			threshold = max(0.f, threshold); // hair trigger disabled on dual sense when adaptive triggers are active
 		return clamp(threshold + 0.05f, 0.0f, 1.0f);
 	}
 
-	void handleTriggerChange(ButtonID softIndex, ButtonID fullIndex, TriggerMode mode, float position, JOY_SHOCK_TRIGGER_EFFECT &trigger_rumble)
+	void handleTriggerChange(ButtonID softIndex, ButtonID fullIndex, TriggerMode mode, float position, AdaptiveTriggerSetting &trigger_rumble)
 	{
 		uint8_t offset = softIndex == ButtonID::ZL ? left_trigger_offset : right_trigger_offset;
 		uint8_t range = softIndex == ButtonID::ZL ? left_trigger_range : right_trigger_range;
@@ -1116,8 +1136,8 @@ public:
 		{
 			if (_context->_vigemController)
 				_context->_vigemController->setLeftTrigger(position);
-			trigger_rumble.mode = 1;
-			trigger_rumble.strength = 0;
+			trigger_rumble.mode = AdaptiveTriggerMode::RESISTANCE_RAW;
+			trigger_rumble.force = 0;
 			trigger_rumble.start = offset + 0.05 * range;
 			mode = TriggerMode::NO_FULL;
 //			return;
@@ -1126,8 +1146,8 @@ public:
 		{
 			if (_context->_vigemController)
 				_context->_vigemController->setRightTrigger(position);
-			trigger_rumble.mode = 1;
-			trigger_rumble.strength = 0;
+			trigger_rumble.mode = AdaptiveTriggerMode::RESISTANCE_RAW;
+			trigger_rumble.force = 0;
 			trigger_rumble.start = offset + 0.05 * range;
 			mode = TriggerMode::NO_FULL;
 //			return;
@@ -1151,14 +1171,14 @@ public:
 			// It actually doesn't matter what the last Press is. Theoretically, we could have missed the edge.
 			if (mode == TriggerMode::NO_FULL)
 			{
-				trigger_rumble.mode = 1;
-				trigger_rumble.strength = UINT16_MAX;
+				trigger_rumble.mode = AdaptiveTriggerMode::RESISTANCE_RAW;
+				trigger_rumble.force = UINT16_MAX;
 				trigger_rumble.start = offset + getTriggerEffectStartPos() * range;
 			}
 			else
 			{
-				trigger_rumble.mode = 2;
-				trigger_rumble.strength = 0.1 * UINT16_MAX;
+				trigger_rumble.mode = AdaptiveTriggerMode::SEGMENT;
+				trigger_rumble.force = 0.1 * UINT16_MAX;
 				trigger_rumble.start = offset + getTriggerEffectStartPos() * range;
 				trigger_rumble.end = offset + min(1.f, getTriggerEffectStartPos() + 0.1f) * range;
 			}
@@ -1254,8 +1274,8 @@ public:
 			handleButtonChange(softIndex, false);
 			break;
 		case DstState::QuickFullPress:
-			trigger_rumble.mode = 2;
-			trigger_rumble.strength = UINT16_MAX;
+			trigger_rumble.mode = AdaptiveTriggerMode::SEGMENT;
+			trigger_rumble.force = UINT16_MAX;
 			trigger_rumble.start = offset + 0.89 * range;
 			trigger_rumble.end = offset + 0.99 * range;
 			if (position < 1.0f)
@@ -1271,8 +1291,8 @@ public:
 			}
 			break;
 		case DstState::QuickFullRelease:
-			trigger_rumble.mode = 2;
-			trigger_rumble.strength = UINT16_MAX;
+			trigger_rumble.mode = AdaptiveTriggerMode::SEGMENT;
+			trigger_rumble.force = UINT16_MAX;
 			trigger_rumble.start = offset + 0.89 * range;
 			trigger_rumble.end = offset + 0.99 * range;
 			if (!isSoftPullPressed(idxState, position))
@@ -1298,7 +1318,7 @@ public:
 			{
 				if (mode == TriggerMode::NO_SKIP || mode == TriggerMode::MAY_SKIP || mode == TriggerMode::MAY_SKIP_R)
 				{
-					trigger_rumble.strength = min(int(UINT16_MAX), trigger_rumble.strength + int(1 / 30.f * tick_time * UINT16_MAX));
+					trigger_rumble.force = min(int(UINT16_MAX), trigger_rumble.force + int(1 / 30.f * tick_time * UINT16_MAX));
 					trigger_rumble.start = min(offset + 0.89 * range, trigger_rumble.start + 1 / 150. * tick_time * range);
 					trigger_rumble.end = trigger_rumble.start + 0.1 * range;
 					handleButtonChange(softIndex, true);
@@ -1311,7 +1331,7 @@ public:
 				}
 				else if (mode == TriggerMode::NO_SKIP_EXCLUSIVE)
 				{
-					trigger_rumble.strength = min(int(UINT16_MAX), trigger_rumble.strength + int(1 / 30.f * tick_time * UINT16_MAX));
+					trigger_rumble.force = min(int(UINT16_MAX), trigger_rumble.force + int(1 / 30.f * tick_time * UINT16_MAX));
 					trigger_rumble.start = min(offset + 0.89 * range, trigger_rumble.start + 1 / 150. * tick_time * range);
 					trigger_rumble.end = trigger_rumble.start + 0.1 * range;
 					handleButtonChange(softIndex, false);
@@ -1323,16 +1343,16 @@ public:
 				}
 				else // NO_FULL, MUST_SKIP and MUST_SKIP_R
 				{
-					trigger_rumble.mode = 1;
-					trigger_rumble.strength = min(int(UINT16_MAX), trigger_rumble.strength + int(1 / 30.f * tick_time * UINT16_MAX));
+					trigger_rumble.mode = AdaptiveTriggerMode::RESISTANCE_RAW;
+					trigger_rumble.force = min(int(UINT16_MAX), trigger_rumble.force + int(1 / 30.f * tick_time * UINT16_MAX));
 					// keep old trigger_rumble.start
 					handleButtonChange(softIndex, true);
 				}
 			}
 			break;
 		case DstState::DelayFullPress:
-			trigger_rumble.mode = 2;
-			trigger_rumble.strength = UINT16_MAX;
+			trigger_rumble.mode = AdaptiveTriggerMode::SEGMENT;
+			trigger_rumble.force = UINT16_MAX;
 			trigger_rumble.start = offset + 0.8 * range;
 			trigger_rumble.end = offset + 0.99 * range;
 			if (position < 1.0)
@@ -1349,8 +1369,8 @@ public:
 			handleButtonChange(softIndex, true);
 			break;
 		case DstState::ExclFullPress:
-			trigger_rumble.mode = 2;
-			trigger_rumble.strength = UINT16_MAX;
+			trigger_rumble.mode = AdaptiveTriggerMode::SEGMENT;
+			trigger_rumble.force = UINT16_MAX;
 			trigger_rumble.start = offset + 0.89 * range;
 			trigger_rumble.end = offset + 0.99 * range;
 			if (position < 1.0f)
@@ -1931,7 +1951,7 @@ static float handleFlickStick(float calX, float calY, float lastCalX, float last
 						snapInterval = PI / 4.0f; // 45 degrees
 					}
 					float snappedAngle = round(stickAngle / snapInterval) * snapInterval;
-					// lerp by snap strength
+					// lerp by snap force
 					auto flick_snap_strength = jc->getSetting(SettingID::FLICK_SNAP_STRENGTH);
 					stickAngle = stickAngle * (1.0f - flick_snap_strength) + snappedAngle * flick_snap_strength;
 				}
@@ -2431,10 +2451,10 @@ void CalibrateTriggers(shared_ptr<JoyShock> jc)
 		COUT << "Softly press on the right trigger until you just feel the resistance." << endl;
 		COUT << "Then press the dpad down button to proceed, or press HOME to abandon." << endl;
 		tick_time = 100;
-		jc->right_effect.mode = 2;
+		jc->right_effect.mode = AdaptiveTriggerMode::SEGMENT;
 		jc->right_effect.start = 0;
 		jc->right_effect.end = 255;
-		jc->right_effect.strength = 255;
+		jc->right_effect.force = 255;
 		triggerCalibrationStep++;
 		break;
 	case 2:
@@ -2475,10 +2495,10 @@ void CalibrateTriggers(shared_ptr<JoyShock> jc)
 		COUT << "Softly press on the left trigger until you just feel the resistance." << endl;
 		COUT << "Then press the cross button to proceed, or press HOME to abandon." << endl;
 		tick_time = 100;
-		jc->left_effect.mode = 2;
+		jc->left_effect.mode = AdaptiveTriggerMode::SEGMENT;
 		jc->left_effect.start = 0;
 		jc->left_effect.end = 255;
-		jc->left_effect.strength = 255;
+		jc->left_effect.force = 255;
 		triggerCalibrationStep++;
 		break;
 	case 7:
@@ -3129,14 +3149,19 @@ void joyShockPollCallback(int jcHandle, JOY_SHOCK_STATE state, JOY_SHOCK_STATE l
 		jc->handleTriggerChange(ButtonID::ZR, ButtonID::ZRF, jc->getSetting<TriggerMode>(SettingID::ZR_MODE), rTrigger, jc->right_effect);
 	}
 
-	if (jc->getSetting<Switch>(SettingID::ADAPTIVE_TRIGGER) == Switch::ON)
+	auto atSetting = jc->getSetting<AdaptiveTriggerSetting>(SettingID::ADAPTIVE_TRIGGER);
+	if (atSetting.mode == AdaptiveTriggerMode::OFF)
+	{
+		AdaptiveTriggerSetting none;
+		jsl->SetTriggerEffect(jc->handle, none, none);
+	}
+	else if(atSetting.mode == AdaptiveTriggerMode::ON)
 	{
 		jsl->SetTriggerEffect(jc->handle, jc->left_effect, jc->right_effect);
 	}
 	else
 	{
-		JOY_SHOCK_TRIGGER_EFFECT none;
-		jsl->SetTriggerEffect(jc->handle, none, none);
+		jsl->SetTriggerEffect(jc->handle, atSetting, atSetting);
 	}
 
 	bool currentMicToggleState = find_if(jc->_context->activeTogglesQueue.cbegin(), jc->_context->activeTogglesQueue.cend(),
@@ -3363,6 +3388,11 @@ template<typename E, E invalid>
 E filterInvalidValue(E current, E next)
 {
 	return next != invalid ? next : current;
+}
+
+AdaptiveTriggerSetting filterInvalidAdaptiveTriggerSetting(AdaptiveTriggerSetting current, AdaptiveTriggerSetting next)
+{
+	return next.mode != AdaptiveTriggerMode::INVALID ? next : current;
 }
 
 float filterFloat(float current, float next)
@@ -3895,7 +3925,7 @@ int main(int argc, char *argv[])
 	});
 	virtual_controller.SetFilter(&UpdateVirtualController)->AddOnChangeListener(&OnVirtualControllerChange);
 	rumble_enable.SetFilter(&filterInvalidValue<Switch, Switch::INVALID>);
-	adaptive_trigger.SetFilter(&filterInvalidValue<Switch, Switch::INVALID>);
+	adaptive_trigger.SetFilter(&filterInvalidAdaptiveTriggerSetting);
 	scroll_sens.SetFilter(&filterFloatPair);
 	touch_ds_mode.SetFilter(&filterTouchpadDualStageMode);
 	right_trigger_offset.SetFilter(&filterClampByte);
@@ -4056,9 +4086,9 @@ int main(int argc, char *argv[])
 	commandRegistry.Add(autoloadCmd);
 	currentWorkingDir.AddOnChangeListener(bind(&RefreshAutoLoadHelp, autoloadCmd), true);
 	commandRegistry.Add((new JSMMacro("README"))->SetMacro(bind(&do_README))->SetHelp("Open the latest JoyShockMapper README in your browser."));
-	commandRegistry.Add((new JSMMacro("WHITELIST_SHOW"))->SetMacro(bind(&do_WHITELIST_SHOW))->SetHelp("Open HIDCerberus configuration page in your browser."));
-	commandRegistry.Add((new JSMMacro("WHITELIST_ADD"))->SetMacro(bind(&do_WHITELIST_ADD))->SetHelp("Add JoyShockMapper to HIDGuardian whitelisted applications."));
-	commandRegistry.Add((new JSMMacro("WHITELIST_REMOVE"))->SetMacro(bind(&do_WHITELIST_REMOVE))->SetHelp("Remove JoyShockMapper from HIDGuardian whitelisted applications."));
+	commandRegistry.Add((new JSMMacro("WHITELIST_SHOW"))->SetMacro(bind(&do_WHITELIST_SHOW))->SetHelp("Open the whitelister application"));
+	commandRegistry.Add((new JSMMacro("WHITELIST_ADD"))->SetMacro(bind(&do_WHITELIST_ADD))->SetHelp("Add JoyShockMapper to the whitelisted applications."));
+	commandRegistry.Add((new JSMMacro("WHITELIST_REMOVE"))->SetMacro(bind(&do_WHITELIST_REMOVE))->SetHelp("Remove JoyShockMapper from whitelisted applications."));
 	commandRegistry.Add((new JSMAssignment<RingMode>(left_ring_mode))
 	                      ->SetHelp("Pick a ring where to apply the LEFT_RING binding. Valid values are the following: INNER and OUTER."));
 	commandRegistry.Add((new JSMAssignment<RingMode>(right_ring_mode))
@@ -4119,7 +4149,7 @@ int main(int argc, char *argv[])
 	commandRegistry.Add((new JSMAssignment<Switch>(rumble_enable))
 	                      ->SetHelp("Disable the rumbling feature from vigem. Valid values are ON and OFF."));
 	commandRegistry.Add((new JSMAssignment<Switch>(adaptive_trigger))
-	                      ->SetHelp("Control the adaptive trigger feature of the DualSense. Valid values are ON and OFF."));
+	                      ->SetHelp("TODO: UPDATE"));
 	commandRegistry.Add((new JSMAssignment<TriggerMode>(touch_ds_mode))
 	                      ->SetHelp("Dual stage mode for the touchpad TOUCH and CAPTURE (i.e. click) bindings."));
 	commandRegistry.Add((new JSMMacro("CLEAR"))->SetMacro(bind(&ClearConsole))->SetHelp("Removes all text in the console screen"));
