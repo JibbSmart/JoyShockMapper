@@ -9,6 +9,10 @@ Jibb added basic support for mapping gyro to virtual controller sticks.
 
 ### Features
 * GYRO_OUTPUT can be set to RIGHT_STICK to convert gyro to stick instead of mouse. Find it in the README to see other settings available, including "UNDEADZONE" andn "UNPOWER".
+* ZL and ZR bindings now work with alongside virtual stick bindings (setting ZL_MODE or ZR_MODE to a virtual conroller trigger).
+
+### Bugfixes
+* Fixed virtual DS4 left stick having a heavy bias to the corners.
 
 ## 3.2.3
 

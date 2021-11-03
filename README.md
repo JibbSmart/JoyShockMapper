@@ -42,6 +42,7 @@ JoyShockMapper is primarily developed on Windows. JoyShockMapper should now be a
   * **[ViGEm Virtual Controller](#6-vigem-virtual-controller)**
     * **[Xbox bindings](#61-xbox-bindings)**
     * **[DS4 bindings](#62-ds4-bindings)**
+    * **[Virtual Controller Gyro](#63-virtual-controller-gyro)**
   * **[Modeshifts](#7-modeshifts)**
   * **[Touchpad](#8-touchpad)**
     * **[Touch Sticks](#81-touch-sticks)**
