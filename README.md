@@ -591,6 +591,8 @@ Keep in mind that, once tilted, rotating the stick will rotate the camera instan
 
 The ```FLICK_ONLY``` and ```ROTATE_ONLY``` stick modes work the same as flick stick with some features blocked out. The former means you'll get the initial flick, but no subsequent rotation when rotating the stick. The latter means you won't get the initial flick, but subsequent rotations will work.
 
+You can also emulate flick stick with a virtual controller, but it's more limited. Set **FLICK\_STICK\_OUTPUT** to **RIGHT\_STICK** or **LEFT\_STICK** instead of its default value of **MOUSE**. This will only work if gyro aim is also output to the same virtual stick (see **GYRO\_OUTPUT**). When outputting flick stick to a virtual controller, FLICK_TIME and FLICK_TIME_EXPONENT won't do anything. Instead, the virtual stick will be tilted at its full strength in the desired direction for enough time to complete the flick. This will generally be much less precise than MOUSE mode, but it's still useful.
+
 #### 3.3 Other mouse modes
 
 When using the ```MOUSE_RING``` stick mode, tilting the stick will put the mouse cursor in a position offset from the centre of the screen by your stick position. This mode is primarily intended for twin-stick shooters. To do this, the application needs to know your screen resolution (SCREEN\_RESOLUTION\_X and SCREEN\_RESOLUTION\_Y) and how far you want the cursor to sit from the centre of the screen (MOUSE\_RING\_RADIUS). When this mode is in operation (i.e. the stick is not at rest), all other mouse movements are ignored.

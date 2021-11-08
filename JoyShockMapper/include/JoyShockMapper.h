@@ -278,6 +278,7 @@ enum class SettingID
 	LEFT_STICK_VIRTUAL_SCALE,
 	RIGHT_STICK_VIRTUAL_SCALE,
 	GYRO_OUTPUT,
+	FLICK_STICK_OUTPUT,
 };
 
 // constexpr are like #define but with respect to typeness

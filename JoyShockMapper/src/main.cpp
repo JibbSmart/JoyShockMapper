@@ -131,6 +131,7 @@ JSMSetting<float> right_stick_unpower = JSMSetting<float>(SettingID::RIGHT_STICK
 JSMSetting<float> left_stick_virtual_scale = JSMSetting<float>(SettingID::LEFT_STICK_VIRTUAL_SCALE, 1.f);
 JSMSetting<float> right_stick_virtual_scale = JSMSetting<float>(SettingID::RIGHT_STICK_VIRTUAL_SCALE, 1.f);
 JSMSetting<GyroOutput> gyro_output = JSMSetting<GyroOutput>(SettingID::GYRO_OUTPUT, GyroOutput::MOUSE);
+JSMSetting<GyroOutput> flick_stick_output = JSMSetting<GyroOutput>(SettingID::FLICK_STICK_OUTPUT, GyroOutput::MOUSE);
 
 JSMVariable<PathString> currentWorkingDir = JSMVariable<PathString>(PathString());
 vector<JSMButton> grid_mappings; // array of virtual buttons on the touchpad grid
@@ -626,6 +627,9 @@ public:
 				break;
 			case SettingID::GYRO_OUTPUT:
 				opt = GetOptionalSetting<E>(gyro_output, *activeChord);
+				break;
+			case SettingID::FLICK_STICK_OUTPUT:
+				opt = GetOptionalSetting<E>(flick_stick_output, *activeChord);
 				break;
 			}
 			if (opt)
@@ -1509,6 +1513,7 @@ static void resetAllMappings()
 	left_stick_virtual_scale.Reset();
 	right_stick_virtual_scale.Reset();
 	gyro_output.Reset();
+	flick_stick_output.Reset();
 	for_each(grid_mappings.begin(), grid_mappings.end(), [](auto &map) { map.Reset(); });
 
 	os_mouse_speed = 1.0f;
@@ -1796,8 +1801,96 @@ bool do_WHITELIST_REMOVE()
 	return true;
 }
 
+void processGyroStick(shared_ptr<JoyShock> jc, float stickX, float stickY, float stickLength, StickMode stickMode)
+{
+	GyroOutput gyroOutput = jc->getSetting<GyroOutput>(SettingID::GYRO_OUTPUT);
+	bool isLeft = stickMode == StickMode::LEFT_STICK;
+	bool gyroMatchesStickMode = (gyroOutput == GyroOutput::LEFT_STICK && stickMode == StickMode::LEFT_STICK) || (gyroOutput == GyroOutput::RIGHT_STICK && stickMode == StickMode::RIGHT_STICK) || stickMode == StickMode::INVALID;
+	if (gyroMatchesStickMode && !jc->processed_gyro_stick)
+	{
+		float undeadzoneInner, undeadzoneOuter, unpower, virtualScale;
+		if (isLeft)
+		{
+			undeadzoneInner = jc->getSetting(SettingID::LEFT_STICK_UNDEADZONE_INNER);
+			undeadzoneOuter = jc->getSetting(SettingID::LEFT_STICK_UNDEADZONE_OUTER);
+			unpower = jc->getSetting(SettingID::LEFT_STICK_UNPOWER);
+			virtualScale = jc->getSetting(SettingID::LEFT_STICK_VIRTUAL_SCALE);
+		}
+		else
+		{
+			undeadzoneInner = jc->getSetting(SettingID::RIGHT_STICK_UNDEADZONE_INNER);
+			undeadzoneOuter = jc->getSetting(SettingID::RIGHT_STICK_UNDEADZONE_OUTER);
+			unpower = jc->getSetting(SettingID::RIGHT_STICK_UNPOWER);
+			virtualScale = jc->getSetting(SettingID::RIGHT_STICK_VIRTUAL_SCALE);
+		}
+
+		// in order to correctly combine gyro and stick, we need to calculate what the stick aiming is supposed to be doing, add gyro result to it, and convert back to stick
+		float maxStickGameSpeed = jc->getSetting(SettingID::REAL_WORLD_CALIBRATION);
+		float livezoneSize = 1.f - undeadzoneOuter - undeadzoneInner;
+		if (livezoneSize <= 0.f)
+		{
+			// can't do anything with that
+			jc->processed_gyro_stick = true;
+			return;
+		}
+		float stickVelocity = pow(clamp<float>((stickLength - undeadzoneInner) / livezoneSize, 0.f, 1.f), unpower) * maxStickGameSpeed * virtualScale;
+		float expectedX = 0.f;
+		float expectedY = 0.f;
+		if (stickVelocity > 0.f)
+		{
+			expectedX = stickX / stickLength * stickVelocity;
+			expectedY = -stickY / stickLength * stickVelocity;
+		}
+
+		expectedX += jc->gyroXVelocity;
+		expectedY += jc->gyroYVelocity;
+
+		float targetGyroVelocity = sqrtf(expectedX * expectedX + expectedY * expectedY);
+		// map gyro velocity to achievable range in 0-1
+		float gyroInStickStrength = targetGyroVelocity >= maxStickGameSpeed ? 1.f : targetGyroVelocity / maxStickGameSpeed;
+		// unpower curve
+		if (unpower != 0.f)
+		{
+			gyroInStickStrength = pow(gyroInStickStrength, 1.f / unpower);
+		}
+		// remap to between inner and outer deadzones
+		float gyroStickX = 0.f;
+		float gyroStickY = 0.f;
+		if (gyroInStickStrength > 0.01f)
+		{
+			gyroInStickStrength = undeadzoneInner + gyroInStickStrength * livezoneSize;
+			gyroStickX = expectedX / targetGyroVelocity * gyroInStickStrength;
+			gyroStickY = expectedY / targetGyroVelocity * gyroInStickStrength;
+		}
+		if (stickLength <= undeadzoneInner)
+		{
+			if (gyroInStickStrength == 0.f)
+			{
+				// hack to help with finding deadzones more quickly
+				jc->_context->_vigemController->setStick(undeadzoneInner, 0.f, isLeft);
+			}
+			else
+			{
+				jc->_context->_vigemController->setStick(gyroStickX, -gyroStickY, isLeft);
+			}
+		}
+		else
+		{
+			jc->_context->_vigemController->setStick(gyroStickX, -gyroStickY, isLeft);
+		}
+		jc->processed_gyro_stick = true;
+	}
+	else
+	{
+		jc->_context->_vigemController->setStick(stickX, stickY, isLeft);
+	}
+}
+
 static float handleFlickStick(float calX, float calY, float lastCalX, float lastCalY, float stickLength, bool &isFlicking, shared_ptr<JoyShock> jc, float mouseCalibrationFactor, bool FLICK_ONLY, bool ROTATE_ONLY)
 {
+	GyroOutput flickStickOutput = jc->getSetting<GyroOutput>(SettingID::FLICK_STICK_OUTPUT);
+	bool isMouse = flickStickOutput == GyroOutput::MOUSE;
+
 	float camSpeedX = 0.0f;
 	// let's centre this
 	float offsetX = calX;
@@ -1864,7 +1957,7 @@ static float handleFlickStick(float calX, float calY, float lastCalX, float last
 					angleChange += 2.0f * PI;
 				angleChange -= PI;
 				jc->flick_rotation_counter += angleChange; // track all rotation for this flick
-				float flickSpeedConstant = jc->getSetting(SettingID::REAL_WORLD_CALIBRATION) * mouseCalibrationFactor / jc->getSetting(SettingID::IN_GAME_SENS);
+				float flickSpeedConstant = isMouse ? jc->getSetting(SettingID::REAL_WORLD_CALIBRATION) * mouseCalibrationFactor / jc->getSetting(SettingID::IN_GAME_SENS) : 1.f;
 				float flickSpeed = -(angleChange * flickSpeedConstant);
 				int maxSmoothingSamples = min(jc->NumSamples, (int)ceil(64.0f / tick_time.get())); // target a max smoothing window size of 64ms
 				float stepSize = 0.01f;                                                            // and we only want full on smoothing when the stick change each time we poll it is approximately the minimum stick resolution
@@ -1878,6 +1971,12 @@ static float handleFlickStick(float calX, float calY, float lastCalX, float last
 				{
 					camSpeedX = jc->GetSmoothedStickRotation(flickSpeed, flickSpeedConstant * rotate_smooth_override, flickSpeedConstant * rotate_smooth_override * 2.0f, maxSmoothingSamples);
 				}
+
+				if (!isMouse)
+				{
+					// convert to a velocity
+					camSpeedX *= 180.0f / (PI * 0.001f * tick_time.get());
+				}
 			}
 		}
 	}
@@ -1890,115 +1989,50 @@ static float handleFlickStick(float calX, float calY, float lastCalX, float last
 		}
 		isFlicking = false;
 	}
-	// do the flicking
-	float secondsSinceFlick = ((float)chrono::duration_cast<chrono::microseconds>(jc->time_now - jc->started_flick).count()) / 1000000.0f;
-	float newPercent = secondsSinceFlick / jc->getSetting(SettingID::FLICK_TIME);
-
-	// don't divide by zero
-	if (abs(jc->delta_flick) > 0.0f)
+	// do the flicking. this works very differently if it's mouse vs stick
+	if (isMouse)
 	{
-		newPercent = newPercent / pow(abs(jc->delta_flick) / PI, jc->getSetting(SettingID::FLICK_TIME_EXPONENT));
-	}
+		float secondsSinceFlick = ((float)chrono::duration_cast<chrono::microseconds>(jc->time_now - jc->started_flick).count()) / 1000000.0f;
+		float newPercent = secondsSinceFlick / jc->getSetting(SettingID::FLICK_TIME);
 
-	if (newPercent > 1.0f)
-		newPercent = 1.0f;
-	// warping towards 1.0
-	float oldShapedPercent = 1.0f - jc->flick_percent_done;
-	oldShapedPercent *= oldShapedPercent;
-	oldShapedPercent = 1.0f - oldShapedPercent;
-	//float oldShapedPercent = jc->flick_percent_done;
-	jc->flick_percent_done = newPercent;
-	newPercent = 1.0f - newPercent;
-	newPercent *= newPercent;
-	newPercent = 1.0f - newPercent;
-	float camSpeedChange = (newPercent - oldShapedPercent) * jc->delta_flick * jc->getSetting(SettingID::REAL_WORLD_CALIBRATION) * -mouseCalibrationFactor / jc->getSetting(SettingID::IN_GAME_SENS);
-	camSpeedX += camSpeedChange;
-
-	return camSpeedX;
-}
-
-void processGyroStick(shared_ptr<JoyShock> jc, float stickX, float stickY, float stickLength, StickMode stickMode)
-{
-	GyroOutput gyroOutput = jc->getSetting<GyroOutput>(SettingID::GYRO_OUTPUT);
-	bool isLeft = stickMode == StickMode::LEFT_STICK;
-	bool gyroMatchesStickMode = (gyroOutput == GyroOutput::LEFT_STICK && stickMode == StickMode::LEFT_STICK) || (gyroOutput == GyroOutput::RIGHT_STICK && stickMode == StickMode::RIGHT_STICK) || stickMode == StickMode::INVALID;
-	if (gyroMatchesStickMode && !jc->processed_gyro_stick)
-	{
-		float undeadzoneInner, undeadzoneOuter, unpower, virtualScale;
-		if (isLeft)
+		// don't divide by zero
+		if (abs(jc->delta_flick) > 0.0f)
 		{
-			undeadzoneInner = jc->getSetting(SettingID::LEFT_STICK_UNDEADZONE_INNER);
-			undeadzoneOuter = jc->getSetting(SettingID::LEFT_STICK_UNDEADZONE_OUTER);
-			unpower = jc->getSetting(SettingID::LEFT_STICK_UNPOWER);
-			virtualScale = jc->getSetting(SettingID::LEFT_STICK_VIRTUAL_SCALE);
-		}
-		else
-		{
-			undeadzoneInner = jc->getSetting(SettingID::RIGHT_STICK_UNDEADZONE_INNER);
-			undeadzoneOuter = jc->getSetting(SettingID::RIGHT_STICK_UNDEADZONE_OUTER);
-			unpower = jc->getSetting(SettingID::RIGHT_STICK_UNPOWER);
-			virtualScale = jc->getSetting(SettingID::RIGHT_STICK_VIRTUAL_SCALE);
+			newPercent = newPercent / pow(abs(jc->delta_flick) / PI, jc->getSetting(SettingID::FLICK_TIME_EXPONENT));
 		}
 
-		// in order to correctly combine gyro and stick, we need to calculate what the stick aiming is supposed to be doing, add gyro result to it, and convert back to stick
-		float maxStickGameSpeed = jc->getSetting(SettingID::REAL_WORLD_CALIBRATION) / jc->getSetting(SettingID::IN_GAME_SENS);
-		float livezoneSize = 1.f - undeadzoneOuter - undeadzoneInner;
-		if (livezoneSize <= 0.f)
-		{
-			// can't do anything with that
-			jc->processed_gyro_stick = true;
-			return;
-		}
-		float stickVelocity = pow(clamp<float>((stickLength - undeadzoneInner) / livezoneSize, 0.f, 1.f), unpower) * maxStickGameSpeed * virtualScale;
-		float expectedX = 0.f;
-		float expectedY = 0.f;
-		if (stickVelocity > 0.f)
-		{
-			expectedX = stickX / stickLength * stickVelocity;
-			expectedY = -stickY / stickLength * stickVelocity;
-		}
+		if (newPercent > 1.0f)
+			newPercent = 1.0f;
+		// warping towards 1.0
+		float oldShapedPercent = 1.0f - jc->flick_percent_done;
+		oldShapedPercent *= oldShapedPercent;
+		oldShapedPercent = 1.0f - oldShapedPercent;
+		//float oldShapedPercent = jc->flick_percent_done;
+		jc->flick_percent_done = newPercent;
+		newPercent = 1.0f - newPercent;
+		newPercent *= newPercent;
+		newPercent = 1.0f - newPercent;
+		float camSpeedChange = (newPercent - oldShapedPercent) * jc->delta_flick * jc->getSetting(SettingID::REAL_WORLD_CALIBRATION) * -mouseCalibrationFactor / jc->getSetting(SettingID::IN_GAME_SENS);
+		camSpeedX += camSpeedChange;
 
-		expectedX += jc->gyroXVelocity;
-		expectedY += jc->gyroYVelocity;
-
-		float targetGyroVelocity = sqrtf(expectedX * expectedX + expectedY * expectedY);
-		// map gyro velocity to achievable range in 0-1
-		float gyroInStickStrength = targetGyroVelocity >= maxStickGameSpeed ? 1.f : targetGyroVelocity / maxStickGameSpeed;
-		// unpower curve
-		if (unpower != 0.f)
-		{
-			gyroInStickStrength = pow(gyroInStickStrength, 1.f / unpower);
-		}
-		// remap to between inner and outer deadzones
-		float gyroStickX = 0.f;
-		float gyroStickY = 0.f;
-		if (gyroInStickStrength > 0.01f)
-		{
-			gyroInStickStrength = undeadzoneInner + gyroInStickStrength * livezoneSize;
-			gyroStickX = expectedX / targetGyroVelocity * gyroInStickStrength;
-			gyroStickY = expectedY / targetGyroVelocity * gyroInStickStrength;
-		}
-		if (stickLength <= undeadzoneInner)
-		{
-			if (gyroInStickStrength == 0.f)
-			{
-				// hack to help with finding deadzones more quickly
-				jc->_context->_vigemController->setStick(undeadzoneInner, 0.f, isLeft);
-			}
-			else
-			{
-				jc->_context->_vigemController->setStick(gyroStickX, -gyroStickY, isLeft);
-			}
-		}
-		else
-		{
-			jc->_context->_vigemController->setStick(gyroStickX, -gyroStickY, isLeft);
-		}
-		jc->processed_gyro_stick = true;
+		return camSpeedX;
 	}
 	else
 	{
-		jc->_context->_vigemController->setStick(stickX, stickY, isLeft);
+		float secondsSinceFlick = ((float)chrono::duration_cast<chrono::microseconds>(jc->time_now - jc->started_flick).count()) / 1000000.0f;
+		float maxStickGameSpeed = jc->getSetting(SettingID::REAL_WORLD_CALIBRATION);
+		float flickTime = abs(jc->delta_flick) / (maxStickGameSpeed * PI / 180.f);
+
+		if (secondsSinceFlick <= flickTime)
+		{
+			camSpeedX -= jc->delta_flick >= 0 ? maxStickGameSpeed : -maxStickGameSpeed;
+		}
+
+		jc->gyroXVelocity += camSpeedX;
+
+		processGyroStick(jc, 0.f, 0.f, 0.f, flickStickOutput == GyroOutput::LEFT_STICK ? StickMode::LEFT_STICK : StickMode::RIGHT_STICK);
+
+		return 0.f;
 	}
 }
 
@@ -3858,6 +3892,7 @@ int main(int argc, char *argv[])
 	left_stick_virtual_scale.SetFilter(&filterFloat);
 	right_stick_virtual_scale.SetFilter(&filterFloat);
 	gyro_output.SetFilter(&filterInvalidValue<GyroOutput, GyroOutput::INVALID>);
+	flick_stick_output.SetFilter(&filterInvalidValue<GyroOutput, GyroOutput::INVALID>);
 
 	// light_bar needs no filter or listener. The callback polls and updates the color.
 	for (int i = argc - 1; i >= 0; --i)
@@ -4107,6 +4142,8 @@ int main(int argc, char *argv[])
 	                      ->SetHelp("When outputting as a virtual controller, use this to adjust the scale of the right stick output. This does not affect the gyro->stick conversion."));
 	commandRegistry.Add((new JSMAssignment<GyroOutput>(gyro_output))
 	                      ->SetHelp("Whether gyro should be converted to mouse, left stick, or right stick movement. If you don't want to use gyro aiming, simply leave GYRO_SENS set to 0."));
+	commandRegistry.Add((new JSMAssignment<GyroOutput>(flick_stick_output))
+	                      ->SetHelp("Whether flick stick should be converted to a mouse, left stick, or right stick movement."));
 	
 
 	bool quit = false;
