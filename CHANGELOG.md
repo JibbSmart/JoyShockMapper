@@ -5,10 +5,12 @@ This is a summary of new features and bugfixes. Read the README to learn how to 
 
 ## 3.3.0
 
-Jibb added basic support for mapping gyro to virtual controller sticks.
+Jibb added basic support for mapping gyro and flick stick to virtual controller sticks.
 
 ### Features
-* GYRO_OUTPUT can be set to RIGHT_STICK to convert gyro to stick instead of mouse. Find it in the README to see other settings available, including "UNDEADZONE" andn "UNPOWER".
+* GYRO_OUTPUT can be set to RIGHT_STICK to convert gyro to stick instead of mouse. Find it in the README to see other settings available, including "UNDEADZONE", "UNPOWER", and "VIRTUAL_SCALE".
+* FLICK_STICK_OUTPUT can also be set to RIGHT_STICK to fake flick stick in a game that's only reading from the controller. It will usually be less precise than mouse-flick-stick.
+* Tune virtual flick stick and gyro aiming with VIRTUAL_STICK_CALIBRATION instead of REAL_WORLD_CALIBRATION and IN_GAME_SENS.
 * ZL and ZR bindings now work with alongside virtual stick bindings (setting ZL_MODE or ZR_MODE to a virtual conroller trigger).
 
 ### Bugfixes
@@ -32,7 +34,6 @@ Nicolas also pushed some bugfixes
 * Multiple sources of virtual controller stick and trigger inputs will add up instead of override.
 * README didn't point to the official readme
 * Don't send adaptive trigger data to non DS controllers... herp de derp
-
 
 ## 3.2.2
 
