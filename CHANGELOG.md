@@ -9,7 +9,8 @@ Jibb added basic support for mapping gyro and flick stick to virtual controller 
 
 ### Features
 * GYRO_OUTPUT can be set to RIGHT_STICK to convert gyro to stick instead of mouse. Find it in the README to see other settings available, including "UNDEADZONE", "UNPOWER", and "VIRTUAL_SCALE".
-* FLICK_STICK_OUTPUT can also be set to RIGHT_STICK to fake flick stick in a game that's only reading from the controller. It requires that GYRO_OUTPUT is set to the same stick, and it will be less precise.
+* FLICK_STICK_OUTPUT can also be set to RIGHT_STICK to fake flick stick in a game that's only reading from the controller. It will usually be less precise than mouse-flick-stick.
+* Tune virtual flick stick and gyro aiming with VIRTUAL_STICK_CALIBRATION instead of REAL_WORLD_CALIBRATION and IN_GAME_SENS.
 * ZL and ZR bindings now work with alongside virtual stick bindings (setting ZL_MODE or ZR_MODE to a virtual conroller trigger).
 
 ### Bugfixes

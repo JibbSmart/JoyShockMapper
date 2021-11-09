@@ -591,7 +591,7 @@ Keep in mind that, once tilted, rotating the stick will rotate the camera instan
 
 The ```FLICK_ONLY``` and ```ROTATE_ONLY``` stick modes work the same as flick stick with some features blocked out. The former means you'll get the initial flick, but no subsequent rotation when rotating the stick. The latter means you won't get the initial flick, but subsequent rotations will work.
 
-You can also emulate flick stick with a virtual controller, but it's more limited. Set **FLICK\_STICK\_OUTPUT** to **RIGHT\_STICK** or **LEFT\_STICK** instead of its default value of **MOUSE**. This will only work if gyro aim is also output to the same virtual stick (see **GYRO\_OUTPUT**). When outputting flick stick to a virtual controller, FLICK_TIME and FLICK_TIME_EXPONENT won't do anything. Instead, the virtual stick will be tilted at its full strength in the desired direction for enough time to complete the flick. This will generally be much less precise than MOUSE mode, but it's still useful.
+You can also emulate flick stick with a virtual controller, but it's more limited. Set **FLICK\_STICK\_OUTPUT** to **RIGHT\_STICK** or **LEFT\_STICK** instead of its default value of **MOUSE**. When outputting flick stick to a virtual controller, FLICK_TIME and FLICK_TIME_EXPONENT won't do anything. Instead, the virtual stick will be tilted at its full strength in the desired direction for enough time to complete the flick. This will generally be much less precise than MOUSE mode, but it's still useful. Tune the size of a flick stick flick/rotation by setting **VIRTUAL\_STICK\_CALIBRATION**. Ideally, this should be set to the maximum horizontal turning speed of the in game camera in degrees per second.
 
 #### 3.3 Other mouse modes
 
