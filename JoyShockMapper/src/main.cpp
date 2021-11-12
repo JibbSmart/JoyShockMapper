@@ -671,7 +671,7 @@ public:
 				break;
 			case SettingID::TRIGGER_THRESHOLD:
 				opt = trigger_threshold.get(*activeChord);
-				if (opt && platform_controller_type == JS_TYPE_DS && getSetting<AdaptiveTriggerSetting>(SettingID::ADAPTIVE_TRIGGER).mode != AdaptiveTriggerMode::ON)
+				if (opt && platform_controller_type == JS_TYPE_DS && getSetting<Switch>(SettingID::ADAPTIVE_TRIGGER) != Switch::ON)
 					opt = optional(max(0.f, *opt)); // hair trigger disabled on dual sense when adaptive triggers are active
 				break;
 			case SettingID::GYRO_AXIS_X:
@@ -872,18 +872,24 @@ public:
 	template<>
 	AdaptiveTriggerSetting getSetting<AdaptiveTriggerSetting>(SettingID index)
 	{
-		if (index == SettingID::ADAPTIVE_TRIGGER)
+		// Look at active chord mappings starting with the latest activates chord
+		for (auto activeChord = _context->chordStack.begin(); activeChord != _context->chordStack.end(); activeChord++)
 		{
-			// Look at active chord mappings starting with the latest activates chord
-			for (auto activeChord = _context->chordStack.begin(); activeChord != _context->chordStack.end(); activeChord++)
+			optional<AdaptiveTriggerSetting> opt;
+			switch (index)
 			{
-				auto opt = adaptive_trigger.get(*activeChord);
+			case SettingID::LEFT_TRIGGER_EFFECT:
+				opt = left_trigger_effect.get(*activeChord);
+				if (opt)
+					return *opt;
+			case SettingID::RIGHT_TRIGGER_EFFECT:
+				opt = right_trigger_effect.get(*activeChord);
 				if (opt)
 					return *opt;
 			}
 		}
 		stringstream ss;
-		ss << "Index " << index << " is not a valid Color";
+		ss << "Index " << index << " is not a valid AdaptiveTriggerSetting";
 		throw invalid_argument(ss.str().c_str());
 	}
 
@@ -1033,7 +1039,7 @@ private:
 	bool isSoftPullPressed(int triggerIndex, float triggerPosition)
 	{
 		float threshold = getSetting(SettingID::TRIGGER_THRESHOLD);
-		if (platform_controller_type == JS_TYPE_DS && getSetting<AdaptiveTriggerSetting>(SettingID::ADAPTIVE_TRIGGER).mode != AdaptiveTriggerMode::OFF)
+		if (platform_controller_type == JS_TYPE_DS && getSetting<Switch>(SettingID::ADAPTIVE_TRIGGER) != Switch::OFF)
 			threshold = max(0.f, threshold); // hair trigger disabled on dual sense when adaptive triggers are active
 		if (threshold >= 0)
 		{
@@ -1110,7 +1116,7 @@ public:
 	float getTriggerEffectStartPos()
 	{
 		float threshold = getSetting(SettingID::TRIGGER_THRESHOLD);
-		if (platform_controller_type == JS_TYPE_DS && getSetting<AdaptiveTriggerSetting>(SettingID::ADAPTIVE_TRIGGER).mode != AdaptiveTriggerMode::OFF)
+		if (platform_controller_type == JS_TYPE_DS && getSetting<Switch>(SettingID::ADAPTIVE_TRIGGER) != Switch::OFF)
 			threshold = max(0.f, threshold); // hair trigger disabled on dual sense when adaptive triggers are active
 		return clamp(threshold + 0.05f, 0.0f, 1.0f);
 	}
@@ -1524,6 +1530,8 @@ static void resetAllMappings()
 	scroll_sens.Reset();
 	rumble_enable.Reset();
 	adaptive_trigger.Reset();
+    left_trigger_effect.Reset();
+    right_trigger_effect.Reset();
 	left_trigger_offset.Reset();
 	left_trigger_range.Reset();
 	right_trigger_offset.Reset();
@@ -1965,7 +1973,6 @@ static float handleFlickStick(float calX, float calY, float lastCalX, float last
 				jc->flick_percent_done = 0.0f;
 				jc->ResetSmoothSample();
 				jc->flick_rotation_counter = stickAngle; // track all rotation for this flick
-				// TODO: All these printfs should be hidden behind a setting. User might not want them.
 				COUT << "Flick: " << setprecision(3) << stickAngle * (180.0f / (float)PI) << " degrees" << endl;
 			}
 		}
@@ -1996,12 +2003,6 @@ static float handleFlickStick(float calX, float calY, float lastCalX, float last
 				{
 					camSpeedX = jc->GetSmoothedStickRotation(flickSpeed, flickSpeedConstant * rotate_smooth_override, flickSpeedConstant * rotate_smooth_override * 2.0f, maxSmoothingSamples);
 				}
-
-				if (!isMouse)
-				{
-					// convert to a velocity
-					camSpeedX *= 180.0f / (PI * 0.001f * tick_time.get());
-				}
 			}
 		}
 	}
@@ -2014,65 +2015,31 @@ static float handleFlickStick(float calX, float calY, float lastCalX, float last
 		}
 		isFlicking = false;
 	}
-	// do the flicking. this works very differently if it's mouse vs stick
-	if (isMouse)
+	// do the flicking
+	float secondsSinceFlick = ((float)chrono::duration_cast<chrono::microseconds>(jc->time_now - jc->started_flick).count()) / 1000000.0f;
+	float newPercent = secondsSinceFlick / jc->getSetting(SettingID::FLICK_TIME);
+
+	// don't divide by zero
+	if (abs(jc->delta_flick) > 0.0f)
 	{
-		float secondsSinceFlick = ((float)chrono::duration_cast<chrono::microseconds>(jc->time_now - jc->started_flick).count()) / 1000000.0f;
-		float newPercent = secondsSinceFlick / jc->getSetting(SettingID::FLICK_TIME);
-
-		// don't divide by zero
-		if (abs(jc->delta_flick) > 0.0f)
-		{
-			newPercent = newPercent / pow(abs(jc->delta_flick) / PI, jc->getSetting(SettingID::FLICK_TIME_EXPONENT));
-		}
-
-		if (newPercent > 1.0f)
-			newPercent = 1.0f;
-		// warping towards 1.0
-		float oldShapedPercent = 1.0f - jc->flick_percent_done;
-		oldShapedPercent *= oldShapedPercent;
-		oldShapedPercent = 1.0f - oldShapedPercent;
-		//float oldShapedPercent = jc->flick_percent_done;
-		jc->flick_percent_done = newPercent;
-		newPercent = 1.0f - newPercent;
-		newPercent *= newPercent;
-		newPercent = 1.0f - newPercent;
-		float camSpeedChange = (newPercent - oldShapedPercent) * jc->delta_flick * jc->getSetting(SettingID::REAL_WORLD_CALIBRATION) * -mouseCalibrationFactor / jc->getSetting(SettingID::IN_GAME_SENS);
-		camSpeedX += camSpeedChange;
-
-		return camSpeedX;
+		newPercent = newPercent / pow(abs(jc->delta_flick) / PI, jc->getSetting(SettingID::FLICK_TIME_EXPONENT));
 	}
-	else
-	{
-		float secondsSinceFlick = ((float)chrono::duration_cast<chrono::microseconds>(jc->time_now - jc->started_flick).count()) / 1000000.0f;
-		float maxStickGameSpeed = jc->getSetting(SettingID::VIRTUAL_STICK_CALIBRATION);
-		float flickTime = abs(jc->delta_flick) / (maxStickGameSpeed * PI / 180.f);
 
-		if (secondsSinceFlick <= flickTime)
-		{
-			camSpeedX -= jc->delta_flick >= 0 ? maxStickGameSpeed : -maxStickGameSpeed;
-		}
+	if (newPercent > 1.0f)
+		newPercent = 1.0f;
+	// warping towards 1.0
+	float oldShapedPercent = 1.0f - jc->flick_percent_done;
+	oldShapedPercent *= oldShapedPercent;
+	oldShapedPercent = 1.0f - oldShapedPercent;
+	//float oldShapedPercent = jc->flick_percent_done;
+	jc->flick_percent_done = newPercent;
+	newPercent = 1.0f - newPercent;
+	newPercent *= newPercent;
+	newPercent = 1.0f - newPercent;
+	float camSpeedChange = (newPercent - oldShapedPercent) * jc->delta_flick * jc->getSetting(SettingID::REAL_WORLD_CALIBRATION) * -mouseCalibrationFactor / jc->getSetting(SettingID::IN_GAME_SENS);
+	camSpeedX += camSpeedChange;
 
-		// alright, but what happens if we've set gyro to one stick and flick stick to another?
-		GyroOutput gyroOutput = jc->getSetting<GyroOutput>(SettingID::GYRO_OUTPUT);
-		if (gyroOutput == flickStickOutput)
-		{
-			jc->gyroXVelocity += camSpeedX;
-			processGyroStick(jc, 0.f, 0.f, 0.f, flickStickOutput == GyroOutput::LEFT_STICK ? StickMode::LEFT_STICK : StickMode::RIGHT_STICK, false);
-		}
-		else
-		{
-			float tempGyroXVelocity = jc->gyroXVelocity;
-			float tempGyroYVelocity = jc->gyroYVelocity;
-			jc->gyroXVelocity = camSpeedX;
-			jc->gyroYVelocity = 0.f;
-			processGyroStick(jc, 0.f, 0.f, 0.f, flickStickOutput == GyroOutput::LEFT_STICK ? StickMode::LEFT_STICK : StickMode::RIGHT_STICK, true);
-			jc->gyroXVelocity = tempGyroXVelocity;
-			jc->gyroYVelocity = tempGyroYVelocity;
-		}
-
-		return 0.f;
-	}
+	return camSpeedX;
 }
 
 void processStick(shared_ptr<JoyShock> jc, float stickX, float stickY, float lastX, float lastY, float innerDeadzone, float outerDeadzone,
@@ -3149,19 +3116,18 @@ void joyShockPollCallback(int jcHandle, JOY_SHOCK_STATE state, JOY_SHOCK_STATE l
 		jc->handleTriggerChange(ButtonID::ZR, ButtonID::ZRF, jc->getSetting<TriggerMode>(SettingID::ZR_MODE), rTrigger, jc->right_effect);
 	}
 
-	auto atSetting = jc->getSetting<AdaptiveTriggerSetting>(SettingID::ADAPTIVE_TRIGGER);
-	if (atSetting.mode == AdaptiveTriggerMode::OFF)
+	auto at = jc->getSetting<Switch>(SettingID::ADAPTIVE_TRIGGER);
+	if (at == Switch::OFF)
 	{
 		AdaptiveTriggerSetting none;
 		jsl->SetTriggerEffect(jc->handle, none, none);
 	}
-	else if(atSetting.mode == AdaptiveTriggerMode::ON)
-	{
-		jsl->SetTriggerEffect(jc->handle, jc->left_effect, jc->right_effect);
-	}
 	else
 	{
-		jsl->SetTriggerEffect(jc->handle, atSetting, atSetting);
+		auto leftEffect = jc->getSetting<AdaptiveTriggerSetting>(SettingID::LEFT_TRIGGER_EFFECT);
+		auto rightEffect = jc->getSetting<AdaptiveTriggerSetting>(SettingID::RIGHT_TRIGGER_EFFECT);
+		jsl->SetTriggerEffect(jc->handle, leftEffect.mode == AdaptiveTriggerMode::ON ? jc->left_effect : leftEffect,
+										  rightEffect.mode == AdaptiveTriggerMode::ON ? jc->right_effect : rightEffect);
 	}
 
 	bool currentMicToggleState = find_if(jc->_context->activeTogglesQueue.cbegin(), jc->_context->activeTogglesQueue.cend(),
@@ -3925,7 +3891,9 @@ int main(int argc, char *argv[])
 	});
 	virtual_controller.SetFilter(&UpdateVirtualController)->AddOnChangeListener(&OnVirtualControllerChange);
 	rumble_enable.SetFilter(&filterInvalidValue<Switch, Switch::INVALID>);
-	adaptive_trigger.SetFilter(&filterInvalidAdaptiveTriggerSetting);
+    adaptive_trigger.SetFilter(&filterInvalidValue<Switch, Switch::INVALID>);
+	left_trigger_effect.SetFilter(&filterInvalidAdaptiveTriggerSetting);
+	right_trigger_effect.SetFilter(&filterInvalidAdaptiveTriggerSetting);
 	scroll_sens.SetFilter(&filterFloatPair);
 	touch_ds_mode.SetFilter(&filterTouchpadDualStageMode);
 	right_trigger_offset.SetFilter(&filterClampByte);
@@ -4149,7 +4117,27 @@ int main(int argc, char *argv[])
 	commandRegistry.Add((new JSMAssignment<Switch>(rumble_enable))
 	                      ->SetHelp("Disable the rumbling feature from vigem. Valid values are ON and OFF."));
 	commandRegistry.Add((new JSMAssignment<Switch>(adaptive_trigger))
-	                      ->SetHelp("TODO: UPDATE"));
+	                      ->SetHelp("Control the adaptive trigger feature of the DualSense. Valid values are ON and OFF."));
+	commandRegistry.Add((new JSMAssignment<AdaptiveTriggerSetting>(left_trigger_effect))
+	                      ->SetHelp("Sets the adaptive trigger effect on the left trigger:\n"\
+									"OFF: No effect\n"\
+									"ON: Use effect generated by JSM depending on ZL_MODE\n"\
+									"RESISTANCE start[0 9] force[0 8]: Some resistance starting at point\n"\
+									"BOW start[0 8] end[0 8] forceStart[0 8] forceEnd[0 8]: increasingly strong resistance\n"\
+									"GALLOPING start[0 8] end[0 9] foot1[0 6] foot2[0 7] freq[Hz]: Two pulses repeated periodically\n"\
+									"SEMI_AUTOMATIC start[2 7] end[0 8] force[0 8]: Trigger effect\n"\
+									"AUTOMATIC start[0 9] strength[0 8] freq[Hz]: Regular pulse effect\n"\
+									"MACHINE start[0 9] end[0 9] force1[0 7] force2[0 7] freq[Hz] period: Irregular pulsing"));
+	commandRegistry.Add((new JSMAssignment<AdaptiveTriggerSetting>(right_trigger_effect))
+	                      ->SetHelp("Sets the adaptive trigger effect on the right trigger:\n"\
+									"OFF: No effect\n"\
+									"ON: Use effect generated by JSM depending on ZR_MODE\n"\
+									"RESISTANCE start[0 9] force[0 8]: Some resistance starting at point\n"\
+									"BOW start[0 8] end[0 8] forceStart[0 8] forceEnd[0 8]: increasingly strong resistance\n"\
+									"GALLOPING start[0 8] end[0 9] foot1[0 6] foot2[0 7] freq[Hz]: Two pulses repeated periodically\n"\
+									"SEMI_AUTOMATIC start[2 7] end[0 8] force[0 8]: Trigger effect\n"\
+									"AUTOMATIC start[0 9] strength[0 8] freq[Hz]: Regular pulse effect\n"\
+									"MACHINE start[0 9] end[0 9] force1[0 7] force2[0 7] freq[Hz] period: Irregular pulsing"));
 	commandRegistry.Add((new JSMAssignment<TriggerMode>(touch_ds_mode))
 	                      ->SetHelp("Dual stage mode for the touchpad TOUCH and CAPTURE (i.e. click) bindings."));
 	commandRegistry.Add((new JSMMacro("CLEAR"))->SetMacro(bind(&ClearConsole))->SetHelp("Removes all text in the console screen"));
