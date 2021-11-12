@@ -7,6 +7,7 @@
 #include <sstream>
 #include <string>
 #include <memory>
+#include <array>
 
 // This header file is meant to be included among all core JSM source files
 // And as such it should contain only constants, types and functions related to them
@@ -266,6 +267,8 @@ enum class SettingID
 	TOUCHPAD_DUAL_STAGE_MODE,
 	CLEAR,
 	ADAPTIVE_TRIGGER,
+	LEFT_TRIGGER_EFFECT,
+	RIGHT_TRIGGER_EFFECT,
 	LEFT_TRIGGER_OFFSET,
 	LEFT_TRIGGER_RANGE,
 	RIGHT_TRIGGER_OFFSET,
@@ -424,6 +427,7 @@ enum class Switch : char
 	ON,
 	INVALID,
 }; // Used to parse autoload assignment
+
 enum class ControllerScheme
 {
 	NONE,
@@ -434,7 +438,7 @@ enum class ControllerScheme
 
 enum class TouchpadMode
 {
-	GRID_AND_STICK, // Grid and Stick ?
+	GRID_AND_STICK, // Grid and Stick
 	MOUSE,          // gestures to be added as part of this mode
 	INVALID
 };

@@ -17,13 +17,13 @@ template<typename T>
 class JSMAssignment : public JSMCommand
 {
 protected:
-	// Reference to an existing variable. Make sure the variable's lifetime is longer than
-	// the command objects
-	JSMVariable<T>& _var;
-
 	// The display name is usually the same as the name, but in some cases it might be different.
 	// For example the two GYRO_SENS assignment commands will display MIN_GYRO_SENS and MAX_GYRO_SENS respectively.
 	const string _displayName;
+
+	// Reference to an existing variable. Make sure the variable's lifetime is longer than
+	// the command objects
+	JSMVariable<T>& _var;
 
 	virtual bool ParseData(in_string arguments) override
 	{

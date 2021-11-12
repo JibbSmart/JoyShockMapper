@@ -488,7 +488,7 @@ The "Responsive" variants of the skip modes enable a different behaviour that ca
 
 #### 2.3 Adaptive Triggers
 
-The Dualsense controller features adaptive trigger that allow software to control the force feedback applies on the triggers. JoyShockMapper makes use of this feature to provide useful feedback depending on the trigger mode and position of the trigger. Currently the patterns cannot be customized by the user but can be turned off with the following setting.
+The Dualsense controller features adaptive trigger that allow software to control the force feedback applies on the triggers. JoyShockMapper makes use of this feature to provide useful feedback depending on the trigger mode and position of the trigger. If you don't want JSM to use this feature, it can be disbaled across the board with the following command:
 
 ```
 ADAPTIVE_TRIGGER = OFF # Don't use force feedback in my triggers
@@ -507,6 +507,16 @@ RIGHT_TRIGGER_OFFSET = 31
 RIGHT_TRIGGER_RANGE = 175
 ```
 
+User Nielk1 has reverse engineered the adaptive trigger data and developped a [C# utility](https://gist.github.com/Nielk1/6d54cc2c00d2201ccb8c2720ad7538db) for it. With his permission (and under MIT licence) I've C++-ified the code and integrated it into JSM. Two new settings are then available ```LEFT_TRIGGER_MODE``` and ```RIGHT_TRIGGER_MODE```. They can be set to OFF or ON (JSM handling) or be provided with one of Nielk1's functions.
+
+```
+RESISTANCE start[0 9] force[0 8]: Some resistance starting at point
+BOW start[0 8] end[0 8] forceStart[0 8] forceEnd[0 8]: increasingly strong resistance
+GALLOPING start[0 8] end[0 9] foot1[0 6] foot2[0 7] freq[Hz]: Two pulses repeated periodically
+SEMI_AUTOMATIC start[2 7] end[0 8] force[0 8]: Trigger effect
+AUTOMATIC start[0 9] strength[0 8] freq[Hz]: Regular pulse effect
+MACHINE start[0 9] end[0 9] force1[0 7] force2[0 7] freq[Hz] period: Irregular pulsing
+```
 
 ### 3. Stick Configuration
 Each stick has 7 different operation modes:

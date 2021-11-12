@@ -1,13 +1,45 @@
 // JoyShockLibrary.h - Contains declarations of functions
 #pragma once
 
-typedef struct {
-    unsigned char mode = 0;      
-    unsigned short strength = 0; 
-    unsigned char start = 0;     
-    unsigned char end = 0;       
-    unsigned char frequency = 0; 
-} JOY_SHOCK_TRIGGER_EFFECT;
+#include <cstdint>
+#include <iostream>
+
+enum class AdaptiveTriggerMode : char
+{
+	OFF = 0x05,
+	ON = 0xFF,					// Not an actual DS5 code
+	RESISTANCE_RAW = 0x01,
+	SEGMENT = 0x02,
+	RESISTANCE = 0x21,
+	BOW = 0x22,
+	GALLOPING = 0x23,
+	SEMI_AUTOMATIC = 0x25,
+	AUTOMATIC = 0x26,
+	MACHINE = 0x27,
+	INVALID = 0x7F,
+};
+
+struct AdaptiveTriggerSetting
+{
+	AdaptiveTriggerMode mode = AdaptiveTriggerMode::ON;
+	// Keep these 6 fields next to each other and the same type
+	uint16_t start = 0;     
+    uint16_t end = 0;       
+    uint16_t force = 0;
+    uint16_t frequency = 0; 
+	uint16_t forceExtra = 0; 
+	uint16_t frequencyExtra = 0; 
+};
+
+// Defined in operators.cpp
+std::istream &operator>>(std::istream &in, AdaptiveTriggerSetting &atm);
+std::ostream &operator<<(std::ostream &out, const AdaptiveTriggerSetting &atm);
+bool operator==(const AdaptiveTriggerSetting &lhs, const AdaptiveTriggerSetting &rhs);
+inline bool operator!=(const AdaptiveTriggerSetting &lhs, const AdaptiveTriggerSetting &rhs)
+{
+	return !(lhs == rhs);
+}
+
 
 #if defined(JSL_WRAPPER_SOURCE)
 
@@ -194,6 +226,6 @@ public:
 	virtual void SetLightColour(int deviceId, int colour) = 0;
 	virtual void SetRumble(int deviceId, int smallRumble, int bigRumble) = 0;
 	virtual void SetPlayerNumber(int deviceId, int number) = 0;
-	virtual void SetTriggerEffect(int deviceId, const JOY_SHOCK_TRIGGER_EFFECT &_leftTriggerEffect, const JOY_SHOCK_TRIGGER_EFFECT &_rightTriggerEffect) { };
+	virtual void SetTriggerEffect(int deviceId, const AdaptiveTriggerSetting &_leftTriggerEffect, const AdaptiveTriggerSetting &_rightTriggerEffect) { };
 	virtual void SetMicLight(int deviceId, unsigned char mode) { }
 };
