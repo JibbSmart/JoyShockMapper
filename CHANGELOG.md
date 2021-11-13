@@ -17,6 +17,7 @@ Nicolas is adding Nielk1's trigger effect to JSM.
 
 ### Bugfixes
 * Fixed virtual DS4 left stick having a heavy bias to the corners.
+* Analog output of triggers are registered as chords to enable gyro button and chords but not digital mappings
 
 ## 3.2.3
 

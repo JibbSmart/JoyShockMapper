@@ -1146,6 +1146,9 @@ public:
 			trigger_rumble.force = 0;
 			trigger_rumble.start = offset + 0.05 * range;
 			mode = TriggerMode::NO_FULL;
+			// The chord stack should still be updated for gyro button and chords to function
+			_context->updateChordStack(position > 0, softIndex);
+			_context->updateChordStack(position >= 1.0, fullIndex);
 //			return;
 		}
 		else if (mode == TriggerMode::X_RT)
@@ -1156,6 +1159,9 @@ public:
 			trigger_rumble.force = 0;
 			trigger_rumble.start = offset + 0.05 * range;
 			mode = TriggerMode::NO_FULL;
+			// The chord stack should still be updated for gyro button and chords to function
+			_context->updateChordStack(position > 0, softIndex);
+			_context->updateChordStack(position >= 1.0, fullIndex);
 //			return;
 		}
 
@@ -2064,6 +2070,7 @@ static float handleFlickStick(float calX, float calY, float lastCalX, float last
 		}
 
 		// alright, but what happens if we've set gyro to one stick and flick stick to another?
+		// Nic: FS is mouse output and gyrostick is stick output. The game handles the merging (or not)
 		GyroOutput gyroOutput = jc->getSetting<GyroOutput>(SettingID::GYRO_OUTPUT);
 		if (gyroOutput == flickStickOutput)
 		{
@@ -3514,6 +3521,24 @@ StickMode filterStickMode(StickMode current, StickMode next)
 	return filterInvalidValue<StickMode, StickMode::INVALID>(current, next);
 }
 
+GyroOutput filterGyroOutput(GyroOutput current, GyroOutput next)
+{
+	if (next == GyroOutput::LEFT_STICK || next == GyroOutput::RIGHT_STICK)
+	{
+		if (virtual_controller.get() == ControllerScheme::NONE)
+		{
+			COUT_WARN << "Before using this gyro mode, you need to set VIRTUAL_CONTROLLER." << endl;
+			return current;
+		}
+		for (auto& js : handle_to_joyshock)
+		{
+			if (js.second->CheckVigemState() == false)
+				return current;
+		}
+	}
+	return filterInvalidValue<GyroOutput, GyroOutput::INVALID>(current, next);
+}
+
 void UpdateRingModeFromStickMode(JSMVariable<RingMode> *stickRingMode, const StickMode &newValue)
 {
 	if (newValue == StickMode::INNER_RING)
@@ -3952,7 +3977,7 @@ int main(int argc, char *argv[])
 	right_stick_unpower.SetFilter(&filterFloat);
 	left_stick_virtual_scale.SetFilter(&filterFloat);
 	right_stick_virtual_scale.SetFilter(&filterFloat);
-	gyro_output.SetFilter(&filterInvalidValue<GyroOutput, GyroOutput::INVALID>);
+	gyro_output.SetFilter(&filterGyroOutput);
 	flick_stick_output.SetFilter(&filterInvalidValue<GyroOutput, GyroOutput::INVALID>);
 
 	// light_bar needs no filter or listener. The callback polls and updates the color.
@@ -4228,7 +4253,6 @@ int main(int argc, char *argv[])
 	commandRegistry.Add((new JSMAssignment<GyroOutput>(flick_stick_output))
 	                      ->SetHelp("Whether flick stick should be converted to a mouse, left stick, or right stick movement."));
 	
-
 	bool quit = false;
 	commandRegistry.Add((new JSMMacro("QUIT"))
 	                      ->SetMacro([&quit](JSMMacro *, in_string) {

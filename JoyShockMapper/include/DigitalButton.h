@@ -117,6 +117,8 @@ public:
 		shared_ptr<MotionIf> rightMainMotion = nullptr;
 		shared_ptr<MotionIf> leftMotion = nullptr;
 		int nn = 0;
+
+		void updateChordStack(bool isPressed, ButtonID index);
 	};
 
 	DigitalButton(shared_ptr<DigitalButton::Context> _context, JSMButton &mapping);

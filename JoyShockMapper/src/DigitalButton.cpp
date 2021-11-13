@@ -2,6 +2,34 @@
 #include "JSMVariable.hpp"
 #include "InputHelpers.h"
 
+
+void DigitalButton::Context::updateChordStack(bool isPressed, ButtonID id)
+{
+	if (id < ButtonID::SIZE || id >= ButtonID::T1) // Can't chord touch stick buttons
+	{
+		if (isPressed)
+		{
+			auto foundChord = find(chordStack.begin(), chordStack.end(), id);
+			if (foundChord == chordStack.end())
+			{
+				//COUT << "Button " << index << " is pressed!" << endl;
+				chordStack.push_front(id); // Always push at the fromt to make it a stack
+			}
+
+		}
+		else
+		{
+			auto foundChord = find(chordStack.begin(), chordStack.end(), id);
+			if (foundChord != chordStack.end())
+			{
+				//COUT << "Button " << index << " is released!" << endl;
+				chordStack.erase(foundChord); // The chord is released
+			}
+		}
+	}
+}
+
+
 // JSM global variables
 extern JSMVariable<ControllerScheme> virtual_controller;
 extern JSMVariable<float> sim_press_window;
@@ -290,29 +318,13 @@ void DigitalButtonState::react(OnEntry &e)
 // Basic Press reaction should be called in every concrete Press reaction
 void DigitalButtonState::react(Pressed &e)
 {
-	if (pimpl()->_id < ButtonID::SIZE || pimpl()->_id >= ButtonID::T1) // Can't chord touch stick buttons
-	{
-		auto foundChord = find(pimpl()->_context->chordStack.begin(), pimpl()->_context->chordStack.end(), pimpl()->_id);
-		if (foundChord == pimpl()->_context->chordStack.end())
-		{
-			//COUT << "Button " << index << " is pressed!" << endl;
-			pimpl()->_context->chordStack.push_front(pimpl()->_id); // Always push at the fromt to make it a stack
-		}
-	}
+	pimpl()->_context->updateChordStack(true, pimpl()->_id);
 }
 
 // Basic Release reaction should be called in every concrete Release reaction
 void DigitalButtonState::react(Released &e)
 {
-	if (pimpl()->_id < ButtonID::SIZE || pimpl()->_id >= ButtonID::T1) // Can't chord touch stick buttons?!?
-	{
-		auto foundChord = find(pimpl()->_context->chordStack.begin(), pimpl()->_context->chordStack.end(), pimpl()->_id);
-		if (foundChord != pimpl()->_context->chordStack.end())
-		{
-			//COUT << "Button " << index << " is released!" << endl;
-			pimpl()->_context->chordStack.erase(foundChord); // The chord is released
-		}
-	}
+	pimpl()->_context->updateChordStack(false, pimpl()->_id);
 }
 
 void DigitalButtonState::react(chrono::steady_clock::time_point &e)
