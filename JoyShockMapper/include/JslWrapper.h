@@ -4,10 +4,10 @@
 #include <cstdint>
 #include <iostream>
 
-enum class AdaptiveTriggerMode : char
+enum class AdaptiveTriggerMode : unsigned char
 {
+	ON = 0x00,					// Not an actual DS5 code
 	OFF = 0x05,
-	ON = 0xFF,					// Not an actual DS5 code
 	RESISTANCE_RAW = 0x01,
 	SEGMENT = 0x02,
 	RESISTANCE = 0x21,

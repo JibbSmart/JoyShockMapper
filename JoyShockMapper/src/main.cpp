@@ -118,8 +118,8 @@ JSMVariable<ControllerScheme> virtual_controller = JSMVariable<ControllerScheme>
 JSMSetting<TriggerMode> touch_ds_mode = JSMSetting<TriggerMode>(SettingID::TOUCHPAD_DUAL_STAGE_MODE, TriggerMode::NO_SKIP);
 JSMSetting<Switch> rumble_enable = JSMSetting<Switch>(SettingID::RUMBLE, Switch::ON);
 JSMSetting<Switch> adaptive_trigger = JSMSetting<Switch>(SettingID::ADAPTIVE_TRIGGER, Switch::ON );
-JSMSetting<AdaptiveTriggerSetting> left_trigger_effect = JSMSetting<AdaptiveTriggerSetting>(SettingID::LEFT_TRIGGER_EFFECT, AdaptiveTriggerSetting() );
-JSMSetting<AdaptiveTriggerSetting> right_trigger_effect = JSMSetting<AdaptiveTriggerSetting>(SettingID::RIGHT_TRIGGER_EFFECT, AdaptiveTriggerSetting() );
+JSMSetting<AdaptiveTriggerSetting> left_trigger_effect = JSMSetting<AdaptiveTriggerSetting>(SettingID::LEFT_TRIGGER_EFFECT, AdaptiveTriggerSetting{});
+JSMSetting<AdaptiveTriggerSetting> right_trigger_effect = JSMSetting<AdaptiveTriggerSetting>(SettingID::RIGHT_TRIGGER_EFFECT, AdaptiveTriggerSetting{});
 JSMVariable<int> left_trigger_offset = JSMVariable<int>(25);
 JSMVariable<int> left_trigger_range = JSMVariable<int>(150);
 JSMVariable<int> right_trigger_offset = JSMVariable<int>(25);
@@ -1899,21 +1899,24 @@ void processGyroStick(shared_ptr<JoyShock> jc, float stickX, float stickY, float
 		gyroStickX = expectedX / targetGyroVelocity * gyroInStickStrength;
 		gyroStickY = expectedY / targetGyroVelocity * gyroInStickStrength;
 	}
-	if (stickLength <= undeadzoneInner)
+	if (jc->_context->_vigemController)
 	{
-		if (gyroInStickStrength == 0.f)
+		if (stickLength <= undeadzoneInner)
 		{
-			// hack to help with finding deadzones more quickly
-			jc->_context->_vigemController->setStick(undeadzoneInner, 0.f, isLeft);
+			if (gyroInStickStrength == 0.f)
+			{
+				// hack to help with finding deadzones more quickly
+				jc->_context->_vigemController->setStick(undeadzoneInner, 0.f, isLeft);
+			}
+			else
+			{
+				jc->_context->_vigemController->setStick(gyroStickX, -gyroStickY, isLeft);
+			}
 		}
 		else
 		{
 			jc->_context->_vigemController->setStick(gyroStickX, -gyroStickY, isLeft);
 		}
-	}
-	else
-	{
-		jc->_context->_vigemController->setStick(gyroStickX, -gyroStickY, isLeft);
 	}
 
 	jc->processed_gyro_stick |= gyroMatchesStickMode;
@@ -3396,6 +3399,11 @@ E filterInvalidValue(E current, E next)
 	return next != invalid ? next : current;
 }
 
+AdaptiveTriggerSetting filterInvalidValue(AdaptiveTriggerSetting current, AdaptiveTriggerSetting next)
+{
+	return next.mode != AdaptiveTriggerMode::INVALID ? next : current;
+}
+
 float filterFloat(float current, float next)
 {
 	// Exclude Infinite, NaN and Subnormal
@@ -3927,8 +3935,8 @@ int main(int argc, char *argv[])
 	virtual_controller.SetFilter(&UpdateVirtualController)->AddOnChangeListener(&OnVirtualControllerChange);
 	rumble_enable.SetFilter(&filterInvalidValue<Switch, Switch::INVALID>);
     adaptive_trigger.SetFilter(&filterInvalidValue<Switch, Switch::INVALID>);
-	left_trigger_effect.SetFilter(&filterInvalidValue<AdaptiveTriggerMode, AdaptiveTriggerMode::INVALID>);
-	right_trigger_effect.SetFilter(&filterInvalidValue<AdaptiveTriggerMode, AdaptiveTriggerMode::INVALID>);
+	left_trigger_effect.SetFilter(&filterInvalidValue);
+	right_trigger_effect.SetFilter(&filterInvalidValue);
 	scroll_sens.SetFilter(&filterFloatPair);
 	touch_ds_mode.SetFilter(&filterTouchpadDualStageMode);
 	right_trigger_offset.SetFilter(&filterClampByte);
