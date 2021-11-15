@@ -1840,7 +1840,7 @@ bool do_WHITELIST_REMOVE()
 	return true;
 }
 
-void processGyroStick(shared_ptr<JoyShock> jc, float stickX, float stickY, float stickLength, StickMode stickMode, bool forceOutput)
+bool processGyroStick(shared_ptr<JoyShock> jc, float stickX, float stickY, float stickLength, StickMode stickMode, bool forceOutput)
 {
 	GyroOutput gyroOutput = jc->getSetting<GyroOutput>(SettingID::GYRO_OUTPUT);
 	bool isLeft = stickMode == StickMode::LEFT_STICK;
@@ -1869,7 +1869,7 @@ void processGyroStick(shared_ptr<JoyShock> jc, float stickX, float stickY, float
 	{
 		// can't do anything with that
 		jc->processed_gyro_stick |= gyroMatchesStickMode;
-		return;
+		return false;
 	}
 	if (unpower == 0.f)
 		unpower = 1.f;
@@ -1926,6 +1926,8 @@ void processGyroStick(shared_ptr<JoyShock> jc, float stickX, float stickY, float
 	}
 
 	jc->processed_gyro_stick |= gyroMatchesStickMode;
+
+	return stickLength > undeadzoneInner;
 }
 
 static float handleFlickStick(float calX, float calY, float lastCalX, float lastCalY, float stickLength, bool &isFlicking, shared_ptr<JoyShock> jc, float mouseCalibrationFactor, bool FLICK_ONLY, bool ROTATE_ONLY)
@@ -2257,7 +2259,7 @@ void processStick(shared_ptr<JoyShock> jc, float stickX, float stickY, float las
 	{
 		if (jc->_context->_vigemController)
 		{
-			processGyroStick(jc, rawX, rawY, rawLength, stickMode, false);
+			anyStickInput = processGyroStick(jc, rawX, rawY, rawLength, stickMode, false);
 		}
 	}
 }
@@ -2854,7 +2856,6 @@ void joyShockPollCallback(int jcHandle, JOY_SHOCK_STATE state, JOY_SHOCK_STATE l
 		// gyro_cutoff_recovery is something weird, so we just do a hard threshold
 		gyroX = gyroY = gyroLength = 0.0f;
 	}
-
 	
 	// Handle buttons before GYRO because some of them may affect the value of blockGyro
 	auto gyro = jc->getSetting<GyroSettings>(SettingID::GYRO_ON); // same result as getting GYRO_OFF
@@ -2864,10 +2865,84 @@ void joyShockPollCallback(int jcHandle, JOY_SHOCK_STATE state, JOY_SHOCK_STATE l
 		blockGyro = gyro.always_off ^ jc->IsPressed(gyro.button);
 		break;
 	case GyroIgnoreMode::LEFT_STICK:
-		blockGyro = (gyro.always_off ^ leftAny);
+		{
+			float leftX = jsl->GetLeftX(jc->handle);
+			float leftY = jsl->GetLeftY(jc->handle);
+			float leftLength = sqrtf(leftX * leftX + leftY * leftY);
+		    float deadzoneInner = jc->getSetting(SettingID::LEFT_STICK_DEADZONE_INNER);
+		    float deadzoneOuter = jc->getSetting(SettingID::LEFT_STICK_DEADZONE_OUTER);
+			leftAny = false;
+			switch (jc->getSetting<StickMode>(SettingID::LEFT_STICK_MODE))
+			{
+			case StickMode::AIM:
+				leftAny = leftLength > deadzoneInner;
+				break;
+			case StickMode::FLICK:
+				leftAny = leftLength > (1.f - deadzoneOuter);
+				break;
+			case StickMode::LEFT_STICK:
+			case StickMode::RIGHT_STICK:
+				leftAny = leftLength > jc->getSetting(SettingID::LEFT_STICK_UNDEADZONE_INNER);
+				break;
+		    case StickMode::NO_MOUSE:
+		    case StickMode::INNER_RING:
+		    case StickMode::OUTER_RING:
+				{
+					jc->processDeadZones(leftX, leftY, deadzoneInner, deadzoneOuter);
+				    float absX = abs(leftX);
+				    float absY = abs(leftY);
+				    bool left = leftX < -0.5f * absY;
+				    bool right = leftX > 0.5f * absY;
+				    bool down = leftY < -0.5f * absX;
+				    bool up = leftY > 0.5f * absX;
+				    leftAny = left || right || up || down;
+				}
+			    break;
+			default:
+				break;
+			}
+			blockGyro = (gyro.always_off ^ leftAny);
+		}
 		break;
 	case GyroIgnoreMode::RIGHT_STICK:
-		blockGyro = (gyro.always_off ^ rightAny);
+	    {
+		    float rightX = jsl->GetRightX(jc->handle);
+		    float rightY = jsl->GetRightY(jc->handle);
+		    float rightLength = sqrtf(rightX * rightX + rightY * rightY);
+		    float deadzoneInner = jc->getSetting(SettingID::RIGHT_STICK_DEADZONE_INNER);
+		    float deadzoneOuter = jc->getSetting(SettingID::RIGHT_STICK_DEADZONE_OUTER);
+		    rightAny = false;
+		    switch (jc->getSetting<StickMode>(SettingID::RIGHT_STICK_MODE))
+		    {
+		    case StickMode::AIM:
+			    rightAny = rightLength > deadzoneInner;
+			    break;
+		    case StickMode::FLICK:
+			    rightAny = rightLength > (1.f - deadzoneOuter);
+			    break;
+		    case StickMode::LEFT_STICK:
+		    case StickMode::RIGHT_STICK:
+			    rightAny = rightLength > jc->getSetting(SettingID::RIGHT_STICK_UNDEADZONE_INNER);
+			    break;
+		    case StickMode::NO_MOUSE:
+		    case StickMode::INNER_RING:
+		    case StickMode::OUTER_RING:
+		    {
+			    jc->processDeadZones(rightX, rightY, deadzoneInner, deadzoneOuter);
+			    float absX = abs(rightX);
+			    float absY = abs(rightY);
+			    bool left = rightX < -0.5f * absY;
+			    bool right = rightX > 0.5f * absY;
+			    bool down = rightY < -0.5f * absX;
+			    bool up = rightY > 0.5f * absX;
+			    rightAny = left || right || up || down;
+		    }
+		    break;
+		    default:
+			    break;
+		    }
+		    blockGyro = (gyro.always_off ^ rightAny);
+	    }
 		break;
 	}
 	float gyro_x_sign_to_use = jc->getSetting(SettingID::GYRO_AXIS_X);
