@@ -105,9 +105,9 @@ bool isNumLockKey(KeyCode key)
 
 bool isExtendedKey(KeyCode key)
 {
-	return (key.code >= VK_LEFT && key.code <= VK_DOWN) ||
-	  (key.code >= VK_LWIN && key.code <= VK_NUMPAD9) ||
-	  (key.code >= VK_BROWSER_BACK && key.code <= VK_LAUNCH_APP2);
+	return ((key.code >= VK_PRIOR && key.code <= VK_HELP) && key.code != VK_SNAPSHOT) ||
+		(key.code >= VK_LWIN && key.code <= VK_DIVIDE) ||
+		(key.code >= VK_BROWSER_BACK && key.code <= VK_LAUNCH_APP2);
 }
 
 // send key press
@@ -123,6 +123,11 @@ int pressKey(KeyCode vkKey, bool pressed)
 	input.type = INPUT_KEYBOARD;
 	input.ki.time = 0;
 	input.ki.dwFlags = pressed ? 0 : KEYEVENTF_KEYUP;
+	if (isExtendedKey(vkKey))
+	{
+		input.ki.dwFlags |= KEYEVENTF_EXTENDEDKEY;
+	}
+
 	if (isNumLockKey(vkKey))
 	{
 		input.ki.wVk = vkKey.code;
