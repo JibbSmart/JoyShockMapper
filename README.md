@@ -507,7 +507,7 @@ RIGHT_TRIGGER_OFFSET = 31
 RIGHT_TRIGGER_RANGE = 175
 ```
 
-User Nielk1 has reverse engineered the adaptive trigger data and developped a [C# utility](https://gist.github.com/Nielk1/6d54cc2c00d2201ccb8c2720ad7538db) for it. With his permission (and under MIT licence) I've C++-ified the code and integrated it into JSM. Two new settings are then available ```LEFT_TRIGGER_MODE``` and ```RIGHT_TRIGGER_MODE```. They can be set to OFF or ON (JSM handling) or be provided with one of Nielk1's functions.
+User Nielk1 has reverse engineered the adaptive trigger data and developped a [C# utility](https://gist.github.com/Nielk1/6d54cc2c00d2201ccb8c2720ad7538db) for it. With his permission (and under MIT licence) I've C++-ified the code and integrated it into JSM. Two new settings are then available ```LEFT_TRIGGER_EFFECT``` and ```RIGHT_TRIGGER_EFFECT```. They can be set to OFF or ON (JSM handling) or be provided with one of Nielk1's functions.
 
 ```
 RESISTANCE start[0 9] force[0 8]: Some resistance starting at point
