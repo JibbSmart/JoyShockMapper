@@ -13,7 +13,7 @@ Nicolas is adding Nielk1's trigger effect to JSM.
 * FLICK_STICK_OUTPUT can also be set to RIGHT_STICK to fake flick stick in a game that's only reading from the controller. It will usually be less precise than mouse-flick-stick.
 * Tune virtual flick stick and gyro aiming with VIRTUAL_STICK_CALIBRATION instead of REAL_WORLD_CALIBRATION and IN_GAME_SENS.
 * ZL and ZR bindings now work with alongside virtual stick bindings (setting ZL_MODE or ZR_MODE to a virtual conroller trigger).
-* New settings LEFT_TRIGGER_EFFECT and RIGHT_TRIGGER_EFFECT can be set to BOW, SEMI_AUTOMATIC or MACHINE. Type HELP for details
+* New settings LEFT_TRIGGER_EFFECT and RIGHT_TRIGGER_EFFECT can be set to RESISTANCE, BOW, GALLOPING, SEMI_AUTOMATIC, AUTOMATIC or MACHINE. Type LEFT_TRIGGER_EFFECT HELP for details
 
 ### Bugfixes
 * Fixed virtual DS4 left stick having a heavy bias to the corners.
