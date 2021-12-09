@@ -1145,11 +1145,9 @@ public:
 			trigger_rumble.mode = AdaptiveTriggerMode::RESISTANCE_RAW;
 			trigger_rumble.force = 0;
 			trigger_rumble.start = offset + 0.05 * range;
-			mode = TriggerMode::NO_FULL;
-			// The chord stack should still be updated for gyro button and chords to function
 			_context->updateChordStack(position > 0, softIndex);
 			_context->updateChordStack(position >= 1.0, fullIndex);
-//			return;
+			return;
 		}
 		else if (mode == TriggerMode::X_RT)
 		{
@@ -1158,11 +1156,9 @@ public:
 			trigger_rumble.mode = AdaptiveTriggerMode::RESISTANCE_RAW;
 			trigger_rumble.force = 0;
 			trigger_rumble.start = offset + 0.05 * range;
-			mode = TriggerMode::NO_FULL;
-			// The chord stack should still be updated for gyro button and chords to function
 			_context->updateChordStack(position > 0, softIndex);
 			_context->updateChordStack(position >= 1.0, fullIndex);
-//			return;
+			return;
 		}
 
 		// if either trigger is waiting to be tap released, give it a go

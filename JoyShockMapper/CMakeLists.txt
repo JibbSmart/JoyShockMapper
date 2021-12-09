@@ -164,12 +164,12 @@ target_include_directories (
 )
 
 if(SDL OR NOT DEFINED SDL)
-	# SDL2
-	set(HIDAPI ON)
+	# SDL2 2.0.18
+	set(SDL_HIDAPI ON)
 	CPMAddPackage (
 		NAME SDL2
 		GITHUB_REPOSITORY libsdl-org/SDL
-		GIT_TAG 3b7649c578b1ff98fb3f1c76fc1a586fe75fb617
+		GIT_TAG 2e9821423a237a1206e3c09020778faacfe430be
 	)
 	
 	set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")

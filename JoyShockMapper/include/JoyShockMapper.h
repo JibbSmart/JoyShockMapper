@@ -80,6 +80,11 @@ constexpr WORD PS_PAD_CLICK = 0xB9;
 constexpr WORD PS_L2 = 0xD8;
 constexpr WORD PS_R2 = 0xD9;
 
+constexpr bool isControllerKey(WORD code)
+{
+	return (code >= X_UP && code <= X_START) || code == PS_HOME || code == PS_PAD_CLICK || code == X_LT || code == X_RT;
+}
+
 // All enums should have an INVALID field for proper use with templated << and >> operators
 
 enum class ButtonID
@@ -419,6 +424,10 @@ enum class BtnEvent
 	OnTapRelease,
 	OnHoldRelease,
 	OnInstantRelease,
+	// Controller keys need to be updated on every tick, instead of on change
+	WhilePressed,
+	WhileHeld,
+	WhileTapping,
 	INVALID
 };
 enum class Switch : char

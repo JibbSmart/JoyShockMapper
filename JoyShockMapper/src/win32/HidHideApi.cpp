@@ -6,6 +6,7 @@
 // Ideally, this layer has no state behavior, and limits itself to status reporting only (supporting proper decision making)
 //
 #include "HidHideApi.h"
+#include <iostream>
 #include <set>
 
 // Logging
@@ -417,6 +418,13 @@ constexpr auto IOCTL_SET_ACTIVE   { CTL_CODE(IoControlDeviceType, 2053, METHOD_B
         return (handle);
     }
 
+/*    CloseHandlePtr DeviceHandle()
+    {
+        auto handle{ CloseHandlePtr(::CreateFileW(HidHide::StringTable(IDS_CONTROL_SERVICE_PATH).c_str(), GENERIC_READ, (FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE), nullptr, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, nullptr), &::CloseHandle) };
+        if (INVALID_HANDLE_VALUE == handle.get()) THROW_WIN32_LAST_ERROR;
+        return (handle);
+    }
+*/
 //    // Merge model information into a single string
 //    void MergeModelInformation(_Inout_ std::vector<std::wstring>& model, _In_ std::wstring const& append)
 //    {
@@ -568,8 +576,16 @@ namespace HidHide
 
     bool Present()
     {
-        
-        return (INVALID_HANDLE_VALUE != DeviceHandle(true).get());
+        bool isPresent = false;
+        try
+        {
+            isPresent = (INVALID_HANDLE_VALUE != DeviceHandle(true).get());
+        }
+        catch (...)
+        {
+            std::cerr << "HidHide Present() error " << GetLastError() << std::endl;
+        }
+        return isPresent;
     }
 
     HidDeviceInstancePaths GetBlacklist()

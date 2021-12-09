@@ -844,7 +844,7 @@ ZL_MODE = PS_L2
 ZR_MODE = PS_R2
 ```
 
-Using both analog and digital trigger bindings at the same time leads to undefined behaviours. Use modeshift as defined in the next section to disable analog triggers while a digital trigger binding is active.
+If there is multiple sources of analog data (such as a trigger and a digital binding) the two sources will add up and clamp within the limit of the data. Soft and full pull chords will still be available for use and for the gyro button.
 
 #### 6.3 Virtual Controller Gyro
 While the virtual controller can't output gyro, JoyShockMapper can convert gyro input to stick output. For example:

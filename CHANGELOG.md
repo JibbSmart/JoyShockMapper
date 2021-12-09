@@ -3,6 +3,18 @@
 Most recent updates will appear first.
 This is a summary of new features and bugfixes. Read the README to learn how to use the features mentioned here.
 
+## 3.3.1
+
+Nicolas updates SDL2 version to the latest release 2.0.18
+NON BACKWARD COMPATIBLE CHANGE: Digital trigger bindings cannot be used at the same time as a virtual controller analog output, but the chord stack is updated to make use of chords and gyro button.
+
+### Features
+
+### Bugfixes
+* Autoload could not get started again, after being stopped
+* A controller trigger key could not get pressed
+* The full pull binding never registered when using analog controller triggers
+
 ## 3.3.0
 
 Jibb added basic support for mapping gyro and flick stick to virtual controller sticks.

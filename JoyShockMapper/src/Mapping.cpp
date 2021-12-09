@@ -137,9 +137,12 @@ void Mapping::ProcessEvent(BtnEvent evt, EventActionIf &button) const
 			COUT << button.getDisplayName() << ": turbo" << endl;
 			break;
 		}
-		//COUT << button._id << " processes event " << evt << endl;
+
 		if (entry->second)
+		{
+			//DEBUG_LOG << button.getDisplayName() << " processes event " << evt << endl;
 			entry->second(&button);
+		}
 	}
 }
 
@@ -188,9 +191,9 @@ bool Mapping::AddMapping(KeyCode key, EventModifier evtMod, ActionModifier actMo
 		release = bind(&EventActionIf::SetRumble, placeholders::_1, 0, 0);
 		_tapDurationMs = MAGIC_EXTENDED_TAP_DURATION; // Unused in regular press
 	}
-	else // if (key.code != NO_HOLD_MAPPED)
+	else //
 	{
-		_hasViGEmBtn |= (key.code >= X_UP && key.code <= X_START) || key.code == PS_HOME || key.code == PS_PAD_CLICK || key.code == X_LT || key.code == X_RT; // Set flag if vigem button
+		_hasViGEmBtn |= isControllerKey(key.code); // Set flag if vigem button
 		apply = bind(&EventActionIf::ApplyBtnPress, placeholders::_1, key);
 		release = bind(&EventActionIf::ApplyBtnRelease, placeholders::_1, key);
 	}
@@ -239,6 +242,31 @@ bool Mapping::AddMapping(KeyCode key, EventModifier evtMod, ActionModifier actMo
 	case ActionModifier::INVALID:
 		return false;
 		// None applies no modification... Hey!
+	}
+
+	if (isControllerKey(key.code))
+	{
+		// Controller keys need to be updated on every tick, instead of on change
+		BtnEvent whileEvent = BtnEvent::INVALID;
+		switch (applyEvt)
+		{
+		case BtnEvent::OnPress:
+			whileEvent = BtnEvent::WhilePressed;
+			break;
+		case BtnEvent::OnHold:
+			whileEvent = BtnEvent::WhileHeld;
+			break;
+		case BtnEvent::OnTap:
+			whileEvent = BtnEvent::WhileTapping;
+			break;
+		}
+		if (whileEvent != BtnEvent::INVALID)
+		{
+			// Assign a dummy callback to the OnX event in order to display the console log
+			KeyCode noKey("NONE");
+			InsertEventMapping(applyEvt, [] (EventActionIf *) {});
+			applyEvt = whileEvent; // perform the apply action on the WhileX event instead of the OnX
+		}
 	}
 
 	// Insert release first because in turbo's case apply and release are the same but we want release to apply first
