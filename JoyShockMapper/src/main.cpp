@@ -4035,8 +4035,8 @@ int main(int argc, char *argv[])
 	virtual_controller.SetFilter(&UpdateVirtualController)->AddOnChangeListener(&OnVirtualControllerChange);
 	rumble_enable.SetFilter(&filterInvalidValue<Switch, Switch::INVALID>);
     adaptive_trigger.SetFilter(&filterInvalidValue<Switch, Switch::INVALID>);
-	left_trigger_effect.SetFilter(&filterInvalidValue);
-	right_trigger_effect.SetFilter(&filterInvalidValue);
+    left_trigger_effect.SetFilter(static_cast<AdaptiveTriggerSetting(*)(AdaptiveTriggerSetting, AdaptiveTriggerSetting)>(&filterInvalidValue));
+    right_trigger_effect.SetFilter(static_cast<AdaptiveTriggerSetting(*)(AdaptiveTriggerSetting, AdaptiveTriggerSetting)>(&filterInvalidValue));
 	scroll_sens.SetFilter(&filterFloatPair);
 	touch_ds_mode.SetFilter(&filterTouchpadDualStageMode);
 	right_trigger_offset.SetFilter(&filterClampByte);
