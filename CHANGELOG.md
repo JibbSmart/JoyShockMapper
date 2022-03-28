@@ -7,10 +7,11 @@ This is a summary of new features and bugfixes. Read the README to learn how to 
 
 Nicolas updates SDL2 version to the latest release 2.0.18
 NON BACKWARD COMPATIBLE CHANGE: Digital trigger bindings cannot be used at the same time as a virtual controller analog output, but the chord stack is updated to make use of chords and gyro button.
-Jibb has made some improvements to vehicle steering, including  stick modes for converting an angle on the stick to a single-axis offset on a virtual stick, and a way to map MOTION_STICK to a single steering axis.
+Jibb has made some improvements to vehicle steering, including stick modes for converting an angle on the stick to a single-axis offset on a virtual stick, a large rotation of the stick to a single-axis offset on a virtual stick, and a way to map MOTION_STICK to a single steering axis.
 
 ### Features
 * Any STICK_MODE can now be set to LEFT_ANGLE_TO_X, LEFT_ANGLE_TO_Y, RIGHT_ANGLE_TO_X, or RIGHT_ANGLE_TO_Y to convert the angle of the stick to a virtual stick offset in just that axis. Requires a virtual controller to be set. This can be useful for improved steering precision in games that only use one axis. For example, setting LEFT_STICK_MODE to LEFT_ANGLE_TO_X will let you point the stick forward to get out of the inner deadzone without actually steering left or right, and then make small adjustments left or right for gentle steering.
+* Any STICK_MODE can now be set to LEFT_WIND_X or RIGHT_WIND_X, letting you wind that stick (rotate it flick-stick-style) to move that virtual stick across a single axis. This can be used to map very large movements to small stick movements, which can be useful for playing driving simulators.
 * MOTION_STICK_MODE can be set to LEFT_STEER_X or RIGHT_STEER_X to map leaning the controller left and right to the X axis on a virtual controller stick. For steering, this can work better than setting MOTION_STICK_MODE to a regular stick since it naturally handles holding your controller upright, flat, or anything in-between.
 
 ### Bugfixes

@@ -135,6 +135,9 @@ JSMSetting<float> right_stick_undeadzone_outer = JSMSetting<float>(SettingID::RI
 JSMSetting<float> right_stick_unpower = JSMSetting<float>(SettingID::RIGHT_STICK_UNPOWER, 0.f);
 JSMSetting<float> left_stick_virtual_scale = JSMSetting<float>(SettingID::LEFT_STICK_VIRTUAL_SCALE, 1.f);
 JSMSetting<float> right_stick_virtual_scale = JSMSetting<float>(SettingID::RIGHT_STICK_VIRTUAL_SCALE, 1.f);
+JSMSetting<float> wind_stick_range = JSMSetting<float>(SettingID::WIND_STICK_RANGE, 1080.f);
+JSMSetting<float> wind_stick_power = JSMSetting<float>(SettingID::WIND_STICK_POWER, 1.f);
+JSMSetting<float> unwind_rate = JSMSetting<float>(SettingID::UNWIND_RATE, 9000.f);
 JSMSetting<GyroOutput> gyro_output = JSMSetting<GyroOutput>(SettingID::GYRO_OUTPUT, GyroOutput::MOUSE);
 JSMSetting<GyroOutput> flick_stick_output = JSMSetting<GyroOutput>(SettingID::FLICK_STICK_OUTPUT, GyroOutput::MOUSE);
 
@@ -356,6 +359,12 @@ public:
 	float gyroYVelocity = 0.f;
 
 	Vec lastGrav = Vec(0.f, -1.f, 0.f);
+
+	bool isWindingLeft = false;
+	bool isWindingRight = false;
+
+	float windingAngleLeft = 0.f;
+	float windingAngleRight = 0.f;
 
 	vector<DigitalButton> buttons;
 	vector<DigitalButton> gridButtons;
@@ -796,6 +805,15 @@ public:
 				break;
 			case SettingID::RIGHT_STICK_VIRTUAL_SCALE:
 				opt = right_stick_virtual_scale.get(*activeChord);
+				break;
+			case SettingID::WIND_STICK_RANGE:
+				opt = wind_stick_range.get(*activeChord);
+				break;
+			case SettingID::WIND_STICK_POWER:
+				opt = wind_stick_power.get(*activeChord);
+				break;
+			case SettingID::UNWIND_RATE:
+				opt = unwind_rate.get(*activeChord);
 				break;
 			}
 			if (opt)
@@ -1557,6 +1575,9 @@ static void resetAllMappings()
 	right_stick_unpower.Reset();
 	left_stick_virtual_scale.Reset();
 	right_stick_virtual_scale.Reset();
+	wind_stick_range.Reset();
+	wind_stick_power.Reset();
+	unwind_rate.Reset();
 	gyro_output.Reset();
 	flick_stick_output.Reset();
 	for_each(grid_mappings.begin(), grid_mappings.end(), [](auto &map) { map.Reset(); });
@@ -2302,6 +2323,8 @@ void processStick(shared_ptr<JoyShock> jc, float stickX, float stickY, float las
 			float livezoneSize = 1.f - undeadzoneOuter - undeadzoneInner;
 			if (livezoneSize > 0.f)
 			{
+				anyStickInput = true;
+
 				// unpower curve
 				if (unpower != 0.f)
 				{
@@ -2322,6 +2345,109 @@ void processStick(shared_ptr<JoyShock> jc, float stickX, float stickY, float las
 				{
 					jc->_context->_vigemController->setStick(0.f, signedStickValue, isLeft);
 				}
+			}
+		}
+	}
+	else if (stickMode == StickMode::LEFT_WIND_X || stickMode == StickMode::RIGHT_WIND_X)
+	{
+		if (jc->_context->_vigemController)
+		{
+			bool isLeft = stickMode == StickMode::LEFT_WIND_X;
+
+			bool &isWinding = isLeft ? jc->isWindingLeft : jc->isWindingRight;
+			float &currentWindingAngle = isLeft ? jc->windingAngleLeft : jc->windingAngleRight;
+
+			// currently, just use the same hard-coded thresholds we use for flick stick. These are affected by deadzones
+			float windingThreshold = 0.995f;
+			if (isWinding)
+			{
+				windingThreshold *= 0.9f;
+				if (stickLength < windingThreshold)
+				{
+					// release
+					isWinding = false;
+				}
+				else
+				{
+					// use difference between last stick angle and current
+					float stickAngle = atan2f(-stickX, stickY);
+					float lastStickAngle = atan2f(-lastX, lastY);
+					float angleChange = fmod((stickAngle - lastStickAngle) + PI, 2.0f * PI);
+					if (angleChange < 0)
+						angleChange += 2.0f * PI;
+					angleChange -= PI;
+
+					currentWindingAngle -= angleChange * 180.f / PI;
+				}
+			}
+			else if (stickLength > windingThreshold)
+			{
+				// engage
+				isWinding = true;
+			}
+
+			anyStickInput = isWinding;
+
+			if (!isWinding)
+			{
+				float absWindingAngle = abs(currentWindingAngle);
+				float unwindAmount = jc->getSetting(SettingID::UNWIND_RATE) * deltaTime;
+				float windingSign = currentWindingAngle < 0.f ? -1.f : 1.f;
+				if (absWindingAngle <= unwindAmount)
+				{
+					currentWindingAngle = 0.f;
+				}
+				else
+				{
+					currentWindingAngle -= unwindAmount * windingSign;
+				}
+			}
+
+			float newWindingSign = currentWindingAngle < 0.f ? -1.f : 1.f;
+			float newAbsWindingAngle = abs(currentWindingAngle);
+
+			float windingRange = jc->getSetting(SettingID::WIND_STICK_RANGE);
+			float windingPower = jc->getSetting(SettingID::WIND_STICK_POWER);
+			if (windingPower == 0.f)
+			{
+				windingPower = 1.f;
+			}
+
+			float windingRemapped = std::min(pow(newAbsWindingAngle / windingRange * 2.f, windingPower), 1.f);
+
+			// let's account for deadzone!
+			float undeadzoneInner, undeadzoneOuter, unpower;
+			if (isLeft)
+			{
+				undeadzoneInner = jc->getSetting(SettingID::LEFT_STICK_UNDEADZONE_INNER);
+				undeadzoneOuter = jc->getSetting(SettingID::LEFT_STICK_UNDEADZONE_OUTER);
+				unpower = jc->getSetting(SettingID::LEFT_STICK_UNPOWER);
+			}
+			else
+			{
+				undeadzoneInner = jc->getSetting(SettingID::RIGHT_STICK_UNDEADZONE_INNER);
+				undeadzoneOuter = jc->getSetting(SettingID::RIGHT_STICK_UNDEADZONE_OUTER);
+				unpower = jc->getSetting(SettingID::RIGHT_STICK_UNPOWER);
+			}
+
+			float livezoneSize = 1.f - undeadzoneOuter - undeadzoneInner;
+			if (livezoneSize > 0.f)
+			{
+				anyStickInput = true;
+
+				// unpower curve
+				if (unpower != 0.f)
+				{
+					windingRemapped = pow(windingRemapped, 1.f / unpower);
+				}
+
+				if (windingRemapped < 1.f)
+				{
+					windingRemapped = undeadzoneInner + windingRemapped * livezoneSize;
+				}
+
+				float signedStickValue = newWindingSign * windingRemapped;
+				jc->_context->_vigemController->setStick(signedStickValue, 0.f, isLeft);
 			}
 		}
 	}
@@ -3694,7 +3820,7 @@ TriggerMode filterTouchpadDualStageMode(TriggerMode current, TriggerMode next)
 
 StickMode filterMotionStickMode(StickMode current, StickMode next)
 {
-	if (next >= StickMode::LEFT_STICK && next <= StickMode::RIGHT_STEER_X)
+	if (next >= StickMode::LEFT_STICK && next <= StickMode::RIGHT_WIND_X)
 	{
 		if (virtual_controller.get() == ControllerScheme::NONE)
 		{
@@ -4179,6 +4305,9 @@ int main(int argc, char *argv[])
 	right_stick_unpower.SetFilter(&filterFloat);
 	left_stick_virtual_scale.SetFilter(&filterFloat);
 	right_stick_virtual_scale.SetFilter(&filterFloat);
+	wind_stick_range.SetFilter(&filterPositive);
+	wind_stick_power.SetFilter(&filterPositive);
+	unwind_rate.SetFilter(&filterPositive);
 	gyro_output.SetFilter(&filterGyroOutput);
 	flick_stick_output.SetFilter(&filterInvalidValue<GyroOutput, GyroOutput::INVALID>);
 
@@ -4454,6 +4583,12 @@ int main(int argc, char *argv[])
 	                      ->SetHelp("When outputting as a virtual controller, use this to adjust the scale of the left stick output. This does not affect the gyro->stick conversion."));
 	commandRegistry.Add((new JSMAssignment<float>(right_stick_virtual_scale))
 	                      ->SetHelp("When outputting as a virtual controller, use this to adjust the scale of the right stick output. This does not affect the gyro->stick conversion."));
+	commandRegistry.Add((new JSMAssignment<float>(wind_stick_range))
+	                      ->SetHelp("When using the WIND stick modes, this is how many degrees the stick has to be wound to cover the full range of the ouptut, from minimum value to maximum value."));
+	commandRegistry.Add((new JSMAssignment<float>(wind_stick_power))
+	                      ->SetHelp("Power curve for WIND stick modes, letting you have more or less sensitivity towards the neutral position."));
+	commandRegistry.Add((new JSMAssignment<float>(unwind_rate))
+	                      ->SetHelp("How quickly the WIND sticks unwind on their own when the relevant stick isn't engaged (in degrees per second)."));
 	commandRegistry.Add((new JSMAssignment<GyroOutput>(gyro_output))
 	                      ->SetHelp("Whether gyro should be converted to mouse, left stick, or right stick movement. If you don't want to use gyro aiming, simply leave GYRO_SENS set to 0."));
 	commandRegistry.Add((new JSMAssignment<GyroOutput>(flick_stick_output))
