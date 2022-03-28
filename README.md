@@ -519,7 +519,7 @@ MACHINE start[0 9] end[0 9] force1[0 7] force2[0 7] freq[Hz] period: Irregular p
 ```
 
 ### 3. Stick Configuration
-Each stick has 7 different operation modes:
+Each stick has 8 different operation modes when you're not using a virtual controller:
 
 ```
 AIM: traditional stick aiming
@@ -788,6 +788,32 @@ LEFT_STICK_MODE = LEFT_STICK
 RIGHT_STICK_MODE = RIGHT_STICK
 ```
 
+While these map very simply from your real sticks to the virtual sticks, there are other new stick modes available for giving finer control over a single axis:
+```
+LEFT_ANGLE_TO_X
+LEFT_ANGLE_TO_Y
+RIGHT_ANGLE_TO_X
+RIGHT_ANGLE_TO_Y
+```
+
+These will take the stick's angle into account for inputs that are normally only in one axis. For example, steering a car: instead of just moving the left stick left and right for adjusting your steering, rotating it around the edge of the stick will give you more precision and finer control over how hard you're steering. Set up the relevant UNDEADZONEs and UNPOWER for best effect.
+
+These stick modes have inner and outer deadzones, set in degrees:
+```
+ANGLE_TO_AXIS_DEADZONE_INNER = 0
+ANGLE_TO_AXIS_DEADZONE_OUTER = 10
+```
+
+The inner deadzone should usually be left at 0, since this only applies when out of the stick's circular deadzone. No angular deadzone is required to return to the fully neutral position. But to help you turn at full strength even if your stick is unintentionally not quite aligned with the axis, the outer deadzone will help. Everything between the inner and outer deadzone gets remapped to the full 0-1 range.
+
+For MOTION_STICK_MODE in particular, there are two new options:
+```
+LEFT_STEER_X
+RIGHT_STEER_X
+```
+
+These will map leaning the controller to the X axis of either the left or right stick. For steering a car, this works better than mapping MOTION_STICK to a stick. But like mapping it to a stick, UNPOWER and UNDEADZONE come into play. Make sure to set MOTION_DEADZONE_INNER and MOTION_DEADZONE_OUTER to suitable values -- they're both in degrees, with the max motion / lean angle being 180 degrees.
+
 * **New trigger mode available**
 ```
 # Using analog triggers
@@ -835,6 +861,19 @@ PS_L2, PS_R2 : The playstation digital trigger bindings
 ```
 LEFT_STICK_MODE = LEFT_STICK
 RIGHT_STICK_MODE = RIGHT_STICK
+```
+
+A ds4 can also use the more advanced angle-to-axis stick modes described in the xbox section:
+```
+LEFT_ANGLE_TO_X
+LEFT_ANGLE_TO_Y
+RIGHT_ANGLE_TO_X
+RIGHT_ANGLE_TO_Y
+```
+As well as the MOTION_STICK-specific modes:
+```
+LEFT_STEER_X
+RIGHT_STEER_X
 ```
 
 * **New trigger mode available**. JoyShockMapper will display the trigger mode as the xbox name : the trigger will still work properly.
