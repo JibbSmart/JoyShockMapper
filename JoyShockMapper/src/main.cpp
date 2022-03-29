@@ -533,7 +533,7 @@ public:
 			jsl->SetPlayerNumber(handle, indicator.led);
 			break;
 		}
-		Rumble(smallMotor, largeMotor);
+		Rumble(smallMotor << 8, largeMotor << 8);
 	}
 
 	template<typename E>

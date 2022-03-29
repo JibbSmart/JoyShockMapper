@@ -398,7 +398,6 @@ class ActiveStartPress : public ActiveMappingState
 		}
 		if (elapsed_time > e.holdTime)
 		{
-			pimpl()->_press_times = e.time_now; // Start counting tap duration
 			changeState<ActiveHoldPress>();
 		}
 

@@ -196,7 +196,7 @@ void GamepadImpl::ds4Notification(
 GamepadImpl::GamepadImpl(ControllerScheme scheme, Callback notification)
   : _stateX360(new XUSB_REPORT)
   , _stateDS4(new DS4_REPORT)
-  , _notification()
+  , _notification(notification)
   , _resetAnalogData(AnalogElement::COUNT, true)
 {
 	XUSB_REPORT_INIT(_stateX360.get());
