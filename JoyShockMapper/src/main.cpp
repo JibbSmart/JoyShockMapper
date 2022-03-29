@@ -3352,7 +3352,7 @@ void joyShockPollCallback(int jcHandle, JOY_SHOCK_STATE state, JOY_SHOCK_STATE l
 				}
 				float motionDZInner = jc->getSetting(SettingID::MOTION_DEADZONE_INNER);
 				float motionDZOuter = jc->getSetting(SettingID::MOTION_DEADZONE_OUTER);
-				float remappedLeanAngle = clamp(pow((absLeanAngle - motionDZInner) / (180.f - motionDZOuter - motionDZInner), (float)jc->getSetting<StickMode>(SettingID::STICK_POWER)), 0.f, 1.f);
+				float remappedLeanAngle = pow(clamp((absLeanAngle - motionDZInner) / (180.f - motionDZOuter - motionDZInner), 0.f, 1.f), jc->getSetting(SettingID::STICK_POWER));
 
 				// now actually convert to output stick value, taking deadzones and power curve into account
 				float undeadzoneInner, undeadzoneOuter, unpower;
