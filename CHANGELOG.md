@@ -5,7 +5,7 @@ This is a summary of new features and bugfixes. Read the README to learn how to 
 
 ## 3.4.0
 
-Nicolas updates SDL2 version to the latest release 2.0.18
+Nicolas updated SDL2 version to the latest release 2.0.18
 NON BACKWARD COMPATIBLE CHANGE: Digital trigger bindings cannot be used at the same time as a virtual controller analog output, but the chord stack is updated to make use of chords and gyro button.
 Jibb has made some improvements to vehicle steering, including stick modes for converting an angle on the stick to a single-axis offset on a virtual stick, a large rotation of the stick to a single-axis offset on a virtual stick, and a way to map MOTION_STICK to a single steering axis.
 

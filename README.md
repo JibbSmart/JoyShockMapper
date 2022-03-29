@@ -804,7 +804,16 @@ ANGLE_TO_AXIS_DEADZONE_INNER = 0
 ANGLE_TO_AXIS_DEADZONE_OUTER = 10
 ```
 
-The inner deadzone should usually be left at 0, since this only applies when out of the stick's circular deadzone. No angular deadzone is required to return to the fully neutral position. But to help you turn at full strength even if your stick is unintentionally not quite aligned with the axis, the outer deadzone will help. Everything between the inner and outer deadzone gets remapped to the full 0-1 range.
+There's also:
+```
+LEFT_WIND_X
+RIGHT_WIND_X
+```
+
+These also use the angle of the stick to control the virtual stick in a single axis, but these are _relative_ instead of _absolute_, and can use a much wider range. This means pointing the stick in a direction doesn't really do anything, but rotating the stick does, letting you wind the stick left or right to adjust the stick position left or right. When you release the stick the virtual stick will quickly pull back to its neutral position. Here are the relevant options:
+* **WIND_STICK_RANGE** (default 900.0°) - This is the total range of winding motion available on the stick. It's from full-left to full-right, but the "neutral" position is in the middle. So the default of 900° means you can rotate the stick 450° to the left and 450° to the right.
+* **WIND_STICK_POWER** (default 1.0) - What is the shape of the curve used for converting the wound position to a stick offset? 1.0 is a simple linear relationship. Larger values will mean rotations are reduced when near the neutral position and increased towards the edge of the range. Smaller values will mean the opposite.
+* **UNWIND_RATE** (default 1800.0 degrees per second) - This is how quickly the wound stick position pulls back to its neutral position when the stick is released. If the stick is only partially engaged, the virtual stick position will unwind more slowly.
 
 For MOTION_STICK_MODE in particular, there are two new options:
 ```
@@ -869,6 +878,8 @@ LEFT_ANGLE_TO_X
 LEFT_ANGLE_TO_Y
 RIGHT_ANGLE_TO_X
 RIGHT_ANGLE_TO_Y
+LEFT_WIND_X
+RIGHT_WIND_X
 ```
 As well as the MOTION_STICK-specific modes:
 ```

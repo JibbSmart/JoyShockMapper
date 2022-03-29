@@ -135,9 +135,9 @@ JSMSetting<float> right_stick_undeadzone_outer = JSMSetting<float>(SettingID::RI
 JSMSetting<float> right_stick_unpower = JSMSetting<float>(SettingID::RIGHT_STICK_UNPOWER, 0.f);
 JSMSetting<float> left_stick_virtual_scale = JSMSetting<float>(SettingID::LEFT_STICK_VIRTUAL_SCALE, 1.f);
 JSMSetting<float> right_stick_virtual_scale = JSMSetting<float>(SettingID::RIGHT_STICK_VIRTUAL_SCALE, 1.f);
-JSMSetting<float> wind_stick_range = JSMSetting<float>(SettingID::WIND_STICK_RANGE, 1080.f);
+JSMSetting<float> wind_stick_range = JSMSetting<float>(SettingID::WIND_STICK_RANGE, 900.f);
 JSMSetting<float> wind_stick_power = JSMSetting<float>(SettingID::WIND_STICK_POWER, 1.f);
-JSMSetting<float> unwind_rate = JSMSetting<float>(SettingID::UNWIND_RATE, 9000.f);
+JSMSetting<float> unwind_rate = JSMSetting<float>(SettingID::UNWIND_RATE, 1800.f);
 JSMSetting<GyroOutput> gyro_output = JSMSetting<GyroOutput>(SettingID::GYRO_OUTPUT, GyroOutput::MOUSE);
 JSMSetting<GyroOutput> flick_stick_output = JSMSetting<GyroOutput>(SettingID::FLICK_STICK_OUTPUT, GyroOutput::MOUSE);
 
@@ -359,9 +359,6 @@ public:
 	float gyroYVelocity = 0.f;
 
 	Vec lastGrav = Vec(0.f, -1.f, 0.f);
-
-	bool isWindingLeft = false;
-	bool isWindingRight = false;
 
 	float windingAngleLeft = 0.f;
 	float windingAngleRight = 0.f;
@@ -2354,44 +2351,28 @@ void processStick(shared_ptr<JoyShock> jc, float stickX, float stickY, float las
 		{
 			bool isLeft = stickMode == StickMode::LEFT_WIND_X;
 
-			bool &isWinding = isLeft ? jc->isWindingLeft : jc->isWindingRight;
 			float &currentWindingAngle = isLeft ? jc->windingAngleLeft : jc->windingAngleRight;
 
 			// currently, just use the same hard-coded thresholds we use for flick stick. These are affected by deadzones
-			float windingThreshold = 0.995f;
-			if (isWinding)
+			if (stickLength > 0.f && lastX != 0.f && lastY != 0.f)
 			{
-				windingThreshold *= 0.9f;
-				if (stickLength < windingThreshold)
-				{
-					// release
-					isWinding = false;
-				}
-				else
-				{
-					// use difference between last stick angle and current
-					float stickAngle = atan2f(-stickX, stickY);
-					float lastStickAngle = atan2f(-lastX, lastY);
-					float angleChange = fmod((stickAngle - lastStickAngle) + PI, 2.0f * PI);
-					if (angleChange < 0)
-						angleChange += 2.0f * PI;
-					angleChange -= PI;
+				// use difference between last stick angle and current
+				float stickAngle = atan2f(-stickX, stickY);
+				float lastStickAngle = atan2f(-lastX, lastY);
+				float angleChange = fmod((stickAngle - lastStickAngle) + PI, 2.0f * PI);
+				if (angleChange < 0)
+					angleChange += 2.0f * PI;
+				angleChange -= PI;
 
-					currentWindingAngle -= angleChange * 180.f / PI;
-				}
-			}
-			else if (stickLength > windingThreshold)
-			{
-				// engage
-				isWinding = true;
+				currentWindingAngle -= angleChange * stickLength * 180.f / PI;
+
+				anyStickInput = true;
 			}
 
-			anyStickInput = isWinding;
-
-			if (!isWinding)
+			if (stickLength < 1.f)
 			{
 				float absWindingAngle = abs(currentWindingAngle);
-				float unwindAmount = jc->getSetting(SettingID::UNWIND_RATE) * deltaTime;
+				float unwindAmount = jc->getSetting(SettingID::UNWIND_RATE) * (1.f - stickLength) * deltaTime;
 				float windingSign = currentWindingAngle < 0.f ? -1.f : 1.f;
 				if (absWindingAngle <= unwindAmount)
 				{
