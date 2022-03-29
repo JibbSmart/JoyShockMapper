@@ -519,7 +519,7 @@ MACHINE start[0 9] end[0 9] force1[0 7] force2[0 7] freq[Hz] period: Irregular p
 ```
 
 ### 3. Stick Configuration
-Each stick has 7 different operation modes:
+Each stick has 8 different operation modes when you're not using a virtual controller:
 
 ```
 AIM: traditional stick aiming
@@ -788,6 +788,41 @@ LEFT_STICK_MODE = LEFT_STICK
 RIGHT_STICK_MODE = RIGHT_STICK
 ```
 
+While these map very simply from your real sticks to the virtual sticks, there are other new stick modes available for giving finer control over a single axis:
+```
+LEFT_ANGLE_TO_X
+LEFT_ANGLE_TO_Y
+RIGHT_ANGLE_TO_X
+RIGHT_ANGLE_TO_Y
+```
+
+These will take the stick's angle into account for inputs that are normally only in one axis. For example, steering a car: instead of just moving the left stick left and right for adjusting your steering, rotating it around the edge of the stick will give you more precision and finer control over how hard you're steering. Set up the relevant UNDEADZONEs and UNPOWER for best effect.
+
+These stick modes have inner and outer deadzones, set in degrees:
+```
+ANGLE_TO_AXIS_DEADZONE_INNER = 0
+ANGLE_TO_AXIS_DEADZONE_OUTER = 10
+```
+
+There's also:
+```
+LEFT_WIND_X
+RIGHT_WIND_X
+```
+
+These also use the angle of the stick to control the virtual stick in a single axis, but these are _relative_ instead of _absolute_, and can use a much wider range. This means pointing the stick in a direction doesn't really do anything, but rotating the stick does, letting you wind the stick left or right to adjust the stick position left or right. When you release the stick the virtual stick will quickly pull back to its neutral position. Here are the relevant options:
+* **WIND_STICK_RANGE** (default 900.0°) - This is the total range of winding motion available on the stick. It's from full-left to full-right, but the "neutral" position is in the middle. So the default of 900° means you can rotate the stick 450° to the left and 450° to the right.
+* **WIND_STICK_POWER** (default 1.0) - What is the shape of the curve used for converting the wound position to a stick offset? 1.0 is a simple linear relationship. Larger values will mean rotations are reduced when near the neutral position and increased towards the edge of the range. Smaller values will mean the opposite.
+* **UNWIND_RATE** (default 1800.0 degrees per second) - This is how quickly the wound stick position pulls back to its neutral position when the stick is released. If the stick is only partially engaged, the virtual stick position will unwind more slowly.
+
+For MOTION_STICK_MODE in particular, there are two new options:
+```
+LEFT_STEER_X
+RIGHT_STEER_X
+```
+
+These will map leaning the controller to the X axis of either the left or right stick. For steering a car, this works better than mapping MOTION_STICK to a stick. But like mapping it to a stick, UNPOWER and UNDEADZONE come into play. Make sure to set MOTION_DEADZONE_INNER and MOTION_DEADZONE_OUTER to suitable values -- they're both in degrees, with the max motion / lean angle being 180 degrees.
+
 * **New trigger mode available**
 ```
 # Using analog triggers
@@ -835,6 +870,21 @@ PS_L2, PS_R2 : The playstation digital trigger bindings
 ```
 LEFT_STICK_MODE = LEFT_STICK
 RIGHT_STICK_MODE = RIGHT_STICK
+```
+
+A ds4 can also use the more advanced angle-to-axis stick modes described in the xbox section:
+```
+LEFT_ANGLE_TO_X
+LEFT_ANGLE_TO_Y
+RIGHT_ANGLE_TO_X
+RIGHT_ANGLE_TO_Y
+LEFT_WIND_X
+RIGHT_WIND_X
+```
+As well as the MOTION_STICK-specific modes:
+```
+LEFT_STEER_X
+RIGHT_STEER_X
 ```
 
 * **New trigger mode available**. JoyShockMapper will display the trigger mode as the xbox name : the trigger will still work properly.
