@@ -5,7 +5,7 @@ This is a summary of new features and bugfixes. Read the README to learn how to 
 
 ## 3.4.0
 
-Nicolas updated SDL2 version to the latest release 2.0.18
+Nicolas updated SDL2 version to the latest release 2.0.20 and fixed some bugs
 NON BACKWARD COMPATIBLE CHANGE: Digital trigger bindings cannot be used at the same time as a virtual controller analog output, but the chord stack is updated to make use of chords and gyro button.
 Jibb has made some improvements to vehicle steering, including stick modes for converting an angle on the stick to a single-axis offset on a virtual stick, a large rotation of the stick to a single-axis offset on a virtual stick, and a way to map MOTION_STICK to a single steering axis.
 
@@ -18,6 +18,10 @@ Jibb has made some improvements to vehicle steering, including stick modes for c
 * Autoload could not get started again, after being stopped
 * A controller trigger key could not get pressed
 * The full pull binding never registered when using analog controller triggers
+* Fix hold time being applied on the first turbo hit
+* Fix to direction keys not working in some games.
+* Fix ViGEm rumbling not working
+
 
 ## 3.3.0
 

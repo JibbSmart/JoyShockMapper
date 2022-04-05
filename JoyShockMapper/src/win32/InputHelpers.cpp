@@ -99,7 +99,7 @@ int pressMouse(KeyCode vkKey, bool isPressed)
 
 bool isNumLockKey(KeyCode key)
 {
-	static array<uint8_t, 7> keys { VK_DECIMAL, VK_HOME, VK_END, VK_INSERT, VK_DELETE, VK_PRIOR, VK_NEXT}; // , VK_UP, VK_DOWN, VK_LEFT, VK_RIGHT
+	static array<uint8_t, 7> keys { VK_DECIMAL, VK_HOME, VK_END, VK_INSERT, VK_DELETE, VK_PRIOR, VK_NEXT};
 	return (key.code >= VK_NUMPAD0 && key.code <= VK_NUMPAD9) || find(keys.begin(), keys.end(), key.code) != keys.end();
 }
 
