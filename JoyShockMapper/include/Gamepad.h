@@ -34,6 +34,8 @@ public:
 	virtual void setStick(float x, float y, bool isLeft) = 0;
 	virtual void setLeftTrigger(float) = 0;
 	virtual void setRightTrigger(float) = 0;
+	virtual void setGyro(float accelX, float accelY, float accelZ, float gyroX, float gyroY, float gyroZ) = 0;
+	virtual void setTouchState(std::optional<FloatXY> press1, std::optional<FloatXY> press2) = 0;
 	virtual void update() = 0;
 
 	virtual ControllerScheme getType() const = 0;

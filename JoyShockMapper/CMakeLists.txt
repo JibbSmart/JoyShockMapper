@@ -70,7 +70,7 @@ if (WINDOWS)
     CPMAddPackage (
         NAME ViGEmClient
         GITHUB_REPOSITORY ViGEm/ViGEmClient
-        VERSION 1.16.107.0
+        VERSION 1.17.167.0
     )
     
     include_external_msproject(ViGEmClient 
@@ -80,7 +80,7 @@ if (WINDOWS)
       MAP_IMPORTED_CONFIG_DEBUG DEBUG_LIB
       MAP_IMPORTED_CONFIG_RELEASE RELEASE_LIB
       VS_PLATFORM_TOOLSET "v141"
-      IMPORTED_LOCATION "${PROJECT_BINARY_DIR}/lib/${CMAKE_BUILD_TYPE}/$(PlatformShortName)/ViGEmClient.lib"
+      IMPORTED_LOCATION "${PROJECT_BINARY_DIR}/_deps/vigemclient-src/lib/${CMAKE_BUILD_TYPE}/$(PlatformShortName)/ViGEmClient.lib"
       INTERFACE_INCLUDE_DIRECTORIES "${PROJECT_BINARY_DIR}/_deps/vigemclient-src/include"
     )
     
@@ -88,7 +88,7 @@ if (WINDOWS)
     
     target_link_libraries (
         ${BINARY_NAME} PRIVATE
-         debug "${PROJECT_BINARY_DIR}/lib/debug/$(PlatformShortName)/ViGEmClient.lib"
+         debug "${PROJECT_BINARY_DIR}/_deps/vigemclient-src/lib/debug/$(PlatformShortName)/ViGEmClient.lib"
 		 optimized "${PROJECT_BINARY_DIR}/lib/release/$(PlatformShortName)/ViGEmClient.lib"
     )
     

@@ -2620,6 +2620,15 @@ void TouchCallback(int jcHandle, TOUCH_STATE newState, TOUCH_STATE prevState, fl
 		}
 		//}
 	}
+	else if (mode == TouchpadMode::PS_TOUCHPAD)
+	{
+		if (js->CheckVigemState())
+		{
+			std::optional<FloatXY> p0 = newState.t0Down ? std::make_optional<FloatXY>(newState.t0X, newState.t0Y) : std::nullopt;
+			std::optional<FloatXY> p1 = newState.t1Down ? std::make_optional<FloatXY>(newState.t1X, newState.t1Y) : std::nullopt;
+			js->_context->_vigemController->setTouchState(p0, p1);
+		}
+	}
 	js->prevTouchState = newState;
 }
 
@@ -3496,6 +3505,13 @@ void joyShockPollCallback(int jcHandle, JOY_SHOCK_STATE state, JOY_SHOCK_STATE l
 		{
 			processGyroStick(jc, 0.f, 0.f, 0.f, StickMode::RIGHT_STICK, false);
 		}
+		else if (gyroOutput == GyroOutput::PS_MOTION)
+		{
+			if (jc->CheckVigemState())
+			{
+				jc->_context->_vigemController->setGyro(imu.accelX, imu.accelY, imu.accelZ, imu.gyroX, imu.gyroY, imu.gyroZ);
+			}
+		}
 	}
 
 	// optionally ignore the gyro of one of the joycons
@@ -3830,6 +3846,12 @@ StickMode filterStickMode(StickMode current, StickMode next)
 
 GyroOutput filterGyroOutput(GyroOutput current, GyroOutput next)
 {
+	if (next == GyroOutput::PS_MOTION && virtual_controller.get() != ControllerScheme::DS4)
+	{
+		COUT_WARN << "Before using gyro mode PS_MOTION, you need to set ";
+		COUT_INFO << "VIRTUAL_CONTROLLER = DS4" << endl;
+		return current;
+	}
 	if (next == GyroOutput::LEFT_STICK || next == GyroOutput::RIGHT_STICK)
 	{
 		if (virtual_controller.get() == ControllerScheme::NONE)

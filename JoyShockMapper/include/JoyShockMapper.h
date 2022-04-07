@@ -424,6 +424,7 @@ enum class GyroOutput
 	MOUSE,
 	LEFT_STICK,
 	RIGHT_STICK,
+	PS_MOTION,
 	INVALID
 };
 
@@ -463,6 +464,7 @@ enum class TouchpadMode
 {
 	GRID_AND_STICK, // Grid and Stick
 	MOUSE,          // gestures to be added as part of this mode
+	PS_TOUCHPAD,
 	INVALID
 };
 

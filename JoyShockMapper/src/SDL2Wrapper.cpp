@@ -351,7 +351,7 @@ public:
 		{
 			array<float, 3> gyro;
 			SDL_GameControllerGetSensorData(_controllerMap[deviceId]->_sdlController, SDL_SENSOR_GYRO, &gyro[0], 3);
-			constexpr float toDegPerSec = 180.f / M_PI;
+			static constexpr float toDegPerSec = 180.f / M_PI;
 			imuState.gyroX = gyro[0] * toDegPerSec;
 			imuState.gyroY = gyro[1] * toDegPerSec;
 			imuState.gyroZ = gyro[2] * toDegPerSec;
@@ -360,7 +360,7 @@ public:
 		{
 			array<float, 3> accel;
 			SDL_GameControllerGetSensorData(_controllerMap[deviceId]->_sdlController, SDL_SENSOR_ACCEL, &accel[0], 3);
-			constexpr float toGs = 1.f / 9.8f;
+			static constexpr float toGs = 1.f / 9.8f;
 			imuState.accelX = accel[0] * toGs;
 			imuState.accelY = accel[1] * toGs;
 			imuState.accelZ = accel[2] * toGs;
@@ -378,7 +378,8 @@ public:
 		uint8_t state0 = 0, state1 = 0;
 		TOUCH_STATE state;
 		memset(&state, 0, sizeof(TOUCH_STATE));
-		if (SDL_GameControllerGetTouchpadFinger(_controllerMap[deviceId]->_sdlController, 0, 0, &state0, &state.t0X, &state.t0Y, nullptr) == 0 && SDL_GameControllerGetTouchpadFinger(_controllerMap[deviceId]->_sdlController, 0, 1, &state1, &state.t1X, &state.t1Y, nullptr) == 0)
+		if( SDL_GameControllerGetTouchpadFinger(_controllerMap[deviceId]->_sdlController, 0, 0, &state0, &state.t0X, &state.t0Y, nullptr) == 0 && 
+			SDL_GameControllerGetTouchpadFinger(_controllerMap[deviceId]->_sdlController, 0, 1, &state1, &state.t1X, &state.t1Y, nullptr) == 0 )
 		{
 			state.t0Down = state0 == SDL_PRESSED;
 			state.t1Down = state1 == SDL_PRESSED;
