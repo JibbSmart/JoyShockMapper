@@ -3061,7 +3061,7 @@ void joyShockPollCallback(int jcHandle, JOY_SHOCK_STATE state, JOY_SHOCK_STATE l
 				break;
 			case StickMode::LEFT_STICK:
 			case StickMode::RIGHT_STICK:
-				leftAny = leftLength > jc->getSetting(SettingID::LEFT_STICK_UNDEADZONE_INNER);
+				leftAny = leftLength > deadzoneInner;
 				break;
 		    case StickMode::NO_MOUSE:
 		    case StickMode::INNER_RING:
@@ -3101,7 +3101,7 @@ void joyShockPollCallback(int jcHandle, JOY_SHOCK_STATE state, JOY_SHOCK_STATE l
 			    break;
 		    case StickMode::LEFT_STICK:
 		    case StickMode::RIGHT_STICK:
-			    rightAny = rightLength > jc->getSetting(SettingID::RIGHT_STICK_UNDEADZONE_INNER);
+			    rightAny = rightLength > deadzoneInner;
 			    break;
 		    case StickMode::NO_MOUSE:
 		    case StickMode::INNER_RING:
