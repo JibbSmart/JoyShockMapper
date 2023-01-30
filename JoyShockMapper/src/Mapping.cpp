@@ -1,6 +1,7 @@
 #include "Mapping.h"
 #include "InputHelpers.h"
 #include <regex>
+#include <cstring>
 
 ostream &operator<<(ostream &out, Mapping mapping)
 {

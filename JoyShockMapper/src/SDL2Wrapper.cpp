@@ -317,6 +317,7 @@ public:
 			}
 			else
 			{
+                deviceHandleArray[i] = -1;
 				delete device;
 			}
 		}
