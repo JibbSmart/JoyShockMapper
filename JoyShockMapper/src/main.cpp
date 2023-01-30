@@ -16,6 +16,7 @@
 #include <memory>
 #include <cfloat>
 #include <cuchar>
+#include <cstring>
 
 #ifdef _WIN32
 #include <shellapi.h>
@@ -1594,7 +1595,8 @@ void connectDevices(bool mergeJoycons = true)
 
 		if (numConnected < deviceHandles.size())
 		{
-			deviceHandles.resize(numConnected);
+            deviceHandles.erase(std::remove(deviceHandles.begin(), deviceHandles.end(), -1), deviceHandles.end());
+			//deviceHandles.resize(numConnected);
 		}
 
 		for (auto handle : deviceHandles) // Don't use foreach!
