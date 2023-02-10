@@ -49,10 +49,11 @@ float radial(float vX, float vY, float X, float Y)
 
 float angleBasedDeadzone(float theta, float returnDeadzone, float returnDeadzoneCutoff)
 {
-	if (theta <= returnDeadzone)
-		return 0.f;
-	else if (theta <= returnDeadzoneCutoff)
+	if (theta <= returnDeadzoneCutoff)
+	{
 		return (theta - returnDeadzone) / returnDeadzoneCutoff;
+	}
+	return 0.f;
 }
 
 class JoyShock;
@@ -2092,14 +2093,14 @@ void processStick(shared_ptr<JoyShock> jc, float stickX, float stickY, float las
 			jc->smallestMagnitude = magnitude;
 
 		// compute output
-		float sticklikeFactor = jc->getSetting(SettingID::STICKLIKE_FACTOR);
-		float mouselikeFactor = jc->getSetting(SettingID::MOUSELIKE_FACTOR);
-		float outputX = sticklikeFactor * pow(magnitude, jc->getSetting(SettingID::STICK_POWER)) * cos(angle) * deltaTime;
-		float outputY = sticklikeFactor * pow(magnitude, jc->getSetting(SettingID::STICK_POWER)) * sin(angle) * deltaTime;
-		outputX += mouselikeFactor * pow(jc->smallestMagnitude, jc->getSetting(SettingID::STICK_POWER)) * cos(angle) * jc->edgePushAmount;
-		outputY += mouselikeFactor * pow(jc->smallestMagnitude, jc->getSetting(SettingID::STICK_POWER)) * sin(angle) * jc->edgePushAmount;
-		outputX += mouselikeFactor * velocityX;
-		outputY += mouselikeFactor * velocityY;
+		FloatXY sticklikeFactor = jc->getSetting<FloatXY>(SettingID::STICK_SENS);
+		FloatXY mouselikeFactor = jc->getSetting<FloatXY>(SettingID::MOUSELIKE_FACTOR);
+		float outputX = sticklikeFactor.x() * pow(magnitude, jc->getSetting(SettingID::STICK_POWER)) * cos(angle) * deltaTime;
+		float outputY = sticklikeFactor.y() * pow(magnitude, jc->getSetting(SettingID::STICK_POWER)) * sin(angle) * deltaTime;
+		outputX += mouselikeFactor.x() * pow(jc->smallestMagnitude, jc->getSetting(SettingID::STICK_POWER)) * cos(angle) * jc->edgePushAmount;
+		outputY += mouselikeFactor.y() * pow(jc->smallestMagnitude, jc->getSetting(SettingID::STICK_POWER)) * sin(angle) * jc->edgePushAmount;
+		outputX += mouselikeFactor.x() * velocityX;
+		outputY += mouselikeFactor.y() * velocityY;
 		
 		// for smoothing edgePush and clipping on returning to center
 		// probably only needed as deltaTime is faster than the controller's polling rate 
@@ -4014,6 +4015,7 @@ void initJsmSettings(CmdRegistry *commandRegistry)
 	                       ->SetHelp("Power curve for stick input when in AIM mode. 1 for linear, 0 for no curve (full strength once out of deadzone). Higher numbers make more of the stick's range appear like a very slight tilt."));
 
 	auto stick_sens = new JSMSetting<FloatXY>(SettingID::STICK_SENS, { 360.0f, 360.0f });
+	stick_sens->setFilter(&filterFloatPair);
 	SettingsManager::add(stick_sens);
 	commandRegistry->add((new JSMAssignment<FloatXY>(*stick_sens))
 	                      ->SetHelp("Stick sensitivity when using classic AIM mode."));
@@ -4530,44 +4532,44 @@ void initJsmSettings(CmdRegistry *commandRegistry)
 	commandRegistry->add((new JSMAssignment<PathString>("JSM_DIRECTORY", *currentWorkingDir))
 	                       ->SetHelp("If AUTOLOAD doesn't work properly, set this value to the path to the directory holding the JoyShockMapper.exe file. Make sure a folder named \"AutoLoad\" exists there."));
 
-	auto sticklike_factor = new JSMSetting<float>(SettingID::STICKLIKE_FACTOR, 180.f);
-	sticklike_factor->setFilter(&filterFloat);
-	SettingsManager::add(SettingID::STICKLIKE_FACTOR, sticklike_factor);
-	commandRegistry->add((new JSMAssignment<float>(*sticklike_factor))
-		->SetHelp("Stick sensitivity of the absolute movement when in HYBRID_AIM mode. Like STICK_SENS for AIM."));
-
-	auto mouselike_factor = new JSMSetting<float>(SettingID::MOUSELIKE_FACTOR, 90.f);
-	mouselike_factor->setFilter(&filterFloat);
+	auto mouselike_factor = new JSMSetting<FloatXY>(SettingID::MOUSELIKE_FACTOR, 90.f);
+	mouselike_factor->setFilter(&filterFloatPair);
 	SettingsManager::add(SettingID::MOUSELIKE_FACTOR, mouselike_factor);
-	commandRegistry->add((new JSMAssignment<float>(*mouselike_factor))
+	commandRegistry->add((new JSMAssignment<FloatXY>(*mouselike_factor))
 		->SetHelp("Stick sensitivity of the relative movement when in HYBRID_AIM mode. Like the sensitivity of a mouse."));
 
 	auto return_deadzone_is_active = new JSMSetting<Switch>(SettingID::RETURN_DEADZONE_IS_ACTIVE, Switch::ON);
 	return_deadzone_is_active->setFilter(&filterInvalidValue<Switch, Switch::INVALID>);
 	SettingsManager::add(SettingID::RETURN_DEADZONE_IS_ACTIVE, return_deadzone_is_active);
 	commandRegistry->add((new JSMAssignment<Switch>(*return_deadzone_is_active))
-		->SetHelp("Whether or not there is a return deadzone when in HYBRID_AIM mode.\n"
+		->SetHelp("In HYBRID_AIM stick mode, select the mode's behaviour in the deadzone.\n"\
 			"This deadzone is determined by the angle of the output from the stick position to the center.\n"
-			"It is fully active upto RETURN_DEADZONE_ANGLE and tapers off until RETURN_DEADZONE_CUTOFF_ANGLE.\n"
+			"It is fully active up to RETURN_DEADZONE_ANGLE and tapers off until RETURN_DEADZONE_CUTOFF_ANGLE.\n"
 			"When in DEADZONE_INNER it transitions to an output deadzone based on the distance to the center so the relative part of the input smoothly fades back in."));
-
+	
 	auto edge_push_is_active = new JSMSetting<Switch>(SettingID::EDGE_PUSH_IS_ACTIVE, Switch::ON);
 	edge_push_is_active->setFilter(&filterInvalidValue<Switch, Switch::INVALID>);
 	SettingsManager::add(SettingID::EDGE_PUSH_IS_ACTIVE, edge_push_is_active);
 	commandRegistry->add((new JSMAssignment<Switch>(*edge_push_is_active))
-		->SetHelp("When in HYBRID_AIM mode, angle to the center in which the return deadzone is fully active.\nValid values range from 0 to 90"));
+	        ->SetHelp("In HYBRID_AIM stick mode, enables continuous travelling when the stick is at the edge."));
+		
 
 	auto return_deadzone_angle = new JSMSetting<float>(SettingID::RETURN_DEADZONE_ANGLE, 45.f);
-	return_deadzone_angle->setFilter(&filterFloat);
+	return_deadzone_angle->setFilter([](float c, float n)
+	  { return std::clamp(n, 0.f, 90.f); });
 	SettingsManager::add(SettingID::RETURN_DEADZONE_ANGLE, return_deadzone_angle);
 	commandRegistry->add((new JSMAssignment<float>(*return_deadzone_angle))
-		->SetHelp("When in HYBRID_AIM, angle to the center in which the return deadzone is still partially active.\nValid values range from 0 to 90"));
+		->SetHelp("In HYBRID_AIM stick mode, angle to the center in which the return deadzone is still partially active.\n"\
+				  "Valid values range from 0 to 90"));
 
 	auto return_deadzone_cutoff_angle = new JSMSetting<float>(SettingID::RETURN_DEADZONE_ANGLE_CUTOFF, 90.f);
 	return_deadzone_cutoff_angle->setFilter(&filterFloat);
 	SettingsManager::add(SettingID::RETURN_DEADZONE_ANGLE_CUTOFF, return_deadzone_cutoff_angle);
 	commandRegistry->add((new JSMAssignment<float>(*return_deadzone_cutoff_angle))
-		->SetHelp("When in HYBRID_AIM, if the the relative movement of the stick shall be continued beyond the edge of the stick.")); 
+	    ->SetHelp("In HYBRID_AIM stick mode, angle to the center in which the return deadzone is fully active.\n"\
+			      "Valid values range from 0 to 90"));
+		
+
 }
 
 #ifdef _WIN32

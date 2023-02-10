@@ -577,7 +577,7 @@ Let's have a look at all the different operations modes.
 
 When using the ```AIM``` stick mode, there are a few important commands:
 
-* **STICK\_SENS** (default 360.0 degrees per second) - How fast does the stick move the camera when tilted fully? The default, when calibrated correctly, is 360 degrees per second. Assign a second value if you desire a different vertical sensitivity from the horizontal sensitivity.
+* **STICK\_SENS** (default 360.0) - How fast does the stick move the camera when tilted fully? The default, when calibrated correctly, is 360 degrees per second. Assign a second value if you desire a different vertical sensitivity from the horizontal sensitivity.
 * **STICK\_POWER** (default 1.0) - What is the shape of the curve used for converting stick input to camera turn velocity? 1.0 is a simple linear relationship (half-tilting the stick will turn at half the velocity given by STICK\_SENS), 0.5 for square root, 2.0 for quadratic, etc. Minimum value is 0.0, which means any input beyond STICK\_DEADZONE\_INNER will be treated as a full press as far as STICK\_SENS is concerned.
 * **LEFT\_STICK\_AXIS** and **RIGHT\_STICK\_AXIS** (default STANDARD) - This allows you to invert stick axes if you wish. Your options are STANDARD (default) or INVERTED (flip the axis). To assign a separate vertical value, provide a second parameter.
 * **STICK\_ACCELERATION\_RATE** (default 0.0 multiplier increase per second) - When the stick is pressed fully, this option allows you to increase the camera turning velocity over time. The unit for this setting is a multiplier for STICK\_SENS per second. For example, 2.0 with a STICK\_SENS of 100 will cause the camera turn rate to accelerate from 100 degrees per second to 300 degrees per second over 1 second.
@@ -596,7 +596,7 @@ It is recommended to keep STICK_DEADZONE_OUTER as small as possible for the best
 
 The other settings of this mode are:
 
-* **STICKLIKE\_FACTOR** (default 180.0) - How fast the camera is moved by the position of the stick. Currently this is an arbitrary number and a calibration is not implemented for this. In the future this should represent degrees per second like STICK_SENS. 
+* **STICK\_SENS** (default 360.0) - How fast the camera is moved by the position of the stick. Currently this is an arbitrary number and a calibration is not implemented for this. In the future this should represent degrees per second. 
 * **MOUSELIKE\_FACTOR** (default 90.0) - How fast the camera is moved by the movement of the stick. Like the above, no calibration implemented yet. In the future this should represent degrees per one full travel of the stick from center to full deflection.
 * **RETURN\_DEADZONE\_IS\_ACTIVE** (default ON) - There are two possibly quite different ways this input mode can function. When this setting is set to ON, the mode may feel more like a traditional stick, when its set to OFF, the mode may feel way more responsive but it is difficult to make the output hold still because of the behavior inherent to this input method.
 * **RETURN\_DEADZONE\_ANGLE** (default 45.0 degrees) - The angle to the center from the current stick position where the output is set to zero.

@@ -174,6 +174,21 @@ public:
 		}
 		return _errorMsg.empty() && vigem_target_is_attached(_gamepad) == TRUE;
 	}
+GamepadImpl::~GamepadImpl()
+{
+	// vigem_target_x360_unregister_notification
+	//
+	// We're done with this pad, free resources (this disconnects the virtual device)
+	//
+	PVIGEM_CLIENT client = VigemClient::get();
+	if (isInitialized())
+	{
+		vigem_target_x360_unregister_notification(_gamepad);
+		if (client)
+			vigem_target_remove(client, _gamepad);
+		vigem_target_free(_gamepad);
+	}
+}
 
 	void setStick(float x, float y, bool isLeft) override
 	{
