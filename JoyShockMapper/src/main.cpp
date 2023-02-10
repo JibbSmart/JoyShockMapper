@@ -395,7 +395,7 @@ public:
 
 	void Rumble(int smallRumble, int bigRumble)
 	{
-		if (getSetting<Switch>(SettingID::RUMBLE) == Switch::ON)
+		if (SettingsManager::getV<Switch>(SettingID::RUMBLE)->value() == Switch::ON)
 		{
 			// DEBUG_LOG << "Rumbling at " << smallRumble << " and " << bigRumble << endl;
 			jsl->SetRumble(handle, smallRumble, bigRumble);
@@ -1856,7 +1856,7 @@ void processStick(shared_ptr<JoyShock> jc, float stickX, float stickY, float las
 	{
 		if (jc->_context->_vigemController)
 		{
-			anyStickInput = processGyroStick(jc, rawX, rawY, rawLength, stickMode, false);
+			anyStickInput = processGyroStick(jc, lastX, lastY, stickLength, stickMode, false);
 		}
 	}
 	else if (stickMode >= StickMode::LEFT_ANGLE_TO_X && stickMode <= StickMode::RIGHT_ANGLE_TO_Y)
