@@ -69,6 +69,16 @@
         FILES ${PROJECT_SOURCE_DIR}/dist/OnStartup.txt
         DESTINATION ${PACKAGE_DIR}
     )
+    
+	install (
+        FILES ${PROJECT_SOURCE_DIR}/dist/ds4.bmp
+        DESTINATION ${PACKAGE_DIR}
+    )
+    
+	install (
+        FILES ${PROJECT_SOURCE_DIR}/dist/imgui.ini
+        DESTINATION ${PACKAGE_DIR}
+    )
 
     install (
         FILES ${PROJECT_SOURCE_DIR}/CHANGELOG.md

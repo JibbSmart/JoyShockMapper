@@ -68,7 +68,7 @@ const char *BASE_JSM_CONFIG_FOLDER()
 /// NONE
 /// And characters: ; ' , . / \ [ ] + - `
 /// Yes, this looks slow. But it's only there to help set up faster mappings
-WORD nameToKey(const std::string &name)
+WORD nameToKey(in_string name)
 {
 	// https://msdn.microsoft.com/en-us/library/dd375731%28v=vs.85%29.aspx?f=255&MSPPError=-2147217396
 	auto length = name.length();
@@ -168,7 +168,7 @@ WORD nameToKey(const std::string &name)
 	}
 	if (length == 5)
 	{
-		auto pchar = name.c_str();
+		auto pchar = name.data();
 		if (*pchar++ == 'R')
 		{
 			while (*pchar != '\0')

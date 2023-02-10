@@ -256,10 +256,10 @@ GamepadImpl::~GamepadImpl()
 	//
 	// We're done with this pad, free resources (this disconnects the virtual device)
 	//
-	vigem_target_x360_unregister_notification(_gamepad);
 	PVIGEM_CLIENT client = VigemClient::get();
 	if (isInitialized())
 	{
+		vigem_target_x360_unregister_notification(_gamepad);
 		if (client)
 			vigem_target_remove(client, _gamepad);
 		vigem_target_free(_gamepad);

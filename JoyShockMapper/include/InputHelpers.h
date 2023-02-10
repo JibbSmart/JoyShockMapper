@@ -66,7 +66,7 @@ public:
 			Start();
 	}
 
-	~PollingThread()
+	virtual ~PollingThread()
 	{
 		if (_continue)
 		{

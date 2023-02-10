@@ -15,7 +15,7 @@
 using namespace std; // simplify all std calls
 
 // input string parameters should be const references.
-typedef const string &in_string;
+typedef string_view in_string;
 
 // Reused OS typedefs
 typedef unsigned short WORD;
@@ -293,6 +293,9 @@ enum class SettingID
 	UNWIND_RATE,
 	GYRO_OUTPUT,
 	FLICK_STICK_OUTPUT,
+	HIDE_MINIMIZED,
+	AUTO_CALIBRATE_GYRO,
+	JSM_DIRECTORY,
 };
 
 // constexpr are like #define but with respect to typeness
@@ -343,6 +346,7 @@ enum class StickMode
 	OUTER_RING,
 	INNER_RING,
 	SCROLL_WHEEL,
+	// Following requires virtual controller (keep them contiguous)
 	LEFT_STICK,
 	RIGHT_STICK,
 	LEFT_ANGLE_TO_X,
@@ -456,7 +460,6 @@ enum class ControllerScheme
 	NONE,
 	XBOX,
 	DS4,
-	WHEEL,
 	INVALID
 };
 
@@ -473,6 +476,10 @@ class PathString : public string // Should be wstring
 {
 public:
 	PathString() = default;
+	PathString(const string& path)
+	  : string(path)
+	{
+	}
 	PathString(in_string path)
 	  : string(path)
 	{
@@ -498,14 +505,14 @@ union Color
 using AxisSignPair = pair<AxisMode, AxisMode>;
 
 // Needs to be accessed publicly
-extern WORD nameToKey(const std::string &name);
+extern WORD nameToKey(in_string name);
 
 struct KeyCode
 {
 	static const KeyCode EMPTY;
 
-	WORD code;
-	string name;
+	WORD code = NO_HOLD_MAPPED;
+	string name = "None";
 
 	KeyCode();
 
@@ -551,7 +558,7 @@ struct FloatXY : public pair<float, float>
 struct GyroSettings
 {
 	bool always_off = false;
-	ButtonID button = ButtonID::NONE;
+	ButtonID button = ButtonID::NONE; // Ignore on button none means no GYRO_OFF button (or Always On);
 	GyroIgnoreMode ignore_mode = GyroIgnoreMode::BUTTON;
 };
 

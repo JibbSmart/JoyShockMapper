@@ -15,7 +15,7 @@ public:
 
 	}
 	
-	virtual void Reset() override 
+	virtual void reset() override 
 	{
 		gamepadMotion.Reset();
 	}

@@ -9,7 +9,7 @@ public:
 	virtual ~MotionIf() {};
 	
 
-	virtual void Reset() = 0;
+	virtual void reset() = 0;
 
 	virtual void ProcessMotion(float gyroX, float gyroY, float gyroZ,
 	  float accelX, float accelY, float accelZ, float deltaTime) = 0;

@@ -7,13 +7,35 @@
 // Global ID generator
 static unsigned int _delegateID = 1;
 
+class JSMVariableBase
+{
+	public:
+	virtual ~JSMVariableBase() = default;
+
+	string_view label() const
+	{
+		return _label;
+	}
+
+	void updateLabel(in_string label)
+	{
+		_label = label;
+	}
+
+	virtual JSMVariableBase *reset() = 0;
+
+private:
+	// a user provided label
+	string _label;
+};
+
 // JSMVariable is a wrapper class for an underlying variable of type T.
 // This class allows other parts of the code be notified of when it changes value.
 // It also has a default value defined at construction that can be assigned on Reset.
 // Finally it has a customizable filter function, to restrict possible values.
 // Setter functions return the object itself so they can be chained.
 template<typename T>
-class JSMVariable
+class JSMVariable : public JSMVariableBase
 {
 public:
 	// A listener function receives the new value as parameter.
@@ -34,19 +56,19 @@ protected:
 	FilterDelegate _filter;
 
 	// The default filtering function simply accepts the new value.
-	static T NoFiltering(T old, T nu)
+	static T noFiltering(T old, T nu)
 	{
 		return nu;
 	}
 
-public:
 	// Default value of the variable. Cannot be changed after construction.
 	const T _defVal;
+public:
 
 	JSMVariable(T defaultValue = T())
 	  : _value(defaultValue)
 	  , _onChangeListeners()
-	  , _filter(&NoFiltering) // _filter is always valid
+	  , _filter(&noFiltering) // _filter is always valid
 	  , _defVal(defaultValue)
 	{
 	}
@@ -67,15 +89,15 @@ public:
 
 	// Sets the filtering function for this variable. Also applies
 	// the filter to it's current value.
-	virtual JSMVariable *SetFilter(FilterDelegate filterfunction)
+	virtual JSMVariable *setFilter(FilterDelegate filterfunction)
 	{
 		_filter = filterfunction;
-		operator=(_value); // Run the new filter on current value.
+		set(_value); // Run the new filter on current value.
 		return this;
 	}
 
 	// Remember to call this listener when the value changes.
-	virtual unsigned int AddOnChangeListener(OnChangeDelegate listener, bool callListener = false)
+	virtual unsigned int addOnChangeListener(OnChangeDelegate listener, bool callListener = false)
 	{
 		_onChangeListeners[_delegateID] = listener;
 		if (callListener)
@@ -86,7 +108,7 @@ public:
 	}
 
 	// Remove the listener from list
-	virtual bool RemoveOnChangeListener(unsigned int id)
+	virtual bool removeOnChangeListener(unsigned int id)
 	{
 		auto found = _onChangeListeners.find(id);
 		if (found != _onChangeListeners.end())
@@ -98,10 +120,10 @@ public:
 	}
 
 	// Reset the variable by assigning it its default value.
-	virtual JSMVariable *Reset()
+	JSMVariable *reset() override
 	{
 		// Use operator to enable notification
-		operator=(_defVal);
+		set(_defVal);
 		return this;
 	}
 
@@ -112,15 +134,20 @@ public:
 		return _value;
 	}
 
-	virtual const T &get() const
+	virtual const T &value() const
 	{
 		return _value;
 	}
 
-	// Value can be written by using operator =.
-	// N.B.: It's important to always use this function
+	const T &defaultValue() const
+	{
+		return _defVal;
+	}
+
+	// Value can be written by using set()
+	// N.B.: It's important to always use either function
 	// for changing the member _value
-	virtual T operator=(T newValue)
+	virtual T set(T newValue)
 	{
 		T oldValue = _value;
 		_value = _filter(oldValue, newValue); // Pass new value through filtering
@@ -152,7 +179,7 @@ public:
 	}
 
 	// Get the chorded variable, creating one if required.
-	JSMVariable<T> *AtChord(ButtonID chord)
+	JSMVariable<T> *atChord(ButtonID chord)
 	{
 		auto existingChord = _chordedVariables.find(chord);
 		if (existingChord == _chordedVariables.end())
@@ -163,14 +190,14 @@ public:
 		return &_chordedVariables[chord];
 	}
 
-	const JSMVariable<T> *AtChord(ButtonID chord) const
+	const JSMVariable<T> *atChord(ButtonID chord) const
 	{
 		auto existingChord = _chordedVariables.find(chord);
 		return existingChord != _chordedVariables.end() ? &existingChord->second : nullptr;
 	}
 
 	// Obtain the value with provided chord if any.
-	optional<T> get(ButtonID chord = ButtonID::NONE) const
+	optional<T> chordedValue(ButtonID chord) const
 	{
 		if (chord > ButtonID::NONE)
 		{
@@ -179,11 +206,20 @@ public:
 		}
 		return chord != ButtonID::INVALID ? optional(Base::_value) : nullopt;
 	}
+	virtual operator T() const
+	{
+		return Base::value();
+	}
+
+	virtual const T &value() const
+	{
+		return Base::value();
+	}
 
 	// Resetting a chorded var always clears all chords.
-	virtual ChordedVariable<T> *Reset() override
+	virtual ChordedVariable<T> *reset() override
 	{
-		JSMVariable<T>::Reset();
+		JSMVariable<T>::reset();
 		_chordedVariables.clear();
 		return this;
 	}
@@ -209,17 +245,17 @@ public:
 	{
 	}
 
-	virtual T operator=(T baseValue) override
+	virtual T set(T baseValue) override
 	{
-		return JSMVariable<T>::operator=(baseValue);
+		return JSMVariable<T>::set(baseValue);
 	}
 
-	inline void MarkModeshiftForRemoval(ButtonID modeshift)
+	inline void markModeshiftForRemoval(ButtonID modeshift)
 	{
 		_chordToRemove = modeshift;
 	}
 
-	void ProcessModeshiftRemoval(ButtonID modeshift)
+	void processModeshiftRemoval(ButtonID modeshift)
 	{
 		if (_chordToRemove == modeshift)
 		{
@@ -262,7 +298,7 @@ public:
 	{
 		for (auto id : _simListeners)
 		{
-			_simMappings[id.first].RemoveOnChangeListener(id.second);
+			_simMappings[id.first].removeOnChangeListener(id.second);
 		}
 	}
 
@@ -286,15 +322,14 @@ public:
 
 	// Indicate whether any sim press mappings are present
 	// This function additionally removes any empty sim mappings.
-	inline bool HasSimMappings() const
+	inline bool hasSimMappings() const
 	{
 		return !_simMappings.empty();
 	}
 
-	// Operator forwarding
-	virtual Mapping operator=(Mapping baseValue) override
+	virtual Mapping set(Mapping baseValue) override
 	{
-		return JSMVariable<Mapping>::operator=(baseValue);
+		return JSMVariable<Mapping>::set(baseValue);
 	}
 
 	// Returns the display name of the chorded press if provided, or itself
@@ -333,12 +368,12 @@ public:
 	}
 
 	// Resetting a button also clears all assigned sim presses
-	virtual JSMButton *Reset() override
+	virtual JSMButton *reset() override
 	{
-		ChordedVariable<Mapping>::Reset();
+		ChordedVariable<Mapping>::reset();
 		for (auto id : _simListeners)
 		{
-			_simMappings[id.first].RemoveOnChangeListener(id.second);
+			_simMappings[id.first].removeOnChangeListener(id.second);
 		}
 		_simMappings.clear();
 		return this;
@@ -347,28 +382,28 @@ public:
 	// Get the SimPress variable, creating one if required.
 	// An additional listener is required for the complementary sim press
 	// to be updated when this value changes.
-	JSMVariable<Mapping> *AtSimPress(ButtonID chord)
+	JSMVariable<Mapping> *atSimPress(ButtonID chord)
 	{
 		auto existingSim = getSimMap(chord);
 		if (!existingSim)
 		{
 			JSMVariable<Mapping> var(*this, Mapping());
 			_simMappings.emplace(chord, var);
-			_simListeners[chord] = _simMappings[chord].AddOnChangeListener(
+			_simListeners[chord] = _simMappings[chord].addOnChangeListener(
 			  bind(&SimPressCrossUpdate, chord, _id, placeholders::_1));
 		}
 		return &_simMappings[chord];
 	}
 
-	const JSMVariable<Mapping> *AtSimPress(ButtonID chord) const
+	const JSMVariable<Mapping> *atSimPress(ButtonID chord) const
 	{
 		auto existingSim = getSimMap(chord);
 		return existingSim ? &existingSim->second : nullptr;
 	}
 
-	void ProcessChordRemoval(ButtonID chord, const JSMVariable<Mapping> *value)
+	void processChordRemoval(ButtonID chord, const JSMVariable<Mapping> *value)
 	{
-		if (value && value->get() == Mapping::NO_MAPPING)
+		if (value && value->value() == Mapping::NO_MAPPING)
 		{
 			auto chordVar = _chordedVariables.find(chord);
 			if (chordVar != _chordedVariables.end())
@@ -378,9 +413,9 @@ public:
 		}
 	}
 
-	void ProcessSimPressRemoval(ButtonID chord, const JSMVariable<Mapping> *value)
+	void processSimPressRemoval(ButtonID chord, const JSMVariable<Mapping> *value)
 	{
-		if (value && value->get() == Mapping::NO_MAPPING)
+		if (value && value->value() == Mapping::NO_MAPPING)
 		{
 			auto chordVar = _simMappings.find(chord);
 			if (chordVar != _simMappings.end())

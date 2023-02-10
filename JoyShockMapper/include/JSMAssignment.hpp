@@ -25,10 +25,11 @@ protected:
 	// the command objects
 	JSMVariable<T>& _var;
 
-	virtual bool ParseData(in_string arguments) override
+	virtual bool ParseData(in_string arguments, in_string label) override
 	{
 		smatch results;
 		_ASSERT_EXPR(_parse, L"There is no function defined to parse this command.");
+		const string argStr(arguments);
 		if (arguments.empty())
 		{
 			DisplayCurrentValue();
@@ -38,14 +39,14 @@ protected:
 			// Show help.
 			COUT << _help << endl;
 		}
-		else if (regex_match(arguments, results, regex(R"(\s*=\s*(.*))")))
+		else if (regex_match(argStr, results, regex(R"(\s*=\s*(.*))")))
 		{
 			string assignment(results.empty() ? arguments : results[1].str());
 			if (assignment.rfind("DEFAULT", 0) == 0)
 			{
-				_var.Reset();
+				_var.reset();
 			}
-			else if (!_parse(this, assignment))
+			else if (!_parse(this, assignment, label))
 			{
 				CERR << "Error assigning ";
 				COUT_INFO << assignment;
@@ -67,35 +68,36 @@ protected:
 		return true; // Command is completely processed
 	}
 
-	static bool ModeshiftParser(ButtonID modeshift, JSMSetting<T>* setting, JSMCommand::ParseDelegate* parser, JSMCommand* cmd, in_string argument)
+	static bool ModeshiftParser(ButtonID modeshift, JSMSetting<T>* setting, JSMCommand::ParseDelegate* parser, JSMCommand* cmd, in_string argument, in_string label)
 	{
 		if (setting && argument.compare("NONE") == 0)
 		{
-			setting->MarkModeshiftForRemoval(modeshift);
+			setting->markModeshiftForRemoval(modeshift);
 			COUT << "Modeshift " << modeshift << "," << cmd->_name << " has been removed." << endl;
 			return true;
 		}
-		return (*parser)(cmd, argument);
+		return (*parser)(cmd, argument, label);
 	}
 
 	// The default parser uses the overloaded >> operator to parse
 	// any base type. Custom types can also be extracted if you define
 	// a static parse operation for it.
-	static bool DefaultParser(JSMCommand* cmd, in_string data)
+	static bool DefaultParser(JSMCommand* cmd, in_string data, in_string label)
 	{
 		auto inst = dynamic_cast<JSMAssignment<T>*>(cmd);
 
-		stringstream ss(data);
+		stringstream ss(data.data());
 		// Read the value
 		T value(inst->ReadValue(ss));
 		if (!ss.fail())
 		{
 			T oldVal = inst->_var;
-			inst->_var = value;
+			inst->_var.set(value);
+			inst->_var.updateLabel(label);
 
 			// The assignment won't trigger my listener DisplayNewValue if
 			// the new value after filtering is the same as the old.
-			if (oldVal == inst->_var.get())
+			if (oldVal == inst->_var.value())
 			{
 				// So I want to do it myself.
 				inst->DisplayNewValue(inst->_var);
@@ -103,7 +105,7 @@ protected:
 
 			// Command succeeded if the value requested was the current one
 			// or if the new value is different from the old.
-			return value == oldVal || inst->_var.get() != oldVal; // Command processed successfully
+			return value == oldVal || inst->_var.value() != oldVal; // Command processed successfully
 		}
 		// Couldn't read the value
 		return false;
@@ -117,7 +119,7 @@ protected:
 
 	virtual void DisplayCurrentValue()
 	{
-		COUT << _displayName << " = " << _var.get() << endl;
+		COUT << _displayName << " = " << _var.value() << endl;
 	}
 
 	virtual T ReadValue(stringstream& in)
@@ -130,30 +132,30 @@ protected:
 
 	virtual unique_ptr<JSMCommand> GetModifiedCmd(char op, in_string chord) override
 	{
-		stringstream ss(chord);
+		stringstream ss(chord.data());
 		ButtonID btn;
 		ss >> btn;
 		if (btn > ButtonID::NONE)
 		{
+			stringstream name;
+			name << chord << op << _displayName;
 			if (op == ',')
 			{
 				auto settingVar = dynamic_cast<JSMSetting<T>*>(&_var);
 				if (settingVar)
 				{
 					//Create Modeshift
-					string name = chord + op + _displayName;
-					unique_ptr<JSMCommand> chordAssignment(new JSMAssignment<T>(name, *settingVar->AtChord(btn)));
-					chordAssignment->SetHelp(_help)->SetParser(bind(&JSMAssignment<T>::ModeshiftParser, btn, settingVar, &_parse, placeholders::_1, placeholders::_2))->SetTaskOnDestruction(bind(&JSMSetting<T>::ProcessModeshiftRemoval, settingVar, btn));
+					unique_ptr<JSMCommand> chordAssignment(new JSMAssignment<T>(name.str(), *settingVar->atChord(btn)));
+					chordAssignment->SetHelp(_help)->SetParser(bind(&JSMAssignment<T>::ModeshiftParser, btn, settingVar, &_parse, placeholders::_1, placeholders::_2, placeholders::_3))->SetTaskOnDestruction(bind(&JSMSetting<T>::processModeshiftRemoval, settingVar, btn));
 					return chordAssignment;
 				}
 				auto buttonVar = dynamic_cast<JSMButton*>(&_var);
 				if (buttonVar && btn > ButtonID::NONE)
 				{
-					string name = chord + op + _displayName;
-					auto chordedVar = buttonVar->AtChord(btn);
+					auto chordedVar = buttonVar->atChord(btn);
 					// The reinterpret_cast is required for compilation, but settings will never run this code anyway.
-					unique_ptr<JSMCommand> chordAssignment(new JSMAssignment<T>(name, reinterpret_cast<JSMVariable<T>&>(*chordedVar)));
-					chordAssignment->SetHelp(_help)->SetParser(_parse)->SetTaskOnDestruction(bind(&JSMButton::ProcessChordRemoval, buttonVar, btn, chordedVar));
+					unique_ptr<JSMCommand> chordAssignment(new JSMAssignment<T>(name.str(), reinterpret_cast<JSMVariable<T>&>(*chordedVar)));
+					chordAssignment->SetHelp(_help)->SetParser(_parse)->SetTaskOnDestruction(bind(&JSMButton::processChordRemoval, buttonVar, btn, chordedVar));
 					// BE ADVISED! If a custom parser was set using bind(), the very same bound vars will
 					// be passed along.
 					return chordAssignment;
@@ -164,10 +166,9 @@ protected:
 				auto buttonVar = dynamic_cast<JSMButton*>(&_var);
 				if (buttonVar && btn > ButtonID::NONE)
 				{
-					string name = chord + op + _displayName;
-					auto simPressVar = buttonVar->AtSimPress(btn);
-					unique_ptr<JSMCommand> simAssignment(new JSMAssignment<Mapping>(name, *simPressVar));
-					simAssignment->SetHelp(_help)->SetParser(_parse)->SetTaskOnDestruction(bind(&JSMButton::ProcessSimPressRemoval, buttonVar, btn, simPressVar));
+					auto simPressVar = buttonVar->atSimPress(btn);
+					unique_ptr<JSMCommand> simAssignment(new JSMAssignment<Mapping>(name.str(), *simPressVar));
+					simAssignment->SetHelp(_help)->SetParser(_parse)->SetTaskOnDestruction(bind(&JSMButton::processSimPressRemoval, buttonVar, btn, simPressVar));
 					// BE ADVISED! If a custom parser was set using bind(), the very same bound vars will
 					// be passed along.
 					return simAssignment;
@@ -188,10 +189,11 @@ public:
 	{
 		// Child Classes assign their own parser. Use bind to convert instance function call
 		// into a static function call.
-		SetParser(&JSMAssignment::DefaultParser);
+		using namespace std::placeholders;
+		SetParser(std::bind(&JSMAssignment::DefaultParser, _1, _2, _3));
 		if (!inNoListener)
 		{
-			_listenerId = _var.AddOnChangeListener(bind(&JSMAssignment::DisplayNewValue, this, placeholders::_1));
+			_listenerId = _var.addOnChangeListener(bind(&JSMAssignment::DisplayNewValue, this, placeholders::_1));
 		}
 	}
 
@@ -214,7 +216,7 @@ public:
 	{
 		if (_listenerId != 0)
 		{
-			_var.RemoveOnChangeListener(_listenerId);
+			_var.removeOnChangeListener(_listenerId);
 		}
 	}
 
@@ -229,7 +231,7 @@ public:
 template<>
 void JSMAssignment<Mapping>::DisplayNewValue(const Mapping& newValue)
 {
-	COUT << _name << " mapped to " << newValue._description << endl;
+	COUT << _name << " mapped to " << newValue.description() << endl;
 }
 
 extern std::map<int, ButtonID> nnm;

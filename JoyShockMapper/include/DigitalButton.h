@@ -36,18 +36,18 @@ enum class BtnState
 struct Pressed
 {
 	chrono::steady_clock::time_point time_now; // Timestamp of the poll
-	float turboTime;                           // active turbo period setting in ms
-	float holdTime;                            // active hold press setting in ms
-	float dblPressWindow;					   // active dbl press window setting in ms
+	float turboTime = 0.f;                     // active turbo period setting in ms
+	float holdTime = 0.f;                      // active hold press setting in ms
+	float dblPressWindow = 0.f;                // active dbl press window setting in ms
 };
 
 // Send this event anytime the button is at rest or inactive
 struct Released
 {
 	chrono::steady_clock::time_point time_now; // Timestamp of the poll
-	float turboTime;                           // active turbo period setting in ms
-	float holdTime;                            // active hold press setting in ms
-	float dblPressWindow;					   // active dbl press window setting in ms
+	float turboTime = 0.f;                     // active turbo period setting in ms
+	float holdTime = 0.f;                      // active hold press setting in ms
+	float dblPressWindow = 0.f;				   // active dbl press window setting in ms
 };
 
 // The sync event is created internally

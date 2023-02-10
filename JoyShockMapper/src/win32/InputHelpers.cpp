@@ -332,7 +332,7 @@ std::string GetCWD()
 
 bool SetCWD(in_string newCWD)
 {
-	return SetCurrentDirectoryA(newCWD.c_str()) == TRUE;
+	return SetCurrentDirectoryA(newCWD.data()) == TRUE;
 }
 
 DWORD ShowOnlineHelp()

@@ -1,5 +1,7 @@
 #include "JslWrapper.h"
 #include "JSMVariable.hpp"
+#include "TriggerEffectGenerator.h"
+#include "SettingsManager.h"
 #include "SDL.h"
 #include <map>
 #include <mutex>
@@ -10,9 +12,6 @@
 #include <memory>
 #include <iostream>
 #include <cstring>
-#include "TriggerEffectGenerator.h"
-
-extern JSMVariable<float> tick_time; // defined in main.cc
 
 typedef struct
 {
@@ -246,33 +245,33 @@ public:
 		SDL_Quit();
 	}
 
-	static int pollDevices(void *obj)
+	int pollDevices()
 	{
-		auto inst = static_cast<SdlInstance *>(obj);
-		while (inst->keep_polling)
+		while (keep_polling)
 		{
-			SDL_Delay(tick_time.get());
+			auto tick_time = SettingsManager::get<float>(SettingID::TICK_TIME)->value();
+			SDL_Delay(tick_time);
 
-			std::lock_guard guard(inst->controller_lock);
-			for (auto iter = inst->_controllerMap.begin(); iter != inst->_controllerMap.end(); ++iter)
+			std::lock_guard guard(controller_lock);
+			//SDL_GameControllerUpdate(); // Done through polling in Application.cpp
+			for (auto iter = _controllerMap.begin(); iter != _controllerMap.end(); ++iter)
 			{
-				SDL_GameControllerUpdate();
-				if (inst->g_callback)
+				if (g_callback)
 				{
 					JOY_SHOCK_STATE dummy1;
 					IMU_STATE dummy2;
 					memset(&dummy1, 0, sizeof(dummy1));
 					memset(&dummy2, 0, sizeof(dummy2));
-					inst->g_callback(iter->first, dummy1, dummy1, dummy2, dummy2, tick_time.get());
+					g_callback(iter->first, dummy1, dummy1, dummy2, dummy2, tick_time);
 				}
-				if (inst->g_touch_callback)
+				if (g_touch_callback)
 				{
-					TOUCH_STATE touch = inst->GetTouchState(iter->first, false), dummy3;
+					TOUCH_STATE touch = GetTouchState(iter->first, false), dummy3;
 					memset(&dummy3, 0, sizeof(dummy3));
-					inst->g_touch_callback(iter->first, touch, dummy3, tick_time.get());
+					g_touch_callback(iter->first, touch, dummy3, tick_time);
 				}
 				// Perform rumble
-				SDL_GameControllerRumble(iter->second->_sdlController, iter->second->_big_rumble, iter->second->_small_rumble, tick_time.get() + 5);
+				SDL_GameControllerRumble(iter->second->_sdlController, iter->second->_big_rumble, iter->second->_small_rumble, tick_time + 5);
 			}
 		}
 
@@ -291,7 +290,12 @@ public:
 		if (keep_polling.compare_exchange_strong(isFalse, true))
 		{
 			// keep polling was false! It is set to true now.
-			SDL_Thread *controller_polling_thread = SDL_CreateThread(&SdlInstance::pollDevices, "Poll Devices", this);
+			SDL_Thread* controller_polling_thread = SDL_CreateThread([] (void *obj)
+			{
+				  auto this_ = static_cast<SdlInstance *>(obj);
+				  return this_->pollDevices();
+			  },
+			  "Poll Devices", this);
 			SDL_DetachThread(controller_polling_thread);
 		}
 		SDL_GameControllerUpdate(); // Refresh driver listing
@@ -321,7 +325,7 @@ public:
 				delete device;
 			}
 		}
-		return _controllerMap.size();
+		return int(_controllerMap.size());
 	}
 
 	void DisconnectAndDisposeAll() override
