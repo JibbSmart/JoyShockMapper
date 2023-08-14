@@ -200,8 +200,8 @@ enum class SettingID
 	RIGHT_STICK_AXIS,
 	MOTION_STICK_AXIS,
 	TOUCH_STICK_AXIS,
-	STICK_AXIS_X,      // Legacy command
-	STICK_AXIS_Y,      // Legacy command
+	STICK_AXIS_X, // Legacy command
+	STICK_AXIS_Y, // Legacy command
 	GYRO_AXIS_X,
 	GYRO_AXIS_Y,
 	RECONNECT_CONTROLLERS,
@@ -296,6 +296,12 @@ enum class SettingID
 	HIDE_MINIMIZED,
 	AUTO_CALIBRATE_GYRO,
 	JSM_DIRECTORY,
+	RETURN_DEADZONE_IS_ACTIVE,
+	EDGE_PUSH_IS_ACTIVE,
+	STICKLIKE_FACTOR,
+	MOUSELIKE_FACTOR,
+	RETURN_DEADZONE_ANGLE,
+	RETURN_DEADZONE_ANGLE_CUTOFF,
 };
 
 // constexpr are like #define but with respect to typeness
@@ -357,6 +363,7 @@ enum class StickMode
 	RIGHT_STEER_X,
 	LEFT_WIND_X,
 	RIGHT_WIND_X,
+	HYBRID_AIM,
 	INVALID
 };
 enum class FlickSnapMode

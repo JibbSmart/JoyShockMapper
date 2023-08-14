@@ -1,3 +1,4 @@
+
 # JoyShockMapper
 The Sony PlayStation DualSense, DualShock 4, Nintendo Switch JoyCons (used in pairs), and Nintendo Switch Pro Controller have much in common. They have many of the features expected of modern game controllers. They also have an incredibly versatile and underutilised input that their biggest rival (Microsoft's Xbox One controller) doesn't have: a 3-axis gyroscope (from here on, “gyro”).
 
@@ -530,6 +531,7 @@ MOUSE_RING: stick angle sets the mouse position on a circle directly around the 
 MOUSE_AREA: stick position sets the cursor in a circular area around the neutral position
 NO_MOUSE: don't affect the mouse, use button mappings (default)
 SCROLL_WHEEL: enable left and right bindings by rotating the stick counter-clockwise or clockwise.
+HYBRID_AIM: adds together traditional behavior of a stick with a mouse-like behavior.
 ```
 
 The mode for the left and right stick are set like so:
@@ -582,7 +584,26 @@ When using the ```AIM``` stick mode, there are a few important commands:
 * **STICK\_ACCELERATION\_CAP** (default 1000000.0 multiplier) - You may want to set a limit on the camera turn velocity when STICK\_ACCELERATION\_RATE is non-zero. For example, setting STICK\_ACCELERATION\_CAP to 2.0 will mean that your camera turn speed won't accelerate past double the STICK\_SENS setting. This has no effect when STICK\_ACCELERATION\_RATE is zero.
 * **STICK\_DEADZONE\_INNER** and **STICK\_DEADZONE\_OUTER** (default 0.15 and 0.1, respectively) - Controller thumbsticks can be a little imprecise. When you release the stick, it probably won't return exactly to the centre. STICK\_DEADZONE\_INNER lets you say how much of the stick's range will be considered "centre". If the stick position is within this distance from the centre, it'll be considered to have no stick input. STICK\_DEADZONE\_OUTER does the same for the outer edge. If the stick position is within this distance from the outer edge, it'll be considered fully pressed. Everything in-between is scaled accordingly. You can set the deadzones individually for each stick with **LEFT\_STICK\_DEADZONE\_INNER**, **LEFT\_STICK\_DEADZONE\_OUTER**, **RIGHT\_STICK\_DEADZONE\_INNER**, **RIGHT\_STICK\_DEADZONE\_OUTER**.
 
-#### 3.2 FLICK mode and variants
+#### 3.2 HYBRID_AIM mode
+
+When using ```HYBRID_AIM``` stick mode, the output consists of the sum of the behavior of a traditional stick, i.e. the absolute deflection of the stick, as well as the proportional (or mouse-like) behavior, i.e. the change in deflection. This second behavior is, by default, continued as an 'edge push' even when hitting the edge of the stick. Moving the stick quickly gives a large output that is dominated by the mouse-like component, moving it slowly gives an output that in more influenced by the stick-like component.
+
+With this input method it is easier to do accurate small movements  of the camera while being able to do faster turns than with a traditional stick method as the combined behavior results in a high dynamic range.
+
+This mode shares STICK_POWER, (LEFT / RIGHT)\_STICK_AXIS, (LEFT\_ / RIGHT_)STICK_DEADZONE_DEADZONE_INNER and (LEFT_ / RIGHT_)STICK_DEADZONE_OUTER with ```AIM```. 
+
+It is recommended to keep STICK_DEADZONE_OUTER as small as possible for the best experience. STICK_DEADZONE_INNER matters less, as this mode is very responsive even with a large inner deadzone.
+
+The other settings of this mode are:
+
+* **STICKLIKE\_FACTOR** (default 180.0) - How fast the camera is moved by the position of the stick. Currently this is an arbitrary number and a calibration is not implemented for this. In the future this should represent degrees per second like STICK_SENS. 
+* **MOUSELIKE\_FACTOR** (default 90.0) - How fast the camera is moved by the movement of the stick. Like the above, no calibration implemented yet. In the future this should represent degrees per one full travel of the stick from center to full deflection.
+* **RETURN\_DEADZONE\_IS\_ACTIVE** (default ON) - There are two possibly quite different ways this input mode can function. When this setting is set to ON, the mode may feel more like a traditional stick, when its set to OFF, the mode may feel way more responsive but it is difficult to make the output hold still because of the behavior inherent to this input method.
+* **RETURN\_DEADZONE\_ANGLE** (default 45.0 degrees) - The angle to the center from the current stick position where the output is set to zero.
+* **RETURN\_DEADZONE\_CUTOFF\_ANGLE** (default 90.0 degrees) - The angle to the center where the return deadzone has no effect anymore. Between RETURN_DEADZONE_ANGLE and this, the output slowly returns to normal. 
+* **EDGE\_PUSH\_IS\_ACTIVE** (default ON) - Whether or not the mouse-like movement is to be continued when hitting the edge of the stick (entering the outer deadzone). If so, it functions similar to the stick-like component until it is reset either by entering the return deadzone or inner deadzone, but is at most the value at the smallest deflection since the push.
+
+#### 3.3 FLICK mode and variants
 
 When using the ```FLICK``` stick mode, there is less to configure. There are no deadzones and no sensitivity. When you press the stick in a direction, JoyShockMapper just takes the angle of the stick input and translates it into the same in-game direction relative to where your camera is already facing, before smoothly moving the camera to point in that direction in a small fraction of a second. Once already pressed, rotating the *flick stick* X degrees will then instantly turn the in-game camera X degrees. This provides a very natural way to quickly turn around, respond to gun-fire from off-screen, or make gradual turns without moving the controller.
 
@@ -603,13 +624,13 @@ The ```FLICK_ONLY``` and ```ROTATE_ONLY``` stick modes work the same as flick st
 
 You can also emulate flick stick with a virtual controller, but it's more limited. Set **FLICK\_STICK\_OUTPUT** to **RIGHT\_STICK** or **LEFT\_STICK** instead of its default value of **MOUSE**. When outputting flick stick to a virtual controller, FLICK_TIME and FLICK_TIME_EXPONENT won't do anything. Instead, the virtual stick will be tilted at its full strength in the desired direction for enough time to complete the flick. This will generally be much less precise than MOUSE mode, but it's still useful. Tune the size of a flick stick flick/rotation by setting **VIRTUAL\_STICK\_CALIBRATION**. Ideally, this should be set to the maximum horizontal turning speed of the in game camera in degrees per second.
 
-#### 3.3 Other mouse modes
+#### 3.4 Other mouse modes
 
 When using the ```MOUSE_RING``` stick mode, tilting the stick will put the mouse cursor in a position offset from the centre of the screen by your stick position. This mode is primarily intended for twin-stick shooters. To do this, the application needs to know your screen resolution (SCREEN\_RESOLUTION\_X and SCREEN\_RESOLUTION\_Y) and how far you want the cursor to sit from the centre of the screen (MOUSE\_RING\_RADIUS). When this mode is in operation (i.e. the stick is not at rest), all other mouse movements are ignored.
 
 When using the ```MOUSE_AREA``` stick mode, the stick value directly sets the mouse position. So moving the stick rightward gradually all the way to the edge will move the cursor at the same speed for a number of pixel equal to the value of ```MOUSE_RING_RADIUS``` ; and moving the stick back to the middle will move the cursor back again to where it started. Contrary to the previous mode, this mode can operate in conjunction with other mouse inputs, such as gyro.
 
-#### 3.4 Digital modes
+#### 3.5 Digital modes
 
 When using stick mode ```NO_MOUSE```, JSM will use the stick's UP DOWN LEFT and RIGHT bindings in a cross gate layout. There is a small square deadzone to ignore very small stick moves.
 
@@ -625,7 +646,7 @@ LEFT_RING_MODE = INNER
 LRING = LALT # Walk
 ```
 
-#### 3.5 Motion Stick and lean bindings
+#### 3.6 Motion Stick and lean bindings
 Using the motion sensors, you can treat your whole controller as a stick. The "Motion Stick" can do everything that a regular stick can do:
 * **MOTION\_STICK\_MODE** (default NO\_MOUSE) - All the same options as LEFT\_STICK\_MODE and RIGHT\_STICK\_MODE.
 * **MOTION\_RING\_MODE** (default OUTER) - All the same options as LEFT\_RING\_MODE and RIGHT\_RING\_MODE.
