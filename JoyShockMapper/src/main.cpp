@@ -3026,6 +3026,8 @@ void joyShockPollCallback(int jcHandle, JOY_SHOCK_STATE state, JOY_SHOCK_STATE l
 			jc->handleButtonChange(ButtonID::CAPTURE, buttons & (1 << JSOFFSET_CAPTURE));
 			jc->handleButtonChange(ButtonID::LSL, buttons & (1 << JSOFFSET_SL));
 			jc->handleButtonChange(ButtonID::LSR, buttons & (1 << JSOFFSET_SR));
+			jc->handleButtonChange(ButtonID::RSL, buttons & (1 << JSOFFSET_SL2));
+			jc->handleButtonChange(ButtonID::RSR, buttons & (1 << JSOFFSET_SR2));
 		}
 		break;
 		}

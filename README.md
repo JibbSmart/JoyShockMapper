@@ -264,7 +264,7 @@ Those familiar with Steam Input can implement Action Layers and Action Sets usin
 
 ```
 # Load the driving control scheme.
-HOME = "GTA_driving.txt" # That file should bind HOME to loading the walking scheme file!
+HOME = "Autoload/GTA5/GTA_driving.txt" # That file should bind HOME to loading the walking scheme file!
 ```
 
 Take note that the command bound in this way cannot contain quotation marks, and thus cannot contain the binding of a command itself. In this case, you should put the command in a file and load that file.

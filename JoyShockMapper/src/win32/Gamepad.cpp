@@ -11,14 +11,26 @@
 //
 #pragma comment(lib, "setupapi.lib")
 
-enum AnalogElement
+inline void DS4_REPORT_EX_INIT(DS4_REPORT_EX* ds4reportEx)
 {
-    LSTICK,
-    RSTICK,
-    LTRIG,
-    RTRIG,
-    COUNT,
-};
+	memset(ds4reportEx, 0, (sizeof(DS4_REPORT_EX)));
+	ds4reportEx->Report.wButtons = DS4_BUTTON_DPAD_NONE;
+	ds4reportEx->Report.bThumbLX = 0x7F;
+	ds4reportEx->Report.bThumbLY = 0x7F;
+	ds4reportEx->Report.bThumbRX = 0x7F;
+	ds4reportEx->Report.bThumbRY = 0x7F;
+}
+
+template<typename T>
+void SetPressed(T& buttons, WORD mask)
+{
+	buttons |= mask;
+}
+template<typename T>
+void ClearPressed(T& buttons, WORD mask)
+{
+	buttons &= ~mask;
+}
 
 class VigemClient
 {
@@ -115,23 +127,167 @@ ostream& operator<<<VIGEM_ERROR>(ostream& out, VIGEM_ERROR errCode)
 	return out;
 }
 
-class GamepadImpl : public Gamepad
+class VigemGamepad : public Gamepad
 {
 public:
-	GamepadImpl(ControllerScheme scheme, Callback notification);
-	virtual ~GamepadImpl();
-	virtual bool isInitialized(std::string *errorMsg = nullptr) override;
-	virtual void setButton(KeyCode btn, bool pressed) override;
-	virtual void setLeftStick(float x, float y) override;
-	virtual void setRightStick(float x, float y) override;
-	virtual void setStick(float x, float y, bool isLeft) override;
-	virtual void setLeftTrigger(float) override;
-	virtual void setRightTrigger(float) override;
-	virtual void setGyro(float accelX, float accelY, float accelZ, float gyroX, float gyroY, float gyroZ) override;
-	virtual void setTouchState(std::optional<FloatXY> press1, std::optional<FloatXY> press2) override;
-	virtual void update() override;
+	VigemGamepad(Callback notification)
+	  : _notification(notification)
+	{
+		std::stringstream ss;
+		VIGEM_ERROR error = VIGEM_ERROR::VIGEM_ERROR_NONE;
+		PVIGEM_CLIENT client = VigemClient::get(&error);
+		if (client == nullptr)
+		{
+			_errorMsg = "Uh, not enough memory to do that?!";
+		}
+		else if (error == VIGEM_ERROR_BUS_NOT_FOUND)
+		{
+			ss << "ViGEm bus is not installed. You can download the latest version of it here:" << endl
+			   << "https://github.com/ViGEm/ViGEmBus/releases/latest";
+			_errorMsg = ss.str();
+		}
+		else if (!VIGEM_SUCCESS(error))
+		{
+			ss << "ViGEm Bus connection failed: " << error;
+			_errorMsg = ss.str();
+		}
+	}
 
-	virtual ControllerScheme getType() const override;
+	virtual ~VigemGamepad()
+	{
+		if (isInitialized())
+		{
+			// We're done with this pad, free resources (this disconnects the virtual device)
+			if (PVIGEM_CLIENT client = VigemClient::get(); client != nullptr)
+			{
+				vigem_target_remove(client, _gamepad);
+			}
+			vigem_target_free(_gamepad);
+		}
+	}
+
+	bool isInitialized(std::string* errorMsg = nullptr) override
+	{
+		if (!_errorMsg.empty() && errorMsg != nullptr)
+		{
+			*errorMsg = _errorMsg;
+		}
+		return _errorMsg.empty() && vigem_target_is_attached(_gamepad) == TRUE;
+	}
+
+	void setStick(float x, float y, bool isLeft) override
+	{
+		isLeft ? setLeftStick(x, y) : setRightStick(x, y);
+	}
+
+	void setGyro(float accelX, float accelY, float accelZ, float gyroX, float gyroY, float gyroZ) override {}
+	void setTouchState(std::optional<FloatXY> press1, std::optional<FloatXY> press2) override {}
+
+protected:
+
+	Callback _notification = nullptr;
+	PVIGEM_TARGET _gamepad = nullptr;
+};
+
+class XboxGamepad : public VigemGamepad
+{
+public:
+	XboxGamepad(Callback notification)
+	  : VigemGamepad(notification)
+	  , _stateX360()
+	{
+		XUSB_REPORT_INIT(&_stateX360);
+
+		if (_errorMsg.empty())
+		{
+			// Allocate handle to identify new pad
+			_gamepad = vigem_target_x360_alloc();
+
+			// Add _client to the bus, this equals a plug-in event
+			VIGEM_ERROR error = vigem_target_add(VigemClient::get(), _gamepad);
+			if (!VIGEM_SUCCESS(error))
+			{
+				std::stringstream ss;
+				ss << "Target plugin failed: " << error;
+				_errorMsg = ss.str();
+				return;
+			}
+
+			error = vigem_target_x360_register_notification(VigemClient::get(), _gamepad, &XboxGamepad::x360Notification, this);
+			if (!VIGEM_SUCCESS(error))
+			{
+				std::stringstream ss;
+				ss << "Target plugin failed: " << error;
+				_errorMsg = ss.str();
+			}
+		}
+	}
+
+	virtual ~XboxGamepad()
+	{
+		if (isInitialized())
+		{
+			vigem_target_x360_unregister_notification(_gamepad);
+		}
+	}
+	void setButton(KeyCode btn, bool pressed) override
+	{
+		auto op = pressed ? &SetPressed<WORD> : &ClearPressed<WORD>;
+		static std::map<WORD, uint16_t> buttonMap{
+			{ X_UP, XUSB_GAMEPAD_DPAD_UP },
+			{ X_DOWN, XUSB_GAMEPAD_DPAD_DOWN },
+			{ X_LEFT, XUSB_GAMEPAD_DPAD_LEFT },
+			{ X_RIGHT, XUSB_GAMEPAD_DPAD_RIGHT },
+			{ X_LB, XUSB_GAMEPAD_LEFT_SHOULDER },
+			{ X_BACK, XUSB_GAMEPAD_BACK },
+			{ X_X, XUSB_GAMEPAD_X },
+			{ X_A, XUSB_GAMEPAD_A },
+			{ X_Y, XUSB_GAMEPAD_Y },
+			{ X_B, XUSB_GAMEPAD_B },
+			{ X_RB, XUSB_GAMEPAD_RIGHT_SHOULDER },
+			{ X_START, XUSB_GAMEPAD_START },
+			{ X_LS, XUSB_GAMEPAD_LEFT_THUMB },
+			{ X_RS, XUSB_GAMEPAD_RIGHT_THUMB },
+			{ X_GUIDE, XUSB_GAMEPAD_GUIDE },
+		};
+
+		if (auto found = buttonMap.find(btn.code); found != buttonMap.end())
+		{
+			op(_stateX360.wButtons, found->second);
+		}
+	}
+	void setLeftStick(float x, float y) override
+	{
+		_stateX360.sThumbLX = clamp(int(_stateX360.sThumbLX + SHRT_MAX * clamp(x, -1.f, 1.f)), SHRT_MIN, SHRT_MAX);
+		_stateX360.sThumbLY = clamp(int(_stateX360.sThumbLY + SHRT_MAX * clamp(y, -1.f, 1.f)), SHRT_MIN, SHRT_MAX);
+		
+	}
+	void setRightStick(float x, float y) override
+	{
+		_stateX360.sThumbRX = clamp(int(_stateX360.sThumbRX + SHRT_MAX * clamp(x, -1.f, 1.f)), SHRT_MIN, SHRT_MAX);
+		_stateX360.sThumbRY = clamp(int(_stateX360.sThumbRY + SHRT_MAX * clamp(y, -1.f, 1.f)), SHRT_MIN, SHRT_MAX);
+	}
+	void setLeftTrigger(float val) override
+	{
+		_stateX360.bLeftTrigger = clamp(int(_stateX360.bLeftTrigger + uint8_t(clamp(val, 0.f, 1.f) * UCHAR_MAX)), 0, UCHAR_MAX);
+	}
+	void setRightTrigger(float val) override
+	{
+		_stateX360.bRightTrigger = clamp(int(_stateX360.bRightTrigger + uint8_t(clamp(val, 0.f, 1.f) * UCHAR_MAX)), 0, UCHAR_MAX);
+	}
+	void update() override
+	{
+		if (isInitialized())
+		{
+			vigem_target_x360_update(VigemClient::get(), _gamepad, _stateX360);
+			XUSB_REPORT_INIT(&_stateX360);
+		}
+	}
+
+	ControllerScheme getType() const override
+	{
+		return ControllerScheme::XBOX;
+	}
 
 private:
 	static void CALLBACK x360Notification(
@@ -140,275 +296,146 @@ private:
 		uint8_t largeMotor,
 		uint8_t smallMotor,
 		uint8_t ledNumber,
-		void* userData);
-
-	static void CALLBACK ds4Notification(
-		PVIGEM_CLIENT client,
-		PVIGEM_TARGET target,
-		uint8_t largeMotor,
-		uint8_t smallMotor,
-		Indicator lightbarColor,
-		void* userData);
-
-	void init_x360();
-	void init_ds4();
-
-	void setButtonX360(KeyCode btn, bool pressed);
-	void setButtonDS4(KeyCode btn, bool pressed);
-
-	Callback _notification = nullptr;
-	PVIGEM_TARGET _gamepad = nullptr;
-	unique_ptr<XUSB_REPORT> _stateX360;
-	unique_ptr<DS4_REPORT_EX> _stateDS4;
-
-	std::vector<bool> _resetAnalogData;
-};
-
-void GamepadImpl::x360Notification(
-	PVIGEM_CLIENT client,
-	PVIGEM_TARGET target,
-	uint8_t largeMotor,
-	uint8_t smallMotor,
-	uint8_t ledNumber,
-	void* userData)
-{
-	auto originator = static_cast<GamepadImpl *>(userData);
-	if (client == VigemClient::get() && originator && originator->_gamepad == target && originator->_notification)
+		void* userData)
 	{
-		Indicator indicator;
-		indicator.led = ledNumber;
-		originator->_notification(largeMotor, smallMotor, indicator);
-	}
-}
-
-void GamepadImpl::ds4Notification(
-	PVIGEM_CLIENT client,
-	PVIGEM_TARGET target,
-	uint8_t largeMotor,
-	uint8_t smallMotor,
-	Indicator lightbarColor,
-	void* userData)
-{
-	auto originator = static_cast<GamepadImpl *>(userData);
-	if (client == VigemClient::get() && originator && originator->_gamepad == target && originator->_notification)
-	{
-		originator->_notification(largeMotor, smallMotor, lightbarColor);
-	}
-}
-
-GamepadImpl::GamepadImpl(ControllerScheme scheme, Callback notification)
-  : _stateX360(new XUSB_REPORT)
-  , _stateDS4(new DS4_REPORT_EX)
-  , _notification(notification)
-  , _resetAnalogData(AnalogElement::COUNT, true)
-{
-	XUSB_REPORT_INIT(_stateX360.get());
-	// DS4_REPORT_EX_INIT(_stateDS4.get());
-	{
-		RtlZeroMemory(_stateDS4.get(), sizeof(DS4_REPORT_EX));
-		_stateDS4->Report.bThumbLX = 0x80;
-		_stateDS4->Report.bThumbLY = 0x80;
-		_stateDS4->Report.bThumbRX = 0x80;
-		_stateDS4->Report.bThumbRY = 0x80;
-		// DS4_EX_SET_DPAD(_stateDS4.get(), DS4_BUTTON_DPAD_NONE)
-		_stateDS4->Report.wButtons &= ~0xF;
-		_stateDS4->Report.wButtons |= USHORT(DS4_BUTTON_DPAD_NONE);
-	}
-
-	std::stringstream ss;
-	VIGEM_ERROR error = VIGEM_ERROR::VIGEM_ERROR_NONE;
-	PVIGEM_CLIENT client = VigemClient::get(&error);
-	if (client == nullptr)
-	{
-		_errorMsg = "Uh, not enough memory to do that?!";
-		return;
-	}
-	else if (error == VIGEM_ERROR_BUS_NOT_FOUND)
-	{
-		ss << "ViGEm bus is not installed. You can download the latest version of it here:" << endl
-			<< "https://github.com/ViGEm/ViGEmBus/releases/latest";
-		_errorMsg = ss.str();
-		return;
-	}
-	else if (!VIGEM_SUCCESS(error))
-	{
-		ss << "ViGEm Bus connection failed: " << error;
-		_errorMsg = ss.str();
-		return;
-	}
-	else
-	{
-		if (scheme == ControllerScheme::XBOX)
-			init_x360();
-		else if (scheme == ControllerScheme::DS4)
-			init_ds4();
-
-		if (vigem_target_is_attached(_gamepad) != TRUE)
+		auto originator = static_cast<XboxGamepad*>(userData);
+		if (client == VigemClient::get() && originator && originator->_gamepad == target && originator->_notification)
 		{
-			_errorMsg = "Target is not attached";
+			Indicator indicator;
+			indicator.led = ledNumber;
+			originator->_notification(largeMotor, smallMotor, indicator);
 		}
 	}
-}
 
-GamepadImpl::~GamepadImpl()
+	XUSB_REPORT _stateX360;
+};
+
+class Ds4Gamepad : public VigemGamepad
 {
-	// vigem_target_x360_unregister_notification
-	//
-	// We're done with this pad, free resources (this disconnects the virtual device)
-	//
-	PVIGEM_CLIENT client = VigemClient::get();
-	if (isInitialized())
+public:
+	Ds4Gamepad(Callback notification)
+	  : VigemGamepad(notification)
+	  , _stateDS4()
 	{
-		vigem_target_x360_unregister_notification(_gamepad);
-		if (client)
-			vigem_target_remove(client, _gamepad);
-		vigem_target_free(_gamepad);
+		DS4_REPORT_EX_INIT(&_stateDS4);
+
+		if (_errorMsg.empty())
+		{
+			// Allocate handle to identify new pad
+			_gamepad = vigem_target_ds4_alloc();
+
+			// Add _client to the bus, this equals a plug-in event
+			VIGEM_ERROR error = vigem_target_add(VigemClient::get(), _gamepad);
+			if (!VIGEM_SUCCESS(error))
+			{
+				std::stringstream ss;
+				ss << "Target plugin failed: " << error;
+				_errorMsg = ss.str();
+				return;
+			}
+
+			error = vigem_target_ds4_register_notification(VigemClient::get(), _gamepad, reinterpret_cast<PFN_VIGEM_DS4_NOTIFICATION>(&Ds4Gamepad::ds4Notification), this);
+			if (!VIGEM_SUCCESS(error))
+			{
+				std::stringstream ss;
+				ss << "Target plugin failed: " << error;
+				_errorMsg = ss.str();
+			}
+		}
 	}
-}
-
-void GamepadImpl::init_x360()
-{
-	// Allocate handle to identify new pad
-	_gamepad = vigem_target_x360_alloc();
-
-	// Add _client to the bus, this equals a plug-in event
-	VIGEM_ERROR error = vigem_target_add(VigemClient::get(), _gamepad);
-	if (!VIGEM_SUCCESS(error))
+	virtual void setButton(KeyCode btn, bool pressed) override;
+	virtual void setLeftStick(float x, float y) override
 	{
-		std::stringstream ss;
-		ss << "Target plugin failed: " << error;
-		_errorMsg = ss.str();
-		return;
+		_stateDS4.Report.bThumbLX = clamp(int(_stateDS4.Report.bThumbLX + UCHAR_MAX * (clamp(x / 2.f, -.5f, .5f) + .5f)), 0, UCHAR_MAX);
+		_stateDS4.Report.bThumbLY = clamp(int(_stateDS4.Report.bThumbLY + UCHAR_MAX * (clamp(-y / 2.f, -.5f, .5f) + .5f)), 0, UCHAR_MAX);
+	}
+	virtual void setRightStick(float x, float y) override
+	{
+		_stateDS4.Report.bThumbRX = clamp(int(_stateDS4.Report.bThumbRX + UCHAR_MAX * (clamp(x / 2.f, -.5f, .5f))), 0, UCHAR_MAX);
+		_stateDS4.Report.bThumbRY = clamp(int(_stateDS4.Report.bThumbRY + UCHAR_MAX * (clamp(-y / 2.f, -.5f, .5f))), 0, UCHAR_MAX);
+	}
+	virtual void setLeftTrigger(float val) override
+	{
+		_stateDS4.Report.bTriggerL = clamp(int(_stateDS4.Report.bTriggerL + uint8_t(clamp(val, 0.f, 1.f) * UCHAR_MAX)), 0, UCHAR_MAX);
+		if (val > 0)
+			SetPressed(_stateDS4.Report.wButtons, DS4_BUTTON_TRIGGER_LEFT);
+		else
+			ClearPressed(_stateDS4.Report.wButtons, DS4_BUTTON_TRIGGER_LEFT);
+	}
+	virtual void setRightTrigger(float val) override
+	{
+		_stateDS4.Report.bTriggerR = clamp(int(_stateDS4.Report.bTriggerR + uint8_t(clamp(val, 0.f, 1.f) * UCHAR_MAX)), 0, UCHAR_MAX);
+		if (val > 0)
+			SetPressed(_stateDS4.Report.wButtons, DS4_BUTTON_TRIGGER_RIGHT);
+		else
+			ClearPressed(_stateDS4.Report.wButtons, DS4_BUTTON_TRIGGER_RIGHT);
+	}
+	virtual void setGyro(float accelX, float accelY, float accelZ, float gyroX, float gyroY, float gyroZ) override
+	{
+		// reset Analog Data ?
+		static constexpr float accelToRaw = 9.8f;
+		_stateDS4.Report.wAccelX = SHORT(accelX * accelToRaw);
+		_stateDS4.Report.wAccelY = SHORT(accelY * accelToRaw);
+		_stateDS4.Report.wAccelZ = SHORT(accelZ * accelToRaw);
+
+		static constexpr float gyroToRaw = 3.14159265358979323846264338327950288 / 180.f;
+		_stateDS4.Report.wGyroX = SHORT(accelX * gyroToRaw);
+		_stateDS4.Report.wGyroY = SHORT(accelY * gyroToRaw);
+		_stateDS4.Report.wGyroZ = SHORT(accelZ * gyroToRaw);
+	}
+	virtual void setTouchState(std::optional<FloatXY> press1, std::optional<FloatXY> press2) override
+	{
+		if (press1)
+		{
+			_stateDS4.Report.sCurrentTouch.bIsUpTrackingNum1 = 0;
+			int32_t xy24b = int32_t(press1->y() * 943.0f) << 12;
+			xy24b |= int32_t(press1->x() * 1920.0f);
+			_stateDS4.Report.sCurrentTouch.bTouchData1[2] = uint8_t(xy24b >> 16);
+			_stateDS4.Report.sCurrentTouch.bTouchData1[1] = uint8_t((xy24b >> 8) & 0xFF);
+			_stateDS4.Report.sCurrentTouch.bTouchData1[0] = uint8_t(xy24b & 0xFF);
+		}
+		if (press2)
+		{
+			_stateDS4.Report.sCurrentTouch.bIsUpTrackingNum1 = 0;
+			int32_t xy24b = int32_t(press2->y() * 943.0f) << 12;
+			xy24b |= int32_t(press2->x() * 1920.0f);
+			_stateDS4.Report.sCurrentTouch.bTouchData1[2] = uint8_t(xy24b >> 16);
+			_stateDS4.Report.sCurrentTouch.bTouchData1[1] = uint8_t((xy24b >> 8) & 0xFF);
+			_stateDS4.Report.sCurrentTouch.bTouchData1[0] = uint8_t(xy24b & 0xFF);
+		}
+	}
+	virtual void update() override
+	{
+		if (isInitialized())
+		{
+			vigem_target_ds4_update_ex(VigemClient::get(), _gamepad, _stateDS4);
+			DS4_REPORT_EX_INIT(&_stateDS4);
+		}
 	}
 
-	error = vigem_target_x360_register_notification(VigemClient::get(), _gamepad, &GamepadImpl::x360Notification, this);
-	if (!VIGEM_SUCCESS(error))
+	virtual ControllerScheme getType() const override
 	{
-		std::stringstream ss;
-		ss << "Target plugin failed: " << error;
-		_errorMsg = ss.str();
-	}
-}
-
-void GamepadImpl::init_ds4()
-{
-	// Allocate handle to identify new pad
-	_gamepad = vigem_target_ds4_alloc();
-
-	// Add _client to the bus, this equals a plug-in event
-	VIGEM_ERROR error = vigem_target_add(VigemClient::get(), _gamepad);
-	if (!VIGEM_SUCCESS(error))
-	{
-		std::stringstream ss;
-		ss << "Target plugin failed: " << error;
-		_errorMsg = ss.str();
-		return;
-	}
-
-	error = vigem_target_ds4_register_notification(VigemClient::get(), _gamepad, reinterpret_cast<PFN_VIGEM_DS4_NOTIFICATION>(&GamepadImpl::ds4Notification), this);
-	if (!VIGEM_SUCCESS(error))
-	{
-		std::stringstream ss;
-		ss << "Target plugin failed: " << error;
-		_errorMsg = ss.str();
-	}
-}
-
-bool GamepadImpl::isInitialized(std::string *errorMsg)
-{
-	if (!_errorMsg.empty() && errorMsg != nullptr)
-	{
-		*errorMsg = _errorMsg;
-	}
-	return _errorMsg.empty() && vigem_target_is_attached(_gamepad) == TRUE;
-}
-
-void GamepadImpl::setButton(KeyCode btn, bool pressed)
-{
-	setButtonDS4(btn, pressed);
-	setButtonX360(btn, pressed);
-}
-
-ControllerScheme GamepadImpl::getType() const
-{
-	VIGEM_TARGET_TYPE type = vigem_target_get_type(_gamepad);
-	switch (type)
-	{
-	case VIGEM_TARGET_TYPE::DualShock4Wired:
 		return ControllerScheme::DS4;
-	case VIGEM_TARGET_TYPE::Xbox360Wired:
-		return ControllerScheme::XBOX;
-	default:
-		return ControllerScheme::INVALID;
 	}
-}
 
-template<typename T>
-void SetPressed(T& buttons, WORD mask)
-{
-	buttons |= mask;
-}
-template<typename T>
-void ClearPressed(T& buttons, WORD mask)
-{
-	buttons &= ~mask;
-}
-
-void GamepadImpl::setButtonX360(KeyCode btn, bool pressed)
-{
-	decltype(&SetPressed<WORD>) op = pressed ? &SetPressed<WORD> : &ClearPressed<WORD>;
-
-	switch (btn.code)
+private:
+	static void CALLBACK ds4Notification(
+	  PVIGEM_CLIENT client,
+	  PVIGEM_TARGET target,
+	  uint8_t largeMotor,
+	  uint8_t smallMotor,
+	  Indicator lightbarColor,
+	  void* userData)
 	{
-	case X_UP:
-		op(_stateX360->wButtons, XUSB_GAMEPAD_DPAD_UP);
-		break;
-	case X_DOWN:
-		op(_stateX360->wButtons, XUSB_GAMEPAD_DPAD_DOWN);
-		break;
-	case X_LEFT:
-		op(_stateX360->wButtons, XUSB_GAMEPAD_DPAD_LEFT);
-		break;
-	case X_RIGHT:
-		op(_stateX360->wButtons, XUSB_GAMEPAD_DPAD_RIGHT);
-		break;
-	case X_LB:
-		op(_stateX360->wButtons, XUSB_GAMEPAD_LEFT_SHOULDER);
-		break;
-	case X_BACK:
-		op(_stateX360->wButtons, XUSB_GAMEPAD_BACK);
-		break;
-	case X_X:
-		op(_stateX360->wButtons, XUSB_GAMEPAD_X);
-		break;
-	case X_A:
-		op(_stateX360->wButtons, XUSB_GAMEPAD_A);
-		break;
-	case X_Y:
-		op(_stateX360->wButtons, XUSB_GAMEPAD_Y);
-		break;
-	case X_B:
-		op(_stateX360->wButtons, XUSB_GAMEPAD_B);
-		break;
-	case X_RB:
-		op(_stateX360->wButtons, XUSB_GAMEPAD_RIGHT_SHOULDER);
-		break;
-	case X_START:
-		op(_stateX360->wButtons, XUSB_GAMEPAD_START);
-		break;
-	case X_LS:
-		op(_stateX360->wButtons, XUSB_GAMEPAD_LEFT_THUMB);
-		break;
-	case X_RS:
-		op(_stateX360->wButtons, XUSB_GAMEPAD_RIGHT_THUMB);
-		break;
-	case X_GUIDE:
-		op(_stateX360->wButtons, XUSB_GAMEPAD_GUIDE);
-		break;
-	default:
-		break;
+		auto originator = static_cast<Ds4Gamepad*>(userData);
+		if (client == VigemClient::get() && originator && originator->_gamepad == target && originator->_notification)
+		{
+			originator->_notification(largeMotor, smallMotor, lightbarColor);
+		}
 	}
-}
+
+	DS4_REPORT_EX _stateDS4;
+};
 
 class PSHat
 {
@@ -632,7 +659,7 @@ public:
 	}
 };
 
-void GamepadImpl::setButtonDS4(KeyCode btn, bool pressed)
+void Ds4Gamepad::setButton(KeyCode btn, bool pressed)
 {
 	decltype(&SetPressed<WORD>) op_w = pressed ? &SetPressed<WORD> : &ClearPressed<WORD>;
 	decltype(&SetPressed<UCHAR>) op_b = pressed ? &SetPressed<UCHAR> : &ClearPressed<UCHAR>;
@@ -644,190 +671,60 @@ void GamepadImpl::setButtonDS4(KeyCode btn, bool pressed)
 	case PS_LEFT:
 	case PS_RIGHT:
 	{
-		PSHat hat(_stateDS4->Report.wButtons & 0x000F);
-		_stateDS4->Report.wButtons = (_stateDS4->Report.wButtons & 0xFFF0) | (pressed ? hat.set(btn.code) : hat.clear(btn.code));
+		PSHat hat(_stateDS4.Report.wButtons & 0x000F);
+		_stateDS4.Report.wButtons = (_stateDS4.Report.wButtons & 0xFFF0) | (pressed ? hat.set(btn.code) : hat.clear(btn.code));
 	}
 	break;
 
 	case PS_HOME:
-		op_b(_stateDS4->Report.bSpecial, DS4_SPECIAL_BUTTON_PS);
+		op_b(_stateDS4.Report.bSpecial, DS4_SPECIAL_BUTTON_PS);
 		break;
 	case PS_PAD_CLICK:
-		op_b(_stateDS4->Report.bSpecial, DS4_SPECIAL_BUTTON_TOUCHPAD);
+		op_b(_stateDS4.Report.bSpecial, DS4_SPECIAL_BUTTON_TOUCHPAD);
 		break;
 	case PS_L1:
-		op_w(_stateDS4->Report.wButtons, DS4_BUTTON_SHOULDER_LEFT);
+		op_w(_stateDS4.Report.wButtons, DS4_BUTTON_SHOULDER_LEFT);
 		break;
 	case PS_SHARE:
-		op_w(_stateDS4->Report.wButtons, DS4_BUTTON_SHARE);
+		op_w(_stateDS4.Report.wButtons, DS4_BUTTON_SHARE);
 		break;
 	case PS_SQUARE:
-		op_w(_stateDS4->Report.wButtons, DS4_BUTTON_SQUARE);
+		op_w(_stateDS4.Report.wButtons, DS4_BUTTON_SQUARE);
 		break;
 	case PS_CROSS:
-		op_w(_stateDS4->Report.wButtons, DS4_BUTTON_CROSS);
+		op_w(_stateDS4.Report.wButtons, DS4_BUTTON_CROSS);
 		break;
 	case PS_TRIANGLE:
-		op_w(_stateDS4->Report.wButtons, DS4_BUTTON_TRIANGLE);
+		op_w(_stateDS4.Report.wButtons, DS4_BUTTON_TRIANGLE);
 		break;
 	case PS_CIRCLE:
-		op_w(_stateDS4->Report.wButtons, DS4_BUTTON_CIRCLE);
+		op_w(_stateDS4.Report.wButtons, DS4_BUTTON_CIRCLE);
 		break;
 	case PS_R1:
-		op_w(_stateDS4->Report.wButtons, DS4_BUTTON_SHOULDER_RIGHT);
+		op_w(_stateDS4.Report.wButtons, DS4_BUTTON_SHOULDER_RIGHT);
 		break;
 	case PS_OPTIONS:
-		op_w(_stateDS4->Report.wButtons, DS4_BUTTON_OPTIONS);
+		op_w(_stateDS4.Report.wButtons, DS4_BUTTON_OPTIONS);
 		break;
 	case PS_L3:
-		op_w(_stateDS4->Report.wButtons, DS4_BUTTON_THUMB_LEFT);
+		op_w(_stateDS4.Report.wButtons, DS4_BUTTON_THUMB_LEFT);
 		break;
 	case PS_R3:
-		op_w(_stateDS4->Report.wButtons, DS4_BUTTON_THUMB_RIGHT);
+		op_w(_stateDS4.Report.wButtons, DS4_BUTTON_THUMB_RIGHT);
 		break;
 	default:
 		break;
 	}
 }
 
-void GamepadImpl::setLeftStick(float x, float y)
-{
-	if (_resetAnalogData[AnalogElement::LSTICK])
-	{
-		_stateX360->sThumbLX = 0;
-		_stateX360->sThumbLY = 0;
-		_stateDS4->Report.bThumbLX = 0;
-		_stateDS4->Report.bThumbLY = 0;
-		_resetAnalogData[AnalogElement::LSTICK] = false;
-	}
-
-	_stateX360->sThumbLX = clamp(int(_stateX360->sThumbLX + SHRT_MAX*clamp(x, -1.f, 1.f)), SHRT_MIN, SHRT_MAX);
-	_stateX360->sThumbLY = clamp(int(_stateX360->sThumbLY + SHRT_MAX*clamp(y, -1.f, 1.f)), SHRT_MIN, SHRT_MAX);
-
-	_stateDS4->Report.bThumbLX = clamp(int(_stateDS4->Report.bThumbLX + UCHAR_MAX*(clamp(x / 2.f, -.5f, .5f) + .5f)), 0, UCHAR_MAX);
-	_stateDS4->Report.bThumbLY = clamp(int(_stateDS4->Report.bThumbLY + UCHAR_MAX*(clamp(-y / 2.f, -.5f, .5f) + .5f)), 0, UCHAR_MAX);
-}
-
-void GamepadImpl::setRightStick(float x, float y)
-{
-	if (_resetAnalogData[AnalogElement::RSTICK])
-	{
-		_stateX360->sThumbRX = 0;
-		_stateX360->sThumbRY = 0;
-		_stateDS4->Report.bThumbRX = 0;
-		_stateDS4->Report.bThumbRY = 0;
-		_resetAnalogData[AnalogElement::RSTICK] = false;
-	}
-
-	_stateX360->sThumbRX = clamp(int(_stateX360->sThumbRX + SHRT_MAX*clamp(x, -1.f, 1.f)), SHRT_MIN, SHRT_MAX);
-	_stateX360->sThumbRY = clamp(int(_stateX360->sThumbRY + SHRT_MAX*clamp(y, -1.f, 1.f)), SHRT_MIN, SHRT_MAX);
-
-	_stateDS4->Report.bThumbRX = clamp(int(_stateDS4->Report.bThumbRX + UCHAR_MAX*(clamp(x / 2.f, -.5f, .5f) + .5f)), 0, UCHAR_MAX);
-	_stateDS4->Report.bThumbRY = clamp(int(_stateDS4->Report.bThumbRY + UCHAR_MAX*(clamp(-y / 2.f, -.5f, .5f) + .5f)), 0, UCHAR_MAX);
-}
-
-void GamepadImpl::setStick(float x, float y, bool isLeft)
-{
-	if (isLeft)
-	{
-		setLeftStick(x, y);
-	}
-	else
-	{
-		setRightStick(x, y);
-	}
-}
-
-void GamepadImpl::setLeftTrigger(float val)
-{
-	if (_resetAnalogData[AnalogElement::LTRIG])
-	{
-		_stateX360->bLeftTrigger = 0;
-		_stateDS4->Report.bTriggerL = 0;
-		_resetAnalogData[AnalogElement::LTRIG] = false;
-	}
-
-	_stateX360->bLeftTrigger = clamp(int(_stateX360->bLeftTrigger + uint8_t(clamp(val, 0.f, 1.f) * UCHAR_MAX)), 0, UCHAR_MAX);
-	_stateDS4->Report.bTriggerL = _stateX360->bLeftTrigger;
-	if (val > 0)
-		SetPressed(_stateDS4->Report.wButtons, DS4_BUTTON_TRIGGER_LEFT);
-	else
-		ClearPressed(_stateDS4->Report.wButtons, DS4_BUTTON_TRIGGER_LEFT);
-}
-
-void GamepadImpl::setRightTrigger(float val)
-{
-	if (_resetAnalogData[AnalogElement::RTRIG])
-	{
-		_stateX360->bRightTrigger = 0;
-		_stateDS4->Report.bTriggerR = 0;
-		_resetAnalogData[AnalogElement::RTRIG] = false;
-	}
-
-	_stateX360->bRightTrigger = clamp(int(_stateX360->bRightTrigger + uint8_t(clamp(val, 0.f, 1.f) * UCHAR_MAX)), 0, UCHAR_MAX);
-	_stateDS4->Report.bTriggerR = _stateX360->bRightTrigger;
-	if (val > 0)
-		SetPressed(_stateDS4->Report.wButtons, DS4_BUTTON_TRIGGER_RIGHT);
-	else
-		ClearPressed(_stateDS4->Report.wButtons, DS4_BUTTON_TRIGGER_RIGHT);
-}
-
-void GamepadImpl::setGyro(float accelX, float accelY, float accelZ, float gyroX, float gyroY, float gyroZ)
-{
-	// reset Analog Data ?
-	static constexpr float accelToRaw = 9.8f;
-	_stateDS4->Report.wAccelX = SHORT(accelX * accelToRaw);
-	_stateDS4->Report.wAccelY = SHORT(accelY * accelToRaw);
-	_stateDS4->Report.wAccelZ = SHORT(accelZ * accelToRaw);
-
-	static constexpr float gyroToRaw = 3.14159265358979323846264338327950288 / 180.f;
-	_stateDS4->Report.wGyroX = SHORT(accelX * gyroToRaw);
-	_stateDS4->Report.wGyroY = SHORT(accelY * gyroToRaw);
-	_stateDS4->Report.wGyroZ = SHORT(accelZ * gyroToRaw);
-}
-
-void GamepadImpl::setTouchState(std::optional<FloatXY> press1, std::optional<FloatXY> press2)
-{
-	if (press1)
-	{
-		_stateDS4->Report.sCurrentTouch.bIsUpTrackingNum1 = 0;
-		int32_t xy24b = int32_t(press1->y() * 943.0f) << 12;
-		xy24b |= int32_t(press1->x() * 1920.0f);
-		_stateDS4->Report.sCurrentTouch.bTouchData1[2] = uint8_t(xy24b >> 16);
-		_stateDS4->Report.sCurrentTouch.bTouchData1[1] = uint8_t((xy24b >> 8) & 0xFF);
-		_stateDS4->Report.sCurrentTouch.bTouchData1[0] = uint8_t(xy24b & 0xFF);
-	}
-	if (press2)
-	{
-		_stateDS4->Report.sCurrentTouch.bIsUpTrackingNum1 = 0;
-		int32_t xy24b = int32_t(press2->y() * 943.0f) << 12;
-		xy24b |= int32_t(press2->x() * 1920.0f);
-		_stateDS4->Report.sCurrentTouch.bTouchData1[2] = uint8_t(xy24b >> 16);
-		_stateDS4->Report.sCurrentTouch.bTouchData1[1] = uint8_t((xy24b >> 8) & 0xFF);
-		_stateDS4->Report.sCurrentTouch.bTouchData1[0] = uint8_t(xy24b & 0xFF);
-	}
-}
-
-void GamepadImpl::update()
-{
-	if (isInitialized())
-	{
-		VIGEM_TARGET_TYPE type = vigem_target_get_type(_gamepad);
-		switch (type)
-		{
-		case VIGEM_TARGET_TYPE::DualShock4Wired:
-			vigem_target_ds4_update_ex(VigemClient::get(), _gamepad, *_stateDS4.get());
-			break;
-		case VIGEM_TARGET_TYPE::Xbox360Wired:
-			vigem_target_x360_update(VigemClient::get(), _gamepad, *_stateX360.get());
-			break;
-		}
-		_resetAnalogData.clear();
-		_resetAnalogData.resize(AnalogElement::COUNT, true);
-	}
-}
-
 Gamepad *Gamepad::getNew(ControllerScheme scheme, Callback notification)
 {
-	return new GamepadImpl(scheme, notification);
+	switch (scheme)
+	{
+	case ControllerScheme::XBOX:
+		return new XboxGamepad(notification);
+	case ControllerScheme::DS4:
+		return new Ds4Gamepad(notification);
+	}
+	return nullptr;
 }
