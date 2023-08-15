@@ -1,7 +1,7 @@
 #include <Windows.h>
 #include "Gamepad.h"
 #include "ViGEm/Client.h"
-#define INCLUDE_MATH_DEFINES
+#define _USE_MATH_DEFINES
 #include <math.h> // M_PI
 #include <algorithm>
 #include <sstream>
@@ -174,21 +174,6 @@ public:
 		}
 		return _errorMsg.empty() && vigem_target_is_attached(_gamepad) == TRUE;
 	}
-GamepadImpl::~GamepadImpl()
-{
-	// vigem_target_x360_unregister_notification
-	//
-	// We're done with this pad, free resources (this disconnects the virtual device)
-	//
-	PVIGEM_CLIENT client = VigemClient::get();
-	if (isInitialized())
-	{
-		vigem_target_x360_unregister_notification(_gamepad);
-		if (client)
-			vigem_target_remove(client, _gamepad);
-		vigem_target_free(_gamepad);
-	}
-}
 
 	void setStick(float x, float y, bool isLeft) override
 	{
@@ -393,7 +378,7 @@ public:
 		_stateDS4.Report.wAccelY = SHORT(accelY * accelToRaw);
 		_stateDS4.Report.wAccelZ = SHORT(accelZ * accelToRaw);
 
-		static constexpr float gyroToRaw = 3.14159265358979323846264338327950288 / 180.f;
+		static constexpr float gyroToRaw = float(M_PI / 180.);
 		_stateDS4.Report.wGyroX = SHORT(accelX * gyroToRaw);
 		_stateDS4.Report.wGyroY = SHORT(accelY * gyroToRaw);
 		_stateDS4.Report.wGyroZ = SHORT(accelZ * gyroToRaw);

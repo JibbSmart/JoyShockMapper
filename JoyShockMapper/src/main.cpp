@@ -2073,7 +2073,7 @@ void processStick(shared_ptr<JoyShock> jc, float stickX, float stickY, float las
 							counter--;
 						steps++;
 					}
-					////////////////////////////////////TEST
+
 					if (jc->getSetting<Switch>(SettingID::EDGE_PUSH_IS_ACTIVE) == Switch::ON)
 					{
 						jc->edgePushAmount *= jc->smallestMagnitude;
@@ -2088,15 +2088,15 @@ void processStick(shared_ptr<JoyShock> jc, float stickX, float stickY, float las
 			jc->edgePushAmount = 0.0f;
 			inDeadzone = true;			
 		}
-		////////////////////////////TEST
+
 		if (magnitude < jc->smallestMagnitude)
 			jc->smallestMagnitude = magnitude;
 
 		// compute output
 		FloatXY sticklikeFactor = jc->getSetting<FloatXY>(SettingID::STICK_SENS);
 		FloatXY mouselikeFactor = jc->getSetting<FloatXY>(SettingID::MOUSELIKE_FACTOR);
-		float outputX = sticklikeFactor.x() * pow(magnitude, jc->getSetting(SettingID::STICK_POWER)) * cos(angle) * deltaTime;
-		float outputY = sticklikeFactor.y() * pow(magnitude, jc->getSetting(SettingID::STICK_POWER)) * sin(angle) * deltaTime;
+		float outputX = sticklikeFactor.x() / 2.f * pow(magnitude, jc->getSetting(SettingID::STICK_POWER)) * cos(angle) * deltaTime;
+		float outputY = sticklikeFactor.y() / 2.f * pow(magnitude, jc->getSetting(SettingID::STICK_POWER)) * sin(angle) * deltaTime;
 		outputX += mouselikeFactor.x() * pow(jc->smallestMagnitude, jc->getSetting(SettingID::STICK_POWER)) * cos(angle) * jc->edgePushAmount;
 		outputY += mouselikeFactor.y() * pow(jc->smallestMagnitude, jc->getSetting(SettingID::STICK_POWER)) * sin(angle) * jc->edgePushAmount;
 		outputX += mouselikeFactor.x() * velocityX;
@@ -2119,7 +2119,6 @@ void processStick(shared_ptr<JoyShock> jc, float stickX, float stickY, float las
 
 		if (jc->getSetting<Switch>(SettingID::RETURN_DEADZONE_IS_ACTIVE) == Switch::ON)
 		{
-			////////////////////// TEST SPEED INDEPENDENT OUTPUT WHEN RETURNING TO CENTER
 			// 0 means deadzone fully active 1 means unaltered output
 			float averageOutputX = 0.f;
 			float averageOutputY = 0.f;
@@ -2308,7 +2307,7 @@ void TouchCallback(int jcHandle, TOUCH_STATE newState, TOUCH_STATE prevState, fl
 
 		for (size_t i = 0; i < grid_mappings.size(); ++i)
 		{
-			auto optId = magic_enum::enum_cast<ButtonID>(FIRST_TOUCH_BUTTON + i);
+			auto optId = magic_enum::enum_cast<ButtonID>(int(FIRST_TOUCH_BUTTON + i));
 
 			// JSM can get touch button callbacks before the grid buttons are setup at startup. Just skip then.
 			if (optId && js->gridButtons.size() == grid_mappings.size())
@@ -3650,7 +3649,7 @@ void OnNewGridDimensions(CmdRegistry *registry, const FloatXY &newGridDims)
 	{
 		// Remove all extra touch button commands
 		bool successfulRemove = true;
-		for (int id = FIRST_TOUCH_BUTTON + numberOfButtons; successfulRemove; ++id)
+		for (auto id = FIRST_TOUCH_BUTTON + numberOfButtons; successfulRemove; ++id)
 		{
 			string name(magic_enum::enum_name(*magic_enum::enum_cast<ButtonID>(id)));
 			successfulRemove = registry->Remove(name);
@@ -4532,7 +4531,7 @@ void initJsmSettings(CmdRegistry *commandRegistry)
 	commandRegistry->add((new JSMAssignment<PathString>("JSM_DIRECTORY", *currentWorkingDir))
 	                       ->SetHelp("If AUTOLOAD doesn't work properly, set this value to the path to the directory holding the JoyShockMapper.exe file. Make sure a folder named \"AutoLoad\" exists there."));
 
-	auto mouselike_factor = new JSMSetting<FloatXY>(SettingID::MOUSELIKE_FACTOR, 90.f);
+	auto mouselike_factor = new JSMSetting<FloatXY>(SettingID::MOUSELIKE_FACTOR, {90.f, 90.f});
 	mouselike_factor->setFilter(&filterFloatPair);
 	SettingsManager::add(SettingID::MOUSELIKE_FACTOR, mouselike_factor);
 	commandRegistry->add((new JSMAssignment<FloatXY>(*mouselike_factor))

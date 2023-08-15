@@ -250,10 +250,14 @@ public:
 		while (keep_polling)
 		{
 			auto tick_time = SettingsManager::get<float>(SettingID::TICK_TIME)->value();
-			SDL_Delay(Uint32(tick_time));
+			SDL_Delay(tick_time);
 
 			std::lock_guard guard(controller_lock);
-			SDL_GameControllerUpdate();
+<<<<<<< HEAD
+			//SDL_GameControllerUpdate(); // Done through polling in Application.cpp
+=======
+			SDL_GameControllerUpdate(); // Done through polling in Application.cpp
+>>>>>>> e3125d8 (Settings Manager update)
 			for (auto iter = _controllerMap.begin(); iter != _controllerMap.end(); ++iter)
 			{
 				if (g_callback)
@@ -271,7 +275,7 @@ public:
 					g_touch_callback(iter->first, touch, dummy3, tick_time);
 				}
 				// Perform rumble
-				SDL_GameControllerRumble(iter->second->_sdlController, iter->second->_big_rumble, iter->second->_small_rumble, Uint32(tick_time + 5));
+				SDL_GameControllerRumble(iter->second->_sdlController, iter->second->_big_rumble, iter->second->_small_rumble, tick_time + 5);
 			}
 		}
 
@@ -356,7 +360,7 @@ public:
 		{
 			array<float, 3> gyro;
 			SDL_GameControllerGetSensorData(_controllerMap[deviceId]->_sdlController, SDL_SENSOR_GYRO, &gyro[0], 3);
-			static constexpr float toDegPerSec = float(180. / M_PI);
+			static constexpr float toDegPerSec = 180.f / M_PI;
 			imuState.gyroX = gyro[0] * toDegPerSec;
 			imuState.gyroY = gyro[1] * toDegPerSec;
 			imuState.gyroZ = gyro[2] * toDegPerSec;

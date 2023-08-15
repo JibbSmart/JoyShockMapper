@@ -105,9 +105,15 @@ bool isNumLockKey(KeyCode key)
 
 bool isExtendedKey(KeyCode key)
 {
+<<<<<<< HEAD
+	return (key.code >= VK_LEFT && key.code <= VK_DOWN) ||
+	  (key.code > VK_RWIN && key.code <= VK_NUMPAD9) ||
+	  (key.code >= VK_BROWSER_BACK && key.code <= VK_LAUNCH_APP2);
+=======
 	return ((key.code >= VK_PRIOR && key.code <= VK_HELP) && key.code != VK_SNAPSHOT) ||
 		(key.code >= VK_LWIN && key.code <= VK_DIVIDE) ||
 		(key.code >= VK_BROWSER_BACK && key.code <= VK_LAUNCH_APP2);
+>>>>>>> master
 }
 
 // send key press
@@ -123,7 +129,11 @@ int pressKey(KeyCode vkKey, bool pressed)
 	input.type = INPUT_KEYBOARD;
 	input.ki.time = 0;
 	input.ki.dwFlags = pressed ? 0 : KEYEVENTF_KEYUP;
+<<<<<<< HEAD
+	if (isExtendedKey)
+=======
 	if (isExtendedKey(vkKey))
+>>>>>>> master
 	{
 		input.ki.dwFlags |= KEYEVENTF_EXTENDEDKEY;
 	}
@@ -171,18 +181,18 @@ void setMouseNorm(float x, float y)
 	input.type = INPUT_MOUSE;
 	input.mi.mouseData = 0;
 	input.mi.time = 0;
-	input.mi.dx = LONG(roundf(65535.0f * x));
-	input.mi.dy = LONG(roundf(65535.0f * y));
+	input.mi.dx = roundf(65535.0f * x);
+	input.mi.dy = roundf(65535.0f * y);
 	input.mi.dwFlags = MOUSEEVENTF_MOVE | MOUSEEVENTF_ABSOLUTE;
 	SendInput(1, &input, sizeof(input));
 }
 
 BOOL WriteToConsole(in_string command)
 {
-	static const INPUT_RECORD ESC_DOWN = { KEY_EVENT, { TRUE, 1, VK_ESCAPE, MapVirtualKey(WORD(VK_ESCAPE), MAPVK_VK_TO_VSC), VK_ESCAPE, 0 } };
-	static const INPUT_RECORD ESC_UP = { KEY_EVENT, { FALSE, 1, VK_ESCAPE, MapVirtualKey(WORD(VK_ESCAPE), MAPVK_VK_TO_VSC), VK_ESCAPE, 0 } };
-	static const INPUT_RECORD RET_DOWN = { KEY_EVENT, { TRUE, 1, VK_RETURN, MapVirtualKey(WORD(VK_RETURN), MAPVK_VK_TO_VSC), VK_RETURN, 0 } };
-	static const INPUT_RECORD RET_UP = { KEY_EVENT, { FALSE, 1, VK_RETURN, MapVirtualKey(WORD(VK_RETURN), MAPVK_VK_TO_VSC), VK_RETURN, 0 } };
+	static const INPUT_RECORD ESC_DOWN = { KEY_EVENT, { TRUE, 1, VK_ESCAPE, MapVirtualKey(VK_ESCAPE, MAPVK_VK_TO_VSC), VK_ESCAPE, 0 } };
+	static const INPUT_RECORD ESC_UP = { KEY_EVENT, { FALSE, 1, VK_ESCAPE, MapVirtualKey(VK_ESCAPE, MAPVK_VK_TO_VSC), VK_ESCAPE, 0 } };
+	static const INPUT_RECORD RET_DOWN = { KEY_EVENT, { TRUE, 1, VK_RETURN, MapVirtualKey(VK_RETURN, MAPVK_VK_TO_VSC), VK_RETURN, 0 } };
+	static const INPUT_RECORD RET_UP = { KEY_EVENT, { FALSE, 1, VK_RETURN, MapVirtualKey(VK_RETURN, MAPVK_VK_TO_VSC), VK_RETURN, 0 } };
 
 	std::vector<INPUT_RECORD> inputs(0);
 	inputs.reserve(command.size() + 4);
@@ -259,7 +269,7 @@ std::tuple<std::string, std::string> GetActiveWindowName()
 			HANDLE hProcess = OpenProcess(PROCESS_QUERY_INFORMATION, FALSE, pid);
 			if (hProcess)
 			{
-				DWORD len = DWORD(module.size());
+				DWORD len = module.size();
 				if (QueryFullProcessImageNameA(hProcess, 0, &module[0], &len))
 				{
 					auto pos = module.find_last_of("\\");
@@ -332,7 +342,7 @@ std::string GetCWD()
 
 bool SetCWD(in_string newCWD)
 {
-	return SetCurrentDirectoryA(newCWD.data()) == TRUE;
+	return SetCurrentDirectoryA(newCWD.c_str()) == TRUE;
 }
 
 DWORD ShowOnlineHelp()
