@@ -183,7 +183,7 @@ else()
 	CPMAddPackage (
 		NAME JoyShockLibrary
 		GITHUB_REPOSITORY JibbSmart/JoyShockLibrary
-		GIT_TAG 0
+		GIT_TAG 97190788bd7cac7ff31bd91818b37ab31f013a8a
 	)
 
 	target_link_libraries (

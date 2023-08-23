@@ -479,28 +479,35 @@ public:
 		for (auto activeChord = _context->chordStack.begin(); activeChord != _context->chordStack.end(); activeChord++)
 		{
 			optional<E> opt = GetOptionalSetting<E>(index, *activeChord);
-			switch (index)
+			if constexpr (std::is_same_v<E, StickMode>)
 			{
-			case SettingID::LEFT_STICK_MODE:
-				if (ignore_left_stick_mode && *activeChord == ButtonID::NONE)
-					opt = optional<E>(static_cast<E>(StickMode::INVALID));
-				else
-					ignore_left_stick_mode |= (opt && *activeChord != ButtonID::NONE);
-				break;
-			case SettingID::RIGHT_STICK_MODE:
-				if (ignore_right_stick_mode && *activeChord == ButtonID::NONE)
-					opt = optional<E>(static_cast<E>(StickMode::INVALID));
-				else
-					ignore_right_stick_mode |= (opt && *activeChord != ButtonID::NONE);
-				break;
-			case SettingID::MOTION_STICK_MODE:
-				if (ignore_motion_stick_mode && *activeChord == ButtonID::NONE)
-					opt = optional<E>(static_cast<E>(StickMode::INVALID));
-				else
-					ignore_motion_stick_mode |= (opt && *activeChord != ButtonID::NONE);
-				break;
-			case SettingID::CONTROLLER_ORIENTATION:
-				if (opt && int(*opt) == int(ControllerOrientation::JOYCON_SIDEWAYS))
+				switch (index)
+				{
+				case SettingID::LEFT_STICK_MODE:
+					if (ignore_left_stick_mode && *activeChord == ButtonID::NONE)
+						opt = optional<E>(static_cast<E>(StickMode::INVALID));
+					else
+						ignore_left_stick_mode |= (opt && *activeChord != ButtonID::NONE);
+					break;
+				case SettingID::RIGHT_STICK_MODE:
+					if (ignore_right_stick_mode && *activeChord == ButtonID::NONE)
+						opt = optional<E>(static_cast<E>(StickMode::INVALID));
+					else
+						ignore_right_stick_mode |= (opt && *activeChord != ButtonID::NONE);
+					break;
+				case SettingID::MOTION_STICK_MODE:
+					if (ignore_motion_stick_mode && *activeChord == ButtonID::NONE)
+						opt = optional<E>(static_cast<E>(StickMode::INVALID));
+					else
+						ignore_motion_stick_mode |= (opt && *activeChord != ButtonID::NONE);
+					break;
+				}
+			}
+
+			if constexpr (std::is_same_v<E, ControllerOrientation>)
+			{
+				if (index == SettingID::CONTROLLER_ORIENTATION && opt && 
+				    int(*opt) == int(ControllerOrientation::JOYCON_SIDEWAYS))
 				{
 					if (controller_split_type == JS_SPLIT_TYPE_LEFT)
 					{
@@ -515,7 +522,6 @@ public:
 						opt = optional<E>(static_cast<E>(ControllerOrientation::FORWARD));
 					}
 				}
-				break;
 			}
 			if (opt)
 				return *opt;
