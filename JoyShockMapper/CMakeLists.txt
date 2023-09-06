@@ -26,6 +26,7 @@ add_executable (
     src/TriggerEffectGenerator.cpp
     src/AutoLoad.cpp
 	src/SettingsManager.cpp
+	src/Stick.cpp
     include/TriggerEffectGenerator.h
     include/InputHelpers.h
     include/PlatformDefinitions.h
@@ -44,6 +45,7 @@ add_executable (
 	include/Mapping.h
     include/AutoLoad.h
 	include/SettingsManager.h
+	include/Stick.h
 )
 
 if (WINDOWS)

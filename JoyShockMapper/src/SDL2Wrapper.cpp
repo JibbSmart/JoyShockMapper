@@ -44,6 +44,8 @@ struct ControllerDevice
 	  : _has_accel(false)
 	  , _has_gyro(false)
 	{
+		_prevTouchState.t0Down = false;
+		_prevTouchState.t1Down = false;
 		if (SDL_IsGameController(id))
 		{
 			_sdlController = SDL_GameControllerOpen(id);
@@ -222,6 +224,7 @@ public:
 	AdaptiveTriggerSetting _rightTriggerEffect;
 	uint8_t _micLight = 0;
 	SDL_GameController *_sdlController = nullptr;
+	TOUCH_STATE _prevTouchState;
 };
 
 struct SdlInstance : public JslWrapper
@@ -266,9 +269,9 @@ public:
 				}
 				if (g_touch_callback)
 				{
-					TOUCH_STATE touch = GetTouchState(iter->first, false), dummy3;
-					memset(&dummy3, 0, sizeof(dummy3));
-					g_touch_callback(iter->first, touch, dummy3, tick_time);
+					TOUCH_STATE touch = GetTouchState(iter->first, false);
+					g_touch_callback(iter->first, touch, iter->second->_prevTouchState, tick_time);
+					iter->second->_prevTouchState = touch;
 				}
 				// Perform rumble
 				SDL_GameControllerRumble(iter->second->_sdlController, iter->second->_big_rumble, iter->second->_small_rumble, Uint32(tick_time + 5));

@@ -637,7 +637,7 @@ class WaitSim : public DigitalButtonState
 			sync.dblPressWindow = e.dblPressWindow;
 			simBtn->sendEvent(sync);
 		}
-		else if (pimpl()->GetPressDurationMS(e.time_now) > SettingsManager::get<float>(SettingID::SIM_PRESS_WINDOW)->value())
+		else if (pimpl()->GetPressDurationMS(e.time_now) > SettingsManager::getV<float>(SettingID::SIM_PRESS_WINDOW)->value())
 		{
 			// Button is still pressed but Sim delay did expire
 			if (pimpl()->_mapping.getDblPressMap())

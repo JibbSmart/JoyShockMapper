@@ -178,7 +178,8 @@ extern const map<ButtonID, string> buttonHelpMap;
 
 enum class SettingID
 {
-	INVALID = 0,    // Represents an error in user input
+	INVALID = -1,
+	ZERO = 0,    // Represents an error in user input
 	MIN_GYRO_SENS,  // Legacy but int value not used
 	MAX_GYRO_SENS,
 	MIN_GYRO_THRESHOLD,
@@ -558,6 +559,13 @@ struct FloatXY : public pair<float, float>
 	inline float y() const
 	{
 		return second;
+	}
+
+	FloatXY &operator+=(const FloatXY& rhs)
+	{
+		first += rhs.first;
+		second += rhs.second;
+		return *this;
 	}
 };
 
