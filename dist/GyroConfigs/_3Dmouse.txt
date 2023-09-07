@@ -1,7 +1,7 @@
 # Aim settings
 # Gyro sens of 1 means you'll turn the same amount in game as in the real world
-MIN_GYRO_SENS = 1
-MAX_GYRO_SENS = 2
+MIN_GYRO_SENS = 0
+MAX_GYRO_SENS = 0
 # Gyro thresholds are in degrees per second
 MIN_GYRO_THRESHOLD = 0
 MAX_GYRO_THRESHOLD = 75
@@ -12,4 +12,5 @@ STICK_POWER = 4
 STICK_ACCELERATION_RATE = 1
 STICK_ACCELERATION_CAP = 2
 RIGHT_STICK_MODE = FLICK
+LEFT_STICK_MODE = FLICK
 #RIGHT_STICK_MODE = AIM

@@ -152,8 +152,6 @@ public:
 	vector<TouchStick> touchpads;
 	chrono::steady_clock::time_point time_now;
 	Stick left_stick, right_stick, motion_stick;
-	ScrollAxis left_scroll;
-	ScrollAxis right_scroll;
 	// ScrollAxis motion_scroll_x;
 	// ScrollAxis motion_scroll_y;
 	ScrollAxis touch_scroll_x;
@@ -191,17 +189,6 @@ public:
 	AdaptiveTriggerSetting right_effect;
 	AdaptiveTriggerSetting unused_effect;
 
-	float edgePushAmount = 0.0f;
-	float smallestMagnitude = 0.f;
-	const static int smoothingSteps = 4;
-	float previousOutputX[smoothingSteps] = {};
-	float previousOutputY[smoothingSteps] = {};
-	float previousOutputRadial[smoothingSteps] = {};
-	float previousVelocitiesX[smoothingSteps] = {};
-	float previousVelocitiesY[smoothingSteps] = {};
-	int smoothingCounter = 0;
-
-
 	JoyShock(int uniqueHandle, int controllerSplitType, shared_ptr<DigitalButton::Context> sharedButtonCommon = nullptr)
 	  : handle(uniqueHandle)
 	  , controller_split_type(controllerSplitType)
@@ -233,10 +220,6 @@ public:
 		{
 			buttons.push_back(DigitalButton(_context, mappings[i]));
 		}
-		right_stick.scroll.init(buttons[int(ButtonID::RLEFT)], buttons[int(ButtonID::RRIGHT)]);
-		left_stick.scroll.init(buttons[int(ButtonID::LLEFT)], buttons[int(ButtonID::LRIGHT)]);
-		right_scroll.init(buttons[int(ButtonID::RLEFT)], buttons[int(ButtonID::RRIGHT)]);
-		left_scroll.init(buttons[int(ButtonID::LLEFT)], buttons[int(ButtonID::LRIGHT)]);
 		ResetSmoothSample();
 		if (!CheckVigemState())
 		{
@@ -268,6 +251,7 @@ public:
 		}
 	}
 	
+        // These two large functions are defined further down
 	void processStick(float stickX, float stickY, Stick &stick, float mouseCalibrationFactor, float deltaTime, bool &anyStickInput, bool &lockMouse, float &camSpeedX, float &camSpeedY);
 	void handleTouchStickChange(TouchStick &ts, bool down, short movX, short movY, float delta_time);
 
@@ -612,6 +596,7 @@ public:
 	}
 
 private:
+        // this large functions is defined further down
 	float handleFlickStick(float stickX, float stickY, Stick& stick, float stickLength, StickMode mode);
 
 	bool isSoftPullPressed(int triggerIndex, float triggerPosition)

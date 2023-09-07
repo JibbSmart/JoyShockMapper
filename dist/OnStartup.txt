@@ -1,6 +1,7 @@
 # Edit this file to your prefered settings on startup
 
 #GyroConfigs/Desktop.txt # Load a configuration to navigate the OS
+GyroConfigs/_3Dmouse.txt
 
 # Uncomment the following three lines to calibrate all your devices at startup
 #RESTART_GYRO_CALIBRATION

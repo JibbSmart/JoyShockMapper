@@ -1,6 +1,6 @@
 #include "JslWrapper.h"
 #include "JSMVariable.hpp"
-#include "TriggerEffectGenerator.h"
+ #include "TriggerEffectGenerator.h"
 #include "SettingsManager.h"
 #include "SDL.h"
 #include <map>

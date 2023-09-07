@@ -353,6 +353,7 @@ enum class StickMode
 	OUTER_RING,
 	INNER_RING,
 	SCROLL_WHEEL,
+	HYBRID_AIM,
 	// Following requires virtual controller (keep them contiguous)
 	LEFT_STICK,
 	RIGHT_STICK,
@@ -364,7 +365,6 @@ enum class StickMode
 	RIGHT_STEER_X,
 	LEFT_WIND_X,
 	RIGHT_WIND_X,
-	HYBRID_AIM,
 	INVALID
 };
 enum class FlickSnapMode

@@ -1,4 +1,3 @@
-
 # JoyShockMapper
 The Sony PlayStation DualSense, DualShock 4, Nintendo Switch JoyCons (used in pairs), and Nintendo Switch Pro Controller have much in common. They have many of the features expected of modern game controllers. They also have an incredibly versatile and underutilised input that their biggest rival (Microsoft's Xbox One controller) doesn't have: a 3-axis gyroscope (from here on, “gyro”).
 
@@ -891,6 +890,16 @@ PS_L2, PS_R2 : The playstation digital trigger bindings
 ```
 LEFT_STICK_MODE = LEFT_STICK
 RIGHT_STICK_MODE = RIGHT_STICK
+```
+
+* **New GYRO_OUTPUT mode available**
+```
+GYRO_OUTPUT = PS_MOTION
+```
+
+* **New TOUCHPAD_MODE mode available**
+```
+TOUCHPAD_MODE = PS_TOUCHPAD
 ```
 
 A ds4 can also use the more advanced angle-to-axis stick modes described in the xbox section:

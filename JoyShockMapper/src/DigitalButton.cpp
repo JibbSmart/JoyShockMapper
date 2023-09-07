@@ -335,6 +335,7 @@ void DigitalButtonState::react(GetDuration &e)
 	e.out_duration = pimpl()->GetPressDurationMS(e.in_now);
 }
 
+
 // Append to pocket_fsm macro
 #define DB_CONCRETE_STATE(statename)           \
 	CONCRETE_STATE(statename)                  \
@@ -410,6 +411,7 @@ class ActiveStartPress : public ActiveMappingState
 		pimpl()->_press_times = e.time_now; // Start counting tap duration
 		changeState<TapPress>();
 	}
+
 };
 
 class ActiveHoldPress : public ActiveMappingState

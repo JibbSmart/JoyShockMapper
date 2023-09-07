@@ -3,6 +3,10 @@
 Most recent updates will appear first.
 This is a summary of new features and bugfixes. Read the README to learn how to use the features mentioned here.
 
+## 3.5.0
+
+Nick updates C++ standard to C++20, Add Setting Manager, Create Stick and Autoload objects, Update ViGEm, SDL2 and JSL dependencies to latest, which includes Sony Edge support for both SDL and JSL versions. Add virtual DS4 gyro and touchpad forwarding (GYRO_OUTPUT=PS_MOTION, TOUCHPAD_MODE = PS_TOUCHPAD). Add HYBRID_AIM stick mode. Perform proper polymorphism of virtual gamepads, set flick threshold at 100% (so that it is adjusted by the outer deadzone)
+
 ## 3.4.0
 
 Nicolas updated SDL2 version to the latest release 2.0.20 and fixed some bugs
