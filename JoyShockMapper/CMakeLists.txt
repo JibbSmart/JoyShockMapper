@@ -159,6 +159,7 @@ target_include_directories (
 )
 
 if(SDL OR NOT DEFINED SDL)
+<<<<<<< HEAD
     set(SDL_HIDAPI ON)
     CPMAddPackage (
         NAME SDL2
@@ -167,6 +168,16 @@ if(SDL OR NOT DEFINED SDL)
     )
     
     set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
+=======
+	set(SDL_HIDAPI ON)
+	CPMAddPackage (
+		NAME SDL2
+		GITHUB_REPOSITORY Electronicks/SDL
+		GIT_TAG SDL2
+	)
+	
+	set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
+>>>>>>> 90dfe55 (Beta bugfixes.)
 
     target_link_libraries (
         ${BINARY_NAME} PRIVATE
@@ -180,12 +191,21 @@ if(SDL OR NOT DEFINED SDL)
         RUNTIME DESTINATION ${PACKAGE_DIR}
     )
 else()
+<<<<<<< HEAD
     # JoyShockLibrary
     CPMAddPackage (
         NAME JoyShockLibrary
         GITHUB_REPOSITORY JibbSmart/JoyShockLibrary
         GIT_TAG 97190788bd7cac7ff31bd91818b37ab31f013a8a
     )
+=======
+	# JoyShockLibrary
+	CPMAddPackage (
+		NAME JoyShockLibrary
+		GITHUB_REPOSITORY Electronicks/JoyShockLibrary
+		GIT_TAG 0
+	)
+>>>>>>> 90dfe55 (Beta bugfixes.)
 
     target_link_libraries (
         ${BINARY_NAME} PRIVATE

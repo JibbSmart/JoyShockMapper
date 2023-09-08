@@ -5,6 +5,7 @@
 #include <math.h> // M_PI
 #include <algorithm>
 #include <sstream>
+#include <iostream>
 
 //
 // Link against SetupAPI
@@ -346,8 +347,8 @@ public:
 	virtual void setButton(KeyCode btn, bool pressed) override;
 	virtual void setLeftStick(float x, float y) override
 	{
-		_stateDS4.Report.bThumbLX = clamp(int(_stateDS4.Report.bThumbLX + UCHAR_MAX * (clamp(x / 2.f, -.5f, .5f) + .5f)), 0, UCHAR_MAX);
-		_stateDS4.Report.bThumbLY = clamp(int(_stateDS4.Report.bThumbLY + UCHAR_MAX * (clamp(-y / 2.f, -.5f, .5f) + .5f)), 0, UCHAR_MAX);
+		_stateDS4.Report.bThumbLX = clamp(int(_stateDS4.Report.bThumbLX + UCHAR_MAX * (clamp(x / 2.f, -.5f, .5f))), 0, UCHAR_MAX);
+		_stateDS4.Report.bThumbLY = clamp(int(_stateDS4.Report.bThumbLY + UCHAR_MAX * (clamp(-y / 2.f, -.5f, .5f))), 0, UCHAR_MAX);
 	}
 	virtual void setRightStick(float x, float y) override
 	{
@@ -373,35 +374,64 @@ public:
 	virtual void setGyro(float accelX, float accelY, float accelZ, float gyroX, float gyroY, float gyroZ) override
 	{
 		// reset Analog Data ?
-		static constexpr float accelToRaw = 9.8f;
-		_stateDS4.Report.wAccelX = SHORT(accelX * accelToRaw);
-		_stateDS4.Report.wAccelY = SHORT(accelY * accelToRaw);
-		_stateDS4.Report.wAccelZ = SHORT(accelZ * accelToRaw);
+		static constexpr float accelToRaw = 8192.0f;
+		_stateDS4.Report.wAccelX = SHORT(roundf(accelX * accelToRaw));
+		_stateDS4.Report.wAccelY = SHORT(roundf(accelY * accelToRaw));
+		_stateDS4.Report.wAccelZ = SHORT(roundf(accelZ * accelToRaw));
 
-		static constexpr float gyroToRaw = float(M_PI / 180.);
-		_stateDS4.Report.wGyroX = SHORT(accelX * gyroToRaw);
-		_stateDS4.Report.wGyroY = SHORT(accelY * gyroToRaw);
-		_stateDS4.Report.wGyroZ = SHORT(accelZ * gyroToRaw);
+		static constexpr float gyroToRaw = 32767.0f / 2000.0f;
+		_stateDS4.Report.wGyroX = SHORT(roundf(gyroX * gyroToRaw));
+		_stateDS4.Report.wGyroY = SHORT(roundf(gyroY * gyroToRaw));
+		_stateDS4.Report.wGyroZ = SHORT(roundf(gyroZ * gyroToRaw));
 	}
 	virtual void setTouchState(std::optional<FloatXY> press1, std::optional<FloatXY> press2) override
 	{
+		if (press1 || _touchId1 || press2 || _touchId2 )
+		{
+			_stateDS4.Report.bTouchPacketsN = 1;
+			_stateDS4.Report.sCurrentTouch.bPacketCounter = ++_touchPacket;
+		}
+
 		if (press1)
 		{
-			_stateDS4.Report.sCurrentTouch.bIsUpTrackingNum1 = 0;
+			if (!_touchId1)
+			{
+				_touchId1 = _nextTouchId;
+				_nextTouchId = (_nextTouchId+1) % 0x80;
+			}
+
+			_stateDS4.Report.sCurrentTouch.bIsUpTrackingNum1 = *_touchId1 & 0x7F;
 			int32_t xy24b = int32_t(press1->y() * 943.0f) << 12;
 			xy24b |= int32_t(press1->x() * 1920.0f);
 			_stateDS4.Report.sCurrentTouch.bTouchData1[2] = uint8_t(xy24b >> 16);
 			_stateDS4.Report.sCurrentTouch.bTouchData1[1] = uint8_t((xy24b >> 8) & 0xFF);
 			_stateDS4.Report.sCurrentTouch.bTouchData1[0] = uint8_t(xy24b & 0xFF);
 		}
+		else if (_touchId1)
+		{
+			_stateDS4.Report.sCurrentTouch.bIsUpTrackingNum1 = 0x80 | *_touchId1 & 0x7F;
+			_touchId1 = std::nullopt;
+		}
+
 		if (press2)
 		{
-			_stateDS4.Report.sCurrentTouch.bIsUpTrackingNum1 = 0;
+			if (!_touchId2)
+			{
+				_touchId2 = _nextTouchId;
+				_nextTouchId = (_nextTouchId + 1) % 0x80;
+			}
+
+			_stateDS4.Report.sCurrentTouch.bIsUpTrackingNum2 = *_touchId2 & 0x7F;
 			int32_t xy24b = int32_t(press2->y() * 943.0f) << 12;
 			xy24b |= int32_t(press2->x() * 1920.0f);
-			_stateDS4.Report.sCurrentTouch.bTouchData1[2] = uint8_t(xy24b >> 16);
-			_stateDS4.Report.sCurrentTouch.bTouchData1[1] = uint8_t((xy24b >> 8) & 0xFF);
-			_stateDS4.Report.sCurrentTouch.bTouchData1[0] = uint8_t(xy24b & 0xFF);
+			_stateDS4.Report.sCurrentTouch.bTouchData2[2] = uint8_t(xy24b >> 16);
+			_stateDS4.Report.sCurrentTouch.bTouchData2[1] = uint8_t((xy24b >> 8) & 0xFF);
+			_stateDS4.Report.sCurrentTouch.bTouchData2[0] = uint8_t(xy24b & 0xFF);
+		}
+		else if (_touchId2)
+		{
+			_stateDS4.Report.sCurrentTouch.bIsUpTrackingNum2 = 0x80 | *_touchId2 & 0x7F;
+			_touchId2 = std::nullopt;
 		}
 	}
 	virtual void update() override
@@ -435,6 +465,10 @@ private:
 	}
 
 	DS4_REPORT_EX _stateDS4;
+	uint8_t _touchPacket = 0;
+	uint8_t _nextTouchId = 1;
+	std::optional<uint8_t> _touchId1 = 0;
+	std::optional<uint8_t> _touchId2 = 0;
 };
 
 class PSHat

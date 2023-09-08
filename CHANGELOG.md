@@ -5,7 +5,19 @@ This is a summary of new features and bugfixes. Read the README to learn how to 
 
 ## 3.5.0
 
+<<<<<<< HEAD
 Nick updates C++ standard to C++20, Add Setting Manager, Create Stick and Autoload objects, Update ViGEm, SDL2 and JSL dependencies to latest, which includes Sony Edge support for both SDL and JSL versions. Add virtual DS4 gyro and touchpad forwarding (GYRO_OUTPUT=PS_MOTION, TOUCHPAD_MODE = PS_TOUCHPAD). Add HYBRID_AIM stick mode. Perform proper polymorphism of virtual gamepads, set flick threshold at 100% (so that it is adjusted by the outer deadzone)
+=======
+Nick updates C++ standard to C++20, Add Setting Manager, Create Stick and Autoload objects, Update ViGEm, SDL2 and JSL dependencies to latest,
+which includes Sony Edge support for both SDL and JSL versions. Perform proper polymorphism of virtual gamepads.
+
+### Features
+* New HYBRID_AIM stick mode. This is the first feature developped by a community member : somebelse-Schmortii. It combines AIM and MOUSE_AREA. See readme for a ton of options and description
+* New virtual DS4 forwarding options: GYRO_OUTPUT=PS_MOTION, TOUCHPAD_MODE=PS_TOUCHPAD
+
+### Bugfixes
+* Set flick threshold at 100% (so that it is precisely controllerd by the outer deadzone setting)
+>>>>>>> 90dfe55 (Beta bugfixes.)
 
 ## 3.4.0
 

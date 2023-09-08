@@ -391,6 +391,10 @@ public:
 			case SettingID::ZERO:
 				opt = 0.f;
 				break;
+			case SettingID::GYRO_AXIS_X:
+			case SettingID::GYRO_AXIS_Y:
+				if (auto axisSign = GetOptionalSetting<AxisMode>(index, *activeChord))
+					opt = float(*axisSign);
 			}
 			if (opt)
 				return *opt;
@@ -2728,8 +2732,8 @@ void joyShockPollCallback(int jcHandle, JOY_SHOCK_STATE state, JOY_SHOCK_STATE l
 	}
 	break;
 	}
-	float gyro_x_sign_to_use = float(jc->getSetting<AxisMode>(SettingID::GYRO_AXIS_X));
-	float gyro_y_sign_to_use = float(jc->getSetting<AxisMode>(SettingID::GYRO_AXIS_Y));
+	float gyro_x_sign_to_use = jc->getSetting(SettingID::GYRO_AXIS_X);
+	float gyro_y_sign_to_use = jc->getSetting(SettingID::GYRO_AXIS_Y);
 
 	bool trackball_x_pressed = false;
 	bool trackball_y_pressed = false;
@@ -3015,7 +3019,14 @@ void joyShockPollCallback(int jcHandle, JOY_SHOCK_STATE state, JOY_SHOCK_STATE l
 		{
 		case JS_TYPE_DS:
 			// JSL mapps mic button on the SL index
-			jc->handleButtonChange(ButtonID::MIC, buttons & (1 << JSOFFSET_MIC));
+			//Edge grips
+			jc->handleButtonChange(ButtonID::LSL, buttons & (1 << JSOFFSET_FNL));
+			jc->handleButtonChange(ButtonID::RSR, buttons & (1 << JSOFFSET_MIC));
+			// Edge FN
+			jc->handleButtonChange(ButtonID::LSR, buttons & (1 << JSOFFSET_FNR) );
+			jc->handleButtonChange(ButtonID::RSL, buttons & (1 << JSOFFSET_SR) );
+
+			jc->handleButtonChange(ButtonID::MIC, buttons & (1 << JSOFFSET_SL));
 			// Don't break but continue onto DS4 stuff too
 		case JS_TYPE_DS4:
 		{
@@ -3026,10 +3037,10 @@ void joyShockPollCallback(int jcHandle, JOY_SHOCK_STATE state, JOY_SHOCK_STATE l
 		}
 		break;
 		case JS_TYPE_XBOXONE_ELITE:
-			jc->handleButtonChange(ButtonID::RSL, buttons & (1 << JSOFFSET_SL2)); // Xbox Elite back paddles
-			jc->handleButtonChange(ButtonID::RSR, buttons & (1 << JSOFFSET_SR2));
-			jc->handleButtonChange(ButtonID::LSL, buttons & (1 << JSOFFSET_SL));
-			jc->handleButtonChange(ButtonID::LSR, buttons & (1 << JSOFFSET_SR));
+			jc->handleButtonChange(ButtonID::LSL, buttons & (1 << JSOFFSET_SL)); // Xbox Elite back paddles
+			jc->handleButtonChange(ButtonID::RSR, buttons & (1 << JSOFFSET_SR));
+			jc->handleButtonChange(ButtonID::LSR, buttons & (1 << JSOFFSET_FNL));
+			jc->handleButtonChange(ButtonID::RSL, buttons & (1 << JSOFFSET_FNR));
 			break;
 		case JS_TYPE_XBOX_SERIES:
 			jc->handleButtonChange(ButtonID::CAPTURE, buttons & (1 << JSOFFSET_CAPTURE));
@@ -3039,8 +3050,6 @@ void joyShockPollCallback(int jcHandle, JOY_SHOCK_STATE state, JOY_SHOCK_STATE l
 			jc->handleButtonChange(ButtonID::CAPTURE, buttons & (1 << JSOFFSET_CAPTURE));
 			jc->handleButtonChange(ButtonID::LSL, buttons & (1 << JSOFFSET_SL));
 			jc->handleButtonChange(ButtonID::LSR, buttons & (1 << JSOFFSET_SR));
-			jc->handleButtonChange(ButtonID::RSL, buttons & (1 << JSOFFSET_SL2));
-			jc->handleButtonChange(ButtonID::RSR, buttons & (1 << JSOFFSET_SR2));
 		}
 		break;
 		}
@@ -3065,6 +3074,12 @@ void joyShockPollCallback(int jcHandle, JOY_SHOCK_STATE state, JOY_SHOCK_STATE l
 
 		float rTrigger = jsl->GetRightTrigger(jc->handle);
 		jc->handleTriggerChange(ButtonID::ZR, ButtonID::ZRF, jc->getSetting<TriggerMode>(SettingID::ZR_MODE), rTrigger, jc->right_effect);
+	}
+	else
+	{
+		// Left joycon bumpers
+		jc->handleButtonChange(ButtonID::LSL, buttons & (1 << JSOFFSET_SL));
+		jc->handleButtonChange(ButtonID::LSR, buttons & (1 << JSOFFSET_SR));
 	}
 
 	auto at = jc->getSetting<Switch>(SettingID::ADAPTIVE_TRIGGER);
@@ -3216,7 +3231,7 @@ void beforeShowTrayMenu()
 		tray->AddMenuItem(
 		  U("Hide when minimized"), [](bool isChecked)
 		  {
-			  SettingsManager::get<Switch>(SettingID::HIDE_MINIMIZED)->set(isChecked ? Switch::ON : Switch::OFF);
+			  SettingsManager::getV<Switch>(SettingID::HIDE_MINIMIZED)->set(isChecked ? Switch::ON : Switch::OFF);
 			  if (!isChecked)
 				  UnhideConsole(); },
 		  bind(&PollingThread::isRunning, minimizeThread.get()));
@@ -4206,6 +4221,7 @@ void initJsmSettings(CmdRegistry *commandRegistry)
 	                       ->SetHelp("Changes the sensitivity of the touchpad when set as a mouse. Enter a second value for a different vertical sensitivity."));
 
 	auto hide_minimized = new JSMVariable<Switch>(Switch::OFF);
+	minimizeThread.reset(new PollingThread("Minimize thread", &MinimizePoll, nullptr, 1000, hide_minimized->value() == Switch::ON)); // Start by default
 	hide_minimized->setFilter(&filterInvalidValue<Switch, Switch::INVALID>);
 	hide_minimized->addOnChangeListener(bind(&UpdateThread, minimizeThread.get(), placeholders::_1));
 	SettingsManager::add(SettingID::HIDE_MINIMIZED, hide_minimized);
@@ -4456,7 +4472,6 @@ int main(int argc, char *argv[])
 	//  Threads need to be created before listeners
 	CmdRegistry commandRegistry;
 	initJsmSettings(&commandRegistry);
-	minimizeThread.reset(new PollingThread("Minimize thread", &MinimizePoll, nullptr, 1000, SettingsManager::getV<Switch>(SettingID::HIDE_MINIMIZED)->value() == Switch::ON)); // Start by default
 
 	for (int i = argc - 1; i >= 0; --i)
 	{

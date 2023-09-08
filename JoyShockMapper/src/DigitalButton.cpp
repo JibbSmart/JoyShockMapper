@@ -69,7 +69,7 @@ public:
 	string _nameToRelease;
 	shared_ptr<DigitalButton::Context> _context;
 	chrono::steady_clock::time_point _press_times;
-	unique_ptr<Mapping> _keyToRelease; // At key press, remember what to release
+	optional<Mapping> _keyToRelease; // At key press, remember what to release
 	const JSMButton &_mapping;
 	DigitalButton *_simPressMaster = nullptr;
 
@@ -91,7 +91,7 @@ public:
 
 	void ClearKey()
 	{
-		_keyToRelease.reset();
+		_keyToRelease = nullopt;
 		_instantReleaseQueue.clear();
 		_nameToRelease.clear();
 		_turboCount = 0;
@@ -110,7 +110,7 @@ public:
 		return false;
 	}
 
-	Mapping *GetPressMapping()
+	optional<Mapping> GetPressMapping()
 	{
 		if (!_keyToRelease)
 		{
@@ -120,15 +120,15 @@ public:
 				auto binding = _mapping.chordedValue(*activeChord);
 				if (binding && *activeChord != _id)
 				{
-					_keyToRelease.reset(new Mapping(*binding));
+					_keyToRelease = *binding;
 					_nameToRelease = _mapping.getName(*activeChord);
-					return _keyToRelease.get();
+					return _keyToRelease;
 				}
 			}
 			// Chord stack should always include NONE which will provide a value in the loop above
 			throw runtime_error("ChordStack should always include ButtonID::NONE, for the chorded variable to return the base value.");
 		}
-		return _keyToRelease.get();
+		return _keyToRelease;
 	}
 
 	void RegisterInstant(BtnEvent evt) override
@@ -204,7 +204,10 @@ public:
 		if (key.code >= X_UP && key.code <= X_START || key.code == PS_HOME || key.code == PS_PAD_CLICK)
 		{
 			if (_context->_vigemController)
+			{
 				_context->_vigemController->setButton(key, false);
+				ClearAllActiveToggle(key);
+			}
 		}
 		else if (key.code == X_LT)
 		{
@@ -627,7 +630,7 @@ class WaitSim : public DigitalButtonState
 		{
 			changeState<SimPressSlave>();
 			pimpl()->_press_times = e.time_now;                                                            // Reset Timer
-			pimpl()->_keyToRelease.reset(new Mapping(pimpl()->_mapping.atSimPress(simBtn->_id)->value())); // Make a copy
+			pimpl()->_keyToRelease = pimpl()->_mapping.atSimPress(simBtn->_id)->value(); // Make a copy
 			pimpl()->_nameToRelease = pimpl()->_mapping.getSimPressName(simBtn->_id);
 			pimpl()->_simPressMaster = simBtn; // Second to press is the slave
 
@@ -677,7 +680,7 @@ class WaitSim : public DigitalButtonState
 	{
 		pimpl()->_simPressMaster = nullptr;
 		pimpl()->_press_times = e.pressTime;
-		pimpl()->_keyToRelease.reset(e.activeMapping);
+		pimpl()->_keyToRelease = *e.activeMapping;
 		pimpl()->_nameToRelease = e.nameToRelease;
 		_nextState = e.nextState; // changeState<SimPressMaster>()
 	}
@@ -779,7 +782,7 @@ class DblPressNoPressTap : public DigitalButtonState
 		}
 		else
 		{
-			pimpl()->_keyToRelease.reset(new Mapping(pimpl()->_mapping.getDblPressMap()->second));
+			pimpl()->_keyToRelease = pimpl()->_mapping.getDblPressMap()->second;
 			pimpl()->_nameToRelease = pimpl()->_mapping.getName(pimpl()->_id);
 			pimpl()->_press_times = e.time_now;
 			changeState<DblPressPress>();
@@ -813,7 +816,7 @@ class DblPressNoPressHold : public DigitalButtonState
 		{
 			changeState<DblPressPress>();
 			pimpl()->_press_times = e.time_now;
-			pimpl()->_keyToRelease.reset(new Mapping(pimpl()->_mapping.getDblPressMap()->second));
+			pimpl()->_keyToRelease = pimpl()->_mapping.getDblPressMap()->second;
 			pimpl()->_nameToRelease = pimpl()->_mapping.getName(pimpl()->_id);
 		}
 	}
@@ -838,7 +841,7 @@ class DblPressPress : public pocket_fsm::NestedStateMachine<ActiveMappingState, 
 	override
 	{
 		DigitalButtonState::react(e);
-		pimpl()->_keyToRelease.reset(new Mapping(pimpl()->_mapping.getDblPressMap()->second));
+		pimpl()->_keyToRelease = pimpl()->_mapping.getDblPressMap()->second;
 		pimpl()->_nameToRelease = pimpl()->_mapping.getName(pimpl()->_id);
 		initialize(new ActiveStartPress(_pimpl));
 	}

@@ -250,7 +250,6 @@ bool Mapping::AddMapping(KeyCode key, EventModifier evtMod, ActionModifier actMo
 		if (whileEvent != BtnEvent::INVALID)
 		{
 			// Assign a dummy callback to the OnX event in order to display the console log
-			KeyCode noKey("NONE");
 			InsertEventMapping(applyEvt, [](EventActionIf *) {});
 			applyEvt = whileEvent; // perform the apply action on the WhileX event instead of the OnX
 		}
