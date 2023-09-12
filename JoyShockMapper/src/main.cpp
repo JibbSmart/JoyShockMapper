@@ -3020,13 +3020,13 @@ void joyShockPollCallback(int jcHandle, JOY_SHOCK_STATE state, JOY_SHOCK_STATE l
 		case JS_TYPE_DS:
 			// JSL mapps mic button on the SL index
 			//Edge grips
-			jc->handleButtonChange(ButtonID::LSL, buttons & (1 << JSOFFSET_FNL));
-			jc->handleButtonChange(ButtonID::RSR, buttons & (1 << JSOFFSET_MIC));
+			jc->handleButtonChange(ButtonID::LSL, buttons & (1 << JSOFFSET_SL));
+			jc->handleButtonChange(ButtonID::RSR, buttons & (1 << JSOFFSET_SR));
 			// Edge FN
-			jc->handleButtonChange(ButtonID::LSR, buttons & (1 << JSOFFSET_FNR) );
-			jc->handleButtonChange(ButtonID::RSL, buttons & (1 << JSOFFSET_SR) );
+			jc->handleButtonChange(ButtonID::LSR, buttons & (1 << JSOFFSET_FNL));
+			jc->handleButtonChange(ButtonID::RSL, buttons & (1 << JSOFFSET_FNR));
 
-			jc->handleButtonChange(ButtonID::MIC, buttons & (1 << JSOFFSET_SL));
+			jc->handleButtonChange(ButtonID::MIC, buttons & (1 << JSOFFSET_MIC));
 			// Don't break but continue onto DS4 stuff too
 		case JS_TYPE_DS4:
 		{
@@ -3049,7 +3049,7 @@ void joyShockPollCallback(int jcHandle, JOY_SHOCK_STATE state, JOY_SHOCK_STATE l
 		{
 			jc->handleButtonChange(ButtonID::CAPTURE, buttons & (1 << JSOFFSET_CAPTURE));
 			jc->handleButtonChange(ButtonID::LSL, buttons & (1 << JSOFFSET_SL));
-			jc->handleButtonChange(ButtonID::LSR, buttons & (1 << JSOFFSET_SR));
+			jc->handleButtonChange(ButtonID::LSR, buttons & (1 << JSOFFSET_FNL));
 		}
 		break;
 		}
@@ -3071,6 +3071,8 @@ void joyShockPollCallback(int jcHandle, JOY_SHOCK_STATE state, JOY_SHOCK_STATE l
 		jc->handleButtonChange(ButtonID::PLUS, buttons & (1 << JSOFFSET_PLUS));
 		jc->handleButtonChange(ButtonID::HOME, buttons & (1 << JSOFFSET_HOME));
 		jc->handleButtonChange(ButtonID::R3, buttons & (1 << JSOFFSET_RCLICK));
+		jc->handleButtonChange(ButtonID::RSR, buttons & (1 << JSOFFSET_SR));
+		jc->handleButtonChange(ButtonID::RSL, buttons & (1 << JSOFFSET_FNR));
 
 		float rTrigger = jsl->GetRightTrigger(jc->handle);
 		jc->handleTriggerChange(ButtonID::ZR, ButtonID::ZRF, jc->getSetting<TriggerMode>(SettingID::ZR_MODE), rTrigger, jc->right_effect);

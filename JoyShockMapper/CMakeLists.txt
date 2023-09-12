@@ -159,25 +159,15 @@ target_include_directories (
 )
 
 if(SDL OR NOT DEFINED SDL)
-<<<<<<< HEAD
-    set(SDL_HIDAPI ON)
-    CPMAddPackage (
-        NAME SDL2
-        GITHUB_REPOSITORY libsdl-org/SDL
-        GIT_TAG release-2.28.2
-    )
-    
-    set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
-=======
+
 	set(SDL_HIDAPI ON)
 	CPMAddPackage (
 		NAME SDL2
-		GITHUB_REPOSITORY Electronicks/SDL
-		GIT_TAG SDL2
+        GITHUB_REPOSITORY libsdl-org/SDL
+        GIT_TAG release-2.28.2
 	)
 	
 	set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
->>>>>>> 90dfe55 (Beta bugfixes.)
 
     target_link_libraries (
         ${BINARY_NAME} PRIVATE
@@ -191,21 +181,12 @@ if(SDL OR NOT DEFINED SDL)
         RUNTIME DESTINATION ${PACKAGE_DIR}
     )
 else()
-<<<<<<< HEAD
-    # JoyShockLibrary
-    CPMAddPackage (
-        NAME JoyShockLibrary
-        GITHUB_REPOSITORY JibbSmart/JoyShockLibrary
-        GIT_TAG 97190788bd7cac7ff31bd91818b37ab31f013a8a
-    )
-=======
 	# JoyShockLibrary
 	CPMAddPackage (
 		NAME JoyShockLibrary
 		GITHUB_REPOSITORY Electronicks/JoyShockLibrary
 		GIT_TAG 0
 	)
->>>>>>> 90dfe55 (Beta bugfixes.)
 
     target_link_libraries (
         ${BINARY_NAME} PRIVATE
@@ -250,7 +231,7 @@ target_link_libraries (
 CPMAddPackage (
     NAME GamepadMotionHelpers
     GITHUB_REPOSITORY JibbSmart/GamepadMotionHelpers
-    GIT_TAG main
+    GIT_TAG 39b578aacf34c3a1c584d8f7f194adc776f88055
 )
 
 target_link_libraries (

@@ -403,8 +403,6 @@ class ActiveStartPress : public ActiveMappingState
 		{
 			changeState<ActiveHoldPress>();
 		}
-
-		pimpl()->GetPressMapping()->ProcessEvent(BtnEvent::WhilePressed, *pimpl());
 	}
 
 	REACT(Released)
@@ -446,9 +444,6 @@ class ActiveHoldPress : public ActiveMappingState
 		{
 			pimpl()->ReleaseInstant(BtnEvent::OnTurbo);
 		}
-
-		pimpl()->GetPressMapping()->ProcessEvent(BtnEvent::WhileHeld, *pimpl());
-		pimpl()->GetPressMapping()->ProcessEvent(BtnEvent::WhilePressed, *pimpl());
 	}
 
 	REACT(Released)
@@ -543,10 +538,6 @@ class TapPress : public DigitalButtonState
 		if (!pimpl()->_keyToRelease || pimpl()->GetPressDurationMS(e.time_now) > pimpl()->_keyToRelease->getTapDuration())
 		{
 			changeState<NoPress>();
-		}
-		else
-		{
-			pimpl()->GetPressMapping()->ProcessEvent(BtnEvent::WhileTapping, *pimpl());
 		}
 	}
 

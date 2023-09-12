@@ -6,16 +6,58 @@
 #include <algorithm>
 #include <sstream>
 #include <iostream>
+#include <thread>
 
 //
 // Link against SetupAPI
 //
 #pragma comment(lib, "setupapi.lib")
 
+union UDs4OutputBuffer
+{
+	DS4_OUTPUT_BUFFER buffer;
+	// https://controllers.fandom.com/wiki/Sony_DualShock_4
+	struct USBSetStateData
+	{
+		uint8_t EnableRumbleUpdate : 1;
+		uint8_t EnableLedUpdate : 1;
+		uint8_t EnableLedBlink : 1;
+		uint8_t EnableExtWrite : 1;
+		uint8_t EnableVolumeLeftUpdate : 1;
+		uint8_t EnableVolumeRightUpdate : 1;
+		uint8_t EnableVolumeMicUpdate : 1;
+		uint8_t EnableVolumeSpeakerUpdate : 1;
+		uint8_t UNK_RESET1 : 1; // unknown reset, both set high by Remote Play
+		uint8_t UNK_RESET2 : 1; // unknown reset, both set high by Remote Play
+		uint8_t UNK1 : 1;
+		uint8_t UNK2 : 1;
+		uint8_t UNK3 : 1;
+		uint8_t UNKPad : 3;
+		uint8_t Empty1;
+		uint8_t RumbleRight; // weak
+		uint8_t RumbleLeft;  // strong
+		uint8_t LedRed;
+		uint8_t LedGreen;
+		uint8_t LedBlue;
+		uint8_t LedFlashOnPeriod;
+		uint8_t LedFlashOffPeriod;
+		uint8_t ExtDataSend[8]; // sent to I2C EXT port, stored in 8x8 byte block
+		uint8_t VolumeLeft;     // 0x00 - 0x4F inclusive
+		uint8_t VolumeRight;    // 0x00 - 0x4F inclusive
+		uint8_t VolumeMic;      // 0x00, 0x01 - 0x40 inclusive (0x00 is special behavior)
+		uint8_t VolumeSpeaker;  // 0x00 - 0x4F
+		uint8_t UNK_AUDIO1 : 7; // clamped to 1-64 inclusive, appears to be set to 5 for audio
+		uint8_t UNK_AUDIO2 : 1; // unknown, appears to be set to 1 for audio
+		uint8_t Pad[8];
+	} data;
+};
+
 inline void DS4_REPORT_EX_INIT(DS4_REPORT_EX* ds4reportEx)
 {
+	// Preserve button state
+	auto buttons = ds4reportEx->Report.wButtons;
 	memset(ds4reportEx, 0, (sizeof(DS4_REPORT_EX)));
-	ds4reportEx->Report.wButtons = DS4_BUTTON_DPAD_NONE;
+	ds4reportEx->Report.wButtons = buttons;
 	ds4reportEx->Report.bThumbLX = 0x7F;
 	ds4reportEx->Report.bThumbLY = 0x7F;
 	ds4reportEx->Report.bThumbRX = 0x7F;
@@ -167,7 +209,7 @@ public:
 		}
 	}
 
-	bool isInitialized(std::string* errorMsg = nullptr) override
+	bool isInitialized(std::string* errorMsg = nullptr) const override
 	{
 		if (!_errorMsg.empty() && errorMsg != nullptr)
 		{
@@ -181,13 +223,23 @@ public:
 		isLeft ? setLeftStick(x, y) : setRightStick(x, y);
 	}
 
-	void setGyro(float accelX, float accelY, float accelZ, float gyroX, float gyroY, float gyroZ) override {}
-	void setTouchState(std::optional<FloatXY> press1, std::optional<FloatXY> press2) override {}
+	void setGyro(float accelX, float accelY, float accelZ, float gyroX, float gyroY, float gyroZ) override
+	{}
+
+	void setTouchState(std::optional<FloatXY> press1, std::optional<FloatXY> press2) override 
+	{}
 
 protected:
+	void notify(uint8_t largeMotor, uint8_t smallMotor, Indicator indicator)
+	{
+		if (_notification)
+			_notification(largeMotor, smallMotor, indicator);
+	}
 
-	Callback _notification = nullptr;
 	PVIGEM_TARGET _gamepad = nullptr;
+
+private :
+	Callback _notification = nullptr;
 };
 
 class XboxGamepad : public VigemGamepad
@@ -281,7 +333,9 @@ public:
 		if (isInitialized())
 		{
 			vigem_target_x360_update(VigemClient::get(), _gamepad, _stateX360);
+			auto buttons = _stateX360.wButtons;
 			XUSB_REPORT_INIT(&_stateX360);
+			_stateX360.wButtons = buttons;
 		}
 	}
 
@@ -300,11 +354,11 @@ private:
 		void* userData)
 	{
 		auto originator = static_cast<XboxGamepad*>(userData);
-		if (client == VigemClient::get() && originator && originator->_gamepad == target && originator->_notification)
+		if (client == VigemClient::get() && originator && originator->_gamepad == target)
 		{
 			Indicator indicator;
 			indicator.led = ledNumber;
-			originator->_notification(largeMotor, smallMotor, indicator);
+			originator->notify(largeMotor, smallMotor, indicator);
 		}
 	}
 
@@ -315,8 +369,9 @@ class Ds4Gamepad : public VigemGamepad
 {
 public:
 	Ds4Gamepad(Callback notification)
-	  : VigemGamepad(notification)
-	  , _stateDS4()
+	    : VigemGamepad(notification)
+	    , _stateDS4()
+		, _pollDs4Thread(std::bind(&Ds4Gamepad::pollDs4, this))
 	{
 		DS4_REPORT_EX_INIT(&_stateDS4);
 
@@ -334,16 +389,41 @@ public:
 				_errorMsg = ss.str();
 				return;
 			}
+		}
+	}
 
-			error = vigem_target_ds4_register_notification(VigemClient::get(), _gamepad, reinterpret_cast<PFN_VIGEM_DS4_NOTIFICATION>(&Ds4Gamepad::ds4Notification), this);
-			if (!VIGEM_SUCCESS(error))
+	~Ds4Gamepad()
+	{
+		if (isInitialized())
+		{
+			// We're done with this pad, free resources (this disconnects the virtual device)
+			if (PVIGEM_CLIENT client = VigemClient::get(); client != nullptr)
 			{
-				std::stringstream ss;
-				ss << "Target plugin failed: " << error;
-				_errorMsg = ss.str();
+				vigem_target_remove(client, _gamepad);
+			}
+			vigem_target_free(_gamepad);
+		}
+		_pollDs4Thread.join();
+	}
+
+	void pollDs4()
+	{
+		UDs4OutputBuffer out;
+		Indicator ind;
+		for (auto result = vigem_target_ds4_await_output_report_timeout(VigemClient::get(), _gamepad, 1000, &out.buffer);
+			result == VIGEM_ERROR_NONE || result == VIGEM_ERROR_TIMED_OUT;
+		     result = vigem_target_ds4_await_output_report_timeout(VigemClient::get(), _gamepad, 1000, &out.buffer))
+		{
+			if (result == VIGEM_ERROR_NONE)
+			{
+				ind.rgb[0] = out.data.LedRed;
+				ind.rgb[1] = out.data.LedGreen;
+				ind.rgb[2] = out.data.LedBlue;
+				notify(out.data.RumbleLeft, out.data.RumbleRight, ind);
 			}
 		}
 	}
+
 	virtual void setButton(KeyCode btn, bool pressed) override;
 	virtual void setLeftStick(float x, float y) override
 	{
@@ -449,26 +529,12 @@ public:
 	}
 
 private:
-	static void CALLBACK ds4Notification(
-	  PVIGEM_CLIENT client,
-	  PVIGEM_TARGET target,
-	  uint8_t largeMotor,
-	  uint8_t smallMotor,
-	  Indicator lightbarColor,
-	  void* userData)
-	{
-		auto originator = static_cast<Ds4Gamepad*>(userData);
-		if (client == VigemClient::get() && originator && originator->_gamepad == target && originator->_notification)
-		{
-			originator->_notification(largeMotor, smallMotor, lightbarColor);
-		}
-	}
-
 	DS4_REPORT_EX _stateDS4;
 	uint8_t _touchPacket = 0;
 	uint8_t _nextTouchId = 1;
 	std::optional<uint8_t> _touchId1 = 0;
 	std::optional<uint8_t> _touchId2 = 0;
+	std::thread _pollDs4Thread;
 };
 
 class PSHat

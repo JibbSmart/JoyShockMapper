@@ -66,27 +66,20 @@ struct ControllerDevice
 
 				int vid = SDL_GameControllerGetVendor(_sdlController);
 				int pid = SDL_GameControllerGetProduct(_sdlController);
-				if (vid == 0x057e)
-				{
-					if (pid == 0x2006)
-					{
-						_split_type = JS_SPLIT_TYPE_LEFT;
-					}
-					else if (pid == 0x2007)
-					{
-						_split_type = JS_SPLIT_TYPE_RIGHT;
-					}
-				}
 
 				auto sdl_ctrlr_type = SDL_GameControllerGetType(_sdlController);
 				switch (sdl_ctrlr_type)
 				{
+				case SDL_GameControllerType::SDL_CONTROLLER_TYPE_NINTENDO_SWITCH_JOYCON_LEFT:
+					_ctrlr_type = JS_TYPE_JOYCON_LEFT;
+					_split_type = JS_SPLIT_TYPE_LEFT;
+					break;
+				case SDL_GameControllerType::SDL_CONTROLLER_TYPE_NINTENDO_SWITCH_JOYCON_RIGHT:
+					_ctrlr_type = JS_TYPE_JOYCON_RIGHT;
+					_split_type = JS_SPLIT_TYPE_RIGHT;
+					break;
+				case SDL_GameControllerType::SDL_CONTROLLER_TYPE_NINTENDO_SWITCH_JOYCON_PAIR:
 				case SDL_GameControllerType::SDL_CONTROLLER_TYPE_NINTENDO_SWITCH_PRO:
-					if (_split_type == JS_SPLIT_TYPE_LEFT)
-						_ctrlr_type = JS_TYPE_JOYCON_LEFT;
-					else if (_split_type == JS_SPLIT_TYPE_RIGHT)
-						_ctrlr_type = JS_TYPE_JOYCON_RIGHT;
-					else
 						_ctrlr_type = JS_TYPE_PRO_CONTROLLER;
 					break;
 				case SDL_GameControllerType::SDL_CONTROLLER_TYPE_PS4:
@@ -99,7 +92,7 @@ struct ControllerDevice
                     _ctrlr_type = JS_TYPE_XBOXONE;
                     if (vid == 0x0e6f) // PDP Vendor ID
                     {    
-                    _ctrlr_type = JS_TYPE_XBOX_SERIES;
+						_ctrlr_type = JS_TYPE_XBOX_SERIES;
                     }
                     if (vid == 0x24c6) // PowerA
                     {
@@ -438,67 +431,110 @@ public:
 			{ SDL_CONTROLLER_BUTTON_DPAD_LEFT, JSOFFSET_LEFT },
 			{ SDL_CONTROLLER_BUTTON_DPAD_RIGHT, JSOFFSET_RIGHT }
 		};
+
 		int buttons = 0;
-		for (auto pair : sdl2jsl)
+		if (_controllerMap[deviceId]->_ctrlr_type == JS_TYPE_JOYCON_LEFT)
 		{
-			buttons |= SDL_GameControllerGetButton(_controllerMap[deviceId]->_sdlController, SDL_GameControllerButton(pair.first)) > 0 ? 1 << pair.second : 0;
+			buttons |= SDL_GameControllerGetButton(_controllerMap[deviceId]->_sdlController, SDL_CONTROLLER_BUTTON_A) > 0 ? 1 << JSOFFSET_LEFT : 0;
+			buttons |= SDL_GameControllerGetButton(_controllerMap[deviceId]->_sdlController, SDL_CONTROLLER_BUTTON_B) > 0 ? 1 << JSOFFSET_DOWN : 0;
+			buttons |= SDL_GameControllerGetButton(_controllerMap[deviceId]->_sdlController, SDL_CONTROLLER_BUTTON_X) > 0 ? 1 << JSOFFSET_UP : 0;
+			buttons |= SDL_GameControllerGetButton(_controllerMap[deviceId]->_sdlController, SDL_CONTROLLER_BUTTON_Y) > 0 ? 1 << JSOFFSET_RIGHT : 0;
+			buttons |= SDL_GameControllerGetButton(_controllerMap[deviceId]->_sdlController, SDL_CONTROLLER_BUTTON_GUIDE) > 0 ? 1 << JSOFFSET_CAPTURE : 0;
+			buttons |= SDL_GameControllerGetButton(_controllerMap[deviceId]->_sdlController, SDL_CONTROLLER_BUTTON_START) > 0 ? 1 << JSOFFSET_MINUS : 0;
+			buttons |= SDL_GameControllerGetButton(_controllerMap[deviceId]->_sdlController, SDL_CONTROLLER_BUTTON_LEFTSHOULDER) > 0 ? 1 << JSOFFSET_SL : 0;
+			buttons |= SDL_GameControllerGetButton(_controllerMap[deviceId]->_sdlController, SDL_CONTROLLER_BUTTON_RIGHTSHOULDER) > 0 ? 1 << JSOFFSET_SR : 0;
+			buttons |= SDL_GameControllerGetButton(_controllerMap[deviceId]->_sdlController, SDL_CONTROLLER_BUTTON_PADDLE2) > 0 ? 1 << JSOFFSET_L : 0;
+			buttons |= SDL_GameControllerGetButton(_controllerMap[deviceId]->_sdlController, SDL_CONTROLLER_BUTTON_PADDLE4) > 0 ? 1 << JSOFFSET_ZL : 0;
+			buttons |= SDL_GameControllerGetButton(_controllerMap[deviceId]->_sdlController, SDL_CONTROLLER_BUTTON_LEFTSTICK) > 0 ? 1 << JSOFFSET_LCLICK : 0;
 		}
-		switch (_controllerMap[deviceId]->_ctrlr_type)
+		else if (_controllerMap[deviceId]->_ctrlr_type == JS_TYPE_JOYCON_RIGHT)
 		{
-		case JS_TYPE_DS:
-			buttons |= SDL_GameControllerGetButton(_controllerMap[deviceId]->_sdlController, SDL_CONTROLLER_BUTTON_MISC1) > 0 ? 1 << JSOFFSET_MIC : 0;
-			buttons |= SDL_GameControllerGetButton(_controllerMap[deviceId]->_sdlController, SDL_CONTROLLER_BUTTON_PADDLE1) > 0 ? 1 << JSOFFSET_SL : 0;
-			buttons |= SDL_GameControllerGetButton(_controllerMap[deviceId]->_sdlController, SDL_CONTROLLER_BUTTON_PADDLE2) > 0 ? 1 << JSOFFSET_SR : 0;
-			buttons |= SDL_GameControllerGetButton(_controllerMap[deviceId]->_sdlController, SDL_CONTROLLER_BUTTON_PADDLE3) > 0 ? 1 << JSOFFSET_FNR : 0;
-			buttons |= SDL_GameControllerGetButton(_controllerMap[deviceId]->_sdlController, SDL_CONTROLLER_BUTTON_PADDLE4) > 0 ? 1 << JSOFFSET_FNL : 0;
-			// Intentional fall through to the next case
-		case JS_TYPE_DS4:
-			buttons |= SDL_GameControllerGetButton(_controllerMap[deviceId]->_sdlController, SDL_CONTROLLER_BUTTON_TOUCHPAD) > 0 ? 1 << JSOFFSET_CAPTURE : 0;
-			break;
-		case JS_TYPE_JOYCON_LEFT:
-			buttons |= SDL_GameControllerGetButton(_controllerMap[deviceId]->_sdlController, SDL_CONTROLLER_BUTTON_PADDLE2) > 0 ? 1 << JSOFFSET_SL : 0;
-			buttons |= SDL_GameControllerGetButton(_controllerMap[deviceId]->_sdlController, SDL_CONTROLLER_BUTTON_PADDLE4) > 0 ? 1 << JSOFFSET_SR : 0;
-			break;
-		case JS_TYPE_JOYCON_RIGHT:
-			buttons |= SDL_GameControllerGetButton(_controllerMap[deviceId]->_sdlController, SDL_CONTROLLER_BUTTON_PADDLE3) > 0 ? 1 << JSOFFSET_SL : 0;
-			buttons |= SDL_GameControllerGetButton(_controllerMap[deviceId]->_sdlController, SDL_CONTROLLER_BUTTON_PADDLE1) > 0 ? 1 << JSOFFSET_SR : 0;
-			break;
-		default:
-			buttons |= SDL_GameControllerGetButton(_controllerMap[deviceId]->_sdlController, SDL_CONTROLLER_BUTTON_MISC1) > 0 ? 1 << JSOFFSET_CAPTURE : 0;
-			buttons |= SDL_GameControllerGetButton(_controllerMap[deviceId]->_sdlController, SDL_CONTROLLER_BUTTON_PADDLE3) > 0 ? 1 << JSOFFSET_FNL : 0;
-			buttons |= SDL_GameControllerGetButton(_controllerMap[deviceId]->_sdlController, SDL_CONTROLLER_BUTTON_PADDLE1) > 0 ? 1 << JSOFFSET_FNR : 0;
-			break;
+			buttons |= SDL_GameControllerGetButton(_controllerMap[deviceId]->_sdlController, SDL_CONTROLLER_BUTTON_A) > 0 ? 1 << JSOFFSET_E : 0;
+			buttons |= SDL_GameControllerGetButton(_controllerMap[deviceId]->_sdlController, SDL_CONTROLLER_BUTTON_B) > 0 ? 1 << JSOFFSET_N : 0;
+			buttons |= SDL_GameControllerGetButton(_controllerMap[deviceId]->_sdlController, SDL_CONTROLLER_BUTTON_X) > 0 ? 1 << JSOFFSET_S : 0;
+			buttons |= SDL_GameControllerGetButton(_controllerMap[deviceId]->_sdlController, SDL_CONTROLLER_BUTTON_Y) > 0 ? 1 << JSOFFSET_W : 0;
+			buttons |= SDL_GameControllerGetButton(_controllerMap[deviceId]->_sdlController, SDL_CONTROLLER_BUTTON_GUIDE) > 0 ? 1 << JSOFFSET_HOME : 0;
+			buttons |= SDL_GameControllerGetButton(_controllerMap[deviceId]->_sdlController, SDL_CONTROLLER_BUTTON_START) > 0 ? 1 << JSOFFSET_PLUS : 0;
+			buttons |= SDL_GameControllerGetButton(_controllerMap[deviceId]->_sdlController, SDL_CONTROLLER_BUTTON_LEFTSHOULDER) > 0 ? 1 << JSOFFSET_SL : 0;
+			buttons |= SDL_GameControllerGetButton(_controllerMap[deviceId]->_sdlController, SDL_CONTROLLER_BUTTON_RIGHTSHOULDER) > 0 ? 1 << JSOFFSET_SR : 0;
+			buttons |= SDL_GameControllerGetButton(_controllerMap[deviceId]->_sdlController, SDL_CONTROLLER_BUTTON_PADDLE1) > 0 ? 1 << JSOFFSET_R : 0;
+			buttons |= SDL_GameControllerGetButton(_controllerMap[deviceId]->_sdlController, SDL_CONTROLLER_BUTTON_PADDLE3) > 0 ? 1 << JSOFFSET_ZR : 0;
+			buttons |= SDL_GameControllerGetButton(_controllerMap[deviceId]->_sdlController, SDL_CONTROLLER_BUTTON_LEFTSTICK) > 0 ? 1 << JSOFFSET_RCLICK : 0;
+		}
+		else
+		{
+			for (auto pair : sdl2jsl)
+			{
+				buttons |= SDL_GameControllerGetButton(_controllerMap[deviceId]->_sdlController, SDL_GameControllerButton(pair.first)) > 0 ? 1 << pair.second : 0;
+			}
+			switch (_controllerMap[deviceId]->_ctrlr_type)
+			{
+			case JS_TYPE_DS:
+				buttons |= SDL_GameControllerGetButton(_controllerMap[deviceId]->_sdlController, SDL_CONTROLLER_BUTTON_MISC1) > 0 ? 1 << JSOFFSET_MIC : 0;
+				buttons |= SDL_GameControllerGetButton(_controllerMap[deviceId]->_sdlController, SDL_CONTROLLER_BUTTON_PADDLE1) > 0 ? 1 << JSOFFSET_SR : 0;
+				buttons |= SDL_GameControllerGetButton(_controllerMap[deviceId]->_sdlController, SDL_CONTROLLER_BUTTON_PADDLE2) > 0 ? 1 << JSOFFSET_FNL : 0;
+				buttons |= SDL_GameControllerGetButton(_controllerMap[deviceId]->_sdlController, SDL_CONTROLLER_BUTTON_PADDLE3) > 0 ? 1 << JSOFFSET_FNR : 0;
+				buttons |= SDL_GameControllerGetButton(_controllerMap[deviceId]->_sdlController, SDL_CONTROLLER_BUTTON_PADDLE4) > 0 ? 1 << JSOFFSET_SL : 0;
+				// Intentional fall through to the next case
+			case JS_TYPE_DS4:
+				buttons |= SDL_GameControllerGetButton(_controllerMap[deviceId]->_sdlController, SDL_CONTROLLER_BUTTON_TOUCHPAD) > 0 ? 1 << JSOFFSET_CAPTURE : 0;
+				break;
+			case JS_TYPE_PRO_CONTROLLER:
+				buttons |= SDL_GameControllerGetButton(_controllerMap[deviceId]->_sdlController, SDL_CONTROLLER_BUTTON_MISC1) > 0 ? 1 << JSOFFSET_CAPTURE : 0;
+				buttons |= SDL_GameControllerGetButton(_controllerMap[deviceId]->_sdlController, SDL_CONTROLLER_BUTTON_PADDLE1) > 0 ? 1 << JSOFFSET_SR : 0;
+				buttons |= SDL_GameControllerGetButton(_controllerMap[deviceId]->_sdlController, SDL_CONTROLLER_BUTTON_PADDLE2) > 0 ? 1 << JSOFFSET_SL : 0;
+				buttons |= SDL_GameControllerGetButton(_controllerMap[deviceId]->_sdlController, SDL_CONTROLLER_BUTTON_PADDLE3) > 0 ? 1 << JSOFFSET_FNR : 0;
+				buttons |= SDL_GameControllerGetButton(_controllerMap[deviceId]->_sdlController, SDL_CONTROLLER_BUTTON_PADDLE4) > 0 ? 1 << JSOFFSET_FNL : 0;
+				break;
+			default:
+				buttons |= SDL_GameControllerGetButton(_controllerMap[deviceId]->_sdlController, SDL_CONTROLLER_BUTTON_MISC1) > 0 ? 1 << JSOFFSET_CAPTURE : 0;
+				buttons |= SDL_GameControllerGetButton(_controllerMap[deviceId]->_sdlController, SDL_CONTROLLER_BUTTON_PADDLE3) > 0 ? 1 << JSOFFSET_FNL : 0;
+				buttons |= SDL_GameControllerGetButton(_controllerMap[deviceId]->_sdlController, SDL_CONTROLLER_BUTTON_PADDLE1) > 0 ? 1 << JSOFFSET_FNR : 0;
+				break;
+			}
 		}
 		return buttons;
 	}
 
 	float GetLeftX(int deviceId) override
 	{
+		if (_controllerMap[deviceId]->_ctrlr_type == JS_TYPE_JOYCON_LEFT)
+			return -SDL_GameControllerGetAxis(_controllerMap[deviceId]->_sdlController, SDL_CONTROLLER_AXIS_LEFTY) / (float)SDL_JOYSTICK_AXIS_MAX;
 		return SDL_GameControllerGetAxis(_controllerMap[deviceId]->_sdlController, SDL_CONTROLLER_AXIS_LEFTX) / (float)SDL_JOYSTICK_AXIS_MAX;
 	}
 
 	float GetLeftY(int deviceId) override
 	{
+		if (_controllerMap[deviceId]->_ctrlr_type == JS_TYPE_JOYCON_LEFT)
+			return -SDL_GameControllerGetAxis(_controllerMap[deviceId]->_sdlController, SDL_CONTROLLER_AXIS_LEFTX) / (float)SDL_JOYSTICK_AXIS_MAX;
 		return -SDL_GameControllerGetAxis(_controllerMap[deviceId]->_sdlController, SDL_CONTROLLER_AXIS_LEFTY) / (float)SDL_JOYSTICK_AXIS_MAX;
 	}
 
 	float GetRightX(int deviceId) override
 	{
+		if (_controllerMap[deviceId]->_ctrlr_type == JS_TYPE_JOYCON_RIGHT)
+			return -GetLeftY(deviceId);
 		return SDL_GameControllerGetAxis(_controllerMap[deviceId]->_sdlController, SDL_CONTROLLER_AXIS_RIGHTX) / (float)SDL_JOYSTICK_AXIS_MAX;
 	}
 
 	float GetRightY(int deviceId) override
 	{
+		if (_controllerMap[deviceId]->_ctrlr_type == JS_TYPE_JOYCON_RIGHT)
+			return GetLeftX(deviceId);
 		return -SDL_GameControllerGetAxis(_controllerMap[deviceId]->_sdlController, SDL_CONTROLLER_AXIS_RIGHTY) / (float)SDL_JOYSTICK_AXIS_MAX;
 	}
 
 	float GetLeftTrigger(int deviceId) override
 	{
+		if (_controllerMap[deviceId]->_ctrlr_type == JS_TYPE_JOYCON_LEFT)
+			return SDL_GameControllerGetButton(_controllerMap[deviceId]->_sdlController, SDL_CONTROLLER_BUTTON_PADDLE4) > 0 ? 1.f : 0.f;
 		return SDL_GameControllerGetAxis(_controllerMap[deviceId]->_sdlController, SDL_CONTROLLER_AXIS_TRIGGERLEFT) / (float)SDL_JOYSTICK_AXIS_MAX;
 	}
 
 	float GetRightTrigger(int deviceId) override
 	{
+		if (_controllerMap[deviceId]->_ctrlr_type == JS_TYPE_JOYCON_RIGHT)
+			return SDL_GameControllerGetButton(_controllerMap[deviceId]->_sdlController, SDL_CONTROLLER_BUTTON_PADDLE3) > 0 ? 1.f : 0.f;
 		return SDL_GameControllerGetAxis(_controllerMap[deviceId]->_sdlController, SDL_CONTROLLER_AXIS_TRIGGERRIGHT) / (float)SDL_JOYSTICK_AXIS_MAX;
 	}
 

@@ -231,30 +231,6 @@ bool Mapping::AddMapping(KeyCode key, EventModifier evtMod, ActionModifier actMo
 		// None applies no modification... Hey!
 	}
 
-	if (isControllerKey(key.code))
-	{
-		// Controller keys need to be updated on every tick, instead of on change
-		BtnEvent whileEvent = BtnEvent::INVALID;
-		switch (applyEvt)
-		{
-		case BtnEvent::OnPress:
-			whileEvent = BtnEvent::WhilePressed;
-			break;
-		case BtnEvent::OnHold:
-			whileEvent = BtnEvent::WhileHeld;
-			break;
-		case BtnEvent::OnTap:
-			whileEvent = BtnEvent::WhileTapping;
-			break;
-		}
-		if (whileEvent != BtnEvent::INVALID)
-		{
-			// Assign a dummy callback to the OnX event in order to display the console log
-			InsertEventMapping(applyEvt, [](EventActionIf *) {});
-			applyEvt = whileEvent; // perform the apply action on the WhileX event instead of the OnX
-		}
-	}
-
 	// Insert release first because in turbo's case apply and release are the same but we want release to apply first
 	InsertEventMapping(releaseEvt, release);
 	InsertEventMapping(applyEvt, apply);

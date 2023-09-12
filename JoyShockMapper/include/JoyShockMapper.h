@@ -450,10 +450,6 @@ enum class BtnEvent
 	OnTapRelease,
 	OnHoldRelease,
 	OnInstantRelease,
-	// Controller keys need to be updated on every tick, instead of on change
-	WhilePressed,
-	WhileHeld,
-	WhileTapping,
 	INVALID
 };
 enum class Switch : char

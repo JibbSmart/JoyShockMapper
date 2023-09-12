@@ -2,11 +2,10 @@
 
 #include "JoyShockMapper.h"
 
-union Indicator
+struct Indicator
 {
 	uint8_t led;
 	uint8_t rgb[3];
-	uint32_t colorCode;
 };
 
 class Gamepad
@@ -22,7 +21,7 @@ public:
 	static Gamepad* getNew(ControllerScheme scheme, Callback notification = nullptr);
 	virtual ~Gamepad() { }
 
-	virtual bool isInitialized(std::string* errorMsg = nullptr) = 0;
+	virtual bool isInitialized(std::string* errorMsg = nullptr) const = 0;
 	inline string getError() const
 	{
 		return _errorMsg;
