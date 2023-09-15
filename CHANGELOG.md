@@ -19,6 +19,7 @@ which includes Sony Edge support for both SDL and JSL versions. Perform proper p
 * Set flick threshold at 100% (so that it is precisely controllerd by the outer deadzone setting)
 * Virtual buttons now work properly with event and action modifiers (toggle, hold, turbo, etc...)
 * Fix joycons in SDL2
+* Modeshift-ing out of a flick will lock the stick mode in FLICK_ONLY until the flick is completed
 
 
 ## 3.4.0
