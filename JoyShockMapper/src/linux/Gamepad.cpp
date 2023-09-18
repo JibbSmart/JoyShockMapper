@@ -15,8 +15,8 @@ public:
 
 	}
 
-	virtual bool isInitialized(std::string* errorMsg = nullptr) override
-	{
+    // is not overriding anything? removed override from function
+	virtual bool isInitialized(std::string* errorMsg = nullptr) {
 
 	}
 

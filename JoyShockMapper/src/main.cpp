@@ -26,6 +26,7 @@
 #include <shellapi.h>
 #else
 #define UCHAR unsigned char
+#include <algorithm>
 #endif
 
 #pragma warning(disable : 4996) // Disable deprecated API warnings
