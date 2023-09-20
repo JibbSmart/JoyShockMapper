@@ -164,7 +164,7 @@ if(SDL OR NOT DEFINED SDL)
 	CPMAddPackage (
 		NAME SDL2
         GITHUB_REPOSITORY libsdl-org/SDL
-        GIT_TAG release-2.28.2
+        GIT_TAG release-2.28.3
 	)
 	
 	set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
@@ -184,8 +184,8 @@ else()
 	# JoyShockLibrary
 	CPMAddPackage (
 		NAME JoyShockLibrary
-		GITHUB_REPOSITORY Electronicks/JoyShockLibrary
-		GIT_TAG 0
+		GITHUB_REPOSITORY JibbSmart/JoyShockLibrary
+		GIT_TAG eba751b6bddf5edc783790af35b663dec7495dcc
 	)
 
     target_link_libraries (

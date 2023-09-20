@@ -53,7 +53,8 @@ private:
 
 public:
 	vector<BtnEvent> _instantReleaseQueue;
-	unsigned int _turboCount = 0;
+	unsigned int _turboApplies = 0;
+	unsigned int _turboReleases = 0;
 	DigitalButtonImpl(JSMButton &mapping, shared_ptr<DigitalButton::Context> context)
 	  : _id(mapping._id)
 	  , _context(context)
@@ -94,7 +95,8 @@ public:
 		_keyToRelease = nullopt;
 		_instantReleaseQueue.clear();
 		_nameToRelease.clear();
-		_turboCount = 0;
+		_turboApplies = 0;
+		_turboReleases = 0;
 	}
 
 	bool ReleaseInstant(BtnEvent instantEvent)
@@ -158,7 +160,7 @@ public:
 			     currentlyActive != _context->gyroActionQueue.end();
 			     currentlyActive = find_if(currentlyActive, _context->gyroActionQueue.end(), bind(isSameKey, key, placeholders::_1)))
 			{
-				DEBUG_LOG << "Removing active gyro action for " << key.name << endl;
+				// DEBUG_LOG << "Removing active gyro action for " << key.name << endl;
 				currentlyActive = _context->gyroActionQueue.erase(currentlyActive);
 			}
 		}
@@ -185,9 +187,9 @@ public:
 		}
 		else if (key.code != NO_HOLD_MAPPED && HasActiveToggle(_context, key) == false)
 		{
-			DEBUG_LOG << "Pressing down on key " << key.name << endl;
 			pressKey(key, true);
 		}
+		DEBUG_LOG << "Pressing down on key " << key.name << endl;
 	}
 
 	void ApplyBtnRelease(KeyCode key) override
@@ -203,10 +205,10 @@ public:
 		}
 		else if (key.code != NO_HOLD_MAPPED)
 		{
-			// DEBUG_LOG << "Releasing key " << key.name << endl;
 			pressKey(key, false);
 			ClearAllActiveToggle(key);
 		}
+		DEBUG_LOG << "Releasing key " << key.name << endl;
 	}
 
 	void ApplyButtonToggle(KeyCode key, EventActionIf::Callback apply, EventActionIf::Callback release) override
@@ -407,6 +409,7 @@ class ActiveHoldPress : public ActiveMappingState
 		DigitalButtonState::react(e);
 		pimpl()->_keyToRelease->ProcessEvent(BtnEvent::OnHold, *pimpl());
 		pimpl()->_keyToRelease->ProcessEvent(BtnEvent::OnTurbo, *pimpl());
+		pimpl()->_turboApplies++;
 	}
 
 	REACT(Pressed)
@@ -417,14 +420,15 @@ class ActiveHoldPress : public ActiveMappingState
 		{
 			pimpl()->ReleaseInstant(BtnEvent::OnHold);
 		}
-		if (floorf((elapsed_time - e.holdTime) / e.turboTime) >= pimpl()->_turboCount)
+		if (floorf((elapsed_time - e.holdTime) / e.turboTime) >= pimpl()->_turboApplies)
 		{
 			pimpl()->_keyToRelease->ProcessEvent(BtnEvent::OnTurbo, *pimpl());
-			pimpl()->_turboCount++;
+			pimpl()->_turboApplies++;
 		}
-		if (elapsed_time > e.holdTime + pimpl()->_turboCount * e.turboTime + MAGIC_INSTANT_DURATION)
+		if (elapsed_time > e.holdTime + pimpl()->_turboReleases * e.turboTime + MAGIC_INSTANT_DURATION)
 		{
 			pimpl()->ReleaseInstant(BtnEvent::OnTurbo);
+			pimpl()->_turboReleases++;
 		}
 	}
 

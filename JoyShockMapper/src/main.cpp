@@ -101,6 +101,20 @@ KeyCode::KeyCode(in_string keyName)
 
 struct TOUCH_POINT
 {
+	TOUCH_POINT() = default;
+	TOUCH_POINT(optional<FloatXY> newState, optional<FloatXY> prevState, FloatXY tpSize)
+	{
+		if (newState)
+		{
+			posX = newState->x(); // Absolute position in percentage
+			posY = newState->y();
+			if (prevState)
+			{
+				movX = int16_t((newState->x() - prevState->x() * tpSize.x())); // Relative movement in unit
+				movY = int16_t((newState->y() - prevState->y() * tpSize.y()));
+			}
+		}
+	}
 	float posX = -1.f;
 	float posY = -1.f;
 	short movX = 0;
@@ -2122,19 +2136,15 @@ void TouchCallback(int jcHandle, TOUCH_STATE newState, TOUCH_STATE prevState, fl
 	int tpSizeX, tpSizeY;
 	if (!js || jsl->GetTouchpadDimension(jcHandle, tpSizeX, tpSizeY) == false)
 		return;
+	FloatXY tpSize{ float(tpSizeX), float(tpSizeY) };
 
 	lock_guard guard(js->_context->callback_lock);
 
-	TOUCH_POINT point0, point1;
+	TOUCH_POINT point0(newState.t0Down ? make_optional<FloatXY>(newState.t0X, newState.t0Y) : nullopt,
+	  prevState.t0Down ? make_optional<FloatXY>(prevState.t0X, prevState.t0Y) : nullopt, tpSize);
 
-	point0.posX = newState.t0Down ? newState.t0X : -1.f; // Absolute position in percentage
-	point0.posY = newState.t0Down ? newState.t0Y : -1.f;
-	point0.movX = prevState.t0Down ? int16_t((newState.t0X - prevState.t0X) * tpSizeX) : 0; // Relative movement in unit
-	point0.movY = prevState.t0Down ? int16_t((newState.t0Y - prevState.t0Y) * tpSizeY) : 0;
-	point1.posX = newState.t1Down ? newState.t1X : -1.f;
-	point1.posY = newState.t1Down ? newState.t1Y : -1.f;
-	point1.movX = prevState.t1Down ? int16_t((newState.t1X - prevState.t1X) * tpSizeX) : 0;
-	point1.movY = prevState.t1Down ? int16_t((newState.t1Y - prevState.t1Y) * tpSizeY) : 0;
+	TOUCH_POINT point1(newState.t1Down ? make_optional<FloatXY>(newState.t1X, newState.t1Y) : nullopt,
+	  prevState.t1Down ? make_optional<FloatXY>(prevState.t1X, prevState.t1Y) : nullopt, tpSize);
 
 	auto mode = js->getSetting<TouchpadMode>(SettingID::TOUCHPAD_MODE);
 	// js->handleButtonChange(ButtonID::TOUCH, point0.isDown() || point1.isDown()); // This is handled by dual stage "trigger" step
@@ -2160,16 +2170,16 @@ void TouchCallback(int jcHandle, TOUCH_STATE newState, TOUCH_STATE prevState, fl
 		int index0 = -1, index1 = -1;
 		if (point0.isDown())
 		{
-			float row = ceilf(point0.posY * grid_size.value().y()) - 1.f;
-			float col = ceilf(point0.posX * grid_size.value().x()) - 1.f;
+			float row = clamp(floorf(point0.posY * grid_size.value().y()), 0.f, grid_size.value().y()-1.f);
+			float col = clamp(floorf(point0.posX * grid_size.value().x()), 0.f, grid_size.value().x()-1.f);
 			// COUT << "I should be in button " << row << " " << col << endl;
 			index0 = int(row * grid_size.value().x() + col);
 		}
 
 		if (point1.isDown())
 		{
-			float row = ceilf(point1.posY * grid_size.value().y()) - 1.f;
-			float col = ceilf(point1.posX * grid_size.value().x()) - 1.f;
+			float row = clamp(floorf(point1.posY * grid_size.value().y()), 0.f, grid_size.value().y() - 1.f);
+			float col = clamp(floorf(point1.posX * grid_size.value().x()), 0.f, grid_size.value().x() - 1.f);
 			// COUT << "I should be in button " << row << " " << col << endl;
 			index1 = int(row * grid_size.value().x() + col);
 		}

@@ -6,6 +6,12 @@ This is a summary of new features and bugfixes. Read the README to learn how to 
 ## Known issues
 * SDL always merges joycons behind the scene into a single controller. JSM is not able to split them. Use legacy-JSL version to use this feature.
 
+## 3.5.2
+
+### Bugfixes
+* Fix toggle (again (again))
+* Exempt ADAPTIVE_TRIGGER and RUMBLE from RESET_MAPPINGS
+
 ## 3.5.1
 
 Nick fixes everything he broke with his "improvements"
