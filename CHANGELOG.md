@@ -6,6 +6,22 @@ This is a summary of new features and bugfixes. Read the README to learn how to 
 ## Known issues
 * SDL always merges joycons behind the scene into a single controller. JSM is not able to split them. Use legacy-JSL version to use this feature.
 
+## 3.5.1
+
+Nick fixes everything he broke with his "improvements"
+
+### Bugfixes
+* Restore digital binding of virtual gamepad trigggers X_LT, X_RT, PS_L2 AND PS_R2.
+* Fix turbo binding of virtual controller buttons. Use Toggle as well for 50-50 press time instead of 40ms.
+* Fix Dualsense Edge new button bindings (left buttons were inverted: LSL and RSR are grips)
+* Add VIRTUAL_CONTROLLER and HIDE_MINIMIZED as settings exempted from resetting on RESET_BINDINGS
+* Restore scroll stick mode
+* Fix Ds4 virtual controller connect with UP stuck
+* Fix Ds4 virtual controller touch adding a second ghost touch at 0,0
+* Fix Ds4 virtual controller HOME and CAPTURE buttons
+* Robustness fix at cleanup
+* Fix Armor X Pro PS mode's M2 button
+
 ## 3.5.0
 
 Nick updates C++ standard to C++20, Add Setting Manager, Create Stick and Autoload objects, Update ViGEm, SDL2 and JSL dependencies to latest,

@@ -217,7 +217,6 @@ bool Mapping::AddMapping(KeyCode key, EventModifier evtMod, ActionModifier actMo
 	{
 	case ActionModifier::Toggle:
 		apply = bind(&EventActionIf::ApplyButtonToggle, placeholders::_1, key, apply, release);
-		release = EventActionIf::Callback();
 		break;
 	case ActionModifier::Instant:
 	{
@@ -232,12 +231,15 @@ bool Mapping::AddMapping(KeyCode key, EventModifier evtMod, ActionModifier actMo
 	}
 
 	// Insert release first because in turbo's case apply and release are the same but we want release to apply first
-	InsertEventMapping(releaseEvt, release);
 	InsertEventMapping(applyEvt, apply);
 	if (evtMod == EventModifier::TurboPress)
 	{
 		// On turbo you also always need to clear the turbo on release
 		InsertEventMapping(BtnEvent::OnRelease, release);
+	}
+	else
+	{
+		InsertEventMapping(releaseEvt, release);
 	}
 
 	stringstream ss;

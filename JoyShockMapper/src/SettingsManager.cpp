@@ -22,6 +22,8 @@ void SettingsManager::resetAllSettings()
 		static std::set<SettingID> exceptions = {
 			SettingID::AUTOLOAD,
 			SettingID::JSM_DIRECTORY,
+			SettingID::HIDE_MINIMIZED,
+			SettingID::VIRTUAL_CONTROLLER,
 		};
 		return exceptions.find(kvPair.first) == exceptions.end();
 	};

@@ -172,20 +172,11 @@ public:
 
 	void ApplyBtnPress(KeyCode key) override
 	{
-		if (key.code >= X_UP && key.code <= X_START || key.code == PS_HOME || key.code == PS_PAD_CLICK)
+		if (key.code >= X_UP && key.code <= X_START || key.code == PS_HOME || 
+			key.code == PS_PAD_CLICK || key.code == X_LT || key.code == X_RT)
 		{
 			if (_context->_vigemController)
 				_context->_vigemController->setButton(key, true);
-		}
-		else if (key.code == X_LT)
-		{
-			if (_context->_vigemController)
-				_context->_vigemController->setLeftTrigger(1.f);
-		}
-		else if (key.code == X_RT)
-		{
-			if (_context->_vigemController)
-				_context->_vigemController->setRightTrigger(1.f);
 		}
 		else if (key.code == VK_NONAME)
 		{
@@ -201,23 +192,14 @@ public:
 
 	void ApplyBtnRelease(KeyCode key) override
 	{
-		if (key.code >= X_UP && key.code <= X_START || key.code == PS_HOME || key.code == PS_PAD_CLICK)
+		if (key.code >= X_UP && key.code <= X_START || key.code == PS_HOME ||
+			key.code == PS_PAD_CLICK || key.code == X_LT || key.code == X_RT)
 		{
 			if (_context->_vigemController)
 			{
 				_context->_vigemController->setButton(key, false);
 				ClearAllActiveToggle(key);
 			}
-		}
-		else if (key.code == X_LT)
-		{
-			if (_context->_vigemController)
-				_context->_vigemController->setLeftTrigger(0.f);
-		}
-		else if (key.code == X_RT)
-		{
-			if (_context->_vigemController)
-				_context->_vigemController->setRightTrigger(0.f);
 		}
 		else if (key.code != NO_HOLD_MAPPED)
 		{
