@@ -1710,7 +1710,7 @@ void JoyShock::processStick(float stickX, float stickY, Stick &stick, float mous
 			float normY = stickY / stickLength;
 			// use screen resolution
 			float mouseX = getSetting(SettingID::SCREEN_RESOLUTION_X) * 0.5f + 0.5f + normX * mouse_ring_radius;
-			float mouseY = getSetting(SettingID::SCREEN_RESOLUTION_X) * 0.5f + 0.5f - normY * mouse_ring_radius;
+			float mouseY = getSetting(SettingID::SCREEN_RESOLUTION_Y) * 0.5f + 0.5f - normY * mouse_ring_radius;
 			// normalize
 			mouseX = mouseX / getSetting(SettingID::SCREEN_RESOLUTION_X);
 			mouseY = mouseY / getSetting(SettingID::SCREEN_RESOLUTION_Y);
