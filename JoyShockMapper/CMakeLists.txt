@@ -12,6 +12,8 @@ message(STATUS "JSM version is " ${JSM_VERSION})
 
 configure_file(include/JSMVersion.h.in include/JSMVersion.h)
 
+set (CMAKE_VS_JUST_MY_CODE_DEBUGGING 1)
+
 add_executable (
     ${BINARY_NAME}
     src/main.cpp

@@ -11,6 +11,8 @@ This is a summary of new features and bugfixes. Read the README to learn how to 
 ### Bugfixes
 * Fix toggle (again (again))
 * Exempt ADAPTIVE_TRIGGER and RUMBLE from RESET_MAPPINGS
+* Fix MOUSE_RING location bug
+* Fix armor x pro virtual touchpad button mapping
 
 ## 3.5.1
 

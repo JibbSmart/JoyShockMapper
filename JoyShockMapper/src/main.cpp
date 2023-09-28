@@ -110,8 +110,8 @@ struct TOUCH_POINT
 			posY = newState->y();
 			if (prevState)
 			{
-				movX = int16_t((newState->x() - prevState->x() * tpSize.x())); // Relative movement in unit
-				movY = int16_t((newState->y() - prevState->y() * tpSize.y()));
+				movX = int16_t((newState->x() - prevState->x()) * tpSize.x()); // Relative movement in unit
+				movY = int16_t((newState->y() - prevState->y()) * tpSize.y());
 			}
 		}
 	}
