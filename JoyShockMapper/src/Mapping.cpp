@@ -203,7 +203,7 @@ bool Mapping::AddMapping(KeyCode key, EventModifier evtMod, ActionModifier actMo
 	case EventModifier::ReleasePress:
 		// Acttion Modifier is required
 		applyEvt = BtnEvent::OnRelease;
-		releaseEvt = BtnEvent::INVALID;
+		releaseEvt = BtnEvent::OnInstantRelease;
 		break;
 	case EventModifier::TurboPress:
 		applyEvt = BtnEvent::OnTurbo;
