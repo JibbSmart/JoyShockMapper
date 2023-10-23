@@ -3,6 +3,8 @@ set(CMAKE_POLICY_DEFAULT_CMP0077 NEW)
 
 project ("JoyShockMapper" CXX)
 
+# Turning off extensions avoids and issue with the clang 16 compiler with modules
+set(CMAKE_CXX_EXTENSIONS OFF)
 set (CMAKE_CXX_STANDARD 20)
 set (CMAKE_CXX_STANDARD_REQUIRED ON)
 
