@@ -202,9 +202,9 @@ public:
 		if (chord > ButtonID::NONE)
 		{
 			auto existingChord = _chordedVariables.find(chord);
-			return existingChord != _chordedVariables.end() ? make_optional<T>(existingChord->second) : nullopt;
+			return existingChord != _chordedVariables.end() ? optional<T>(T(existingChord->second)) : nullopt;
 		}
-		return chord != ButtonID::INVALID ? make_optional(Base::_value) : nullopt;
+		return chord != ButtonID::INVALID ? optional(Base::_value) : nullopt;
 	}
 	virtual operator T() const
 	{
