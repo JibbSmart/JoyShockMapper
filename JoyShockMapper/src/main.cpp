@@ -3474,6 +3474,7 @@ ControllerScheme UpdateVirtualController(ControllerScheme prevScheme, Controller
 	bool success = true;
 	for (auto &js : handle_to_joyshock)
 	{
+		lock_guard guard(js.second->_context->callback_lock);
 		if (!js.second->_context->_vigemController ||
 		  js.second->_context->_vigemController->getType() != nextScheme)
 		{

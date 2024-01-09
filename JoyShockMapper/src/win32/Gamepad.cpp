@@ -221,7 +221,7 @@ public:
 		{
 			*errorMsg = _errorMsg;
 		}
-		return _errorMsg.empty() && vigem_target_is_attached(_gamepad) == TRUE;
+		return _errorMsg.empty() && _gamepad && vigem_target_is_attached(_gamepad) == TRUE;
 	}
 
 	void setStick(float x, float y, bool isLeft) override
@@ -427,6 +427,7 @@ public:
 				vigem_target_remove(client, _gamepad);
 			}
 			vigem_target_free(_gamepad);
+			_gamepad = nullptr;
 		}
 		_pollDs4Thread.join();
 	}
@@ -434,7 +435,9 @@ public:
 	VIGEM_ERROR awaitOutputReportTimeout(UDs4OutputBuffer &out)
 	{
 		lock_guard guard(_gamepadLock);
-		return vigem_target_ds4_await_output_report_timeout(VigemClient::get(), _gamepad, 1000, &out.buffer);
+		if (_gamepad)
+			return vigem_target_ds4_await_output_report_timeout(VigemClient::get(), _gamepad, 1000, &out.buffer);
+		return VIGEM_ERROR_IS_DISPOSING;
 	}
 
 	void pollDs4()

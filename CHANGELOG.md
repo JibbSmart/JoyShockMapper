@@ -6,6 +6,15 @@ This is a summary of new features and bugfixes. Read the README to learn how to 
 ## Known issues
 * SDL always merges joycons behind the scene into a single controller. JSM is not able to split them. Use legacy-JSL version to use this feature.
 
+## 3.5.3
+
+### Features
+* Update SDL2 to latest 2.28.5
+
+### Bugfixes
+* Fixed Instant Press not applying properly
+* Fixed a deadlock with releasing a virtual controller
+
 ## 3.5.2
 
 ### Bugfixes

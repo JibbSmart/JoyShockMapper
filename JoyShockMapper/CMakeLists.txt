@@ -166,7 +166,7 @@ if(SDL OR NOT DEFINED SDL)
 	CPMAddPackage (
 		NAME SDL2
         GITHUB_REPOSITORY libsdl-org/SDL
-        GIT_TAG release-2.28.3
+        GIT_TAG release-2.28.5
 	)
 	
 	set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
