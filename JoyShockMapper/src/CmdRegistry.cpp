@@ -39,7 +39,7 @@ unique_ptr<JSMCommand> JSMCommand::GetModifiedCmd(char op, in_string chord)
 	return nullptr;
 }
 
-bool JSMCommand::ParseData(in_string arguments)
+bool JSMCommand::ParseData(in_string arguments, in_string label)
 {
 	_ASSERT_EXPR(_parse, L"There is no function defined to parse this command.");
 	if (arguments.compare("HELP") == 0)
@@ -47,7 +47,7 @@ bool JSMCommand::ParseData(in_string arguments)
 		// Parsing has failed. Show help.
 		COUT << _help << endl;
 	}
-	else if (!_parse(this, arguments))
+	else if (!_parse(this, arguments, label))
 	{
 		CERR << _help << endl;
 	}
@@ -56,12 +56,17 @@ bool JSMCommand::ParseData(in_string arguments)
 
 CmdRegistry::CmdRegistry()
 {
+	NONAME = { 0b01001011, 0b01001111 };
 }
 
 bool CmdRegistry::loadConfigFile(string fileName)
 {
 	// https://stackoverflow.com/questions/2602013/read-whole-ascii-file-into-c-stdstring
-
+	auto comment = fileName.find_first_of('#');
+	if (comment != string::npos)
+	{
+		fileName = fileName.substr(0, comment - 1);
+	}
 	// Trim away quotation marks from drag and drop
 	if (*fileName.begin() == '\"' && *(fileName.end() - 1) == '\"')
 		fileName = fileName.substr(1, fileName.size() - 2);
@@ -112,7 +117,7 @@ string_view CmdRegistry::strtrim(std::string_view str)
 // Add a command to the registry. The regisrty takes ownership of the memory of this pointer.
 // You can use _ASSERT() on the return value of this function to make sure the commands are
 // accepted.
-bool CmdRegistry::Add(JSMCommand* newCommand)
+bool CmdRegistry::add(JSMCommand* newCommand)
 {
 	// Check that the pointer is valid, that the name is valid.
 	if (newCommand && regex_match(newCommand->_name, regex(R"(^(\+|-|\w+)$)")))
@@ -137,14 +142,14 @@ bool CmdRegistry::Remove(in_string name)
 	return false;
 }
 
-bool CmdRegistry::findCommandWithName(in_string name, CmdMap::value_type& pair)
+bool CmdRegistry::findCommandWithName(in_string name, const CmdMap::value_type& pair)
 {
 	return name == pair.first;
 }
 
-bool CmdRegistry::isCommandValid(in_string line)
+bool CmdRegistry::isCommandValid(in_string line) const
 {
-	ifstream file(line);
+	ifstream file(line.data());
 	if (file.is_open())
 	{
 		file.close();
@@ -153,7 +158,8 @@ bool CmdRegistry::isCommandValid(in_string line)
 	smatch results;
 	string combo, name, arguments, label;
 	char op = '\0';
-	if (regex_match(line, results, regex(R"(^\s*([+-]?\w*)\s*([,+]\s*([+-]?\w*))?\s*([^#\n]*)(#\s*(.*))?$)")))
+	const string lineStr(line);
+	if (regex_match(lineStr, results, regex(R"(^\s*([+-]?\w*)\s*([,+]\s*([+-]?\w*))?\s*([^#\n]*)(#\s*(.*))?$)")))
 	{
 		if (results[2].length() > 0)
 		{
@@ -171,7 +177,7 @@ bool CmdRegistry::isCommandValid(in_string line)
 	}
 
 	bool hasProcessed = false;
-	CmdMap::iterator cmd = find_if(_registry.begin(), _registry.end(), bind(&CmdRegistry::findCommandWithName, name, placeholders::_1));
+	CmdMap::const_iterator cmd = find_if(_registry.cbegin(), _registry.cend(), bind(&CmdRegistry::findCommandWithName, name, placeholders::_1));
 	return cmd != _registry.end();
 }
 
@@ -211,14 +217,14 @@ void CmdRegistry::processLine(const string& line)
 		{
 			if (combo.empty())
 			{
-				hasProcessed |= cmd->second->ParseData(arguments);
+				hasProcessed |= cmd->second->ParseData(arguments, label);
 			}
 			else
 			{
 				auto modCommand = cmd->second->GetModifiedCmd(op, combo);
 				if (modCommand)
 				{
-					hasProcessed |= modCommand->ParseData(arguments);
+					hasProcessed |= modCommand->ParseData(arguments, label);
 				}
 				// Any task set to be run on destruction is done here.
 			}
@@ -227,13 +233,15 @@ void CmdRegistry::processLine(const string& line)
 
 		if (!hasProcessed)
 		{
-			CERR << "Unrecognized command: \"" << trimmedLine << "\"\nEnter HELP to display all commands." << endl;
+			CERR << "Unrecognized command: \"" << trimmedLine << "\"\nEnter ";
+			COUT_INFO << "HELP";
+			CERR << " to display all commands." << endl;
 		}
 	}
 	// else ignore empty lines
 }
 
-void CmdRegistry::GetCommandList(vector<string>& outList)
+void CmdRegistry::GetCommandList(vector<string_view>& outList) const
 {
 	outList.clear();
 	for (auto& cmd : _registry)
@@ -246,7 +254,7 @@ bool CmdRegistry::hasCommand(in_string name) const
 	return _registry.find(name) != _registry.end();
 }
 
-string CmdRegistry::GetHelp(in_string command)
+string_view CmdRegistry::GetHelp(in_string command) const
 {
 	auto cmd = _registry.find(command);
 	if (cmd != _registry.end())
@@ -256,21 +264,16 @@ string CmdRegistry::GetHelp(in_string command)
 	return "";
 }
 
-bool JSMMacro::DefaultParser(JSMCommand* cmd, in_string arguments)
+bool JSMMacro::DefaultParser(JSMCommand* cmd, in_string arguments, in_string label)
 {
 	// Default macro parser assumes no argument and calls macro when called.
 	auto macroCmd = static_cast<JSMMacro*>(cmd);
 	// Developper protection to remind you to set a parser.
 	_ASSERT_EXPR(macroCmd->_macro, L"No Macro was set for this command.");
-	if (arguments.compare(0, 4, "HELP") == 0 && !macroCmd->_help.empty())
+	if (!macroCmd->_macro(macroCmd, arguments) && !macroCmd->_help.empty())
 	{
-		// Show help.
 		COUT << macroCmd->_help << endl;
-	}
-	else if (!macroCmd->_macro(macroCmd, arguments) && !macroCmd->_help.empty())
-	{
-		COUT << macroCmd->_help << endl
-		     << "The "; // Parsing has failed. Show help.
+		COUT << "The "; // Parsing has failed. Show help.
 		COUT_INFO << "README";
 		COUT << " command can lead you to further details on this command." << endl;
 	}

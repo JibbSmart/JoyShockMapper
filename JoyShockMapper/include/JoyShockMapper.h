@@ -1,10 +1,13 @@
 #pragma once
 
-#include "JSMVersion.h"
 #include "magic_enum.hpp"
 
 #include <map>
 #include <functional>
+#include <sstream>
+#include <string>
+#include <memory>
+#include <array>
 
 // This header file is meant to be included among all core JSM source files
 // And as such it should contain only constants, types and functions related to them
@@ -12,7 +15,7 @@
 using namespace std; // simplify all std calls
 
 // input string parameters should be const references.
-typedef const string &in_string;
+typedef string_view in_string;
 
 // Reused OS typedefs
 typedef unsigned short WORD;
@@ -54,6 +57,8 @@ constexpr WORD X_RS = 0xF3;
 constexpr WORD X_BACK = 0xF4;
 constexpr WORD X_START = 0xF5;
 constexpr WORD X_GUIDE = 0xB8;
+constexpr WORD X_LT = 0xD8;
+constexpr WORD X_RT = 0xD9;
 
 // DS4 buttons
 constexpr WORD PS_UP = 0xE8;
@@ -72,6 +77,13 @@ constexpr WORD PS_SHARE = 0xF4;
 constexpr WORD PS_OPTIONS = 0xF5;
 constexpr WORD PS_HOME = 0xB8;
 constexpr WORD PS_PAD_CLICK = 0xB9;
+constexpr WORD PS_L2 = 0xD8;
+constexpr WORD PS_R2 = 0xD9;
+
+constexpr bool isControllerKey(WORD code)
+{
+	return (code >= X_UP && code <= X_START) || code == PS_HOME || code == PS_PAD_CLICK || code == X_LT || code == X_RT;
+}
 
 // All enums should have an INVALID field for proper use with templated << and >> operators
 
@@ -86,7 +98,6 @@ enum class ButtonID
 	L,
 	ZL,
 	MINUS,
-	CAPTURE,
 	E,
 	S,
 	N,
@@ -101,6 +112,9 @@ enum class ButtonID
 	RSR,
 	L3,
 	R3,
+	LEAN_LEFT,
+	LEAN_RIGHT,
+	MIC,
 	LUP,
 	LDOWN,
 	LLEFT,
@@ -116,13 +130,47 @@ enum class ButtonID
 	MLEFT,
 	MRIGHT,
 	MRING,
-	LEAN_LEFT,
-	LEAN_RIGHT,
-	TOUCH, // Touch anywhere on the touchpad
-	ZLF,   // = FIRST_ANALOG_TRIGGER
-	       // insert more analog triggers here
-	ZRF,   // =  LAST_ANALOG_TRIGGER
-	SIZE,  // Not a button
+	TOUCH,   // Touch anywhere on the touchpad
+	ZLF,     // = FIRST_ANALOG_TRIGGER
+	CAPTURE, // Full press of touchpad touch + press
+	// insert more analog triggers here
+	ZRF,  // =  LAST_ANALOG_TRIGGER
+
+	TUP,
+	TDOWN,
+	TLEFT,
+	TRIGHT,
+	TRING,
+
+	SIZE, // Not a button
+
+	// Virtual buttons configured on the touchpad. The number of buttons vary dynamically, but they each need a different ID
+	T1,  // FIRST_TOUCH_BUTTON
+	T2,
+	T3,
+	T4,
+	T5,
+	T6,
+	T7,
+	T8,
+	T9,
+	T10,
+	T11,
+	T12,
+	T13,
+	T14,
+	T15,
+	T16,
+	T17,
+	T18,
+	T19,
+	T20,
+	T21,
+	T22,
+	T23,
+	T24,
+	T25,
+	// Add as necessary...
 };
 
 // Help strings for each button
@@ -130,14 +178,16 @@ extern const map<ButtonID, string> buttonHelpMap;
 
 enum class SettingID
 {
-	INVALID = -2,                            // Represents an error in user input
-	MIN_GYRO_SENS = int(ButtonID::SIZE) + 1, // Legacy but int value not used
+	INVALID = -1,
+	ZERO = 0,    // Represents an error in user input
+	MIN_GYRO_SENS,  // Legacy but int value not used
 	MAX_GYRO_SENS,
 	MIN_GYRO_THRESHOLD,
 	MAX_GYRO_THRESHOLD,
 	STICK_POWER,
 	STICK_SENS,
 	REAL_WORLD_CALIBRATION,
+	VIRTUAL_STICK_CALIBRATION,
 	IN_GAME_SENS,
 	TRIGGER_THRESHOLD,
 	RESET_MAPPINGS,
@@ -147,8 +197,12 @@ enum class SettingID
 	MOTION_STICK_MODE,
 	GYRO_OFF,
 	GYRO_ON,
-	STICK_AXIS_X,
-	STICK_AXIS_Y,
+	LEFT_STICK_AXIS,
+	RIGHT_STICK_AXIS,
+	MOTION_STICK_AXIS,
+	TOUCH_STICK_AXIS,
+	STICK_AXIS_X, // Legacy command
+	STICK_AXIS_Y, // Legacy command
 	GYRO_AXIS_X,
 	GYRO_AXIS_Y,
 	RECONNECT_CONTROLLERS,
@@ -191,12 +245,15 @@ enum class SettingID
 	FLICK_SNAP_STRENGTH,
 	MOTION_DEADZONE_INNER,
 	MOTION_DEADZONE_OUTER,
+	ANGLE_TO_AXIS_DEADZONE_INNER,
+	ANGLE_TO_AXIS_DEADZONE_OUTER,
 	RIGHT_STICK_DEADZONE_INNER,
 	RIGHT_STICK_DEADZONE_OUTER,
 	LEAN_THRESHOLD,
 	FLICK_DEADZONE_ANGLE,
 	FLICK_TIME_EXPONENT,
 	CONTROLLER_ORIENTATION,
+	GYRO_SPACE,
 	TRACKBALL_DECAY,
 	TRIGGER_SKIP_DELAY,
 	TURBO_PERIOD,
@@ -204,21 +261,71 @@ enum class SettingID
 	TICK_TIME,
 	SIM_PRESS_WINDOW, // Unchorded setting
 	DBL_PRESS_WINDOW, // Unchorded setting
+	GRID_SIZE,        // Unchorded setting
+	TOUCHPAD_MODE,
+	TOUCH_STICK_MODE,
+	TOUCH_STICK_RADIUS,
+	TOUCH_DEADZONE_INNER,
+	TOUCH_RING_MODE,
+	TOUCHPAD_SENS,
 	LIGHT_BAR,
 	SCROLL_SENS,
 	VIRTUAL_CONTROLLER,
+	RUMBLE,
+	TOUCHPAD_DUAL_STAGE_MODE,
+	CLEAR,
+	ADAPTIVE_TRIGGER,
+	LEFT_TRIGGER_EFFECT,
+	RIGHT_TRIGGER_EFFECT,
+	LEFT_TRIGGER_OFFSET,
+	LEFT_TRIGGER_RANGE,
+	RIGHT_TRIGGER_OFFSET,
+	RIGHT_TRIGGER_RANGE,
+	LEFT_STICK_UNDEADZONE_INNER,
+	LEFT_STICK_UNDEADZONE_OUTER,
+	LEFT_STICK_UNPOWER,
+	RIGHT_STICK_UNDEADZONE_INNER,
+	RIGHT_STICK_UNDEADZONE_OUTER,
+	RIGHT_STICK_UNPOWER,
+	LEFT_STICK_VIRTUAL_SCALE,
+	RIGHT_STICK_VIRTUAL_SCALE,
+	WIND_STICK_RANGE,
+	WIND_STICK_POWER,
+	UNWIND_RATE,
+	GYRO_OUTPUT,
+	FLICK_STICK_OUTPUT,
+	HIDE_MINIMIZED,
+	AUTO_CALIBRATE_GYRO,
+	JSM_DIRECTORY,
+	RETURN_DEADZONE_IS_ACTIVE,
+	EDGE_PUSH_IS_ACTIVE,
+	STICKLIKE_FACTOR,
+	MOUSELIKE_FACTOR,
+	RETURN_DEADZONE_ANGLE,
+	RETURN_DEADZONE_ANGLE_CUTOFF,
 };
 
 // constexpr are like #define but with respect to typeness
+constexpr size_t MAX_NO_OF_TOUCH = 2; // Could be obtained from JSL?
 constexpr int MAPPING_SIZE = int(ButtonID::SIZE);
 constexpr int FIRST_ANALOG_TRIGGER = int(ButtonID::ZLF);
 constexpr int LAST_ANALOG_TRIGGER = int(ButtonID::ZRF);
+constexpr int FIRST_TOUCH_BUTTON = MAPPING_SIZE + 1;
 constexpr int NUM_ANALOG_TRIGGERS = int(LAST_ANALOG_TRIGGER) - int(FIRST_ANALOG_TRIGGER) + 1;
 constexpr float MAGIC_TAP_DURATION = 40.0f;           // in milliseconds.
 constexpr float MAGIC_INSTANT_DURATION = 40.0f;       // in milliseconds
 constexpr float MAGIC_EXTENDED_TAP_DURATION = 500.0f; // in milliseconds
 constexpr int MAGIC_TRIGGER_SMOOTHING = 5;            // in samples
 
+enum class GyroSpace
+{
+	LOCAL,
+	PLAYER_TURN,
+	PLAYER_LEAN,
+	WORLD_TURN,
+	WORLD_LEAN,
+	INVALID
+};
 enum class ControllerOrientation
 {
 	FORWARD,
@@ -246,8 +353,18 @@ enum class StickMode
 	OUTER_RING,
 	INNER_RING,
 	SCROLL_WHEEL,
+	HYBRID_AIM,
+	// Following requires virtual controller (keep them contiguous)
 	LEFT_STICK,
 	RIGHT_STICK,
+	LEFT_ANGLE_TO_X,
+	LEFT_ANGLE_TO_Y,
+	RIGHT_ANGLE_TO_X,
+	RIGHT_ANGLE_TO_Y,
+	LEFT_STEER_X,
+	RIGHT_STEER_X,
+	LEFT_WIND_X,
+	RIGHT_WIND_X,
 	INVALID
 };
 enum class FlickSnapMode
@@ -288,10 +405,10 @@ enum class GyroAxisMask
 };
 enum class JoyconMask
 {
-	USE_BOTH,
-	IGNORE_LEFT,
-	IGNORE_RIGHT,
-	IGNORE_BOTH,
+	IGNORE_BOTH = 0b00,
+	IGNORE_LEFT = 0b01,
+	IGNORE_RIGHT = 0b10,
+	USE_BOTH = 0b11,
 	INVALID
 };
 enum class GyroIgnoreMode
@@ -314,21 +431,15 @@ enum class DstState
 	ExclFullPress,
 	INVALID
 };
-enum class BtnState
+enum class GyroOutput
 {
-	NoPress,
-	BtnPress,
-	TapRelease,
-	WaitSim,
-	SimPress,
-	SimRelease,
-	DblPressStart,
-	DblPressNoPressTap,
-	DblPressNoPressHold,
-	DblPressPress,
-	InstRelease,
+	MOUSE,
+	LEFT_STICK,
+	RIGHT_STICK,
+	PS_MOTION,
 	INVALID
 };
+
 enum class BtnEvent
 {
 	OnPress,
@@ -347,6 +458,7 @@ enum class Switch : char
 	ON,
 	INVALID,
 }; // Used to parse autoload assignment
+
 enum class ControllerScheme
 {
 	NONE,
@@ -355,11 +467,23 @@ enum class ControllerScheme
 	INVALID
 };
 
+enum class TouchpadMode
+{
+	GRID_AND_STICK, // Grid and Stick
+	MOUSE,          // gestures to be added as part of this mode
+	PS_TOUCHPAD,
+	INVALID
+};
+
 // Workaround default string streaming operator
 class PathString : public string // Should be wstring
 {
 public:
 	PathString() = default;
+	PathString(const string& path)
+	  : string(path)
+	{
+	}
 	PathString(in_string path)
 	  : string(path)
 	{
@@ -382,53 +506,33 @@ union Color
 	} rgb;
 };
 
+using AxisSignPair = pair<AxisMode, AxisMode>;
+
 // Needs to be accessed publicly
-extern WORD nameToKey(const std::string &name);
+extern WORD nameToKey(in_string name);
 
 struct KeyCode
 {
 	static const KeyCode EMPTY;
 
-	WORD code;
-	string name;
+	WORD code = NO_HOLD_MAPPED;
+	string name = "None";
 
-	inline KeyCode()
-	  : code()
-	  , name()
-	{
-	}
+	KeyCode();
 
-	inline KeyCode(in_string keyName)
-	  : code(nameToKey(keyName))
-	  , name()
-	{
-		if (code == COMMAND_ACTION)
-			name = keyName.substr(1, keyName.size() - 2); // Remove opening and closing quotation marks
-		else if (keyName.compare("SMALL_RUMBLE") == 0)
-		{
-			name = SMALL_RUMBLE;
-			code = RUMBLE;
-		}
-		else if (keyName.compare("BIG_RUMBLE") == 0)
-		{
-			name = BIG_RUMBLE;
-			code = RUMBLE;
-		}
-		else if (code != 0)
-			name = keyName;
-	}
+	KeyCode(in_string keyName);
 
 	inline bool isValid()
 	{
 		return code != 0;
 	}
 
-	inline bool operator==(const KeyCode &rhs)
+	inline bool operator==(const KeyCode &rhs) const
 	{
 		return code == rhs.code && name == rhs.name;
 	}
 
-	inline bool operator!=(const KeyCode &rhs)
+	inline bool operator!=(const KeyCode &rhs) const
 	{
 		return !operator==(rhs);
 	}
@@ -443,14 +547,21 @@ struct FloatXY : public pair<float, float>
 	{
 	}
 
-	inline float x()
+	inline float x() const
 	{
 		return first;
 	}
 
-	inline float y()
+	inline float y() const
 	{
 		return second;
+	}
+
+	FloatXY &operator+=(const FloatXY& rhs)
+	{
+		first += rhs.first;
+		second += rhs.second;
+		return *this;
 	}
 };
 
@@ -458,104 +569,15 @@ struct FloatXY : public pair<float, float>
 struct GyroSettings
 {
 	bool always_off = false;
-	ButtonID button = ButtonID::NONE;
+	ButtonID button = ButtonID::NONE; // Ignore on button none means no GYRO_OFF button (or Always On);
 	GyroIgnoreMode ignore_mode = GyroIgnoreMode::BUTTON;
-
-	GyroSettings() = default;
-	// This constructor is required to make use of the default value of JSMVariable's constructor
-	GyroSettings(int dummy)
-	  : GyroSettings()
-	{
-	}
 };
 
-class DigitalButton;
-class JoyShock;
-
-typedef function<void(DigitalButton *)> OnEventAction;
-
-// This structure handles the mapping of a button, buy processing and action
-// to be done on tap, hold, turbo and others. It holds a map of actions to perform
-// when a specific event happens. This replaces the old Mapping structure.
-class Mapping
-{
-public:
-	enum class ActionModifier
-	{
-		None,
-		Toggle,
-		Instant,
-		INVALID
-	};
-	enum class EventModifier
-	{
-		None,
-		StartPress,
-		ReleasePress,
-		TurboPress,
-		TapPress,
-		HoldPress,
-		INVALID
-	};
-
-	// Identifies having no binding mapped
-	static const Mapping NO_MAPPING;
-
-	// This functor nees to be set to way to validate a command line string;
-	static function<bool(in_string)> _isCommandValid;
-
-	string _description = "no input";
-	string _command;
-
-private:
-	map<BtnEvent, OnEventAction> _eventMapping;
-	float _tapDurationMs = MAGIC_TAP_DURATION;
-	bool _hasViGEmBtn = false;
-
-	void InsertEventMapping(BtnEvent evt, OnEventAction action);
-	static void RunBothActions(DigitalButton *btn, OnEventAction action1, OnEventAction action2);
-
-public:
-	Mapping() = default;
-
-	Mapping(in_string mapping);
-
-	Mapping(int dummy)
-	  : Mapping()
-	{
-	}
-
-	void ProcessEvent(BtnEvent evt, DigitalButton &button, in_string displayName) const;
-
-	bool AddMapping(KeyCode key, EventModifier evtMod, ActionModifier actMod = ActionModifier::None);
-
-	inline bool isValid() const
-	{
-		return !_eventMapping.empty();
-	}
-
-	inline float getTapDuration() const
-	{
-		return _tapDurationMs;
-	}
-
-	inline void clear()
-	{
-		_eventMapping.clear();
-		_description.clear();
-		_tapDurationMs = MAGIC_TAP_DURATION;
-		_hasViGEmBtn = false;
-	}
-
-	inline bool hasViGEmBtn() const
-	{
-		return _hasViGEmBtn;
-	}
-};
+class Mapping;
 
 // This function is defined in main.cpp. It enables two sim press variables to
 // listen to each other and make sure they both hold the same values.
-void SimPressCrossUpdate(ButtonID sim, ButtonID origin, Mapping newVal);
+void SimPressCrossUpdate(ButtonID sim, ButtonID origin, const Mapping &newVal);
 
 // This operator enables reading any enum from string
 template<class E, class = std::enable_if_t<std::is_enum<E>{}>>
@@ -578,31 +600,26 @@ ostream &operator<<(ostream &out, E rhv)
 
 // The following operators enable reading and writing JSM's custom
 // types to and from string, or handles exceptions
+ostream &operator<<(ostream &out, const KeyCode &code);
+// operator >>() is nameToKey()?!?
+
 istream &operator>>(istream &in, ButtonID &rhv);
-ostream &operator<<(ostream &out, ButtonID rhv);
+ostream &operator<<(ostream &out, const ButtonID &rhv);
 
 istream &operator>>(istream &in, FlickSnapMode &fsm);
-ostream &operator<<(ostream &out, FlickSnapMode fsm);
+ostream &operator<<(ostream &out, const FlickSnapMode &fsm);
 
 istream &operator>>(istream &in, TriggerMode &tm); // Handle L2 / R2
 
 istream &operator>>(istream &in, GyroSettings &gyro_settings);
-ostream &operator<<(ostream &out, GyroSettings gyro_settings);
+ostream &operator<<(ostream &out, const GyroSettings &gyro_settings);
 bool operator==(const GyroSettings &lhs, const GyroSettings &rhs);
 inline bool operator!=(const GyroSettings &lhs, const GyroSettings &rhs)
 {
 	return !(lhs == rhs);
 }
 
-istream &operator>>(istream &in, Mapping &mapping);
-ostream &operator<<(ostream &out, Mapping mapping);
-bool operator==(const Mapping &lhs, const Mapping &rhs);
-inline bool operator!=(const Mapping &lhs, const Mapping &rhs)
-{
-	return !(lhs == rhs);
-}
-
-ostream &operator<<(ostream &out, FloatXY fxy);
+ostream &operator<<(ostream &out, const FloatXY &fxy);
 istream &operator>>(istream &in, FloatXY &fxy);
 bool operator==(const FloatXY &lhs, const FloatXY &rhs);
 inline bool operator!=(const FloatXY &lhs, const FloatXY &rhs)
@@ -610,8 +627,16 @@ inline bool operator!=(const FloatXY &lhs, const FloatXY &rhs)
 	return !(lhs == rhs);
 }
 
+ostream& operator<<(ostream& out, const AxisSignPair& fxy);
+istream& operator>>(istream& in, AxisSignPair& fxy);
+bool operator==(const AxisSignPair& lhs, const AxisSignPair& rhs);
+inline bool operator!=(const AxisSignPair& lhs, const AxisSignPair& rhs)
+{
+	return !(lhs == rhs);
+}
+
 istream &operator>>(istream &in, Color &color);
-ostream &operator<<(ostream &out, Color color);
+ostream &operator<<(ostream &out, const Color &color);
 bool operator==(const Color &lhs, const Color &rhs);
 inline bool operator!=(const Color &lhs, const Color &rhs)
 {
@@ -623,8 +648,50 @@ istream &operator>>(istream &in, AxisMode &am);
 
 istream &operator>>(istream &in, PathString &fxy);
 
+class Log
+{
+public:
+	enum class Level
+	{
+		UT,
+		BASE,
+		BOLD,
+		INFO,
+		WARN,
+		ERR,
+	};
+
+protected:
+	// https://stackoverflow.com/questions/11826554/standard-no-op-output-stream
+	class NullBuffer : public std::streambuf
+	{
+	public:
+		int overflow(int c) override
+		{
+			return c;
+		}
+	};
+	unique_ptr<streambuf> _buf;
+
+	static streambuf *makeBuffer(Level level);
+
+public:
+	Log(Level level)
+	  : _buf(makeBuffer(level))
+	  , _str(_buf.get())
+	{
+	}
+	~Log() { }
+
+	ostream _str;
+};
+
 // This trickery doesn't work in Linux does it? :(
-#define CERR ColorStream<&std::cerr, FOREGROUND_RED | FOREGROUND_INTENSITY>()
-#define COUT ColorStream<&std::cout, FOREGROUND_GREEN>()
-#define COUT_INFO ColorStream<&cout, FOREGROUND_BLUE | FOREGROUND_INTENSITY>()
-#define COUT_WARN ColorStream<&cout, FOREGROUND_YELLOW | FOREGROUND_INTENSITY>()
+#define CERR Log(Log::Level::ERR)._str
+#define COUT Log(Log::Level::BASE)._str
+#define COUT_INFO Log(Log::Level::INFO)._str
+#define COUT_WARN Log(Log::Level::WARN)._str
+#define DEBUG_LOG Log(Log::Level::UT)._str
+#define COUT_BOLD Log(Log::Level::BOLD)._str
+
+bool do_RECONNECT_CONTROLLERS(in_string arguments);

@@ -304,7 +304,7 @@ public:
 	};
 
 public:
-	VirtualInputDevice(Device device) noexcept
+	VirtualInputDevice(Device device)
 	  : device_{ libevdev_new() }
 	{
 		if (device == Device::MOUSE)
@@ -340,7 +340,9 @@ public:
 		  &uinput_device_);
 		if (error != 0)
 		{
-			std::fprintf(stderr, "Failed to create virtual device: %s\n", std::strerror(-error));
+			throw std::runtime_error(
+				std::string("Failed to create virtual device: ") +
+				std::strerror(-error) + std::string("\n"));
 		}
 	}
 
@@ -515,7 +517,7 @@ int pressMouse(WORD vkKey, bool isPressed)
 // send key press
 int pressKey(KeyCode vkKey, bool pressed)
 {
-	if (vkKey == 0)
+	if (vkKey.code == 0)
 		return 0;
 	if (vkKey.code <= V_WHEEL_DOWN)
 	{
@@ -558,7 +560,7 @@ void setMouseNorm(float x, float y)
 	mouse.mouse_move_absolute(std::roundf(65535.0f * x), std::roundf(65535.0f * y));
 }
 
-bool WriteToConsole(const std::string &command)
+bool WriteToConsole(in_string command)
 {
 	constexpr auto STDIN_FD{ 0 };
 
@@ -697,7 +699,7 @@ std::string GetCWD()
 }
 
 bool SetCWD(in_string newCWD) {
-    return chdir(newCWD.c_str()) != 0;
+    return chdir(newCWD.data()) != 0;
 }
 
 DWORD ShowOnlineHelp()
@@ -714,8 +716,19 @@ void ShowConsole()
 {
 }
 
+void initConsole() {
+}
+
+bool ClearConsole() {
+    return true;
+}
+
 void ReleaseConsole()
 {
+}
+
+void UnhideConsole() {
+
 }
 
 bool IsVisible()
@@ -726,45 +739,4 @@ bool IsVisible()
 bool isConsoleMinimized()
 {
 	return false;
-}
-
-PollingThread::~PollingThread()
-{
-	if (_continue)
-	{
-		Stop();
-		std::this_thread::sleep_for(std::chrono::milliseconds{ _sleepTimeMs });
-	}
-	// Let poll function cleanup
-	pthread_join(_thread, nullptr);
-}
-
-bool PollingThread::Start()
-{
-	if (_thread && !_continue) // thread is running but hasn't stopped yet
-	{
-		std::this_thread::sleep_for(std::chrono::milliseconds{ _sleepTimeMs });
-	}
-	if (!_thread) // thread is clear
-	{
-		_continue = true;
-		pthread_create(&_thread, nullptr, (void *(*)(void *)) & PollingThread::pollFunction, this);
-		_tid = _thread;
-	}
-	return isRunning();
-}
-
-DWORD PollingThread::pollFunction(LPVOID param)
-{
-	auto workerThread = static_cast<PollingThread *>(param);
-	if (workerThread)
-	{
-		while (workerThread->_continue && workerThread->_loopContent(workerThread->_funcParam))
-		{
-			std::this_thread::sleep_for(
-			  std::chrono::milliseconds{ workerThread->_sleepTimeMs });
-		}
-	}
-
-	return 0;
 }

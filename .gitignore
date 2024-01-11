@@ -3,6 +3,8 @@
 ##
 ## Get latest from https://github.com/github/gitignore/blob/master/VisualStudio.gitignore
 
+build-jsm-*
+
 # custom:
 *.tlog
 intermediate/
@@ -314,3 +316,4 @@ Makefile
 install_manifest.txt
 compile_commands.json
 _deps
+install/

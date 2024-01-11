@@ -8,7 +8,7 @@ My goal with JoyShockMapper is to enable you to play PC games with DS, DS4, JoyC
 
 **Download JoyShockMapper to use right away [here](https://github.com/Electronicks/JoyShockMapper/releases)**!
 
-For developers, version 2.2 and older serve as a reference implementation for using [JoyShockLibrary](https://github.com/jibbsmart/JoyShockLibrary) to read inputs from DualShock 4, DualSense, JoyCons, and Pro Controller in your games. It now uses [SDL2](https://github.com/libsdl-org/SDL) for controller support, and JoyShockLibrary's developer has made code contributions to SDL2 to make sure it covers the same features.
+For developers, version 2.2 and older serve as a reference implementation for using [JoyShockLibrary](https://github.com/jibbsmart/JoyShockLibrary) to read inputs from DualShock 4, DualSense, JoyCons, and Pro Controller in your games. It now uses [SDL2](https://github.com/libsdl-org/SDL) for controller support, and I've made code contributions to SDL2 to make sure it covers the same features.
 
 JoyShockMapper is also a reference implementation for many of the best practices described on [GyroWiki](http://gyrowiki.jibbsmart.com).
 
@@ -28,6 +28,9 @@ JoyShockMapper is primarily developed on Windows. JoyShockMapper should now be a
 	* **[Double Press](#15-double-press)**
 	* **[Gyro Button](#16-gyro-button)**
   * **[Analog Triggers](#2-analog-triggers)**
+    * **[Analog to digital](#21-analog-to-digital)**
+    * **[Full pull and modes](#22-full-pull-and-modes)**
+    * **[Adaptive Triggers](#23-adaptive-triggers)**
   * **[Stick Configuration](#3-stick-configuration)**
     * **[Standard AIM mode](#31-standard-aim-mode)**
     * **[FLICK mode and variants](#32-flick-mode-and-variants)**
@@ -42,20 +45,23 @@ JoyShockMapper is primarily developed on Windows. JoyShockMapper should now be a
   * **[ViGEm Virtual Controller](#6-vigem-virtual-controller)**
     * **[Xbox bindings](#61-xbox-bindings)**
     * **[DS4 bindings](#62-ds4-bindings)**
+    * **[Virtual Controller Gyro](#63-virtual-controller-gyro)**
   * **[Modeshifts](#7-modeshifts)**
-  * **[Miscellaneous Commands](#8-miscellaneous-commands)**
+  * **[Touchpad](#8-touchpad)**
+    * **[Touch Sticks](#81-touch-sticks)**
+  * **[Miscellaneous Commands](#9-miscellaneous-commands)**
 * **[Configuration Files](#configuration-files)**
   * **[OnStartup.txt](#1-onstartuptxt)**
   * **[OnReset.txt](#2-onresettxt)**
   * **[Autoload feature](#3-autoload-feature)**
-* **[Known and Perceived Issues](#known-and-perceived-issues)**
 * **[Troubleshooting](#troubleshooting)**
+* **[Known and Perceived Issues](#known-and-perceived-issues)**
 * **[Credits](#credits)**
 * **[Helpful Resources](#helpful-resources)**
 * **[License](#license)**
 
 ## Installation for Devs
-JoyShockMapper was written in C++ and is built using CMake.
+JoyShockMapper is written in C++ and is built using CMake.
 
 The project is structured into a set of platform-agnostic headers, while platform-specific source files can be found in their respective subdirectories.
 The following files are platform-agnostic:
@@ -95,10 +101,24 @@ Generate the project by runnning the following in a command prompt at the projec
   * ```cmake .. -DCMAKE_CXX_COMPILER=clang++ && cmake --build .```
 
 ### Linux specific notes
+Please note that JoyShockMapper is primarily written for Windows and is a program in rapid development.
+
+While JSM can be built for Linux, please note that the rapid pace of development and limited number of Linux maintainers means that the Linux release may not always build.
+
 In order to build on Linux, the following dependencies must be met, with their respective development packages:
+- clang++ (see below bug)
 - gtk+3
 - libappindicator3
 - libevdev
+- libusb
+- SDL2
+- hidapi
+
+**Distribution-Specific Package Names:**
+
+* Fedora: ```clang SDL2-devel libappindicator-gtk3-devel libevdev-devel gtk3-devel libusb-devel hidapi-devel```
+* Arch: ```clang sdl2 libappindicator-gtk3 libevdev gtk3 libusb hidapi```
+* Please provide an issue report or pull request to have additional library lists added.
 
 Due to a [bug](https://stackoverflow.com/questions/49707184/explicit-specialization-in-non-namespace-scope-does-not-compile-in-gcc) in GCC, the project in its current form will only build with Clang.
 
@@ -114,11 +134,11 @@ The latest version of JoyShockMapper can always be found [here](https://github.c
 Included is a folder called GyroConfigs. This includes templates for creating new configurations for 2D and 3D games, and configuration files that include the settings used for simple [Real World Calibration](#5-real-world-calibration).
 
 ## Quick Start
-1. Connect your controller either with a usb cable or via bluetooth. Most modern controllers will be suported, including all Xbox, Playstation and Switch controllers.
+1. Connect your controller either with a usb cable or via bluetooth. Most modern controllers will be suported, including all Xbox, Playstation and Switch controllers, although Xbox and many others don't have the gyro sensor required for gyro controls.
 
 2. Run the JoyShockMapper executable, and you should see a console window welcoming you to JoyShockMapper.
     * In the console you can start entering bindings : [button name] = [key name]. See [Digital Inputs section](#1-digital-inputs) for details on how buttons and keys are named.
-    * [Sticks](#3-stick-configuration), the [gyro](#4-gyro-mouse-inputs) and [Sony's analog triggers](#2-analog-triggers) require some more configuration: typically some MODE you want to set, a sensitivity value and some other settings. Each is explained in the corresponding section. They follow the same format : [setting name] = [value]
+    * [Sticks](#3-stick-configuration), the [gyro](#4-gyro-mouse-inputs) and [analog triggers](#2-analog-triggers) require some more configuration: typically some MODE you want to set, a sensitivity value and some other settings. Each is explained in the corresponding section. They follow the same format : [setting name] = [value]
 	* Buttons and settings will display their current values if you only enter their name in the console.
 	* Settings can display a short description of what they do if you enter [setting name] HELP
 	* There are quite a few commands that do not work as assignments like above but just runs a function. For example RECONNECT\_CONTROLLERS will update the controller listing, and RESET\_MAPPINGS will set all settings and bindings to default. README will lead you to this document!
@@ -192,8 +212,8 @@ L3: L3 or Left-stick click
 R3: R3 or Right-stick click
 N: The North face button, △, Y (Xbox) or X (Nintendo)
 E: The East face button, ○, B (Xbox) or A (Nintendo)
-S: The South face button, ⨉, X (Xbox) or B (Nintendo)
-W: The West face button, □, A (Xbox) or Y (Nintendo)
+S: The South face button, ⨉, A (Xbox) or B (Nintendo)
+W: The West face button, □, X (Xbox) or Y (Nintendo)
 LUP, LDOWN, LLEFT, LRIGHT: Left stick tilted up, down left or right
 LRING: Left ring binding, either inner or outer.
 RUP, RDOWN, RLEFT, RRIGHT: Right stick tilted up, down, left or right
@@ -202,6 +222,7 @@ MUP, MDOWN, MLEFT, MRIGHT: Motion stick tilted forward, back, left or right
 MRING: Motion ring binding, either inner or outer.
 LEAN_LEFT, LEAN_RIGHT: Tilt the controller to the left or right
 TOUCH : The Playstation touchpad senses a finger
+MIC: The Sony Dualsense microphone button
 ```
 
 These can all be mapped to the following keyboard and mouse inputs:
@@ -225,7 +246,7 @@ SCROLLUP, SCROLLDOWN: scroll the mouse wheel up, down, respectively
 VOLUME_UP, VOLUME_DOWN, MUTE: Volume controls
 NEXT_TRACK, PREV_TRACK, STOP_TRACK, PLAY_PAUSE: media control
 SCREENSHOT: print screen button
-NONE: No input
+NONE, DEFAULT: No input
 CALIBRATE: recalibrate gyro when pressing this input
 GYRO_ON, GYRO_OFF: Enable or disable gyro
 GYRO_INVERT, GYRO_INV_X, GYRO_INV_Y: Invert gyro, or in just the x or y axes, respectively
@@ -246,7 +267,7 @@ Those familiar with Steam Input can implement Action Layers and Action Sets usin
 
 ```
 # Load the driving control scheme.
-HOME = "GTA_driving.txt" # That file should bind HOME to loading the walking scheme file!
+HOME = "Autoload/GTA5/GTA_driving.txt" # That file should bind HOME to loading the walking scheme file!
 ```
 
 Take note that the command bound in this way cannot contain quotation marks, and thus cannot contain the binding of a command itself. In this case, you should put the command in a file and load that file.
@@ -292,17 +313,19 @@ There are two kinds of modifiers that can be applied to key bindings: action mod
 These modifiers can enable you to work around in game tap and holds, or convert one form of press into another. Here's a few example of how you can make use of those modifiers.
 
 ```
-ZL = ^RMOUSE RMOUSE  # ADS toggle on tap
-E  = !C\ !C/         # Convert in game toggle crouch to regular press
-UP = !1\ 1           # Convert Batarang throw double press to hold press
-W  = R E\            # In Halo MCC, reload on tap but apply E right away to cover for in-game hold processing
--,S = SPACE+         # Turbo press for button mash QTEs. No one likes to button mash :(
-R3 = !1\ LMOUSE+ !Q/ # Half life melee button
+ZL = ^RMOUSE\ RMOUSE_ # ADS toggle on tap and release the toggle on hold
+E  = !C\ !C/          # Convert in game toggle crouch to regular press
+UP = !1\ 1            # Convert Batarang throw double press to hold press
+W  = R E\             # In Halo MCC, reload on tap but apply E right away to cover for in-game hold processing
+-,S = SPACE+          # Turbo press for button mash QTEs. No one likes to button mash :(
+R3 = !1\ LMOUSE+ !Q/  # Half life melee button
 UP,UP = !ENTER\ LSHIFT\ !G\ !L\ !SPACE\ !H\ !F\ !ENTER/ # Pre recorded message
-UP,E = BACKSPACE+    # Erase pre recorded message if I change my mind
+UP,E = BACKSPACE+     # Erase pre recorded message if I change my mind
 ```
 
-Take note that the Simultaneous Press and Double Press bindings (but not Chorded Press) below introduce delays in the raising of the events (notably StartPress) until the right mapping is determined. Those time windows are not added but events will be pushed together within a frame or two.
+Take note that the Simultaneous Press below introduce delays in the raising of the events (notably StartPress) until the right mapping is determined. Those time windows are not added but events will be pushed together within a poll callback or two.
+
+Also, Double Press bindings has some special timing handling in order to give the user the option to have the first binding skippable or not. See its [dedicated section](#15-double-press) below for details
 
 Finally, Here is a graph containing a comprehensive description of when the button events are raised over the course of a press.
 ```
@@ -358,12 +381,18 @@ A button can be chorded with multiple other buttons. In this case, the latest ch
 #### 1.5 Double Press
 You can also assign the double press of a button to a different binding. Double press notation is the same as chorded button notation, except the button is chorded with itself. It supports taps & holds and modifiers like all previous entries.
 
+The double press binding is applied when a down press occurs within 150 milliseconds from a previous down press. The regular binding will apply any on press event on the first press, but will only apply the tap binding if the second press is ommitted and with a delay. The double press binding also supports tap & hold bindings as well as modifiers. The time window in which to perform the double press can be changed by assigning a different number of milliseconds to ```DBL_PRESS_WINDOW```.
+
 ```
 N = SCROLLDOWN # Cycle weapon
-N,N = X # Cycle weapon fire mode
-```
+N,N = X        # Cycle weapon fire mode
 
-The double press binding is applied when a down press occurs within a fifth of a second from a first down press. In that period of time no other binding can be assumed, so regular taps will have the delay introduced. This binding also supports tap & hold bindings as well as modifiers. The time window in which to perform the double press can be changed by assigning a different number of milliseconds to ```DBL_PRESS_WINDOW```. This setting cannot be changed by modeshift (covered later).
+W = !E\        # Pick up item
+W,W = I        # Pick up item and open Inventory
+
+E = C'         # Crouch
+E,E = Z        # Don't crouch but go prone
+```
 
 #### 1.6 Gyro Button
 Lastly, there is one digital input that works differently, because it can overlap with any other input. Well, two inputs, but you'll use at most one of them in a given configuration:
@@ -411,6 +440,8 @@ If you're using ```GYRO_TRACKBALL``` or its single-axis variants, you can use **
 
 ### 2. Analog Triggers
 
+#### 2.1 Analog to digital
+
 The following section does not apply to Joycons and Switch Pro controllers because they only have digital triggers.
 
 Analog triggers report a value between 0% and 100% representing how far you are pulling the trigger. Binding a digital button to an analog trigger is done using a threashold value. The button press is sent when the trigger value crosses the threashold value, sitting between 0% and 100%. The default threashold value is 0, meaning the slightest press of the trigger sends the button press. This is great for responsiveness, but could result in accidental presses. The threashold can be customized by running the following command:
@@ -422,6 +453,8 @@ TRIGGER_THRESHOLD = 0.5   #Send Trigger values at half press
 The same threashold value is used for both triggers. A value of 1.0 or higher makes the binding impossible to reach.
 
 Hair trigger is also implemented: to enable it, assign a value of -1 as the trigger threshold. When hair trigger is used, the binding is enabled when the trigger is being pressed and held, and released when the trigger is being released. This allows quick tap shooting by pulsing the trigger.
+
+#### 2.2 Full pull and modes
 
 JoyShockMapper can assign different bindings to the full pull of the trigger, allowing you to double the number of bindings put on the triggers. The way the trigger handles these bindings is set with the variables ```ZR_MODE``` and ```ZL_MODE```, for R2 and L2 triggers. Once set, you can assign keys to ```ZRF``` and ```ZLF``` to make use of the R2 and L2 full pull bindings respectively. In this context, ```ZL``` and ```ZR``` are called the soft pull binding because they activate before the full pull binding does at 100%. Here is the list of all possible trigger modes.
 
@@ -456,8 +489,40 @@ Using MUST_SKIP mode makes sure that once you start firing, reaching the full pu
 
 The "Responsive" variants of the skip modes enable a different behaviour that can give you a better experience than the original versions in specific circumstances. A typical example is when the soft binding is a mode-like binding like ADS or crouch, and there is no hold or simultaneous press binding on that soft press. The difference is that the soft binding is actived as soon as the trigger crosses the threshold, giving the desired responsive feeling, but gets removed if the full press is reached quickly, thus still allowing you to hip fire for example. This will result in a hopefully negligeable scope glitch but grants a snappier ADS activation.
 
+#### 2.3 Adaptive Triggers
+
+The Dualsense controller features adaptive trigger that allow software to control the force feedback applies on the triggers. JoyShockMapper makes use of this feature to provide useful feedback depending on the trigger mode and position of the trigger. If you don't want JSM to use this feature, it can be disbaled across the board with the following command:
+
+```
+ADAPTIVE_TRIGGER = OFF # Don't use force feedback in my triggers
+```
+
+While adaptive triggers are enabled, the Dualsense controller will ignore hair trigger threshold, and consider it to be simply threshold zero. This is because the adaptive triggers fulfill the purpose of hair triggers by restricting uneccessary travelling distance. With adaptive triggers turned off, regular hair trigger is then accessible.
+
+Each trigger and each devices might have slightly different trigger properties, which causes a mismatch between the reported trigger position and the position setting in the resistance packet. Each trigger thus gets 2 new settings, an offset and a range, that can be determined through a single-time calibration procedure. You can start this procedure by entering the command ```CALIBRATE_TRIGGERS``` : you will be required to gently press on a trigger just until you feel the resistance push back. Then you press a button and you will feel the trigger slowly lower : make sure you press gently. Once you reach full press JSM will display to you the calculated offset and range for your trigger. The same procedure is done on the other trigger after.
+
+You should set these values in your OnReset.txt file so that they are always set properly for your controller.
+
+```
+LEFT_TRIGGER_OFFSET = 20     # My DS trigger calibration values
+LEFT_TRIGGER_RANGE = 167
+RIGHT_TRIGGER_OFFSET = 31
+RIGHT_TRIGGER_RANGE = 175
+```
+
+User Nielk1 has reverse engineered the adaptive trigger data and developped a [C# utility](https://gist.github.com/Nielk1/6d54cc2c00d2201ccb8c2720ad7538db) for it. With his permission (and under MIT licence) I've C++-ified the code and integrated it into JSM. Two new settings are then available ```LEFT_TRIGGER_EFFECT``` and ```RIGHT_TRIGGER_EFFECT```. They can be set to OFF or ON (JSM handling) or be provided with one of Nielk1's functions.
+
+```
+RESISTANCE start[0 9] force[0 8]: Some resistance starting at point
+BOW start[0 8] end[0 8] forceStart[0 8] forceEnd[0 8]: increasingly strong resistance
+GALLOPING start[0 8] end[0 9] foot1[0 6] foot2[0 7] freq[Hz]: Two pulses repeated periodically
+SEMI_AUTOMATIC start[2 7] end[0 8] force[0 8]: Trigger effect
+AUTOMATIC start[0 9] strength[0 8] freq[Hz]: Regular pulse effect
+MACHINE start[0 9] end[0 9] force1[0 7] force2[0 7] freq[Hz] period: Irregular pulsing
+```
+
 ### 3. Stick Configuration
-Each stick has 7 different operation modes:
+Each stick has 8 different operation modes when you're not using a virtual controller:
 
 ```
 AIM: traditional stick aiming
@@ -468,6 +533,7 @@ MOUSE_RING: stick angle sets the mouse position on a circle directly around the 
 MOUSE_AREA: stick position sets the cursor in a circular area around the neutral position
 NO_MOUSE: don't affect the mouse, use button mappings (default)
 SCROLL_WHEEL: enable left and right bindings by rotating the stick counter-clockwise or clockwise.
+HYBRID_AIM: adds together traditional behavior of a stick with a mouse-like behavior.
 ```
 
 The mode for the left and right stick are set like so:
@@ -513,9 +579,9 @@ Let's have a look at all the different operations modes.
 
 When using the ```AIM``` stick mode, there are a few important commands:
 
-* **STICK\_SENS** (default 360.0 degrees per second) - How fast does the stick move the camera when tilted fully? The default, when calibrated correctly, is 360 degrees per second. Assign a second value if you desire a different vertical sensitivity from the horizontal sensitivity.
+* **STICK\_SENS** (default 360.0) - How fast does the stick move the camera when tilted fully? The default, when calibrated correctly, is 360 degrees per second. Assign a second value if you desire a different vertical sensitivity from the horizontal sensitivity.
 * **STICK\_POWER** (default 1.0) - What is the shape of the curve used for converting stick input to camera turn velocity? 1.0 is a simple linear relationship (half-tilting the stick will turn at half the velocity given by STICK\_SENS), 0.5 for square root, 2.0 for quadratic, etc. Minimum value is 0.0, which means any input beyond STICK\_DEADZONE\_INNER will be treated as a full press as far as STICK\_SENS is concerned.
-* **STICK\_AXIS\_X** and **STICK\_AXIS\_Y** (default STANDARD) - This allows you to invert stick axes if you wish. Your options are STANDARD (default) or INVERTED (flip the axis).
+* **LEFT\_STICK\_AXIS** and **RIGHT\_STICK\_AXIS** (default STANDARD) - This allows you to invert stick axes if you wish. Your options are STANDARD (default) or INVERTED (flip the axis). To assign a separate vertical value, provide a second parameter.
 * **STICK\_ACCELERATION\_RATE** (default 0.0 multiplier increase per second) - When the stick is pressed fully, this option allows you to increase the camera turning velocity over time. The unit for this setting is a multiplier for STICK\_SENS per second. For example, 2.0 with a STICK\_SENS of 100 will cause the camera turn rate to accelerate from 100 degrees per second to 300 degrees per second over 1 second.
 * **STICK\_ACCELERATION\_CAP** (default 1000000.0 multiplier) - You may want to set a limit on the camera turn velocity when STICK\_ACCELERATION\_RATE is non-zero. For example, setting STICK\_ACCELERATION\_CAP to 2.0 will mean that your camera turn speed won't accelerate past double the STICK\_SENS setting. This has no effect when STICK\_ACCELERATION\_RATE is zero.
 * **STICK\_DEADZONE\_INNER** and **STICK\_DEADZONE\_OUTER** (default 0.15 and 0.1, respectively) - Controller thumbsticks can be a little imprecise. When you release the stick, it probably won't return exactly to the centre. STICK\_DEADZONE\_INNER lets you say how much of the stick's range will be considered "centre". If the stick position is within this distance from the centre, it'll be considered to have no stick input. STICK\_DEADZONE\_OUTER does the same for the outer edge. If the stick position is within this distance from the outer edge, it'll be considered fully pressed. Everything in-between is scaled accordingly. You can set the deadzones individually for each stick with **LEFT\_STICK\_DEADZONE\_INNER**, **LEFT\_STICK\_DEADZONE\_OUTER**, **RIGHT\_STICK\_DEADZONE\_INNER**, **RIGHT\_STICK\_DEADZONE\_OUTER**.
@@ -539,13 +605,34 @@ Keep in mind that, once tilted, rotating the stick will rotate the camera instan
 
 The ```FLICK_ONLY``` and ```ROTATE_ONLY``` stick modes work the same as flick stick with some features blocked out. The former means you'll get the initial flick, but no subsequent rotation when rotating the stick. The latter means you won't get the initial flick, but subsequent rotations will work.
 
-#### 3.3 Other mouse modes
+You can also emulate flick stick with a virtual controller, but it's more limited. Set **FLICK\_STICK\_OUTPUT** to **RIGHT\_STICK** or **LEFT\_STICK** instead of its default value of **MOUSE**. When outputting flick stick to a virtual controller, FLICK_TIME and FLICK_TIME_EXPONENT won't do anything. Instead, the virtual stick will be tilted at its full strength in the desired direction for enough time to complete the flick. This will generally be much less precise than MOUSE mode, but it's still useful. Tune the size of a flick stick flick/rotation by setting **VIRTUAL\_STICK\_CALIBRATION**. Ideally, this should be set to the maximum horizontal turning speed of the in game camera in degrees per second.
+
+#### 3.3 HYBRID_AIM mode
+
+When using ```HYBRID_AIM``` stick mode, the output consists of the sum of the behavior of a traditional stick, i.e. stick position sets cursor speed, as well as the positional behavior, i.e. stick travelling sets cursor travelling. Additionally, there is an 'edge push' feature to preserve the motion speed when pushing the stick to the edge. Moving the stick quickly gives a large output that is dominated by the mouse-like component, whereas moving it slowly gives an output that in more influenced by the stick-like component.
+
+With this input method it is easier to do accurate small movements of the camera while being able to do faster turns than with a traditional stick method as the combined behavior results in a high dynamic range.
+
+This mode shares STICK\_SENS*, STICK\_POWER, (LEFT / RIGHT)\_STICK_AXIS, (LEFT\_ / RIGHT_)STICK_DEADZONE_DEADZONE_INNER and (LEFT_ / RIGHT_)STICK_DEADZONE_OUTER with ```AIM```. 
+
+It is recommended to keep STICK_DEADZONE_OUTER as small as possible for the best experience. STICK_DEADZONE_INNER matters less, as this mode is very responsive even with a large inner deadzone.
+
+The other settings of this mode are:
+
+* **STICK\_SENS** (default 360.0) - How fast the camera is moved by the position of the stick. Currently this is an arbitrary number and a calibration is not implemented for this. In the future this should represent degrees per second. 
+* **MOUSELIKE\_FACTOR** (default 90.0) - How fast the camera is moved by the movement of the stick. Like the above, no calibration implemented yet. In the future this should represent degrees per one full travel of the stick from center to full deflection.
+* **RETURN\_DEADZONE\_IS\_ACTIVE** (default ON) - There are two possibly quite different ways this input mode can function. When this setting is set to ON, the mode may feel more like a traditional stick, when its set to OFF, the mode may feel way more responsive but it is difficult to make the output hold still because of the behavior inherent to this input method.
+* **RETURN\_DEADZONE\_ANGLE** (default 45.0 degrees) - The angle to the center from the current stick position where the output is set to zero.
+* **RETURN\_DEADZONE\_CUTOFF\_ANGLE** (default 90.0 degrees) - The angle to the center where the return deadzone has no effect anymore. Between RETURN_DEADZONE_ANGLE and this, the output slowly returns to normal. 
+* **EDGE\_PUSH\_IS\_ACTIVE** (default ON) - Whether or not the mouse-like movement is to be continued when hitting the edge of the stick (entering the outer deadzone). If so, it functions similar to the stick-like component until it is reset either by entering the return deadzone or inner deadzone, but is at most the value at the smallest deflection since the push.
+
+#### 3.4 Other mouse modes
 
 When using the ```MOUSE_RING``` stick mode, tilting the stick will put the mouse cursor in a position offset from the centre of the screen by your stick position. This mode is primarily intended for twin-stick shooters. To do this, the application needs to know your screen resolution (SCREEN\_RESOLUTION\_X and SCREEN\_RESOLUTION\_Y) and how far you want the cursor to sit from the centre of the screen (MOUSE\_RING\_RADIUS). When this mode is in operation (i.e. the stick is not at rest), all other mouse movements are ignored.
 
 When using the ```MOUSE_AREA``` stick mode, the stick value directly sets the mouse position. So moving the stick rightward gradually all the way to the edge will move the cursor at the same speed for a number of pixel equal to the value of ```MOUSE_RING_RADIUS``` ; and moving the stick back to the middle will move the cursor back again to where it started. Contrary to the previous mode, this mode can operate in conjunction with other mouse inputs, such as gyro.
 
-#### 3.4 Digital modes
+#### 3.5 Digital modes
 
 When using stick mode ```NO_MOUSE```, JSM will use the stick's UP DOWN LEFT and RIGHT bindings in a cross gate layout. There is a small square deadzone to ignore very small stick moves.
 
@@ -561,12 +648,13 @@ LEFT_RING_MODE = INNER
 LRING = LALT # Walk
 ```
 
-#### 3.5 Motion Stick and lean bindings
+#### 3.6 Motion Stick and lean bindings
 Using the motion sensors, you can treat your whole controller as a stick. The "Motion Stick" can do everything that a regular stick can do:
 * **MOTION\_STICK\_MODE** (default NO\_MOUSE) - All the same options as LEFT\_STICK\_MODE and RIGHT\_STICK\_MODE.
 * **MOTION\_RING\_MODE** (default OUTER) - All the same options as LEFT\_RING\_MODE and RIGHT\_RING\_MODE.
 * **MOTION\_DEADZONE\_INNER** (default 15°) - How far the controller needs to be tilted in order to register as non-zero.
 * **MOTION\_DEADZONE\_OUTER** (default 135°) - How far from the maximum rotation will be considered a full tilt. The maximum rotation is of course 180°, so the default value of 135° means tilting at or above 45° from the **neutral position** will be considered "full tilt".
+* **MOTION\_STICK\_AXIS** (default STANDARD) - Select whether you want to invert the axis. To assign a separate vertical value, provide a second parameter.
 * **MLEFT**, **MRIGHT**, **MUP**, **MDOWN** are the motion stick equivalents of left, right, forward, back mappings, respectively.
 * This is also affected by **CONTROLLER\_ORIENTATION** described at the end of the previous section.
 
@@ -580,11 +668,11 @@ A common use for the motion sensors is to map left and right leans of the contro
 ### 4. Gyro Mouse Inputs
 **The first thing you need to know about gyro mouse inputs** is that a controller's gyro will often need calibrating. This just means telling the application where "zero" is. Just like a scale, the gyro needs a point of reference to compare against in order to accurately give a result. This is done by leaving the controller still, or holding it very still in your hands, and finding the average velocity over a short time of staying still. It needs to be averaged over some time because the gyro will pick up a little bit of "noise" -- tiny variations that aren't caused by any real movement -- but this noise is negligible compared to the shakiness of human hands trying to hold a controller still.
 
-When you first connect controllers to JoyShockMapper, they'll all begin "continuous calibration" -- this just means they're collecting the average velocity over a long period of time. This accumulated average is constantly applied to gyro inputs, so if the controller is left still for long enough, you should be able to play without obvious problems.
-
 If you have gyro mouse enabled and the gyro moves across the screen (even slowly) when the controller is lying still on a solid surface, your device needs calibrating. That's okay -- I do it at the beginning of most play sessions, especially with Nintendo devices, which seem to need it more often.
 
-To calibrate your gyro, place your controller on solid surface so that it's not moving at all, and then use the following commands:
+If you set **AUTO\_CALIBRATE\_GYRO** to **ON**, JoyShockMapper will try to detect when your controller is being held still or left on a steady surface and calibrate the gyro automatically. This is imperfect, though -- every automatic calibration solution will *sometimes* interpret slow and steady movement as the controller being held still. This can interrupt you making small adjustments to your aim or tracking slow/distant targets. It's also only a new feature, and we try not to change default behaviour. Also, it doesn't yet give you any settings to tweak its thresholds. For all of these reasons this setting is **OFF** by default, and it's recommended that you calibrate your gyro manually instead.
+
+To manually calibrate your gyro, place your controller on steady surface so that it's not moving at all, and then use the following commands:
 * **RESTART\_GYRO\_CALIBRATION** - All connected gyro devices will begin collecting gyro data, remembering the average collected so far and treating it as "zero".
 * **FINISH\_GYRO\_CALIBRATION** - Stop collecting gyro data for calibration. JoyShockMapper will use whatever it has already collected from that controller as the "zero" reference point for input from that controller.
 
@@ -608,8 +696,9 @@ JoyShockMapper allows you to say, "When turning slowly, I want this sensitivity.
 
 **Finally**, there are a bunch more settings you can tweak if you so desire:
 
+* **GYRO\_SPACE** (default LOCAL) - Simple gyro aiming solutions will map one of your controller's gyro axes to your camera/cursor's horizontal axis and one to the vertical axis. That's the behaviour you'll get with JoyShockMapper when GYRO\_SPACE is set to "LOCAL". This is simple to implement and leaves no room for misinterpretation, but aiming can feel off as you tilt your controller more and more. If you'd prefer a more advanced reading of the gyro combined with the accelerometer to more naturally handle different controller positions, PLAYER\_TURN is the way to go. Or, if you prefer to lean your controller side to side to turn your camera, try PLAYER\_LEAN. Finally, WORLD\_TURN and WORLD\_LEAN account for gravity more strictly than the PLAYER\_* options.
 * **GYRO\_AXIS\_X** and **GYRO\_AXIS\_Y** (default STANDARD) - This allows you to invert the gyro directions if you wish. Want a left- gyro turn to translate to a right- in-game turn? Set GYRO\_AXIS\_X to INVERTED. For normal behaviour, set it to STANDARD.
-* **MOUSE\_X\_FROM\_GYRO\_AXIS** and **MOUSE\_Y\_FROM\_GYRO\_AXIS** (default Y and X, respectively) - Maybe you want to turn the camera left and right by rolling your controller about its local Z axis instead of turning it about its local Y axis. Or maybe you want to play with a single JoyCon sideways. This is how you do that. Your options are X, Y, Z, and NONE, if you want an axis of mouse movement unaffected by the gyro.
+* **MOUSE\_X\_FROM\_GYRO\_AXIS** and **MOUSE\_Y\_FROM\_GYRO\_AXIS** (default Y and X, respectively) - Maybe you want to turn the camera left and right by rolling your controller about its local Z axis instead of turning it about its local Y axis. Or maybe you want to play with a single JoyCon sideways. This is how you do that. Your options are X, Y, Z, and NONE, if you want an axis of mouse movement unaffected by the gyro. These settings only apply when GYRO\_SPACE is set to LOCAL.
 * **GYRO\_CUTOFF\_SPEED** (default 0.0 degrees per second) - Some games attempt to cover up small unintentional movements by setting a minimum speed below which gyro input will be ignored. This is that setting. It's never good. Don't use it. Some games won't even let you change or disable this "feature". I implemented it to see if it could be made good. I left it in there only so you can see for yourself that it's not good, or for you to perhaps show me how it can be.  
 It might be mostly harmless for interacting with a simple UI with big-ish buttons, but it's useless if the player will *ever* intentionally turn the controller slowly (such as to track a slow-moving target), because they may unintentionally fall below the cutoff speed. Even a very small cutoff speed might be so high that it's impossible to move the aimer at the same speed as a very slow-moving target.  
 One might argue that such a cutoff is too high, and it just needs to be set lower. But if the cutoff speed is small enough that it doesn't make the player's experience worse, it's probably also small enough that it's actually not doing anything.
@@ -712,7 +801,8 @@ X_LB, X_RB : The xbox bumper buttons
 X_LS, X_RS : The xbox stick click buttons
 X_BACK, X_START, X_GUIDE : The xbox control buttons
 X_UP, X_DOWN, X_LEFT, X_RIGHT : The xbox dpad directions
-# There is no HOME or CAPTURE (XSX) button binding yet in ViGEm
+X_LT, X_RT : Digital trigger bindings
+# There is no CAPTURE / SHARE (Series X) button binding yet in ViGEm
 ```
 
 * **New stick mode available**
@@ -721,11 +811,49 @@ LEFT_STICK_MODE = LEFT_STICK
 RIGHT_STICK_MODE = RIGHT_STICK
 ```
 
+While these map very simply from your real sticks to the virtual sticks, there are other new stick modes available for giving finer control over a single axis:
+```
+LEFT_ANGLE_TO_X
+LEFT_ANGLE_TO_Y
+RIGHT_ANGLE_TO_X
+RIGHT_ANGLE_TO_Y
+```
+
+These will take the stick's angle into account for inputs that are normally only in one axis. For example, steering a car: instead of just moving the left stick left and right for adjusting your steering, rotating it around the edge of the stick will give you more precision and finer control over how hard you're steering. Set up the relevant UNDEADZONEs and UNPOWER for best effect.
+
+These stick modes have inner and outer deadzones, set in degrees:
+```
+ANGLE_TO_AXIS_DEADZONE_INNER = 0
+ANGLE_TO_AXIS_DEADZONE_OUTER = 10
+```
+
+There's also:
+```
+LEFT_WIND_X
+RIGHT_WIND_X
+```
+
+These also use the angle of the stick to control the virtual stick in a single axis, but these are _relative_ instead of _absolute_, and can use a much wider range. This means pointing the stick in a direction doesn't really do anything, but rotating the stick does, letting you wind the stick left or right to adjust the stick position left or right. When you release the stick the virtual stick will quickly pull back to its neutral position. Here are the relevant options:
+* **WIND_STICK_RANGE** (default 900.0°) - This is the total range of winding motion available on the stick. It's from full-left to full-right, but the "neutral" position is in the middle. So the default of 900° means you can rotate the stick 450° to the left and 450° to the right.
+* **WIND_STICK_POWER** (default 1.0) - What is the shape of the curve used for converting the wound position to a stick offset? 1.0 is a simple linear relationship. Larger values will mean rotations are reduced when near the neutral position and increased towards the edge of the range. Smaller values will mean the opposite.
+* **UNWIND_RATE** (default 1800.0 degrees per second) - This is how quickly the wound stick position pulls back to its neutral position when the stick is released. If the stick is only partially engaged, the virtual stick position will unwind more slowly.
+
+For MOTION_STICK_MODE in particular, there are two new options:
+```
+LEFT_STEER_X
+RIGHT_STEER_X
+```
+
+These will map leaning the controller to the X axis of either the left or right stick. For steering a car, this works better than mapping MOTION_STICK to a stick. But like mapping it to a stick, UNPOWER and UNDEADZONE come into play. Make sure to set MOTION_DEADZONE_INNER and MOTION_DEADZONE_OUTER to suitable values -- they're both in degrees, with the max motion / lean angle being 180 degrees.
+
 * **New trigger mode available**
 ```
+# Using analog triggers
 ZL_MODE = X_LT
 ZR_MODE = X_RT
 ```
+
+Using both analog and digital trigger bindings at the same time leads to undefined behaviours. Use modeshift as defined in the next section to disable analog triggers while a digital trigger binding is active.
 
 You will also find a default xbox layout in the GyroConfigs folder that you can use to set up a standard xbox controller configuration. But of course, you can remap buttons elsewhere, or combine them in using the event modifiers, chords, simultaneous presses and such.
 
@@ -748,7 +876,7 @@ MOTION_STICK_MODE = RIGHT_STICK # Gyro driving
 
 #### 6.2 DS4 bindings
 
-ViGEm also the ability to emulate a Dualshock 4 controller. This can allow you to use a switch pro as a DS4 in a game that has this support built in for example. Setting the virtual controller to DS4 enables the use of these features as well. Take note that these names are aliases to the xbox names.
+ViGEm also the ability to emulate a Dualshock 4 controller. This can allow you to use a switch pro as a DS4 in a game that has this support built in for example. Setting the virtual controller to DS4 enables the use of these features as well. Take note that these names are aliases to the xbox names, so the logs might display the other label.
 
 * **New digital bindings**
 ```
@@ -758,6 +886,7 @@ PS_L3, PS_R3 : The playstation stick click buttons
 PS_SHARE, PS_OPTIONS : The playstation control buttons
 PS_UP, PS_DOWN, PS_LEFT, PS_RIGHT : The playstation dpad directions
 PS_HOME, PS_PAD_CLICK : The playstation home and pad click buttons
+PS_L2, PS_R2 : The playstation digital trigger bindings
 ```
 
 * **New stick mode available** These are exactly the same as the xbox names
@@ -766,11 +895,55 @@ LEFT_STICK_MODE = LEFT_STICK
 RIGHT_STICK_MODE = RIGHT_STICK
 ```
 
+* **New GYRO_OUTPUT mode available**
+```
+GYRO_OUTPUT = PS_MOTION
+```
+
+* **New TOUCHPAD_MODE mode available**
+```
+TOUCHPAD_MODE = PS_TOUCHPAD
+```
+
+A ds4 can also use the more advanced angle-to-axis stick modes described in the xbox section:
+```
+LEFT_ANGLE_TO_X
+LEFT_ANGLE_TO_Y
+RIGHT_ANGLE_TO_X
+RIGHT_ANGLE_TO_Y
+LEFT_WIND_X
+RIGHT_WIND_X
+```
+As well as the MOTION_STICK-specific modes:
+```
+LEFT_STEER_X
+RIGHT_STEER_X
+```
+
 * **New trigger mode available**. JoyShockMapper will display the trigger mode as the xbox name : the trigger will still work properly.
 ```
+# Using analog triggers
 ZL_MODE = PS_L2
 ZR_MODE = PS_R2
 ```
+
+If there is multiple sources of analog data (such as a trigger and a digital binding) the two sources will add up and clamp within the limit of the data. Soft and full pull chords will still be available for use and for the gyro button.
+
+#### 6.3 Virtual Controller Gyro
+While the virtual controller can't output gyro, JoyShockMapper can convert gyro input to stick output. For example:
+```
+GYRO_OUTPUT = RIGHT_STICK
+```
+
+```GYRO_OUTPUT``` can also be set to ```LEFT_STICK``` or left at its default value of ```MOUSE```, which means gyro will be converted to mouse input.
+
+Because games tend to do a lof of processing on stick input to turn it into camera movement, you'll want to counter that processing to convert it to a decent camera movement. So far, here are your options:
+* **RIGHT_STICK_UNDEADZONE_INNER** / **LEFT_STICK_UNDEADZONE_INNER** (default 0) - This will counter the game's inner deadzone. For example, if a game has a deadzone of 0.25 (that's 25% off the stick movement range), very small gyro inputs will convert to a stick radius of just over 0.25 so that the game detects them right away. When gyro output is assigned to this stick and no gyro is detected (if GYRO_SENS is 0, for example), this stick position will be set to the edge of this deadzone. This means you can tweak this deadzone value until you get the largest value that doesn't move the camera automatically to find the exact inner deadzone.
+* **RIGHT_STICK_UNDEADZONE_OUTER** / **LEFT_STICK_UNDEADZONE_OUTER** (default 0) - Distance from the outer theoretical edge of the stick's range that will be considered "full tilt". Gyro velocity will be mapped to a stick position between \_STICK_UNDEADZONE_INNER and \_STICK_UNDEADZONE_OUTER.
+* **RIGHT_STICK_UNPOWER** / **LEFT_STICK_UNPOWER** (default 0) - A power curve is often applied to stick input to give players more with small movements at the cost of less precision with very large movements. If you know what the exponent is, putting it here will counter that power curve to hopefully give you linearly proportional camera control. The default value of 0 does nothing, which is effectively the same as setting it to 1, since that assumes a linear curve.
+* **RIGHT_STICK_VIRTUAL_SCALE** / **LEFT_STICK_VIRTUAL_SCALE** (default 1) - Use this to scale down virtual stick output. For example, if you're converting gyro to right stick aim (GYRO_OUTPUT = RIGHT_STICK), you'll want a high in game stick sensitivity so you can do fast flicks with the gyro. But you may not want your regular stick aim to be that high. You could set this setting to 0.5 to halve the strength of your stick aiming. JSM will take into account your "UNPOWER" and "UNDEADZONE" settings when calculating this new stick output.
+
+Games sometimes do a lot of other processing to the stick input: easing in, acceleration, direction warping, angular deadzones, for example. JSM does not yet have a way to counter these effects.
 
 ### 7. Modeshifts
 
@@ -779,7 +952,10 @@ Almost all settings described in previous sections that are assignations (i.e.: 
 AUTOLOAD
 JSM_DIRECTORY
 SIM_PRESS_WINDOW
-DBL_PRESS_WINDOW
+TICK_TIME
+GRID_SIZE
+HIDE_MINIMIZED
+VIRTUAL_CONTROLLER
 ```
 
 Here's some usage examples: in DOOM (2016), you can use the right stick when you bring up a weapon wheel even when using flick stick:
@@ -790,7 +966,7 @@ GYRO_OFF = R3 # Use gyro, disable with stick click
 
 R = Q # Last weapon / Bring up weapon wheel
 
-R,GYRO_ON = NONE # Disable gyro when R is down
+R,GYRO_ON = NONE\ # Disable gyro when R is down
 R,RIGHT_STICK_MODE = MOUSE_AREA # Select wheel item with stick
 ```
 
@@ -808,16 +984,78 @@ ZLF,GYRO_SENS = 0.5 0.4 # Half sensitivity on full pull
 
 These commands function exactly like chorded press bindings, whereas if multiple chords are active the latest has priority. Also the chord is active whenever the button is down regardless of whether a binding is active or not. It is also worth noting that a special case is handled on stick mode changes where upon returning to the normal mode by releasing the chord button, the stick input will be ignored until it returns to the center. In the DOOM example above, this prevents an undesirable flick upon releasing the chord.
 
-To remove an existing modeshift you have to assign ```NONE``` to the chord.
+To remove an existing modeshift you have to assign ```NONE``` to the chord. There is special handling for the gyro button because NONE is a valid assignment. Add a backslash to indicate it is the button assignment rather than clearing the modeshift
 
 ```
-ZLF,GYRO_SENS = NONE
+GYRO_OFF = RIGHT_STICK   # Gyro off when using right stick
+ZLF,GYRO_OFF = NONE\     # RS does not turn gyro off when ZLF is pressed
+ZLF,GYRO_OFF = NONE      # oops undo
 ```
 
-### 8. Miscellaneous Commands
+### 8. Touchpad
+
+The touchpad always offers the ```TOUCH``` button binding. It will be pressed if there is any touch point active. This binding will overlap with other touch buttons and can be useful to disable gyro for example, or bring up the game map. There is also a dual stage mode setting for the touchpad touch and click: ```TOUCHPAD_DUAL_STAGE_MODE``` which can be any mode explained in the analog triggers, where CAPTURE is the full press or click and TOUCH is the soft press. The default setting is NO_SKIP.
+
+The most important setting for the touchpad is simply ```TOUCHPAD_MODE``` which will determine the primary functionality of the touchpad. Here are two possible values:
+* **GRID_AND_STICK** - Grid And Stick will create a button grid of equally sized buttons on the touch pad. You have to also assign to ```GRID_SIZE``` the number of columns and rows of the grid : the product of the two cannot be greater than 25 or lesser than 1. Touch buttons T1-TN will then become available for assignment: they are layed out in order from left to right, from top to bottom. There are also two touchsticks available. See below.
+* **MOUSE** - Mouse mode turns the touchpad into a familiar laptop touchpad. Sensitivity can be adjusted via ```TOUCHPAD_SENS```. Gestures will be added to this mode in future releases. Taps and double taps are already usable via ```TOUCH```.
+
+Here's an example of grid usage to add some more buttons that otherwise would not be worth putting on a controller
+```
+TOUCHPAD_MODE = GRID_AND_STICK
+GRID_SIZE = 2 1   # split the pad in two buttons, left and right
+GYRO_OFF = TOUCH  # disable the gyro when I touch either button
+
+# Bind on clicks
+CAPTURE = NONE   # Chorded with touch buttons
+T1,CAPTURE = F1  # View Help
+T2,CAPTURE = F10 # Quick Save
+```
+
+Or a typical touchapd in cursor mode
+```
+TOUCHPAD_MODE = MOUSE
+TOUCH = LMOUSE'	           # Quick tap means select
+TOUCH,TOUCH = RMOUSE       # Double tap for right click
+CAPTURE = LMOUSE ^LMOUSE   # Or click pad to toggle click (dragging)
+```
+
+#### 8.1 Touch Sticks
+
+A touch stick is a virtual joystick mapped unto the touchpad. As such, a touch stick has and uses all of the familiar binding names and settings, plus one new setting.
+```
+TUP, TDOWN, TLEFT, TRIGHT, TRING : The touchstick four directions when in NO_MOUSE mode.
+TOUCH_STICK_MODE: Set the touchstick to any  stick mode (AIM, FLICK_ONLY, MOUSE_AREA, etc...)
+TOUCH_DEADZONE_INNER: Sets how large the area with no output is. There is no TOUCH_DEADZONE_OUTER, as it is replaced with TOUCH_STICK_RADIUS. See below.
+TOUCH_RING_MODE: Sets what ring should be used for TRING, either INNER or OUTER.
+TOUCH_STICK_RADIUS: Sets the size of the stick, or in other words, the amount of touchpad units to travel to the edge of the stick.
+TOUCH_STICK_AXIS** (default STANDARD) - Select whether you want to invert the axis. To assign a separate vertical value, provide a second parameter.
+```
+
+The touchstick center is always the point of contact. As such, one can easily configure swipes by setting a very large touch stick radius and binding values to the 4 directions.
+
+The touch stick differs from other input methods in one particular way. The four stick directions cannot be used as a chord for other buttons, but you can chord the four direction with the grid buttons. As such, you can control two touch sticks at the same time on either side of the touch pad with each having different bindings. The example below showcases the numbers 1 to 4 bound to swipe gestures on the left half of the pad, and 5 to 8 bound to swipe gestures on the right half of the pad.
+
+```
+TOUCH_STICK_MODE = GRID_AND_STICK
+GRID_SIZE = 2 1 # Left and Right
+TOUCH_STICK_RADIUS = 800 # Use a larger value to use stick as swipe gestures
+
+T1,TLEFT = 1
+T1,TUP = 2
+T1,TRIGHT = 3
+T1,TDOWN = 4
+
+T2,TLEFT = 5
+T2,TUP = 6
+T2,TRIGHT = 7
+T2,TDOWN = 8
+```
+
+### 9. Miscellaneous Commands
 There are a few other useful commands that don't fall under the above categories:
 
-* **RESET\_MAPPINGS** - This will reset all JoyShockMapper's settings to their default values. This way you don't have to manually unset button mappings or other settings when making a big change. It can be useful to always start your configuration files with the RESET\_MAPPINGS command. The only exceptions to this are the calibration state and AUTOLOAD.
+* **RESET\_MAPPINGS** - This will reset all JoyShockMapper's settings to their default values. This way you don't have to manually unset button mappings or other settings when making a big change. It can be useful to always start your configuration files with the RESET\_MAPPINGS command. The only exceptions to this are the gyro calibration state / settings and AUTOLOAD.
 * **RECONNECT\_CONTROLLERS** - Controllers connected after JoyShockMapper starts will be ignored until you tell it to RECONNECT\_CONTROLLERS. When this happens, all gyro calibration will reset on all controllers. You can add MERGE or SPLIT to indicate whether you want all joycons under a single controller or separate controllers. The player LED will help you identify whether they are merged or split.
 * **\# comments** - Any line or part of a line that begins with '\#' will be ignored. Use this to organise/annotate your configuration files, or to temporarily remove commands that you may want to add later.
 * **JOYCON\_GYRO\_MASK** (default IGNORE\_LEFT) - Most games that use gyro controls on Switch ignore the left JoyCon's gyro to avoid confusing behaviour when the JoyCons are held separately while playing. This is the default behaviour in JoyShockMapper. But you can also choose to IGNORE\_RIGHT, IGNORE\_BOTH, or USE\_BOTH.
@@ -828,6 +1066,7 @@ There are a few other useful commands that don't fall under the above categories
 * **HIDE_MINIMIZED** - Some users like having JSM hidden in the notification area. You can hide JSM when minimized by setting this to ON. OFF is the default value.
 * **README** will lead you to this document.
 * **HELP** Will display a list of all commands, all commands containing a given string, or the specific help for all the exact command names given to it.
+* **CLEAR** Remove all text from the console screen.
 
 ## Configuration Files
 
@@ -839,11 +1078,11 @@ What more? There are some configuration files that can be run automatically to s
 
 ### 1. OnStartup.txt
 
-When JoyShockMapper first boots up, it will attempt to load the commands found in the file OnStartup.txt. This file should be in the JSM_DIRECTORY, which is next to your executable by default. This is a great place to automatically calibrate the gyro, and load a default configuration for navigating the OS, and whitelisting JoyShockMapper.
+When JoyShockMapper first boots up, it will attempt to load the commands found in the file OnStartup.txt. This file should be in the JSM_DIRECTORY, which is next to your executable by default. This is a great place to automatically calibrate the gyro, load a default configuration for navigating the OS, and/or whitelisting JoyShockMapper.
 
 ### 2. OnReset.txt
 
-This configuration is found in the same location as OnStartup.txt explained above. This file is run each time RESET\_MAPPINGS is called, as well as before OnStartup.txt. This file is a good spot to have a CALIBRATE button for your controller, which you will typically always need.
+This configuration is found in the same location as OnStartup.txt explained above. This file is run each time RESET\_MAPPINGS is called, as well as before OnStartup.txt. This file is a good spot to set a CALIBRATE button for your controller and/or set your GYRO\_SPACE if you're not using the default value.
 
 ### 3. Autoload feature
 
@@ -869,14 +1108,11 @@ But first, here are some common problems that are worth checking first.
 
 ## Known and Perceived Issues
 
-### Polling rate
-New mouse and keyboard events are only sent when JoyShockMapper gets a new message from the controller. This means if your game's and display's refresh rates are higher than the controller's poll rate, sometimes the game and display will update without moving the mouse, even if you'd normally expect the mouse to move. The DualSense and DualShock 4 send 250 messages a second, which is plenty for even extremely high refresh rate displays. But JoyCons and Pro Controllers send 66.67 messages a second, which means you might encounter stuttering movements when playing (and displaying) above 66.67 frames per second. A future version of JoyShockMapper may work around this problem by repeating messages up to a desired refresh rate.
-
 ### Bluetooth connectivity
 JoyCons and Pro Controllers normally only communicate by Bluetooth. Some Bluetooth adapters can't keep up with these devices, resulting in **laggy input**. This is especially common when more than one device is connected (such as when using a pair of JoyCons). There is nothing JoyShockMapper or JoyShockLibrary can do about this. JoyShockMapper experimentally supports connecting Switch controllers by USB.
 
 ## Credits
-I'm Julian "Jibb" Smart, and I made JoyShockMapper. As of version 1.3, JoyShockMapper has benefited from substantial community contributions. Huge thanks to the following contributors:
+JoyShockMapper was originally created by **Julian "Jibb" Smart**. As of version 1.3, JoyShockMapper has benefited from substantial community contributions. Huge thanks to the following contributors:
 * Nicolas (code)
 * Bryan Rumsey (icon art)
 * Contributer (icon art)
@@ -885,11 +1121,11 @@ I'm Julian "Jibb" Smart, and I made JoyShockMapper. As of version 1.3, JoyShockM
 * Garrett (code)
 * Robin (linux and controller support)
 
-Have a look at the CHANGELOG for a better idea of who contributed what. Nicolas, in particular, regularly contributes a lot of work. He is responsible for a lot of the cool quality-of-life and advanced mapping features.
+As of version 3, JoyShockMapper development is lead by **Nicolas Lessard**, who was already a long-time contributor and responsible for many of JoyShockMapper's powerful mapping features, autoload, tray menus, and much more. Have a look at the CHANGELOG for a better idea of who contributed what. While Jibb continues on as a contributor, JoyShockMapper is Nicolas' project now. This means updates won't be bottlenecked by Jibb's availability to approve and build them, and Nicolas has final say on what features are included in new versions. As such, make sure you're on [Nicolas' fork](https://github.com/Electronicks/JoyShockMapper) for the latest developments.
 
-JoyShockMapper versions 2.2 and earlier relied a lot on [JoyShockLibrary](https://github.com/jibbsmart/JoyShockLibrary), which it used to read controller inputs. Check out that project to see what prior work made JoyShockLibrary possible. Newer versions use [SDL2](https://github.com/libsdl-org/SDL) to read from controllers, as the latest versions are able to read gyro and accelerometer input on the same controllers that could already be used with JoyShockLibrary, but also supports many non-gyro controllers as well.
+JoyShockMapper versions 2.2 and earlier relied a lot on Jibb's [JoyShockLibrary](https://github.com/jibbsmart/JoyShockLibrary), which it used to read controller inputs. Newer versions use [SDL2](https://github.com/libsdl-org/SDL) to read from controllers, as the latest versions of SDL2 are able to read gyro and accelerometer input on the same controllers that could already be used with JoyShockLibrary, but also support many non-gyro controllers as well.
 
-Since moving to SDL2, JoyShockMapper also uses [GamepadMotionHelpers](https://github.com/JibbSmart/GamepadMotionHelpers), a small project that provides the sensor fusion and calibration options of JoyShockLibrary without all the device-specific stuff.
+Since moving to SDL2, JoyShockMapper uses Jibb's [GamepadMotionHelpers](https://github.com/JibbSmart/GamepadMotionHelpers), a small project that provides the sensor fusion and calibration options of JoyShockLibrary without all the device-specific stuff.
 
 ## Helpful Resources
 * [GyroWiki](http://gyrowiki.jibbsmart.com) - All about good gyro controls for games:

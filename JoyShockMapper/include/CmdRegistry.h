@@ -14,7 +14,7 @@ class JSMCommand
 public:
 	// A Parser function has a pointer to the command being processed and
 	// the data string to process. It returns whether the data was recognized or not.
-	typedef function<bool(JSMCommand* cmd, in_string& data)> ParseDelegate;
+	typedef function<bool(JSMCommand* cmd, in_string data, in_string label)> ParseDelegate;
 
 	// Assignments can be given tasks to perform before destroying themselves.
 	// This is used for chorded press, sim presses and modeshifts to remove
@@ -53,7 +53,7 @@ public:
 	virtual unique_ptr<JSMCommand> GetModifiedCmd(char op, in_string chord);
 
 	// Get the help string for the command.
-	inline string Help() const
+	inline string_view Help() const
 	{
 		return _help;
 	}
@@ -66,7 +66,7 @@ public:
 	}
 
 	// Request this command to parse the command arguments. Returns true if the command was processed.
-	virtual bool ParseData(in_string arguments);
+	virtual bool ParseData(in_string arguments, in_string label);
 };
 
 // The command registry holds all JSMCommands object and should not care what the derived type is.
@@ -78,14 +78,14 @@ public:
 class CmdRegistry
 {
 private:
-	typedef multimap<string, unique_ptr<JSMCommand>> CmdMap;
+	typedef multimap<string_view, unique_ptr<JSMCommand>> CmdMap;
 
 	// multimap allows multiple entries with the same keys
 	CmdMap _registry;
 
 	static string_view strtrim(std::string_view str);
 
-	static bool findCommandWithName(in_string name, CmdMap::value_type& pair);
+	static bool findCommandWithName(in_string name, const CmdMap::value_type& pair);
 
 public:
 	CmdRegistry();
@@ -96,23 +96,23 @@ public:
 	// Add a command to the registry. The regisrty takes ownership of the memory of this pointer.
 	// You can use _ASSERT() on the return value of this function to make sure the commands are
 	// accepted.
-	bool Add(JSMCommand* newCommand);
+	bool add(JSMCommand* newCommand);
 
 	bool Remove(in_string name);
 
 	bool hasCommand(in_string name) const;
 
-	bool isCommandValid(in_string line);
+	bool isCommandValid(in_string line) const;
 
 	// Process a command entered by the user
 	// intentionally dont't use const ref
 	void processLine(const string& line);
 
 	// Fill vector with registered command names
-	void GetCommandList(vector<string>& outList);
+	void GetCommandList(vector<string_view>& outList) const;
 
 	// Return help string for provided command
-	string GetHelp(in_string command);
+	string_view GetHelp(in_string command) const;
 };
 
 // Macro commands are simple function calls when recognized. But it could do different things
@@ -128,7 +128,7 @@ protected:
 	MacroDelegate _macro;
 
 	// The default parser for the command processes no arguments.
-	static bool DefaultParser(JSMCommand* cmd, in_string arguments);
+	static bool DefaultParser(JSMCommand* cmd, in_string arguments, in_string label);
 
 public:
 	JSMMacro(in_string name);

@@ -4,9 +4,52 @@
 #include "PlatformDefinitions.h"
 #include "InputHelpers.h"
 
+constexpr uint16_t DEFAULT_COLOR = FOREGROUND_RED | FOREGROUND_GREEN | FOREGROUND_BLUE; // White
+#define FOREGROUND_YELLOW FOREGROUND_RED | FOREGROUND_GREEN
+
+template<std::ostream *stdio, uint16_t color>
+class ColorStream : public stringbuf
+{
+public:
+	ColorStream() { }
+	// print the string on the stdio
+	virtual ~ColorStream()
+	{
+		std::lock_guard<std::mutex> guard(print_mutex);
+		HANDLE hStdout = GetStdHandle(STD_ERROR_HANDLE);
+		SetConsoleTextAttribute(hStdout, color);
+		(*stdio) << str();
+		SetConsoleTextAttribute(hStdout, DEFAULT_COLOR);
+	}
+};
+
+streambuf *Log::makeBuffer(Level level)
+{
+	switch (level)
+	{
+	case Level::ERR:
+		return new ColorStream<&std::cerr, FOREGROUND_RED | FOREGROUND_INTENSITY>();
+	case Level::WARN:
+		return new ColorStream<&cout, FOREGROUND_YELLOW | FOREGROUND_INTENSITY>();
+	case Level::INFO:
+		return new ColorStream<&cout, FOREGROUND_BLUE | FOREGROUND_INTENSITY>();
+#if defined(NDEBUG) // release
+	case Level::UT:
+		return new NullBuffer(); // unused
+#else
+	case Level::UT:
+		return new ColorStream<&cout, FOREGROUND_BLUE | FOREGROUND_RED>(); // purplish
+#endif
+	case Level::BOLD:
+		return new ColorStream<&cout, FOREGROUND_GREEN | FOREGROUND_INTENSITY>();
+	default:
+		return new ColorStream<&std::cout, FOREGROUND_GREEN>();
+	}
+}
+
 const char *AUTOLOAD_FOLDER()
 {
-	return _strdup((GetCWD() + "\\Autoload\\").c_str());
+	return _strdup((GetCWD() + "\\AutoLoad\\").c_str());
 };
 
 const char *GYRO_CONFIGS_FOLDER()
@@ -25,7 +68,7 @@ const char *BASE_JSM_CONFIG_FOLDER()
 /// NONE
 /// And characters: ; ' , . / \ [ ] + - `
 /// Yes, this looks slow. But it's only there to help set up faster mappings
-WORD nameToKey(const std::string &name)
+WORD nameToKey(in_string name)
 {
 	// https://msdn.microsoft.com/en-us/library/dd375731%28v=vs.85%29.aspx?f=255&MSPPError=-2147217396
 	auto length = name.length();
@@ -125,7 +168,7 @@ WORD nameToKey(const std::string &name)
 	}
 	if (length == 5)
 	{
-		auto pchar = name.c_str();
+		auto pchar = name.data();
 		if (*pchar++ == 'R')
 		{
 			while (*pchar != '\0')
@@ -351,6 +394,10 @@ WORD nameToKey(const std::string &name)
 	{
 		return VK_MEDIA_PLAY_PAUSE;
 	}
+	if (name.compare(NONAME) == 0)
+	{
+		return VK_NONAME;
+	}
 	if (name.compare("NONE") == 0)
 	{
 		return NO_HOLD_MAPPED;
@@ -454,6 +501,14 @@ WORD nameToKey(const std::string &name)
 	if (name.compare("PS_PAD_CLICK") == 0)
 	{
 		return PS_PAD_CLICK;
+	}
+	if (name.compare("X_RT") == 0 || name.compare("PS_R2") == 0)
+	{
+		return X_RT;
+	}
+	if (name.compare("X_LT") == 0 || name.compare("PS_L2") == 0)
+	{
+		return X_LT;
 	}
 	return 0x00;
 }

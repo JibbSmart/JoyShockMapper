@@ -1,36 +1,16 @@
 @echo off
 
-echo -- Building for 32bit Windows
-mkdir JSM_x86
-cd JSM_x86
-cmake ../.. -G "Visual Studio 16 2019" -A Win32 -DBUILD_SHARED_LIBS=1 -DCMAKE_INSTALL_PREFIX=d
+REM build both version
+cmake --build ../build-jsm-win64-jsl/ --config Release
+cmake --build ../build-jsm-win64-sdl/ --config Release
 
-cmake --build . --config Release
-cmake --install .
+REM install both versions
+cmake --install ../build-jsm-win64-jsl/ --config Release --prefix ../install
+cmake --install ../build-jsm-win64-sdl/ --config Release --prefix ../install
 
-cd d
-rename bin JSM
-mkdir JSM\Autoload
-cd ../..
-powershell.exe "Compress-Archive JSM_x86/d/JSM/ JSM_x86.zip"
+REM Zip both versions
+Del /Q ..\JoyShockMapper_x64.zip ..\JoyShockMapper_x64_legacy.zip
+PowerShell -command  "Compress-Archive -Path ../install/JoyShockMapper_x64 -DestinationPath ../JoyShockMapper_x64.zip"
+PowerShell -command  "Compress-Archive -Path ../install/JoyShockMapper_x64_legacy -DestinationPath ../JoyShockMapper_x64_legacy.zip"
 
-rd /Q /S JSM_x86
-
-echo -- Building for 64bit Windows
-mkdir JSM_x64
-cd JSM_x64
-cmake ../.. -G "Visual Studio 16 2019" -A x64 -DBUILD_SHARED_LIBS=1 -DCMAKE_INSTALL_PREFIX=d
-
-cmake --build . --config Release
-cmake --install .
-
-cd d
-rename bin JSM
-mkdir JSM\Autoload
-cd ../..
-powershell.exe "Compress-Archive JSM_x64/d/JSM/ JSM_x64.zip"
-
-rd /Q /S JSM_x64
-
-echo Done!
 pause
